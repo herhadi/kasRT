@@ -1,5 +1,3 @@
-const API_BASE_URL = 'http://localhost:3005';
-
 const loginForm = document.getElementById('loginForm');
 const btnLogin = document.getElementById('btnLogin');
 const loginMessage = document.getElementById('loginMessage');
@@ -30,7 +28,7 @@ loginForm.addEventListener('submit', async (event) => {
   setMessage('');
 
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ no_hp, pin })

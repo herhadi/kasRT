@@ -1,5 +1,3 @@
-const API_BASE_URL = 'http://localhost:3005';
-
 function formatRupiah(value) {
   return `Rp${new Intl.NumberFormat('id-ID').format(Number(value || 0))}`;
 }
@@ -83,7 +81,7 @@ function updateTelegramStatus(connected) {
 }
 
 async function loadMe(token) {
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+  const response = await fetch('/auth/me', {
     headers: { Authorization: `Bearer ${token}` }
   });
 
@@ -100,7 +98,7 @@ async function loadMe(token) {
 }
 
 async function loadDashboardData(token) {
-  const response = await fetch(`${API_BASE_URL}/report/dashboard`, {
+  const response = await fetch('/report/dashboard', {
     method: 'GET',
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -136,7 +134,7 @@ function setupTelegramActivation(token) {
     btn.textContent = 'Membuat Link...';
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/telegram-activation-link`, {
+      const response = await fetch('/auth/telegram-activation-link', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`

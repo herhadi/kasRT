@@ -18,7 +18,7 @@ router.get('/', asyncHandler(healthCheck));
 router.post(
   '/input',
   auth,
-  allowRoles('Warga', 'Petugas Jimpitan', 'Admin Jimpitan', 'Admin'),
+  allowRoles('Warga', 'Petugas Jimpitan', 'Admin Jimpitan', 'Admin', 'root'),
   validateRequiredFields(['warga_id', 'nominal']),
   asyncHandler(inputJimpitan)
 );
@@ -26,14 +26,14 @@ router.post(
 router.post(
   '/setor',
   auth,
-  allowRoles('Warga', 'Petugas Jimpitan', 'Admin Jimpitan', 'Admin'),
+  allowRoles('Warga', 'Petugas Jimpitan', 'Admin Jimpitan', 'Admin', 'root'),
   asyncHandler(setorJimpitan)
 );
 
 router.post(
   '/approve',
   auth,
-  allowRoles('Admin Jimpitan', 'Admin'),
+  allowRoles('Admin Jimpitan', 'Admin', 'root'),
   validateRequiredFields(['batch_id']),
   asyncHandler(approveJimpitan)
 );
@@ -41,7 +41,7 @@ router.post(
 router.post(
   '/topup',
   auth,
-  allowRoles('Admin Jimpitan', 'Admin'),
+  allowRoles('Admin Jimpitan', 'Admin', 'root'),
   validateRequiredFields(['warga_id', 'nominal']),
   asyncHandler(topUpJimpitan)
 );
@@ -49,7 +49,7 @@ router.post(
 router.post(
   '/reset-bulanan',
   auth,
-  allowRoles('Admin Jimpitan', 'Admin'),
+  allowRoles('Admin Jimpitan', 'Admin', 'root'),
   asyncHandler(resetBulananJimpitan)
 );
 

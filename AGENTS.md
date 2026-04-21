@@ -1,169 +1,61 @@
-# 🤖 AGENTS.md — Kas RT System
+# AGENTS.md — KasRT
 
-Dokumen ini menjelaskan peran (agents), tanggung jawab, dan alur kerja dalam sistem Kas RT.
+Dokumen ini menjelaskan peran sistem, hirarki approval, dan aturan implementasi yang dipakai pada codebase KasRT saat ini.
 
----
+## Peran
 
-## 🧑‍🤝‍🧑 Agents (Peran Sistem)
+- `Warga`
+- `Petugas Jimpitan`
+- `Admin Jimpitan`
+- `Bendahara`
+- `Ketua`
+- `Sekretaris`
+- `Admin`
 
-### 👤 Warga
-- Login ke sistem
-- Melihat dashboard (jimpitan & iuran)
-- Dapat bertugas sebagai petugas jimpitan
+## Workflow Inti
 
----
+### Jimpitan
 
-### 🧹 Petugas Jimpitan
-- Input jimpitan warga
-- Mengumpulkan data jimpitan harian
-- Melakukan setor ke admin jimpitan
+1. Input jimpitan warga
+2. Setor batch (`PENDING`)
+3. Approve batch oleh level di atas (`Admin Jimpitan`/`Admin`)
+4. Masuk transaksi kas (`IN`, `APPROVED`)
 
----
+### Transfer Kas
 
-### 🧾 Admin Jimpitan
-- Memverifikasi setor jimpitan
-- Melakukan approval
-- Mengubah status menjadi pemasukan kas jimpitan
+1. Dibuat oleh `Bendahara` (`PENDING`)
+2. Di-approve oleh `Ketua`/`Sekretaris`
 
----
+### Pengeluaran
 
-### 💰 Bendahara
-- Mengelola kas utama
-- Melakukan transfer antar kas
-- Menginput pengeluaran
+1. Dibuat oleh `Bendahara` (`PENDING`)
+2. Di-approve oleh `Ketua`/`Sekretaris`
 
----
+## Aturan Approval (Wajib)
 
-### 🏛 Ketua / Sekretaris
-- Otoritas tertinggi
-- Menyetujui:
-  - Transfer kas
-  - Pengeluaran
+- Semua transaksi keuangan harus lewat status `PENDING` -> `APPROVED`.
+- Approval hanya sah jika:
+  - role approver sesuai hirarki
+  - jenis transaksi sesuai endpoint approve
+  - status transaksi masih `PENDING`
+- Tidak boleh ada perubahan saldo tanpa transaksi tercatat.
 
----
+## Auth & Ownership
 
-## 🔁 Workflow Sistem
+- Semua endpoint sensitif wajib pakai JWT (`Authorization: Bearer <token>`).
+- Identitas pelaku diambil dari `req.user`, bukan dari body.
+- Audit minimal menyimpan `created_by`, `approved_by`, `approved_at`.
 
-### 🌾 Jimpitan
+## Frontend Rules
 
+- Frontend di-serve dari backend Node yang sama (`localhost:3005` saat lokal).
+- `jimpitan.html` dan `index.html` memakai sesi:
+  - `kasrt_token`
+  - `kasrt_user`
+- `jimpitan.html` harus panggil endpoint Node langsung (bukan alur GAS lama).
 
-Petugas
-↓
-Input jimpitan
-↓
-Setor (PENDING)
-↓
-Approve Admin Jimpitan
-↓
-Masuk ke Kas Jimpitan (APPROVED)
+## Telegram
 
-
----
-
-### 💰 Transfer Kas
-
-
-Bendahara
-↓
-Buat transfer (PENDING)
-↓
-Approve Ketua / Sekretaris
-↓
-Saldo berpindah
-
-
----
-
-### 💸 Pengeluaran
-
-
-Bendahara
-↓
-Input pengeluaran (PENDING)
-↓
-Approve Ketua / Sekretaris
-↓
-Saldo berkurang
-
-
----
-
-## 🔐 Authorization Rules
-
-- Semua request harus menggunakan JWT token
-- Role menentukan akses endpoint
-- Validasi dilakukan melalui middleware
-
-### Akses Berdasarkan Role
-
-| Action              | Role yang Diizinkan        |
-|--------------------|--------------------------|
-| Input Jimpitan     | Semua user               |
-| Setor Jimpitan     | Petugas / Warga          |
-| Approve Jimpitan   | Admin Jimpitan           |
-| Transfer Kas       | Bendahara                |
-| Approve Transfer   | Ketua / Sekretaris       |
-| Pengeluaran        | Bendahara                |
-| Approve Pengeluaran| Ketua / Sekretaris       |
-
----
-
-## 🗄️ Data Ownership
-
-- Semua data user diidentifikasi melalui `req.user` (JWT)
-- Tidak menggunakan ID dari request body untuk identitas user
-- Semua transaksi memiliki:
-  - `created_by`
-  - `approved_by`
-  - timestamp
-
----
-
-## 🧠 System Principles
-
-- ✔ Semua transaksi harus melalui proses approval
-- ✔ Tidak ada perubahan saldo tanpa transaksi
-- ✔ Semua pergerakan uang tercatat
-- ✔ Sistem mendukung multi-wallet (multi kas)
-- ✔ Transparansi dan audit trail adalah prioritas
-
----
-
-## ⚙️ Agents Interaction Summary
-
-
-User → Login → Token
-↓
-Request API
-↓
-Auth Middleware
-↓
-Role Check
-↓
-Controller
-↓
-Database
-↓
-Response
-
-
----
-
-## 🚀 Notes
-
-- Sistem dirancang untuk skala RT (real-world usage)
-- Mendukung berbagai jenis iuran:
-  - Jimpitan
-  - Iuran wajib
-  - Koperasi
-  - Internet
-  - Pembangunan
-
----
-
-## 📌 Conclusion
-
-Sistem ini menggunakan pendekatan berbasis role dan approval untuk memastikan:
-- keamanan
-- transparansi
-- akurasi pencatatan keuangan
+- Notifikasi approval dikirim berdasarkan role approver.
+- Aktivasi Telegram user dilakukan lewat link `/start kasrt_<kode>` dari dashboard.
+- Backend menyimpan `telegram_chat_id` setelah webhook valid.

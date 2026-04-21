@@ -15,8 +15,10 @@ function getOperationalDate(now = new Date()) {
 }
 
 function canInputByTime(userRoles = [], now = new Date()) {
-  const isAdmin = userRoles.includes('Admin') || userRoles.includes('Admin Jimpitan');
-  if (isAdmin) return true;
+  const normalizedRoles = userRoles.map((role) => String(role).trim().toLowerCase());
+  const isRoot = normalizedRoles.includes('root');
+  console.log('[JIMPITAN][SHIFT] role check', { userRoles, normalizedRoles, isRoot });
+  if (isRoot) return true;
 
   const hour = now.getHours();
   return hour >= 21 || hour < 6;
@@ -48,8 +50,19 @@ export async function inputJimpitan(req, res) {
   const { warga_id, nominal } = req.body;
   const petugas_id = req.user.user_id;
   const roles = req.user.roles || [];
+  const debug = process.env.DEBUG_JIMPITAN === 'true';
+
+  if (debug) {
+    console.log('[JIMPITAN][INPUT] start', {
+      warga_id,
+      nominal,
+      petugas_id,
+      roles
+    });
+  }
 
   if (!canInputByTime(roles)) {
+    if (debug) console.log('[JIMPITAN][INPUT] reject: outside operational time');
     return res.status(403).json({
       success: false,
       message: 'JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00 untuk non-admin.'
@@ -81,9 +94,17 @@ export async function inputJimpitan(req, res) {
     );
 
     await client.query('COMMIT');
+    if (debug) {
+      console.log('[JIMPITAN][INPUT] success', {
+        warga_id,
+        nominal: nilaiNominal,
+        petugas_id
+      });
+    }
     return res.json({ success: true, tanggal_operasional: tanggalOperasional });
   } catch (err) {
     await client.query('ROLLBACK');
+    if (debug) console.log('[JIMPITAN][INPUT] error', err.message);
     return res.status(500).json({ success: false, message: err.message });
   } finally {
     client.release();
@@ -93,6 +114,14 @@ export async function inputJimpitan(req, res) {
 export async function setorJimpitan(req, res) {
   const petugas_id = req.user.user_id;
   const inputDetailIds = Array.isArray(req.body.detail_ids) ? req.body.detail_ids : null;
+  const debug = process.env.DEBUG_JIMPITAN === 'true';
+
+  if (debug) {
+    console.log('[JIMPITAN][SETOR] start', {
+      petugas_id,
+      detail_ids_count: inputDetailIds ? inputDetailIds.length : 0
+    });
+  }
 
   const client = await pool.connect();
   try {
@@ -116,6 +145,7 @@ export async function setorJimpitan(req, res) {
 
     if (details.rows.length === 0) {
       await client.query('ROLLBACK');
+      if (debug) console.log('[JIMPITAN][SETOR] no draft rows found');
       return res.status(400).json({ success: false, message: 'Tidak ada data draft untuk disetor' });
     }
 
@@ -146,6 +176,14 @@ export async function setorJimpitan(req, res) {
     }
 
     await client.query('COMMIT');
+    if (debug) {
+      console.log('[JIMPITAN][SETOR] success', {
+        petugas_id,
+        batch_id,
+        total,
+        total_rumah: details.rows.length
+      });
+    }
 
     await notifyRoles(
       ['Admin Jimpitan', 'Admin'],
@@ -164,6 +202,7 @@ export async function setorJimpitan(req, res) {
     });
   } catch (error) {
     await client.query('ROLLBACK');
+    if (debug) console.log('[JIMPITAN][SETOR] error', error.message);
     return res.status(500).json({ success: false, message: error.message });
   } finally {
     client.release();
@@ -260,24 +299,32 @@ export async function listJimpitan(req, res) {
     const hariKe = operationalDate.getDate();
 
     const result = await pool.query(
-      `WITH daily_inputs AS (
+      `WITH daily_nominal AS (
          SELECT
            jd.warga_id,
-           COALESCE(SUM(jd.nominal), 0) AS nominal_hari_ini,
-           MAX(jd.petugas_id) AS petugas_id
+           COALESCE(SUM(jd.nominal), 0) AS nominal_hari_ini
          FROM jimpitan_details jd
          WHERE jd.tanggal = $1::date
          GROUP BY jd.warga_id
+       ),
+       daily_petugas AS (
+         SELECT DISTINCT ON (jd.warga_id)
+           jd.warga_id,
+           jd.petugas_id
+         FROM jimpitan_details jd
+         WHERE jd.tanggal = $1::date
+         ORDER BY jd.warga_id, jd.created_at DESC
        )
        SELECT
          u.id,
          u.nama,
          COALESCE(u.jimpitan_saldo, 0) AS saldo,
-         COALESCE(di.nominal_hari_ini, 0) AS nominal_hari_ini,
+         COALESCE(dn.nominal_hari_ini, 0) AS nominal_hari_ini,
          p.nama AS petugas
        FROM users u
-       LEFT JOIN daily_inputs di ON di.warga_id = u.id
-       LEFT JOIN users p ON p.id = di.petugas_id
+       LEFT JOIN daily_nominal dn ON dn.warga_id = u.id
+       LEFT JOIN daily_petugas dp ON dp.warga_id = u.id
+       LEFT JOIN users p ON p.id = dp.petugas_id
        ORDER BY u.nama ASC`,
       [operationalDate.toISOString().slice(0, 10)]
     );

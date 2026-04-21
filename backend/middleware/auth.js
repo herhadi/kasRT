@@ -30,8 +30,18 @@ export function validateRequiredFields(fields) {
 
 export function auth(req, res, next) {
   const header = req.headers.authorization;
+  const debug = process.env.DEBUG_JIMPITAN === 'true';
+
+  if (debug) {
+    console.log('[AUTH] request', {
+      method: req.method,
+      path: req.path,
+      hasAuthHeader: Boolean(header)
+    });
+  }
 
   if (!header) {
+    if (debug) console.log('[AUTH] reject: no token');
     return res.status(401).json({ success: false, message: 'No token' });
   }
 
@@ -40,9 +50,16 @@ export function auth(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+    if (debug) {
+      console.log('[AUTH] ok', {
+        user_id: decoded.user_id,
+        roles: decoded.roles
+      });
+    }
 
     next();
   } catch (err) {
+    if (debug) console.log('[AUTH] reject: invalid token', err.message);
     return res.status(401).json({ success: false, message: 'Invalid token' });
   }
 }

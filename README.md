@@ -1,88 +1,67 @@
-# Kas RT System
+# KasRT
 
-Sistem pengelolaan kas RT berbasis Node.js + PostgreSQL dengan role-based workflow.
+KasRT adalah sistem pengelolaan kas RT berbasis Node.js + PostgreSQL (Neon) dengan workflow approval bertingkat.
 
-## Menjalankan Lokal (Testing Sebelum Deploy Render)
+## Menjalankan Lokal (Tanpa `serve`)
 
-1. Jalankan backend API
+Semua dijalankan dari backend Node saja.
+
 ```bash
 cd backend
 npm install
-npm run start
-```
-API akan aktif di `http://localhost:3005` (sesuaikan `.env` bila perlu).
-
-2. Jalankan frontend statis
-```bash
-cd frontend
-npx serve -l 5500 .
-```
-Frontend bisa diakses dari:
-- `http://localhost:5500/login.html`
-- `http://localhost:5500/index.html`
-
-3. Alur test cepat
-- Login di `login.html`
-- Setelah berhasil, akan diarahkan ke `index.html`
-- Dashboard menarik data dari `GET /report/dashboard` dengan JWT
-- Tombol `Input Jimpitan` menuju `jimpitan.html` (halaman lama tetap bisa dipakai)
-
-## Ringkasan Dashboard Warga
-
-Dashboard menampilkan:
-- Jimpitan target Rp500/hari atau Rp15.000/bulan
-- Iuran wajib target Rp30.000
-- Iuran opsional per warga (Koperasi, Internet, Pembangunan, dll) berdasarkan data aktual bulan berjalan
-- Total kontribusi bulan berjalan
-
-## Struktur Kontribusi
-
-Contoh seed contribution types:
-```sql
-INSERT INTO public.contribution_types ("name", is_mandatory) VALUES
-  ('Iuran Wajib', true),
-  ('Jimpitan', true),
-  ('Pembangunan', true),
-  ('Koperasi', false),
-  ('Internet', false);
+npm start
 ```
 
-## Notifikasi Telegram (Approval)
+Akses dari browser:
+- `http://localhost:3005/` -> login
+- `http://localhost:3005/index.html` -> dashboard
+- `http://localhost:3005/jimpitan.html` -> input jimpitan
 
-Tambahkan env di backend:
+## Status Frontend
+
+- `index.html` (dashboard) sudah aktif dan pakai JWT.
+- `jimpitan.html` sudah disesuaikan ke API Node saat ini:
+  - `GET /jimpitan/list` (dengan Bearer token)
+  - `POST /jimpitan/input` (dengan Bearer token)
+  - `POST /jimpitan/setor` (dengan Bearer token)
+- `jimpitan.html` membaca sesi dari:
+  - `kasrt_token`
+  - `kasrt_user`
+
+## Approval Bertingkat
+
+- Jimpitan: input/setor -> `PENDING` -> approve oleh `Admin Jimpitan` / `Admin`
+- Transfer: dibuat oleh `Bendahara` -> approve `Ketua` / `Sekretaris`
+- Pengeluaran: dibuat oleh `Bendahara` -> approve `Ketua` / `Sekretaris`
+
+Semua approval hanya berlaku untuk transaksi `PENDING` dan jenis transaksi yang benar.
+
+## Telegram Notification
+
+### Env wajib
+
 ```env
-TELEGRAM_BOT_TOKEN=isi_bot_token_kamu
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_BOT_USERNAME=
+TELEGRAM_WEBHOOK_SECRET=
 ```
 
-Tambahkan `telegram_chat_id` pada tabel `users` (lihat SQL migrasi):
-- `backend/sql/2026-04-21-telegram-chat-id.sql`
+### Migrasi SQL
 
-Flow notifikasi aktif:
-- Transfer `PENDING` -> notify Ketua/Sekretaris
-- Pengeluaran `PENDING` -> notify Ketua/Sekretaris
-- Setor Jimpitan `PENDING` -> notify Admin Jimpitan/Admin
-- Setelah approve -> notify pembuat transaksi/setoran
-
-## Aktivasi Telegram dari Dashboard
-
-Tambahkan env backend:
-```env
-TELEGRAM_BOT_TOKEN=isi_bot_token
-TELEGRAM_BOT_USERNAME=username_bot_tanpa_@
-TELEGRAM_WEBHOOK_SECRET=opsional_secret_webhook
-```
-
-Jalankan migrasi:
+Jalankan:
+- `backend/sql/2026-04-21-jimpitan-adopsi-gas.sql`
 - `backend/sql/2026-04-21-telegram-chat-id.sql`
 - `backend/sql/2026-04-21-telegram-link-tokens.sql`
 
-Endpoint baru:
-- `GET /auth/me` (cek status telegram user)
-- `POST /auth/telegram-activation-link` (buat link aktivasi bot)
-- `POST /telegram/webhook` (dipanggil Telegram webhook untuk simpan chat id)
+### Flow aktivasi Telegram user
 
-Alur user:
-1. Login dashboard
+1. User login dashboard
 2. Klik `Aktifkan Telegram`
-3. Browser buka bot Telegram dengan parameter `/start kasrt_<kode>`
-4. Backend webhook menyimpan `users.telegram_chat_id`
+3. Browser membuka bot Telegram (`/start kasrt_<kode>`)
+4. Webhook `POST /telegram/webhook` menyimpan `users.telegram_chat_id`
+
+## Render Deploy
+
+Blueprint tersedia di `render.yaml`.
+
+Sebelum deploy, pastikan env var production sudah diisi di Render.

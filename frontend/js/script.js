@@ -3,6 +3,7 @@
 ========================= */
 const API_URL = "http://localhost:3005";
 let currentUser = null;
+let authToken = null;
 let bootstrapModal; // Modal Input
 let confirmLogoutModal; // Modal Logout
 let modalTopUpObj;
@@ -42,9 +43,11 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // Cek Sesi dengan pengecekan elemen
+    // Cek sesi utama dari login.html/index.html (JWT)
     try {
-        const sesi = localStorage.getItem('sesi_petugas');
+        const sesiJwt = localStorage.getItem('kasrt_user');
+        const tokenJwt = localStorage.getItem('kasrt_token');
+        const sesiLegacy = localStorage.getItem('sesi_petugas');
         const authOverlay = document.getElementById('authOverlay');
         const sapaanUser = document.getElementById('sapaanUser');
 
@@ -53,26 +56,36 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        if (sesi) {
-            const dataSesi = JSON.parse(sesi);
-            if (Date.now() < dataSesi.exp) {
-                currentUser = dataSesi;
-                authOverlay.style.display = 'none';
+        if (sesiJwt && tokenJwt) {
+            const dataSesi = JSON.parse(sesiJwt);
+            currentUser = {
+                id: dataSesi.id,
+                nama: dataSesi.nama,
+                roles: Array.isArray(dataSesi.roles) ? dataSesi.roles : [],
+                role: Array.isArray(dataSesi.roles) ? (dataSesi.roles[0] || "") : ""
+            };
+            authToken = tokenJwt;
+            authOverlay.style.display = 'none';
 
-                if (currentUser.role === "Admin") {
-                    const btnAdmin = document.getElementById('btnAdminPanel');
-                    if (btnAdmin) btnAdmin.style.display = 'inline-block';
-                }
-
-                if (sapaanUser) {
-                    sapaanUser.innerText = "😊 " + dataSesi.nama;
-                }
-
-                muatData();
-            } else {
-                localStorage.clear();
-                authOverlay.style.display = 'block';
+            const isAdmin = currentUser.roles.includes("Admin") || currentUser.roles.includes("Admin Jimpitan");
+            if (isAdmin) {
+                const btnAdmin = document.getElementById('btnAdminPanel');
+                if (btnAdmin) btnAdmin.style.display = 'inline-block';
             }
+
+            if (sapaanUser) {
+                sapaanUser.innerText = "😊 " + currentUser.nama;
+            }
+
+            muatData();
+        } else if (sesiLegacy) {
+            const dataSesi = JSON.parse(sesiLegacy);
+            currentUser = dataSesi;
+            authOverlay.style.display = 'none';
+            if (sapaanUser) {
+                sapaanUser.innerText = "😊 " + dataSesi.nama;
+            }
+            muatData();
         } else {
             authOverlay.style.display = 'block';
         }
@@ -231,12 +244,20 @@ async function daftarFinal(btn) {
 ========================= */
 
 async function muatData() {
+    console.log("[UI][JIMPITAN] muatData() start", {
+        hasToken: Boolean(authToken),
+        currentUser
+    });
     const loader = document.getElementById('loading-overlay');
     if (loader) loader.style.display = 'flex';
 
     try {
-        const res = await fetch('http://localhost:3005/jimpitan/list');
+        const res = await fetch('/jimpitan/list', {
+            headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+        });
+        console.log("[UI][JIMPITAN] GET /jimpitan/list status", res.status);
         const json = await res.json();
+        console.log("[UI][JIMPITAN] GET /jimpitan/list body", json);
 
         if (json.success) {
             masterDataWarga = json.data.map(w => ({
@@ -245,9 +266,9 @@ async function muatData() {
 
                 // mapping ke format lama UI kamu
                 isLunas: w.status === 'LUNAS',
-                nominalTerbayar: Number(w.nominal || 0),
-                nominalSaran: 1000, // sementara default (nanti bisa dari DB)
-                namaPetugas: w.petugas || null
+                nominalTerbayar: Number(w.nominalTerbayar || 0),
+                nominalSaran: Number(w.nominalSaran || 0),
+                namaPetugas: w.namaPetugas || null
             }));
 
             updateHeaderTanggal();
@@ -305,7 +326,11 @@ function terapkanFilter() {
             if (w.nominalTerbayar > 0) {
                 cardClass = 'card-lunas';
                 badgeClass = 'badge-lunas';
-                badgeText = `✅ Lunas${detailPetugas}`;
+                if (w.namaPetugas === "Deposit" || w.namaPetugas === "Sistem (Saldo)") {
+                    badgeText = `🏦 Deposit${detailPetugas}`;
+                } else {
+                    badgeText = `✅ Rp ${Number(w.nominalTerbayar).toLocaleString('id-ID')}${detailPetugas}`;
+                }
             } else {
                 cardClass = 'card-kosong';
                 badgeClass = 'badge-kosong';
@@ -351,9 +376,12 @@ function terapkanFilter() {
 async function kirimData(nominal) {
     const sekarang = new Date();
     const jam = sekarang.getHours();
-    const role = currentUser ? currentUser.role : "Petugas";
+    const roles = currentUser ? (currentUser.roles || [currentUser.role]) : ["Petugas"];
+    const normalizedRoles = roles.map(r => String(r).trim().toLowerCase());
+    const isBypassShift = normalizedRoles.includes("root") || normalizedRoles.includes("admin") || normalizedRoles.includes("admin jimpitan");
+    console.log("[UI][JIMPITAN] role check", { roles, normalizedRoles, isBypassShift, jam });
 
-    if (role !== "Admin" && (jam >= 6 && jam < 21)) {
+    if (!isBypassShift && (jam >= 6 && jam < 21)) {
         bootstrapModal.hide();
         showToast("❌ Gagal: Sudah masuk jam istirahat operasional.", "error");
         return;
@@ -369,15 +397,26 @@ async function kirimData(nominal) {
     bootstrapModal.hide();
 
     try {
-        await fetch('http://localhost:3005/jimpitan/input', {
+        const payload = {
+            warga_id: selectedWargaId,
+            nominal: n
+        };
+        console.log("[UI][JIMPITAN] POST /jimpitan/input payload", payload);
+
+        const response = await fetch('/jimpitan/input', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                warga_id: selectedWargaId,
-                nominal: n,
-                petugas_id: currentUser.id
-            })
+            headers: {
+                'Content-Type': 'application/json',
+                ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+            },
+            body: JSON.stringify(payload)
         });
+
+        const result = await response.json();
+        console.log("[UI][JIMPITAN] POST /jimpitan/input status/body", response.status, result);
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || "Gagal simpan");
+        }
 
         showToast("✅ Berhasil disimpan", "success");
 
@@ -435,9 +474,12 @@ let selectedWargaId = null;
 function bukaModal(nama, id) {
     const sekarang = new Date();
     const jam = sekarang.getHours();
-    const role = currentUser ? currentUser.role : "Petugas";
+    const roles = currentUser ? (currentUser.roles || [currentUser.role]) : ["Petugas"];
+    const normalizedRoles = roles.map(r => String(r).trim().toLowerCase());
+    const isBypassShift = normalizedRoles.includes("root") || normalizedRoles.includes("admin") || normalizedRoles.includes("admin jimpitan");
+    console.log("[UI][JIMPITAN] role check", { roles, normalizedRoles, isBypassShift, jam });
 
-    if (role !== "Admin" && (jam >= 6 && jam < 21)) {
+    if (!isBypassShift && (jam >= 6 && jam < 21)) {
         showToast("⚠️ Jam operasional tutup. Input dibuka pukul 21.00 WIB", "error");
         return;
     }
@@ -689,15 +731,18 @@ async function konfirmasiSetor() {
     btnSetor.disabled = true;
 
     try {
-        const response = await fetch(API_URL, {
+        console.log("[UI][JIMPITAN] POST /jimpitan/setor payload", {});
+        const response = await fetch('/jimpitan/setor', {
             method: "POST",
-            body: JSON.stringify({
-                action: "setor", // Sesuai dengan case di doPost
-                data: currentUser.nama // Akan ditangkap sebagai var data di doPost
-            })
+            headers: {
+                'Content-Type': 'application/json',
+                ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+            },
+            body: JSON.stringify({})
         });
 
         const res = await response.json();
+        console.log("[UI][JIMPITAN] POST /jimpitan/setor status/body", response.status, res);
 
         if (loader) loader.style.display = 'none';
 
