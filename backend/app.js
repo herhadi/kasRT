@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import jimpitanRoutes from './routes/jimpitan.js';
 import reportRoutes from './routes/report.js';
 import transactionRoutes from './routes/transaction.js';
+import telegramRoutes from './routes/telegram.js';
 
 const app = express();
 const PORT = process.env.PORT;
@@ -18,6 +19,7 @@ app.use('/auth', authRoutes);
 app.use('/jimpitan', jimpitanRoutes);
 app.use('/report', reportRoutes);
 app.use('/transaction', transactionRoutes);
+app.use('/telegram', telegramRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

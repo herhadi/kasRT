@@ -46,3 +46,43 @@ INSERT INTO public.contribution_types ("name", is_mandatory) VALUES
   ('Koperasi', false),
   ('Internet', false);
 ```
+
+## Notifikasi Telegram (Approval)
+
+Tambahkan env di backend:
+```env
+TELEGRAM_BOT_TOKEN=isi_bot_token_kamu
+```
+
+Tambahkan `telegram_chat_id` pada tabel `users` (lihat SQL migrasi):
+- `backend/sql/2026-04-21-telegram-chat-id.sql`
+
+Flow notifikasi aktif:
+- Transfer `PENDING` -> notify Ketua/Sekretaris
+- Pengeluaran `PENDING` -> notify Ketua/Sekretaris
+- Setor Jimpitan `PENDING` -> notify Admin Jimpitan/Admin
+- Setelah approve -> notify pembuat transaksi/setoran
+
+## Aktivasi Telegram dari Dashboard
+
+Tambahkan env backend:
+```env
+TELEGRAM_BOT_TOKEN=isi_bot_token
+TELEGRAM_BOT_USERNAME=username_bot_tanpa_@
+TELEGRAM_WEBHOOK_SECRET=opsional_secret_webhook
+```
+
+Jalankan migrasi:
+- `backend/sql/2026-04-21-telegram-chat-id.sql`
+- `backend/sql/2026-04-21-telegram-link-tokens.sql`
+
+Endpoint baru:
+- `GET /auth/me` (cek status telegram user)
+- `POST /auth/telegram-activation-link` (buat link aktivasi bot)
+- `POST /telegram/webhook` (dipanggil Telegram webhook untuk simpan chat id)
+
+Alur user:
+1. Login dashboard
+2. Klik `Aktifkan Telegram`
+3. Browser buka bot Telegram dengan parameter `/start kasrt_<kode>`
+4. Backend webhook menyimpan `users.telegram_chat_id`

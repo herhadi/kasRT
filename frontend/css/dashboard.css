@@ -173,3 +173,7 @@ body {
     min-height: auto;
   }
 }
+
+.telegram-card {
+  border: 1px solid rgba(15, 118, 110, 0.25);
+}
