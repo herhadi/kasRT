@@ -247,27 +247,11 @@ function configureDashboardByRole(user) {
   const adminJimpitanSection = document.getElementById('adminJimpitanSection');
 
   if (isAdminJimpitan || isAdminPembangunan || isAdminInternet || isAdminKoperasi) {
-    if (titleEl) {
-      titleEl.textContent = isAdminJimpitan
-        ? 'Dashboard Admin Jimpitan'
-        : isAdminPembangunan
-          ? 'Dashboard Admin Pembangunan'
-          : isAdminInternet
-            ? 'Dashboard Admin Internet'
-            : 'Dashboard Admin Koperasi';
-    }
-    if (subtitleEl) {
-      subtitleEl.textContent = isAdminJimpitan
-        ? 'Pantau pemasukan, approval setoran, dan rekap operasional jimpitan.'
-        : isAdminPembangunan
-          ? 'Kelola tabungan pembangunan bulanan dan pantau saldo yang dapat bernilai minus.'
-          : isAdminInternet
-            ? 'Pantau iuran internet warga: menunggak, pas, atau lebih.'
-            : 'Pantau iuran koperasi. Modul simpan-pinjam detail disiapkan bertahap.';
-    }
-    if (wargaSection) wargaSection.classList.add('d-none');
-    if (wargaOptionalSection) wargaOptionalSection.classList.add('d-none');
-    if (wargaSummarySection) wargaSummarySection.classList.add('d-none');
+    if (titleEl) titleEl.textContent = 'Dashboard Warga';
+    if (subtitleEl) subtitleEl.textContent = 'Ringkasan kontribusi warga, ditambah panel sesuai role Anda.';
+    if (wargaSection) wargaSection.classList.remove('d-none');
+    if (wargaOptionalSection) wargaOptionalSection.classList.remove('d-none');
+    if (wargaSummarySection) wargaSummarySection.classList.remove('d-none');
     if (adminJimpitanSection) adminJimpitanSection.classList.remove('d-none');
     return {
       mode: isAdminJimpitan
@@ -423,21 +407,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const { mode } = configureDashboardByRole(activeUser);
 
   try {
-    if (mode === 'admin_jimpitan') {
-      await loadAdminJimpitanDashboardData(session.token);
-      setupAjukanSetorBendahara(session.token);
-    } else if (mode === 'admin_pembangunan') {
-      await loadAdminPembangunanDashboardData(session.token);
-    } else if (mode === 'admin_internet') {
-      await loadAdminInternetDashboardData(session.token);
-    } else if (mode === 'admin_koperasi') {
-      await loadAdminKoperasiDashboardData(session.token);
-    } else {
-      await loadDashboardData(session.token);
-    }
+    await loadDashboardData(session.token);
   } catch (_error) {
     const container = document.getElementById('optionalList');
-    if (container && mode === 'warga') {
+    if (container) {
       container.innerHTML = `
         <div class="col-12">
           <div class="option-tile">
@@ -447,8 +420,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       `;
     }
-    if (mode !== 'warga') {
-      alert('Gagal memuat data dashboard admin');
+  }
+
+  if (mode === 'warga') return;
+
+  try {
+    if (mode === 'admin_jimpitan') {
+      await loadAdminJimpitanDashboardData(session.token);
+      setupAjukanSetorBendahara(session.token);
+    } else if (mode === 'admin_pembangunan') {
+      await loadAdminPembangunanDashboardData(session.token);
+    } else if (mode === 'admin_internet') {
+      await loadAdminInternetDashboardData(session.token);
+    } else if (mode === 'admin_koperasi') {
+      await loadAdminKoperasiDashboardData(session.token);
     }
+  } catch (_error) {
+    alert('Gagal memuat panel role khusus');
   }
 });
