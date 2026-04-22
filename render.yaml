@@ -23,18 +23,3 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         sync: false
-
-  - type: static
-    name: kasrt-frontend
-    rootDir: frontend
-    buildCommand: ""
-    staticPublishPath: .
-    autoDeploy: true
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
-    routes:
-      - type: rewrite
-        source: /
-        destination: /login.html
