@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 const JIMPITAN_TARGET_BULANAN = 15000;
 const IURAN_WAJIB_TARGET = 30000;
 const INTERNET_TARGET_BULANAN = 60000;
+const LINGKUNGAN_TARGET_BULANAN = Number(process.env.LINGKUNGAN_TARGET_BULANAN || 60000);
 const PEMBANGUNAN_MINIMAL_BULANAN = 5000;
 
 export async function dashboardWarga(req, res) {
@@ -51,11 +52,23 @@ export async function dashboardWarga(req, res) {
       [user_id]
     );
 
+    const lingkunganMembershipResult = await pool.query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM iuran_transactions it
+         JOIN contribution_types ct ON ct.id = it.contribution_type_id
+         WHERE it.warga_id = $1
+           AND ct.name IN ('Lingkungan', 'Sampah', 'Iuran Sampah')
+       ) AS is_member`,
+      [user_id]
+    );
+
     const jimpitan_hari_ini = Number(jimpitanHarianResult.rows[0].total || 0);
     const jimpitan_bulan_ini = Number(jimpitanBulananResult.rows[0].total || 0);
 
     let iuran_wajib_bulan_ini = 0;
     let internet_bulan_ini = 0;
+    let lingkungan_bulan_ini = 0;
     let total_optional_bulan_ini = 0;
     const optional_contributions = [];
 
@@ -75,6 +88,10 @@ export async function dashboardWarga(req, res) {
 
       if (name === 'Internet') {
         internet_bulan_ini = amount;
+      }
+
+      if (['Lingkungan', 'Sampah', 'Iuran Sampah'].includes(name)) {
+        lingkungan_bulan_ini = amount;
       }
 
       if (!isMandatory) {
@@ -99,6 +116,14 @@ export async function dashboardWarga(req, res) {
       else internet_status = 'LEBIH';
     }
 
+    const isLingkunganMember = Boolean(lingkunganMembershipResult.rows[0]?.is_member);
+    let lingkungan_status = 'NON_MEMBER';
+    if (isLingkunganMember) {
+      if (lingkungan_bulan_ini < LINGKUNGAN_TARGET_BULANAN) lingkungan_status = 'MENUNGGAK';
+      else if (lingkungan_bulan_ini === LINGKUNGAN_TARGET_BULANAN) lingkungan_status = 'PAS';
+      else lingkungan_status = 'LEBIH';
+    }
+
     return res.json({
       success: true,
       data: {
@@ -114,7 +139,11 @@ export async function dashboardWarga(req, res) {
         internet_bulan_ini,
         internet_target_bulanan: INTERNET_TARGET_BULANAN,
         internet_is_member: isInternetMember,
-        internet_status
+        internet_status,
+        lingkungan_bulan_ini,
+        lingkungan_target_bulanan: LINGKUNGAN_TARGET_BULANAN,
+        lingkungan_is_member: isLingkunganMember,
+        lingkungan_status
       }
     });
   } catch (err) {
@@ -231,6 +260,55 @@ export async function dashboardAdminKoperasi(_req, res) {
         total_semua_waktu: Number(result.rows[0]?.total_semua_waktu || 0),
         total_anggota: Number(result.rows[0]?.total_anggota || 0),
         catatan: 'Modul simpan-pinjam detail (pinjaman, tenor, angsuran) belum diaktifkan pada skema ini.'
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false });
+  }
+}
+
+export async function dashboardAdminLingkungan(_req, res) {
+  try {
+    const result = await pool.query(
+      `WITH anggota AS (
+         SELECT DISTINCT it.warga_id
+         FROM iuran_transactions it
+         JOIN contribution_types ct ON ct.id = it.contribution_type_id
+         WHERE ct.name IN ('Lingkungan', 'Sampah', 'Iuran Sampah')
+       ),
+       iuran_bulan_ini AS (
+         SELECT
+           it.warga_id,
+           COALESCE(SUM(it.amount), 0) AS total
+         FROM iuran_transactions it
+         JOIN contribution_types ct ON ct.id = it.contribution_type_id
+         WHERE ct.name IN ('Lingkungan', 'Sampah', 'Iuran Sampah')
+           AND DATE_TRUNC('month', it.tanggal) = DATE_TRUNC('month', CURRENT_DATE)
+         GROUP BY it.warga_id
+       )
+       SELECT
+         COUNT(a.warga_id) AS total_anggota,
+         COALESCE(SUM(ibi.total), 0) AS pemasukan_bulan_ini,
+         COALESCE(SUM(CASE WHEN COALESCE(ibi.total, 0) < $1 THEN 1 ELSE 0 END), 0) AS total_menunggak,
+         COALESCE(SUM(CASE WHEN COALESCE(ibi.total, 0) = $1 THEN 1 ELSE 0 END), 0) AS total_pas,
+         COALESCE(SUM(CASE WHEN COALESCE(ibi.total, 0) > $1 THEN 1 ELSE 0 END), 0) AS total_lebih
+       FROM anggota a
+       LEFT JOIN iuran_bulan_ini ibi ON ibi.warga_id = a.warga_id`,
+      [LINGKUNGAN_TARGET_BULANAN]
+    );
+
+    const totalAnggota = Number(result.rows[0]?.total_anggota || 0);
+    return res.json({
+      success: true,
+      data: {
+        tarif_bulanan: LINGKUNGAN_TARGET_BULANAN,
+        total_anggota: totalAnggota,
+        target_bulan_ini: totalAnggota * LINGKUNGAN_TARGET_BULANAN,
+        pemasukan_bulan_ini: Number(result.rows[0]?.pemasukan_bulan_ini || 0),
+        total_menunggak: Number(result.rows[0]?.total_menunggak || 0),
+        total_pas: Number(result.rows[0]?.total_pas || 0),
+        total_lebih: Number(result.rows[0]?.total_lebih || 0)
       }
     });
   } catch (err) {

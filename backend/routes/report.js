@@ -5,6 +5,7 @@ import {
   dashboardAdminInternet,
   dashboardAdminJimpitan,
   dashboardAdminKoperasi,
+  dashboardAdminLingkungan,
   dashboardAdminPembangunan,
   dashboardWarga,
   laporanBulanan
@@ -51,6 +52,13 @@ router.get(
   auth,
   allowRoles('Admin Koperasi', 'root'),
   asyncHandler(dashboardAdminKoperasi)
+);
+
+router.get(
+  '/dashboard-admin-lingkungan',
+  auth,
+  allowRoles('Admin Lingkungan', 'root'),
+  asyncHandler(dashboardAdminLingkungan)
 );
 
 export default router;

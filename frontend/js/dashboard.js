@@ -101,6 +101,38 @@ function renderInternetStatusForWarga(data) {
   );
 }
 
+function renderLingkunganStatusForWarga(data) {
+  const statusMap = {
+    MENUNGGAK: 'Menunggak',
+    PAS: 'Pas',
+    LEBIH: 'Lebih',
+    NON_MEMBER: 'Tidak ikut iuran lingkungan'
+  };
+  const statusLabel = statusMap[data.lingkungan_status] || '-';
+
+  const container = document.getElementById('optionalList');
+  if (!container || !data.lingkungan_is_member) return;
+
+  const statusClass = data.lingkungan_status === 'MENUNGGAK'
+    ? 'text-danger'
+    : data.lingkungan_status === 'LEBIH'
+      ? 'text-success'
+      : 'text-muted';
+
+  container.insertAdjacentHTML(
+    'afterbegin',
+    `
+      <div class="col-12">
+        <div class="option-tile">
+          <h4>Status Iuran Lingkungan (Sampah)</h4>
+          <p class="mb-2">Tagihan bulanan: ${formatRupiah(data.lingkungan_target_bulanan)}. Dibayar bulan ini: ${formatRupiah(data.lingkungan_bulan_ini)}.</p>
+          <strong class="${statusClass}">${statusLabel}</strong>
+        </div>
+      </div>
+    `
+  );
+}
+
 function updateTelegramStatus(connected) {
   const statusEl = document.getElementById('telegramStatus');
   const hintEl = document.getElementById('telegramHint');
@@ -160,6 +192,7 @@ async function loadDashboardData(token) {
 
   renderOptionalContributions(data.optional_contributions);
   renderInternetStatusForWarga(data);
+  renderLingkunganStatusForWarga(data);
 }
 
 async function loadAdminJimpitanDashboardData(token) {
@@ -237,6 +270,7 @@ function configureDashboardByRole(user) {
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
   const isAdminPembangunan = hasAnyRole(user, ['Admin Pembangunan', 'root']);
   const isAdminInternet = hasAnyRole(user, ['Admin Internet', 'root']);
+  const isAdminLingkungan = hasAnyRole(user, ['Admin Lingkungan', 'root']);
   const isAdminKoperasi = hasAnyRole(user, ['Admin Koperasi', 'root']);
 
   const titleEl = document.getElementById('dashboardTitle');
@@ -246,7 +280,7 @@ function configureDashboardByRole(user) {
   const wargaSummarySection = document.getElementById('wargaSummarySection');
   const adminJimpitanSection = document.getElementById('adminJimpitanSection');
 
-  if (isAdminJimpitan || isAdminPembangunan || isAdminInternet || isAdminKoperasi) {
+  if (isAdminJimpitan || isAdminPembangunan || isAdminInternet || isAdminLingkungan || isAdminKoperasi) {
     if (titleEl) titleEl.textContent = 'Dashboard Warga';
     if (subtitleEl) subtitleEl.textContent = 'Ringkasan kontribusi warga, ditambah panel sesuai role Anda.';
     if (wargaSection) wargaSection.classList.remove('d-none');
@@ -260,7 +294,9 @@ function configureDashboardByRole(user) {
           ? 'admin_pembangunan'
           : isAdminInternet
             ? 'admin_internet'
-            : 'admin_koperasi'
+            : isAdminLingkungan
+              ? 'admin_lingkungan'
+              : 'admin_koperasi'
     };
   }
 
@@ -338,6 +374,30 @@ async function loadAdminKoperasiDashboardData(token) {
   document.getElementById('ajRekapBulanLalu').textContent = '-';
   document.getElementById('btnAjukanSetorBendahara').classList.add('d-none');
   document.getElementById('ajSetorHint').textContent = data.catatan || '';
+}
+
+async function loadAdminLingkunganDashboardData(token) {
+  const response = await fetch('/report/dashboard-admin-lingkungan', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const result = await response.json();
+  if (!result.success) throw new Error('Gagal memuat dashboard Admin Lingkungan');
+
+  const data = result.data;
+  document.querySelector('#adminJimpitanSection .contrib-card.mandatory h3').textContent = 'Target Iuran Lingkungan Bulan Ini';
+  document.getElementById('ajHarian').textContent = formatRupiah(data.target_bulan_ini);
+  document.querySelectorAll('#adminJimpitanSection .contrib-card.mandatory h3')[1].textContent = 'Pemasukan Lingkungan Bulan Ini';
+  document.getElementById('ajBulanan').textContent = formatRupiah(data.pemasukan_bulan_ini);
+  document.getElementById('adminOpsTitle').textContent = `Status Anggota (${formatRupiah(data.tarif_bulanan)}/bulan)`;
+  document.getElementById('adminOpsLabel1').textContent = 'Total Menunggak';
+  document.getElementById('adminOpsLabel2').textContent = 'Total Pas';
+  document.getElementById('ajBatchPending').textContent = Number(data.total_menunggak || 0);
+  document.getElementById('ajBatchApproved').textContent = Number(data.total_pas || 0);
+  document.getElementById('adminSummaryLabel').textContent = 'Total Anggota Lingkungan';
+  document.getElementById('ajRekapBulanLalu').textContent = Number(data.total_anggota || 0);
+  document.getElementById('btnAjukanSetorBendahara').classList.add('d-none');
+  document.getElementById('ajSetorHint').textContent = `Anggota dengan pembayaran lebih bulan ini: ${Number(data.total_lebih || 0)} warga.`;
 }
 
 function setupTelegramActivation(token) {
@@ -432,6 +492,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       await loadAdminPembangunanDashboardData(session.token);
     } else if (mode === 'admin_internet') {
       await loadAdminInternetDashboardData(session.token);
+    } else if (mode === 'admin_lingkungan') {
+      await loadAdminLingkunganDashboardData(session.token);
     } else if (mode === 'admin_koperasi') {
       await loadAdminKoperasiDashboardData(session.token);
     }
