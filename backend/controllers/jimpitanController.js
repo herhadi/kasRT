@@ -284,6 +284,29 @@ export async function approveJimpitan(req, res) {
       );
     }
 
+    const wargaInBatch = await pool.query(
+      `SELECT
+         jd.warga_id,
+         COALESCE(SUM(jd.nominal), 0) AS total_nominal
+       FROM jimpitan_batch_items jbi
+       JOIN jimpitan_details jd ON jd.id = jbi.jimpitan_detail_id
+       WHERE jbi.batch_id = $1
+       GROUP BY jd.warga_id`,
+      [batch_id]
+    );
+
+    await Promise.all(
+      wargaInBatch.rows.map((row) =>
+        notifyUser(
+          row.warga_id,
+          `✅ <b>Iuran Jimpitan Anda Sudah Disetujui</b>\n` +
+            `Batch ID: <b>${batch_id}</b>\n` +
+            `Nominal: <b>${formatRupiah(row.total_nominal)}</b>\n` +
+            `Status: <b>APPROVED</b>`
+        )
+      )
+    );
+
     return res.json({ success: true });
   } catch (error) {
     await client.query('ROLLBACK');

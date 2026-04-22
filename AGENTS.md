@@ -18,7 +18,7 @@ Dokumen ini menjelaskan peran sistem, hirarki approval, dan aturan implementasi 
 
 1. Input jimpitan warga
 2. Setor batch (`PENDING`)
-3. Approve batch oleh level di atas (`Admin Jimpitan`/`Admin`)
+3. Approve batch oleh level di atas (`Admin Jimpitan`)
 4. Masuk transaksi kas (`IN`, `APPROVED`)
 
 ### Transfer Kas
@@ -52,7 +52,6 @@ Dokumen ini menjelaskan peran sistem, hirarki approval, dan aturan implementasi 
 - `jimpitan.html` dan `index.html` memakai sesi:
   - `kasrt_token`
   - `kasrt_user`
-- `jimpitan.html` harus panggil endpoint Node langsung (bukan alur GAS lama).
 
 ## Telegram
 

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { pool } from '../db.js';
+import { sendTelegramMessage } from '../services/telegramService.js';
 
 function normalizeBotUsername(username) {
   if (!username) return '';
@@ -46,14 +47,33 @@ export async function telegramWebhook(req, res) {
   }
 
   const text = message.text.trim();
-  const match = text.match(/^\/start\s+kasrt_([a-f0-9]{16})$/i);
+  const chatId = String(message.chat.id);
+  const startMatch = text.match(/^\/start(?:@\w+)?(?:\s+(.+))?$/i);
 
-  if (!match) {
+  if (!startMatch) {
     return res.json({ ok: true, ignored: true });
   }
 
-  const code = match[1].toLowerCase();
-  const chatId = String(message.chat.id);
+  const payload = (startMatch[1] || '').trim();
+
+  if (!payload) {
+    await sendTelegramMessage(
+      chatId,
+      'Halo! Selamat datang di Bot KasRT.\n\nSilakan aktivasi dari dashboard KasRT agar akun Telegram Anda terhubung dan bisa menerima notifikasi approval.'
+    );
+    return res.json({ ok: true, status: 'greeted' });
+  }
+
+  const activationMatch = payload.match(/^kasrt_([a-f0-9]{16})$/i);
+  if (!activationMatch) {
+    await sendTelegramMessage(
+      chatId,
+      'Kode aktivasi tidak dikenali. Silakan klik ulang tombol Aktivasi Telegram dari dashboard KasRT.'
+    );
+    return res.json({ ok: true, status: 'invalid_start_payload' });
+  }
+
+  const code = activationMatch[1].toLowerCase();
 
   const client = await pool.connect();
   try {
@@ -71,6 +91,10 @@ export async function telegramWebhook(req, res) {
 
     if (tokenResult.rowCount === 0) {
       await client.query('COMMIT');
+      await sendTelegramMessage(
+        chatId,
+        'Kode aktivasi tidak valid atau sudah kedaluwarsa. Silakan generate ulang dari dashboard KasRT.'
+      );
       return res.json({ ok: true, status: 'invalid_or_expired_code' });
     }
 
@@ -91,6 +115,10 @@ export async function telegramWebhook(req, res) {
     );
 
     await client.query('COMMIT');
+    await sendTelegramMessage(
+      chatId,
+      'Aktivasi berhasil. Akun Telegram Anda sekarang terhubung dengan KasRT.'
+    );
     return res.json({ ok: true });
   } catch (error) {
     await client.query('ROLLBACK');
