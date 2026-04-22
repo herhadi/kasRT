@@ -57,10 +57,25 @@ export async function telegramWebhook(req, res) {
   const payload = (startMatch[1] || '').trim();
 
   if (!payload) {
-    await sendTelegramMessage(
-      chatId,
-      'Halo! Selamat datang di Bot KasRT.\n\nSilakan aktivasi dari dashboard KasRT agar akun Telegram Anda terhubung dan bisa menerima notifikasi approval.'
+    const userByChatId = await pool.query(
+      `SELECT nama
+       FROM users
+       WHERE telegram_chat_id = $1
+       LIMIT 1`,
+      [chatId]
     );
+
+    if (userByChatId.rows.length > 0) {
+      await sendTelegramMessage(
+        chatId,
+        `Selamat datang <b>${userByChatId.rows[0].nama}</b>.\n\nAkun Telegram Anda sudah terhubung dengan KasRT.`
+      );
+    } else {
+      await sendTelegramMessage(
+        chatId,
+        'Halo! Selamat datang di Bot KasRT.\n\nSilakan aktivasi dari dashboard KasRT agar akun Telegram Anda terhubung dan bisa menerima notifikasi approval.'
+      );
+    }
     return res.json({ ok: true, status: 'greeted' });
   }
 
@@ -80,8 +95,9 @@ export async function telegramWebhook(req, res) {
     await client.query('BEGIN');
 
     const tokenResult = await client.query(
-      `SELECT id, user_id
-       FROM telegram_link_tokens
+      `SELECT tlt.id, tlt.user_id, u.nama
+       FROM telegram_link_tokens tlt
+       JOIN users u ON u.id = tlt.user_id
        WHERE code = $1
          AND used_at IS NULL
          AND expires_at > NOW()
@@ -117,7 +133,7 @@ export async function telegramWebhook(req, res) {
     await client.query('COMMIT');
     await sendTelegramMessage(
       chatId,
-      'Aktivasi berhasil. Akun Telegram Anda sekarang terhubung dengan KasRT.'
+      `Selamat datang <b>${token.nama}</b>.\n\nAktivasi berhasil. Akun Telegram Anda sekarang terhubung dengan KasRT.`
     );
     return res.json({ ok: true });
   } catch (error) {
