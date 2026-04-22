@@ -5,7 +5,6 @@ const API_URL = "http://localhost:3005";
 let currentUser = null;
 let authToken = null;
 let bootstrapModal; // Modal Input
-let confirmLogoutModal; // Modal Logout
 let modalTopUpObj;
 let adminModalObj;
 let modalTopUpFormObj;
@@ -26,35 +25,11 @@ document.addEventListener("DOMContentLoaded", function () {
         console.warn('Elemen modalInput tidak ditemukan');
     }
 
-    const logoutModalEl = document.getElementById('confirmLogoutModal');
-    if (logoutModalEl) {
-        confirmLogoutModal = new bootstrap.Modal(logoutModalEl);
-    } else {
-        console.warn('Elemen confirmLogoutModal tidak ditemukan');
-    }
-
-    // Proteksi Input PIN agar hanya angka - dengan pengecekan elemen
-    ['loginPin', 'regPin1', 'regPin2'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('input', function () {
-                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
-            });
-        }
-    });
-
     // Cek sesi utama dari login.html/index.html (JWT)
     try {
         const sesiJwt = localStorage.getItem('kasrt_user');
         const tokenJwt = localStorage.getItem('kasrt_token');
-        const sesiLegacy = localStorage.getItem('sesi_petugas');
-        const authOverlay = document.getElementById('authOverlay');
         const sapaanUser = document.getElementById('sapaanUser');
-
-        if (!authOverlay) {
-            console.error('Elemen authOverlay tidak ditemukan!');
-            return;
-        }
 
         if (sesiJwt && tokenJwt) {
             const dataSesi = JSON.parse(sesiJwt);
@@ -65,7 +40,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 role: Array.isArray(dataSesi.roles) ? (dataSesi.roles[0] || "") : ""
             };
             authToken = tokenJwt;
-            authOverlay.style.display = 'none';
 
             const isAdmin = currentUser.roles.includes("Admin") || currentUser.roles.includes("Admin Jimpitan");
             if (isAdmin) {
@@ -78,19 +52,12 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             muatData();
-        } else if (sesiLegacy) {
-            const dataSesi = JSON.parse(sesiLegacy);
-            currentUser = dataSesi;
-            authOverlay.style.display = 'none';
-            if (sapaanUser) {
-                sapaanUser.innerText = "😊 " + dataSesi.nama;
-            }
-            muatData();
         } else {
-            authOverlay.style.display = 'block';
+            window.location.href = 'login.html';
         }
     } catch (error) {
         console.error('Error saat cek sesi:', error);
+        window.location.href = 'login.html';
     }
 });
 
@@ -498,49 +465,14 @@ function bukaModal(nama, id) {
     bootstrapModal.show();
 }
 
-function showLogoutConfirm() {
-    if (confirmLogoutModal) {
-        confirmLogoutModal.show();
-    } else {
-        // Fallback jika modal gagal load, pakai confirm biasa
-        if (confirm("Apakah Anda yakin ingin logout?")) {
-            logout();
-        }
-    }
+function goBeranda() {
+    window.location.href = 'index.html';
 }
 
 function logout() {
-    // 1. Tutup modal secara paksa menggunakan instance Bootstrap
-    if (confirmLogoutModal) confirmLogoutModal.hide();
-    if (bootstrapModal) bootstrapModal.hide();
-
-    // 2. Bersihkan paksa backdrop yang sering tertinggal (penyebab tidak bisa ngetik)
-    const backdrops = document.querySelectorAll('.modal-backdrop');
-    backdrops.forEach(el => el.remove());
-    document.body.classList.remove('modal-open');
-    document.body.style.overflow = '';
-    document.body.style.paddingRight = '';
-
-    // 3. Logika pembersihan data kamu yang sudah ada
-    localStorage.clear();
-    masterDataWarga = [];
-    currentUser.nama = null;
-
-    document.getElementById('authOverlay').style.display = 'block';
-    document.getElementById('step1').style.display = 'block';
-    document.getElementById('stepLogin').style.display = 'none';
-    document.getElementById('stepDaftar').style.display = 'none';
-    document.getElementById('stepMenunggu').style.display = 'none';
-
-    document.getElementById('authNoHp').value = '';
-
-    document.getElementById('kontenWarga').innerHTML = '';
-    document.getElementById('statLunas').innerText = '0';
-    document.getElementById('statKosong').innerText = '0';
-    document.getElementById('statBelum').innerText = '0';
-    document.getElementById('totalPendapatan').innerText = 'Rp 0';
-
-    showToast("Berhasil keluar", 'info');
+    localStorage.removeItem('kasrt_token');
+    localStorage.removeItem('kasrt_user');
+    window.location.href = 'login.html';
 }
 
 function tampilkanInputManual() {

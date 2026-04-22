@@ -1,0 +1,103 @@
+:root {
+  --bg-main: #eef2ec;
+  --bg-panel: #ffffff;
+  --bg-panel-soft: #f6faf7;
+  --text-main: #14231d;
+  --text-muted: #596e66;
+  --border-soft: rgba(20, 35, 29, 0.12);
+  --brand-main: #0f766e;
+  --brand-strong: #0b5d57;
+  --danger: #c53b3b;
+}
+
+:root[data-theme='dark'] {
+  --bg-main: #121917;
+  --bg-panel: #192320;
+  --bg-panel-soft: #202d29;
+  --text-main: #e9f2ee;
+  --text-muted: #b2c4bd;
+  --border-soft: rgba(233, 242, 238, 0.15);
+  --brand-main: #41b3a8;
+  --brand-strong: #2f978d;
+  --danger: #ff8a8a;
+}
+
+html, body {
+  background: var(--bg-main) !important;
+  color: var(--text-main);
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.card,
+.modal-content,
+.auth-card,
+.welcome-card,
+.contrib-card,
+.summary-card,
+.stat-premium,
+.filter-wrap {
+  background: var(--bg-panel) !important;
+  border-color: var(--border-soft) !important;
+}
+
+:root[data-theme='dark'] .summary-card {
+  background: linear-gradient(160deg, #2b7a71 0%, #236960 100%) !important;
+}
+
+.form-control,
+.form-select,
+.input-group-text {
+  background: var(--bg-panel-soft) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-soft) !important;
+}
+
+.form-control::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.btn-brand,
+.btn-primary {
+  background: var(--brand-main) !important;
+  border-color: var(--brand-main) !important;
+  color: #fff !important;
+}
+
+.btn-brand:hover,
+.btn-primary:hover {
+  background: var(--brand-strong) !important;
+  border-color: var(--brand-strong) !important;
+}
+
+.btn-outline-brand,
+.btn-outline-secondary {
+  color: var(--brand-main) !important;
+  border-color: var(--brand-main) !important;
+}
+
+.btn-outline-brand:hover,
+.btn-outline-secondary:hover {
+  background: var(--brand-main) !important;
+  color: #fff !important;
+}
+
+.theme-toggle {
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+  color: var(--text-main);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.5rem 0.9rem;
+}
+
+:root[data-theme='dark'] .badge {
+  color: var(--text-main) !important;
+}

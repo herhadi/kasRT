@@ -1,10 +1,35 @@
 import crypto from 'crypto';
 import { pool } from '../db.js';
 
-function parseStartCode(text) {
-  if (!text || typeof text !== 'string') return null;
-  const match = text.trim().match(/^\/start\s+kasrt_(\w{6,32})$/i);
-  return match ? match[1] : null;
+function normalizeBotUsername(username) {
+  if (!username) return '';
+  return String(username).trim().replace(/^@+/, '');
+}
+
+let cachedBotUsername = null;
+
+async function resolveBotUsername() {
+  const fromEnv = normalizeBotUsername(process.env.TELEGRAM_BOT_USERNAME);
+  if (fromEnv) return fromEnv;
+
+  if (cachedBotUsername) return cachedBotUsername;
+
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return '';
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    if (!response.ok) return '';
+
+    const payload = await response.json();
+    const username = normalizeBotUsername(payload?.result?.username);
+    if (!username) return '';
+
+    cachedBotUsername = username;
+    return username;
+  } catch {
+    return '';
+  }
 }
 
 export async function telegramWebhook(req, res) {
@@ -12,23 +37,29 @@ export async function telegramWebhook(req, res) {
   const incomingSecret = req.headers['x-telegram-bot-api-secret-token'];
 
   if (configuredSecret && incomingSecret !== configuredSecret) {
-    return res.status(401).json({ ok: false });
+    return res.status(403).json({ ok: false, error: 'Webhook secret invalid' });
   }
 
   const message = req.body?.message;
-  const chatId = message?.chat?.id;
-  const text = message?.text;
-
-  const code = parseStartCode(text);
-  if (!code || !chatId) {
-    return res.json({ ok: true });
+  if (!message?.text || !message?.chat?.id) {
+    return res.json({ ok: true, ignored: true });
   }
+
+  const text = message.text.trim();
+  const match = text.match(/^\/start\s+kasrt_([a-f0-9]{16})$/i);
+
+  if (!match) {
+    return res.json({ ok: true, ignored: true });
+  }
+
+  const code = match[1].toLowerCase();
+  const chatId = String(message.chat.id);
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const tokenRes = await client.query(
+    const tokenResult = await client.query(
       `SELECT id, user_id
        FROM telegram_link_tokens
        WHERE code = $1
@@ -38,25 +69,25 @@ export async function telegramWebhook(req, res) {
       [code]
     );
 
-    if (tokenRes.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.json({ ok: true });
+    if (tokenResult.rowCount === 0) {
+      await client.query('COMMIT');
+      return res.json({ ok: true, status: 'invalid_or_expired_code' });
     }
 
-    const tokenRow = tokenRes.rows[0];
+    const token = tokenResult.rows[0];
 
     await client.query(
       `UPDATE users
        SET telegram_chat_id = $1
        WHERE id = $2`,
-      [String(chatId), tokenRow.user_id]
+      [chatId, token.user_id]
     );
 
     await client.query(
       `UPDATE telegram_link_tokens
        SET used_at = NOW()
        WHERE id = $1`,
-      [tokenRow.id]
+      [token.id]
     );
 
     await client.query('COMMIT');
@@ -71,12 +102,12 @@ export async function telegramWebhook(req, res) {
 
 export async function generateTelegramActivationLink(req, res) {
   const userId = req.user.user_id;
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME;
+  const botUsername = await resolveBotUsername();
 
   if (!botUsername) {
     return res.status(400).json({
       success: false,
-      message: 'TELEGRAM_BOT_USERNAME belum diset'
+      message: 'TELEGRAM_BOT_USERNAME belum diset dan username bot tidak bisa diambil otomatis'
     });
   }
 

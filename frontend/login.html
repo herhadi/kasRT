@@ -8,9 +8,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body class="app-bg">
+  <div class="container pt-3 d-flex justify-content-end">
+    <button id="themeToggleBtn" class="theme-toggle" type="button" aria-pressed="false"></button>
+  </div>
   <main class="container py-4 py-md-5">
     <section class="auth-card mx-auto">
       <p class="pill">KasRT Warga</p>
@@ -38,6 +42,7 @@
     </section>
   </main>
 
+  <script src="js/theme.js"></script>
   <script src="js/login.js"></script>
 </body>
 </html>

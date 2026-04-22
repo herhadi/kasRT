@@ -2,6 +2,10 @@ const loginForm = document.getElementById('loginForm');
 const btnLogin = document.getElementById('btnLogin');
 const loginMessage = document.getElementById('loginMessage');
 
+if (window.KASRT_THEME) {
+  window.KASRT_THEME.initThemeToggle('themeToggleBtn');
+}
+
 function setMessage(text, kind = 'danger') {
   loginMessage.className = `small mt-3 mb-0 text-${kind}`;
   loginMessage.textContent = text;
