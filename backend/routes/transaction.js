@@ -6,6 +6,8 @@ import {
   approveExpense,
   approveTransfer,
   expense,
+  expenseSosial,
+  transferSosialBulanan,
   transfer
 } from '../controllers/transactionController.js';
 
@@ -30,7 +32,7 @@ router.post(
 router.post(
   '/approve-transfer',
   auth,
-  allowRoles('Ketua', 'Sekretaris'),
+  allowRoles('Ketua', 'Sekretaris', 'root'),
   validateRequiredFields(['transaction_id']),
   asyncHandler(approveTransfer)
 );
@@ -46,13 +48,29 @@ router.post(
   asyncHandler(expense)
 );
 
+router.post(
+  '/transfer-sosial-bulanan',
+  auth,
+  allowRoles('Bendahara'),
+  validateRequiredFields(['from_wallet', 'amount']),
+  asyncHandler(transferSosialBulanan)
+);
+
+router.post(
+  '/expense-sosial',
+  auth,
+  allowRoles('Admin Sosial'),
+  validateRequiredFields(['amount', 'description']),
+  asyncHandler(expenseSosial)
+);
+
 //
 // ✅ APPROVE EXPENSE
 //
 router.post(
   '/approve-expense',
   auth,
-  allowRoles('Ketua', 'Sekretaris'),
+  allowRoles('Ketua', 'Sekretaris', 'root'),
   validateRequiredFields(['transaction_id']),
   asyncHandler(approveExpense)
 );

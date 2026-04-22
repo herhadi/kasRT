@@ -69,6 +69,38 @@ function renderOptionalContributions(list) {
     .join('');
 }
 
+function renderInternetStatusForWarga(data) {
+  const statusMap = {
+    MENUNGGAK: 'Menunggak',
+    PAS: 'Pas',
+    LEBIH: 'Lebih',
+    NON_MEMBER: 'Tidak ikut paket internet'
+  };
+  const statusLabel = statusMap[data.internet_status] || '-';
+
+  const container = document.getElementById('optionalList');
+  if (!container || !data.internet_is_member) return;
+
+  const statusClass = data.internet_status === 'MENUNGGAK'
+    ? 'text-danger'
+    : data.internet_status === 'LEBIH'
+      ? 'text-success'
+      : 'text-muted';
+
+  container.insertAdjacentHTML(
+    'afterbegin',
+    `
+      <div class="col-12">
+        <div class="option-tile">
+          <h4>Status Iuran Internet</h4>
+          <p class="mb-2">Tagihan bulanan: ${formatRupiah(data.internet_target_bulanan)}. Dibayar bulan ini: ${formatRupiah(data.internet_bulan_ini)}.</p>
+          <strong class="${statusClass}">${statusLabel}</strong>
+        </div>
+      </div>
+    `
+  );
+}
+
 function updateTelegramStatus(connected) {
   const statusEl = document.getElementById('telegramStatus');
   const hintEl = document.getElementById('telegramHint');
@@ -127,6 +159,7 @@ async function loadDashboardData(token) {
   document.getElementById('targetDasar').textContent = `Target kontribusi dasar: ${formatRupiah(data.target_kontribusi_dasar)}`;
 
   renderOptionalContributions(data.optional_contributions);
+  renderInternetStatusForWarga(data);
 }
 
 async function loadAdminJimpitanDashboardData(token) {
@@ -151,6 +184,12 @@ async function loadAdminJimpitanDashboardData(token) {
   document.getElementById('ajBatchPending').textContent = Number(data.total_batch_pending || 0);
   document.getElementById('ajBatchApproved').textContent = Number(data.total_batch_approved || 0);
   document.getElementById('ajRekapBulanLalu').textContent = formatRupiah(data.rekap_bulan_lalu);
+  document.getElementById('adminOpsTitle').textContent = 'Operasional Approval';
+  document.getElementById('adminOpsLabel1').textContent = 'Batch Pending';
+  document.getElementById('adminOpsLabel2').textContent = 'Batch Approved Bulan Ini';
+  document.getElementById('adminSummaryLabel').textContent = 'Rekap Bulan Lalu (Siap Setor)';
+  document.getElementById('btnAjukanSetorBendahara').classList.remove('d-none');
+  document.getElementById('ajSetorHint').textContent = 'Pengajuan ini mengirim notifikasi ke Bendahara/root untuk proses setor rapat RT.';
 }
 
 function setupAjukanSetorBendahara(token) {
@@ -196,6 +235,9 @@ function setupAjukanSetorBendahara(token) {
 
 function configureDashboardByRole(user) {
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
+  const isAdminPembangunan = hasAnyRole(user, ['Admin Pembangunan', 'root']);
+  const isAdminInternet = hasAnyRole(user, ['Admin Internet', 'root']);
+  const isAdminKoperasi = hasAnyRole(user, ['Admin Koperasi', 'root']);
 
   const titleEl = document.getElementById('dashboardTitle');
   const subtitleEl = document.getElementById('dashboardSubtitle');
@@ -204,18 +246,114 @@ function configureDashboardByRole(user) {
   const wargaSummarySection = document.getElementById('wargaSummarySection');
   const adminJimpitanSection = document.getElementById('adminJimpitanSection');
 
-  if (isAdminJimpitan) {
-    if (titleEl) titleEl.textContent = 'Dashboard Admin Jimpitan';
-    if (subtitleEl) subtitleEl.textContent = 'Pantau pemasukan, approval setoran, dan rekap operasional jimpitan.';
+  if (isAdminJimpitan || isAdminPembangunan || isAdminInternet || isAdminKoperasi) {
+    if (titleEl) {
+      titleEl.textContent = isAdminJimpitan
+        ? 'Dashboard Admin Jimpitan'
+        : isAdminPembangunan
+          ? 'Dashboard Admin Pembangunan'
+          : isAdminInternet
+            ? 'Dashboard Admin Internet'
+            : 'Dashboard Admin Koperasi';
+    }
+    if (subtitleEl) {
+      subtitleEl.textContent = isAdminJimpitan
+        ? 'Pantau pemasukan, approval setoran, dan rekap operasional jimpitan.'
+        : isAdminPembangunan
+          ? 'Kelola tabungan pembangunan bulanan dan pantau saldo yang dapat bernilai minus.'
+          : isAdminInternet
+            ? 'Pantau iuran internet warga: menunggak, pas, atau lebih.'
+            : 'Pantau iuran koperasi. Modul simpan-pinjam detail disiapkan bertahap.';
+    }
     if (wargaSection) wargaSection.classList.add('d-none');
     if (wargaOptionalSection) wargaOptionalSection.classList.add('d-none');
     if (wargaSummarySection) wargaSummarySection.classList.add('d-none');
     if (adminJimpitanSection) adminJimpitanSection.classList.remove('d-none');
-    return { isAdminJimpitan: true };
+    return {
+      mode: isAdminJimpitan
+        ? 'admin_jimpitan'
+        : isAdminPembangunan
+          ? 'admin_pembangunan'
+          : isAdminInternet
+            ? 'admin_internet'
+            : 'admin_koperasi'
+    };
   }
 
   if (adminJimpitanSection) adminJimpitanSection.classList.add('d-none');
-  return { isAdminJimpitan: false };
+  return { mode: 'warga' };
+}
+
+async function loadAdminPembangunanDashboardData(token) {
+  const response = await fetch('/report/dashboard-admin-pembangunan', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const result = await response.json();
+  if (!result.success) throw new Error('Gagal memuat dashboard Admin Pembangunan');
+
+  const data = result.data;
+  document.querySelector('#adminJimpitanSection .contrib-card.mandatory h3').textContent = 'Setoran Pembangunan Bulan Ini';
+  document.getElementById('ajHarian').textContent = formatRupiah(data.setoran_bulan_ini);
+  document.querySelectorAll('#adminJimpitanSection .contrib-card.mandatory h3')[1].textContent = 'Pengeluaran Pembangunan Bulan Ini';
+  document.getElementById('ajBulanan').textContent = formatRupiah(data.pengeluaran_bulan_ini);
+  document.getElementById('adminOpsTitle').textContent = 'Ringkasan Akumulasi';
+  document.getElementById('adminOpsLabel1').textContent = 'Total Setoran';
+  document.getElementById('adminOpsLabel2').textContent = 'Total Pengeluaran';
+  document.getElementById('ajBatchPending').textContent = formatRupiah(data.total_setoran_semua_waktu);
+  document.getElementById('ajBatchApproved').textContent = formatRupiah(data.total_pengeluaran_semua_waktu);
+  document.getElementById('adminSummaryLabel').textContent = `Saldo Pembangunan (minimal iuran ${formatRupiah(data.minimal_setoran_bulanan)}/bulan)`;
+  document.getElementById('ajRekapBulanLalu').textContent = formatRupiah(data.saldo_total);
+  document.getElementById('btnAjukanSetorBendahara').classList.add('d-none');
+  document.getElementById('ajSetorHint').textContent = 'Saldo pembangunan boleh minus saat ada pengeluaran kegiatan RT.';
+}
+
+async function loadAdminInternetDashboardData(token) {
+  const response = await fetch('/report/dashboard-admin-internet', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const result = await response.json();
+  if (!result.success) throw new Error('Gagal memuat dashboard Admin Internet');
+
+  const data = result.data;
+  document.querySelector('#adminJimpitanSection .contrib-card.mandatory h3').textContent = 'Target Internet Bulan Ini';
+  document.getElementById('ajHarian').textContent = formatRupiah(data.target_bulan_ini);
+  document.querySelectorAll('#adminJimpitanSection .contrib-card.mandatory h3')[1].textContent = 'Pemasukan Internet Bulan Ini';
+  document.getElementById('ajBulanan').textContent = formatRupiah(data.pemasukan_bulan_ini);
+  document.getElementById('adminOpsTitle').textContent = `Status Anggota (${formatRupiah(data.tarif_bulanan)}/bulan)`;
+  document.getElementById('adminOpsLabel1').textContent = 'Total Menunggak';
+  document.getElementById('adminOpsLabel2').textContent = 'Total Pas';
+  document.getElementById('ajBatchPending').textContent = Number(data.total_menunggak || 0);
+  document.getElementById('ajBatchApproved').textContent = Number(data.total_pas || 0);
+  document.getElementById('adminSummaryLabel').textContent = 'Total Anggota Internet';
+  document.getElementById('ajRekapBulanLalu').textContent = Number(data.total_anggota || 0);
+  document.getElementById('btnAjukanSetorBendahara').classList.add('d-none');
+  document.getElementById('ajSetorHint').textContent = `Anggota dengan pembayaran lebih bulan ini: ${Number(data.total_lebih || 0)} warga.`;
+}
+
+async function loadAdminKoperasiDashboardData(token) {
+  const response = await fetch('/report/dashboard-admin-koperasi', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const result = await response.json();
+  if (!result.success) throw new Error('Gagal memuat dashboard Admin Koperasi');
+
+  const data = result.data;
+  document.querySelector('#adminJimpitanSection .contrib-card.mandatory h3').textContent = 'Iuran Koperasi Bulan Ini';
+  document.getElementById('ajHarian').textContent = formatRupiah(data.total_bulan_ini);
+  document.querySelectorAll('#adminJimpitanSection .contrib-card.mandatory h3')[1].textContent = 'Akumulasi Koperasi';
+  document.getElementById('ajBulanan').textContent = formatRupiah(data.total_semua_waktu);
+  document.getElementById('adminOpsTitle').textContent = 'Keanggotaan Koperasi';
+  document.getElementById('adminOpsLabel1').textContent = 'Total Anggota';
+  document.getElementById('adminOpsLabel2').textContent = 'Status Modul';
+  document.getElementById('ajBatchPending').textContent = Number(data.total_anggota || 0);
+  document.getElementById('ajBatchApproved').textContent = 'Persiapan';
+  document.getElementById('adminSummaryLabel').textContent = 'Catatan';
+  document.getElementById('ajRekapBulanLalu').textContent = '-';
+  document.getElementById('btnAjukanSetorBendahara').classList.add('d-none');
+  document.getElementById('ajSetorHint').textContent = data.catatan || '';
 }
 
 function setupTelegramActivation(token) {
@@ -282,18 +420,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const activeUser = me || session.user;
-  const { isAdminJimpitan } = configureDashboardByRole(activeUser);
+  const { mode } = configureDashboardByRole(activeUser);
 
   try {
-    if (isAdminJimpitan) {
+    if (mode === 'admin_jimpitan') {
       await loadAdminJimpitanDashboardData(session.token);
       setupAjukanSetorBendahara(session.token);
+    } else if (mode === 'admin_pembangunan') {
+      await loadAdminPembangunanDashboardData(session.token);
+    } else if (mode === 'admin_internet') {
+      await loadAdminInternetDashboardData(session.token);
+    } else if (mode === 'admin_koperasi') {
+      await loadAdminKoperasiDashboardData(session.token);
     } else {
       await loadDashboardData(session.token);
     }
   } catch (_error) {
     const container = document.getElementById('optionalList');
-    if (container && !isAdminJimpitan) {
+    if (container && mode === 'warga') {
       container.innerHTML = `
         <div class="col-12">
           <div class="option-tile">
@@ -303,8 +447,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       `;
     }
-    if (isAdminJimpitan) {
-      alert('Gagal memuat data dashboard Admin Jimpitan');
+    if (mode !== 'warga') {
+      alert('Gagal memuat data dashboard admin');
     }
   }
 });

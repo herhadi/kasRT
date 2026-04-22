@@ -2,6 +2,33 @@ import { pool } from '../db.js';
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah } from '../services/telegramService.js';
 
+const KAS_JIMPITAN = 'Kas Jimpitan';
+const KAS_IURAN_WAJIB = 'Kas Iuran Wajib';
+const KAS_SOSIAL = 'Kas Sosial';
+const BENDAHARA_SOURCE_WALLETS = [KAS_JIMPITAN, KAS_IURAN_WAJIB];
+
+async function findWalletById(walletId) {
+  const result = await pool.query(
+    `SELECT id, name
+     FROM wallets
+     WHERE id = $1
+     LIMIT 1`,
+    [walletId]
+  );
+  return result.rows[0] || null;
+}
+
+async function findWalletByName(walletName) {
+  const result = await pool.query(
+    `SELECT id, name
+     FROM wallets
+     WHERE LOWER(name) = LOWER($1)
+     LIMIT 1`,
+    [walletName]
+  );
+  return result.rows[0] || null;
+}
+
 //
 // 🔁 TRANSFER
 //
@@ -21,6 +48,23 @@ export async function transfer(req, res) {
     return res.status(400).json({
       success: false,
       message: 'Nominal harus lebih dari 0'
+    });
+  }
+
+  const sourceWallet = await findWalletById(from_wallet);
+  const targetWallet = await findWalletById(to_wallet);
+
+  if (!sourceWallet || !targetWallet) {
+    return res.status(400).json({
+      success: false,
+      message: 'Wallet sumber/tujuan tidak ditemukan'
+    });
+  }
+
+  if (!BENDAHARA_SOURCE_WALLETS.includes(sourceWallet.name)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Bendahara hanya boleh transfer dari Kas Jimpitan atau Kas Iuran Wajib'
     });
   }
 
@@ -101,6 +145,21 @@ export async function expense(req, res) {
     });
   }
 
+  const wallet = await findWalletById(wallet_id);
+  if (!wallet) {
+    return res.status(400).json({
+      success: false,
+      message: 'Wallet tidak ditemukan'
+    });
+  }
+
+  if (!BENDAHARA_SOURCE_WALLETS.includes(wallet.name)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Bendahara hanya boleh input pengeluaran dari Kas Jimpitan atau Kas Iuran Wajib'
+    });
+  }
+
   await pool.query(
     `INSERT INTO transactions
      (type, source_wallet_id, amount, status, created_by, description)
@@ -114,6 +173,119 @@ export async function expense(req, res) {
       `Pengaju ID: <b>${user_id}</b>\n` +
       `Nominal: <b>${formatRupiah(amount)}</b>\n` +
       `Keterangan: <b>${description}</b>`
+  );
+
+  return res.json({ success: true });
+}
+
+//
+// 📤 TRANSFER SOSIAL BULANAN (BENDAHARA)
+//
+export async function transferSosialBulanan(req, res) {
+  const { from_wallet, amount, description } = req.body;
+  const user_id = req.user.user_id;
+
+  if (amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Nominal harus lebih dari 0'
+    });
+  }
+
+  const sourceWallet = await findWalletById(from_wallet);
+  if (!sourceWallet) {
+    return res.status(400).json({ success: false, message: 'Wallet sumber tidak ditemukan' });
+  }
+
+  if (!BENDAHARA_SOURCE_WALLETS.includes(sourceWallet.name)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Transfer sosial hanya boleh dari Kas Jimpitan atau Kas Iuran Wajib'
+    });
+  }
+
+  const kasSosial = await findWalletByName(KAS_SOSIAL);
+  if (!kasSosial) {
+    return res.status(400).json({
+      success: false,
+      message: 'Wallet Kas Sosial tidak ditemukan'
+    });
+  }
+
+  const duplicate = await pool.query(
+    `SELECT id
+     FROM transactions
+     WHERE type = 'TRANSFER'
+       AND source_wallet_id = $1
+       AND target_wallet_id = $2
+       AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+       AND status IN ('PENDING', 'APPROVED')
+     LIMIT 1`,
+    [sourceWallet.id, kasSosial.id]
+  );
+
+  if (duplicate.rows.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Transfer dana sosial untuk bulan ini sudah diajukan'
+    });
+  }
+
+  await pool.query(
+    `INSERT INTO transactions
+     (type, source_wallet_id, target_wallet_id, amount, status, created_by, description)
+     VALUES ('TRANSFER', $1, $2, $3, 'PENDING', $4, $5)`,
+    [sourceWallet.id, kasSosial.id, amount, user_id, description || 'Setor dana sosial bulanan']
+  );
+
+  await notifyRoles(
+    ['Ketua', 'Sekretaris'],
+    `🔔 <b>Approval Transfer Dana Sosial Dibutuhkan</b>\n` +
+      `Pengaju ID: <b>${user_id}</b>\n` +
+      `Sumber: <b>${sourceWallet.name}</b>\n` +
+      `Tujuan: <b>${KAS_SOSIAL}</b>\n` +
+      `Nominal: <b>${formatRupiah(amount)}</b>`
+  );
+
+  return res.json({ success: true });
+}
+
+//
+// 💸 PENGELUARAN SOSIAL (ADMIN SOSIAL) -> APPROVAL KETUA/SEKRETARIS
+//
+export async function expenseSosial(req, res) {
+  const { amount, description } = req.body;
+  const user_id = req.user.user_id;
+
+  if (amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Nominal harus lebih dari 0'
+    });
+  }
+
+  const kasSosial = await findWalletByName(KAS_SOSIAL);
+  if (!kasSosial) {
+    return res.status(400).json({
+      success: false,
+      message: 'Wallet Kas Sosial tidak ditemukan'
+    });
+  }
+
+  await pool.query(
+    `INSERT INTO transactions
+     (type, source_wallet_id, amount, status, created_by, description)
+     VALUES ('OUT', $1, $2, 'PENDING', $3, $4)`,
+    [kasSosial.id, amount, user_id, description || 'Pengeluaran kas sosial']
+  );
+
+  await notifyRoles(
+    ['Ketua', 'Sekretaris'],
+    `🔔 <b>Approval Pengeluaran Sosial Dibutuhkan</b>\n` +
+      `Pengaju ID: <b>${user_id}</b>\n` +
+      `Wallet: <b>${KAS_SOSIAL}</b>\n` +
+      `Nominal: <b>${formatRupiah(amount)}</b>\n` +
+      `Keterangan: <b>${description || '-'}</b>`
   );
 
   return res.json({ success: true });
