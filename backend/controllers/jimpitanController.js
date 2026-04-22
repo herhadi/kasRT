@@ -186,7 +186,7 @@ export async function setorJimpitan(req, res) {
     }
 
     await notifyRoles(
-      ['Admin Jimpitan', 'Admin'],
+      ['Admin Jimpitan', 'root'],
       `🔔 <b>Approval Setoran Jimpitan Dibutuhkan</b>\n` +
         `Batch ID: <b>${batch_id}</b>\n` +
         `Petugas ID: <b>${petugas_id}</b>\n` +
@@ -452,5 +452,57 @@ export async function resetBulananJimpitan(_req, res) {
     return res.status(500).json({ success: false, message: error.message });
   } finally {
     client.release();
+  }
+}
+
+export async function ajukanSetorKeBendahara(req, res) {
+  const adminId = req.user.user_id;
+  const requestedMonth = typeof req.body?.bulan === 'string' ? req.body.bulan.trim() : '';
+  const monthPattern = /^\d{4}-\d{2}$/;
+  const period = monthPattern.test(requestedMonth)
+    ? requestedMonth
+    : new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString().slice(0, 7);
+
+  try {
+    const recap = await pool.query(
+      `SELECT
+         COUNT(*) AS total_batch,
+         COALESCE(SUM(total_amount), 0) AS total_nominal
+       FROM jimpitan_batches
+       WHERE status = 'APPROVED'
+         AND approved_at IS NOT NULL
+         AND TO_CHAR(approved_at, 'YYYY-MM') = $1`,
+      [period]
+    );
+
+    const totalBatch = Number(recap.rows[0]?.total_batch || 0);
+    const totalNominal = Number(recap.rows[0]?.total_nominal || 0);
+
+    if (totalNominal <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Tidak ada rekap jimpitan APPROVED untuk periode ${period}`
+      });
+    }
+
+    await notifyRoles(
+      ['Bendahara', 'root'],
+      `📦 <b>Pengajuan Setor Jimpitan ke Bendahara</b>\n` +
+        `Periode: <b>${period}</b>\n` +
+        `Batch APPROVED: <b>${totalBatch}</b>\n` +
+        `Total Rekap: <b>${formatRupiah(totalNominal)}</b>\n` +
+        `Diajukan oleh Admin Jimpitan ID: <b>${adminId}</b>`
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        periode: period,
+        total_batch: totalBatch,
+        total_nominal: totalNominal
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 }

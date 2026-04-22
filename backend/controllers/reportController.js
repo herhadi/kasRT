@@ -129,3 +129,45 @@ export async function laporanBulanan(req, res) {
     return res.status(500).json({ success: false });
   }
 }
+
+export async function dashboardAdminJimpitan(_req, res) {
+  try {
+    const todayResult = await pool.query(
+      `SELECT COALESCE(SUM(total_amount), 0) AS total
+       FROM jimpitan_batches
+       WHERE status = 'APPROVED'
+         AND approved_at IS NOT NULL
+         AND approved_at::date = CURRENT_DATE`
+    );
+
+    const monthResult = await pool.query(
+      `SELECT
+         COALESCE(SUM(total_amount), 0) AS total_bulan_ini,
+         COUNT(*) FILTER (WHERE status = 'APPROVED') AS total_batch_approved,
+         COUNT(*) FILTER (WHERE status = 'PENDING') AS total_batch_pending
+       FROM jimpitan_batches
+       WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)`
+    );
+
+    const lastMonthResult = await pool.query(
+      `SELECT COALESCE(SUM(total_amount), 0) AS total_bulan_lalu
+       FROM jimpitan_batches
+       WHERE status = 'APPROVED'
+         AND DATE_TRUNC('month', approved_at) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')`
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        pemasukan_harian: Number(todayResult.rows[0]?.total || 0),
+        pemasukan_bulanan: Number(monthResult.rows[0]?.total_bulan_ini || 0),
+        total_batch_approved: Number(monthResult.rows[0]?.total_batch_approved || 0),
+        total_batch_pending: Number(monthResult.rows[0]?.total_batch_pending || 0),
+        rekap_bulan_lalu: Number(lastMonthResult.rows[0]?.total_bulan_lalu || 0)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false });
+  }
+}

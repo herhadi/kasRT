@@ -3,6 +3,7 @@ import { auth, asyncHandler, validateRequiredFields } from '../middleware/auth.j
 import { allowRoles } from '../middleware/role.js';
 import {
   approveJimpitan,
+  ajukanSetorKeBendahara,
   healthCheck,
   inputJimpitan,
   listJimpitan,
@@ -18,7 +19,6 @@ router.get('/', asyncHandler(healthCheck));
 router.post(
   '/input',
   auth,
-  allowRoles('Warga', 'Petugas Jimpitan', 'Admin Jimpitan', 'Admin', 'root'),
   validateRequiredFields(['warga_id', 'nominal']),
   asyncHandler(inputJimpitan)
 );
@@ -26,14 +26,13 @@ router.post(
 router.post(
   '/setor',
   auth,
-  allowRoles('Warga', 'Petugas Jimpitan', 'Admin Jimpitan', 'Admin', 'root'),
   asyncHandler(setorJimpitan)
 );
 
 router.post(
   '/approve',
   auth,
-  allowRoles('Admin Jimpitan', 'Admin', 'root'),
+  allowRoles('Admin Jimpitan', 'root'),
   validateRequiredFields(['batch_id']),
   asyncHandler(approveJimpitan)
 );
@@ -41,7 +40,7 @@ router.post(
 router.post(
   '/topup',
   auth,
-  allowRoles('Admin Jimpitan', 'Admin', 'root'),
+  allowRoles('Admin Jimpitan', 'root'),
   validateRequiredFields(['warga_id', 'nominal']),
   asyncHandler(topUpJimpitan)
 );
@@ -49,8 +48,15 @@ router.post(
 router.post(
   '/reset-bulanan',
   auth,
-  allowRoles('Admin Jimpitan', 'Admin', 'root'),
+  allowRoles('Admin Jimpitan', 'root'),
   asyncHandler(resetBulananJimpitan)
+);
+
+router.post(
+  '/ajukan-setor-bendahara',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  asyncHandler(ajukanSetorKeBendahara)
 );
 
 router.get('/list', auth, asyncHandler(listJimpitan));

@@ -25,6 +25,11 @@ function renderUser(user) {
   }
 }
 
+function hasAnyRole(user, roleNames) {
+  const roles = Array.isArray(user?.roles) ? user.roles.map((r) => String(r).toLowerCase()) : [];
+  return roleNames.some((role) => roles.includes(String(role).toLowerCase()));
+}
+
 function renderDate() {
   const dateEl = document.getElementById('todayDate');
   if (!dateEl) return;
@@ -124,6 +129,95 @@ async function loadDashboardData(token) {
   renderOptionalContributions(data.optional_contributions);
 }
 
+async function loadAdminJimpitanDashboardData(token) {
+  const response = await fetch('/report/dashboard-admin-jimpitan', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (response.status === 401) {
+    localStorage.removeItem('kasrt_token');
+    localStorage.removeItem('kasrt_user');
+    window.location.href = 'login.html';
+    return;
+  }
+
+  const result = await response.json();
+  if (!result.success) throw new Error('Gagal memuat dashboard Admin Jimpitan');
+
+  const data = result.data;
+  document.getElementById('ajHarian').textContent = formatRupiah(data.pemasukan_harian);
+  document.getElementById('ajBulanan').textContent = formatRupiah(data.pemasukan_bulanan);
+  document.getElementById('ajBatchPending').textContent = Number(data.total_batch_pending || 0);
+  document.getElementById('ajBatchApproved').textContent = Number(data.total_batch_approved || 0);
+  document.getElementById('ajRekapBulanLalu').textContent = formatRupiah(data.rekap_bulan_lalu);
+}
+
+function setupAjukanSetorBendahara(token) {
+  const btn = document.getElementById('btnAjukanSetorBendahara');
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    const now = new Date();
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const period = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Mengirim Pengajuan...';
+
+    try {
+      const response = await fetch('/jimpitan/ajukan-setor-bendahara', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ bulan: period })
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        alert(result.message || 'Gagal mengajukan setor ke Bendahara');
+        return;
+      }
+
+      alert(
+        `Pengajuan setor terkirim untuk periode ${result.data.periode} dengan total ${formatRupiah(result.data.total_nominal)}`
+      );
+    } catch (_error) {
+      alert('Gagal terhubung ke server saat mengajukan setor ke Bendahara');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+}
+
+function configureDashboardByRole(user) {
+  const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
+
+  const titleEl = document.getElementById('dashboardTitle');
+  const subtitleEl = document.getElementById('dashboardSubtitle');
+  const wargaSection = document.getElementById('wargaSection');
+  const wargaOptionalSection = document.getElementById('wargaOptionalSection');
+  const wargaSummarySection = document.getElementById('wargaSummarySection');
+  const adminJimpitanSection = document.getElementById('adminJimpitanSection');
+
+  if (isAdminJimpitan) {
+    if (titleEl) titleEl.textContent = 'Dashboard Admin Jimpitan';
+    if (subtitleEl) subtitleEl.textContent = 'Pantau pemasukan, approval setoran, dan rekap operasional jimpitan.';
+    if (wargaSection) wargaSection.classList.add('d-none');
+    if (wargaOptionalSection) wargaOptionalSection.classList.add('d-none');
+    if (wargaSummarySection) wargaSummarySection.classList.add('d-none');
+    if (adminJimpitanSection) adminJimpitanSection.classList.remove('d-none');
+    return { isAdminJimpitan: true };
+  }
+
+  if (adminJimpitanSection) adminJimpitanSection.classList.add('d-none');
+  return { isAdminJimpitan: false };
+}
+
 function setupTelegramActivation(token) {
   const btn = document.getElementById('btnActivateTelegram');
   if (!btn) return;
@@ -187,11 +281,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateTelegramStatus(Boolean(session.user.telegram_connected));
   }
 
+  const activeUser = me || session.user;
+  const { isAdminJimpitan } = configureDashboardByRole(activeUser);
+
   try {
-    await loadDashboardData(session.token);
+    if (isAdminJimpitan) {
+      await loadAdminJimpitanDashboardData(session.token);
+      setupAjukanSetorBendahara(session.token);
+    } else {
+      await loadDashboardData(session.token);
+    }
   } catch (_error) {
     const container = document.getElementById('optionalList');
-    if (container) {
+    if (container && !isAdminJimpitan) {
       container.innerHTML = `
         <div class="col-12">
           <div class="option-tile">
@@ -200,6 +302,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>
       `;
+    }
+    if (isAdminJimpitan) {
+      alert('Gagal memuat data dashboard Admin Jimpitan');
     }
   }
 });

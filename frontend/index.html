@@ -16,8 +16,8 @@
     <header class="dashboard-head d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
       <div>
         <p class="pill mb-2">KasRT Dashboard</p>
-        <h1 class="dashboard-title mb-1">Kontribusi Warga</h1>
-        <p class="dashboard-subtitle mb-0">Ringkasan kontribusi rutin dan opsional warga RT.</p>
+        <h1 id="dashboardTitle" class="dashboard-title mb-1">Kontribusi Warga</h1>
+        <p id="dashboardSubtitle" class="dashboard-subtitle mb-0">Ringkasan kontribusi rutin dan opsional warga RT.</p>
       </div>
       <div class="d-flex gap-2">
         <a class="btn btn-outline-brand" href="jimpitan.html">Input Jimpitan</a>
@@ -50,7 +50,7 @@
       <p id="telegramHint" class="small mb-0 mt-3 text-muted"></p>
     </section>
 
-    <section class="row g-3 mb-4">
+    <section id="wargaSection" class="row g-3 mb-4">
       <div class="col-12 col-md-6">
         <article class="contrib-card mandatory">
           <h3>Jimpitan</h3>
@@ -82,15 +82,53 @@
       </div>
     </section>
 
-    <section class="contrib-card optional mb-4">
+    <section id="wargaOptionalSection" class="contrib-card optional mb-4">
       <h3 class="mb-3">Iuran Opsional (waktu rapat RT)</h3>
       <div id="optionalList" class="row g-3"></div>
     </section>
 
-    <section class="summary-card">
+    <section id="wargaSummarySection" class="summary-card">
       <p class="mb-2">Total Kontribusi Bulan Ini</p>
       <h3 id="totalKontribusi" class="mb-1">Rp0</h3>
       <p class="mb-0 small" id="targetDasar">Target kontribusi dasar: Rp45.000</p>
+    </section>
+
+    <section id="adminJimpitanSection" class="d-none">
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6">
+          <article class="contrib-card mandatory">
+            <h3>Pemasukan Jimpitan Hari Ini</h3>
+            <p class="desc">Total batch jimpitan yang sudah disetujui hari ini.</p>
+            <div class="amount-line">
+              <span>Nominal</span>
+              <strong id="ajHarian">Rp0</strong>
+            </div>
+          </article>
+        </div>
+        <div class="col-12 col-md-6">
+          <article class="contrib-card mandatory">
+            <h3>Pemasukan Jimpitan Bulan Ini</h3>
+            <p class="desc">Akumulasi pemasukan jimpitan bulan berjalan.</p>
+            <div class="amount-line">
+              <span>Nominal</span>
+              <strong id="ajBulanan">Rp0</strong>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <section class="contrib-card optional mb-4">
+        <h3 class="mb-2">Operasional Approval</h3>
+        <div class="amount-line"><span>Batch Pending</span><strong id="ajBatchPending">0</strong></div>
+        <div class="amount-line"><span>Batch Approved Bulan Ini</span><strong id="ajBatchApproved">0</strong></div>
+      </section>
+
+      <section class="summary-card">
+        <p class="mb-2">Rekap Bulan Lalu (Siap Setor)</p>
+        <h3 id="ajRekapBulanLalu" class="mb-2">Rp0</h3>
+        <button id="btnAjukanSetorBendahara" class="btn btn-brand" type="button">Ajukan Setor ke Bendahara</button>
+        <p id="ajSetorHint" class="mb-0 small mt-2">Pengajuan ini mengirim notifikasi ke Bendahara/Admin untuk proses setor rapat RT.</p>
+      </section>
     </section>
   </main>
 

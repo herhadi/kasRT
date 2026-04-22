@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
             };
             authToken = tokenJwt;
 
-            const isAdmin = currentUser.roles.includes("Admin") || currentUser.roles.includes("Admin Jimpitan");
+            const isAdmin = currentUser.roles.includes("Admin Jimpitan") || currentUser.roles.includes("root");
             if (isAdmin) {
                 const btnAdmin = document.getElementById('btnAdminPanel');
                 if (btnAdmin) btnAdmin.style.display = 'inline-block';
