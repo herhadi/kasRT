@@ -1,13 +1,13 @@
 services:
   - type: web
-    name: kasrt-api
+    name: kalisalakrt02
     runtime: node
     rootDir: backend
     plan: free
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true
-    healthCheckPath: /jimpitan
+    healthCheckPath:
     envVars:
       - key: NODE_VERSION
         value: 20
