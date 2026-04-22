@@ -26,6 +26,14 @@ app.use('/report', reportRoutes);
 app.use('/transaction', transactionRoutes);
 app.use('/telegram', telegramRoutes);
 
+app.get('/api/cron', (_req, res) => {
+  return res.json({
+    success: true,
+    message: 'Cron endpoint OK',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use(express.static(frontendDir));
 
 app.get('/', (_req, res) => {
@@ -41,5 +49,5 @@ app.use((err, _req, res, _next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 API running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
