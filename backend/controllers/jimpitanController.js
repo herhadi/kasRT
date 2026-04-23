@@ -1,6 +1,16 @@
-import { pool } from '../db.js';
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah } from '../services/telegramService.js';
+import {
+  approveJimpitanBatch,
+  createJimpitanDraftAndUpdateSaldo,
+  createSetorBatch,
+  findBatchCreator,
+  getApprovedBatchRecapByMonth,
+  listJimpitanByOperationalDate,
+  listWargaTotalsInBatch,
+  resetBulananJimpitanSaldo,
+  topUpJimpitanSaldo
+} from '../models/jimpitanModel.js';
 
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
@@ -76,24 +86,13 @@ export async function inputJimpitan(req, res) {
 
   const tanggalOperasional = getOperationalDate();
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
-    await client.query(
-      `INSERT INTO jimpitan_details (warga_id, nominal, tanggal, petugas_id, status)
-       VALUES ($1, $2, $3::date, $4, 'DRAFT')`,
-      [warga_id, nilaiNominal, tanggalOperasional.toISOString().slice(0, 10), petugas_id]
-    );
-
-    await client.query(
-      `UPDATE users
-       SET jimpitan_saldo = COALESCE(jimpitan_saldo, 0) + $1
-       WHERE id = $2`,
-      [nilaiNominal, warga_id]
-    );
-
-    await client.query('COMMIT');
+    await createJimpitanDraftAndUpdateSaldo({
+      wargaId: warga_id,
+      nominal: nilaiNominal,
+      tanggal: tanggalOperasional.toISOString().slice(0, 10),
+      petugasId: petugas_id
+    });
     if (debug) {
       console.log('[JIMPITAN][INPUT] success', {
         warga_id,
@@ -103,11 +102,8 @@ export async function inputJimpitan(req, res) {
     }
     return res.json({ success: true, tanggal_operasional: tanggalOperasional });
   } catch (err) {
-    await client.query('ROLLBACK');
     if (debug) console.log('[JIMPITAN][INPUT] error', err.message);
     return res.status(500).json({ success: false, message: err.message });
-  } finally {
-    client.release();
   }
 }
 
@@ -123,89 +119,39 @@ export async function setorJimpitan(req, res) {
     });
   }
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
-    const detailQuery = inputDetailIds && inputDetailIds.length > 0
-      ? {
-          text: `SELECT id, nominal
-                 FROM jimpitan_details
-                 WHERE status = 'DRAFT' AND petugas_id = $1 AND id = ANY($2::int[])`,
-          values: [petugas_id, inputDetailIds]
-        }
-      : {
-          text: `SELECT id, nominal
-                 FROM jimpitan_details
-                 WHERE status = 'DRAFT' AND petugas_id = $1`,
-          values: [petugas_id]
-        };
-
-    const details = await client.query(detailQuery.text, detailQuery.values);
-
-    if (details.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const batch = await createSetorBatch({ petugasId: petugas_id, detailIds: inputDetailIds });
+    if (!batch) {
       if (debug) console.log('[JIMPITAN][SETOR] no draft rows found');
       return res.status(400).json({ success: false, message: 'Tidak ada data draft untuk disetor' });
     }
-
-    const total = details.rows.reduce((sum, row) => sum + Number(row.nominal || 0), 0);
-
-    const batchResult = await client.query(
-      `INSERT INTO jimpitan_batches (petugas_id, total_amount, status)
-       VALUES ($1, $2, 'PENDING')
-       RETURNING id`,
-      [petugas_id, total]
-    );
-
-    const batch_id = batchResult.rows[0].id;
-
-    for (const row of details.rows) {
-      await client.query(
-        `INSERT INTO jimpitan_batch_items (batch_id, jimpitan_detail_id)
-         VALUES ($1, $2)`,
-        [batch_id, row.id]
-      );
-
-      await client.query(
-        `UPDATE jimpitan_details
-         SET status = 'SUBMITTED'
-         WHERE id = $1`,
-        [row.id]
-      );
-    }
-
-    await client.query('COMMIT');
     if (debug) {
       console.log('[JIMPITAN][SETOR] success', {
         petugas_id,
-        batch_id,
-        total,
-        total_rumah: details.rows.length
+        batch_id: batch.batch_id,
+        total: batch.total,
+        total_rumah: batch.total_rumah
       });
     }
 
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
       `🔔 <b>Approval Setoran Jimpitan Dibutuhkan</b>\n` +
-        `Batch ID: <b>${batch_id}</b>\n` +
+        `Batch ID: <b>${batch.batch_id}</b>\n` +
         `Petugas ID: <b>${petugas_id}</b>\n` +
-        `Total: <b>${formatRupiah(total)}</b>\n` +
-        `Rumah: <b>${details.rows.length}</b>`
+        `Total: <b>${formatRupiah(batch.total)}</b>\n` +
+        `Rumah: <b>${batch.total_rumah}</b>`
     );
 
     return res.json({
       success: true,
-      batch_id,
-      total,
-      total_rumah: details.rows.length
+      batch_id: batch.batch_id,
+      total: batch.total,
+      total_rumah: batch.total_rumah
     });
   } catch (error) {
-    await client.query('ROLLBACK');
     if (debug) console.log('[JIMPITAN][SETOR] error', error.message);
     return res.status(500).json({ success: false, message: error.message });
-  } finally {
-    client.release();
   }
 }
 
@@ -213,90 +159,22 @@ export async function approveJimpitan(req, res) {
   const { batch_id } = req.body;
   const admin_id = req.user.user_id;
 
-  const client = await pool.connect();
-
   try {
-    await client.query('BEGIN');
+    await approveJimpitanBatch({ batchId: batch_id, adminId: admin_id });
 
-    const batchResult = await client.query(
-      `SELECT total_amount, status
-       FROM jimpitan_batches
-       WHERE id = $1`,
-      [batch_id]
-    );
-
-    if (batchResult.rows.length === 0) {
-      throw new Error('Batch tidak ditemukan');
-    }
-
-    if (batchResult.rows[0].status === 'APPROVED') {
-      throw new Error('Batch sudah di-approve');
-    }
-
-    const total = Number(batchResult.rows[0].total_amount || 0);
-
-    await client.query(
-      `UPDATE jimpitan_batches
-       SET status = 'APPROVED', approved_by = $1, approved_at = NOW()
-       WHERE id = $2`,
-      [admin_id, batch_id]
-    );
-
-    await client.query(
-      `UPDATE jimpitan_details jd
-       SET status = 'APPROVED'
-       FROM jimpitan_batch_items jbi
-       WHERE jbi.jimpitan_detail_id = jd.id
-       AND jbi.batch_id = $1`,
-      [batch_id]
-    );
-
-    const walletResult = await client.query(
-      `SELECT id FROM wallets WHERE name = 'Kas Jimpitan' LIMIT 1`
-    );
-
-    if (walletResult.rows.length === 0) {
-      throw new Error('Wallet Kas Jimpitan tidak ditemukan');
-    }
-
-    const wallet_id = walletResult.rows[0].id;
-
-    await client.query(
-      `INSERT INTO transactions
-       (type, target_wallet_id, amount, status, created_by, approved_by, approved_at)
-       VALUES ('IN', $1, $2, 'APPROVED', $3, $3, NOW())`,
-      [wallet_id, total, admin_id]
-    );
-
-    await client.query('COMMIT');
-
-    const creator = await pool.query(
-      `SELECT petugas_id, total_amount FROM jimpitan_batches WHERE id = $1`,
-      [batch_id]
-    );
-
-    if (creator.rows.length > 0) {
+    const creator = await findBatchCreator(batch_id);
+    if (creator) {
       await notifyUser(
-        creator.rows[0].petugas_id,
+        creator.petugas_id,
         `✅ <b>Setoran Jimpitan Disetujui</b>\n` +
           `Batch ID: <b>${batch_id}</b>\n` +
-          `Total: <b>${formatRupiah(creator.rows[0].total_amount)}</b>`
+          `Total: <b>${formatRupiah(creator.total_amount)}</b>`
       );
     }
 
-    const wargaInBatch = await pool.query(
-      `SELECT
-         jd.warga_id,
-         COALESCE(SUM(jd.nominal), 0) AS total_nominal
-       FROM jimpitan_batch_items jbi
-       JOIN jimpitan_details jd ON jd.id = jbi.jimpitan_detail_id
-       WHERE jbi.batch_id = $1
-       GROUP BY jd.warga_id`,
-      [batch_id]
-    );
-
+    const wargaInBatch = await listWargaTotalsInBatch(batch_id);
     await Promise.all(
-      wargaInBatch.rows.map((row) =>
+      wargaInBatch.map((row) =>
         notifyUser(
           row.warga_id,
           `✅ <b>Iuran Jimpitan Anda Sudah Disetujui</b>\n` +
@@ -309,10 +187,7 @@ export async function approveJimpitan(req, res) {
 
     return res.json({ success: true });
   } catch (error) {
-    await client.query('ROLLBACK');
     return res.status(500).json({ success: false, message: error.message });
-  } finally {
-    client.release();
   }
 }
 
@@ -321,38 +196,8 @@ export async function listJimpitan(req, res) {
     const operationalDate = getOperationalDate();
     const hariKe = operationalDate.getDate();
 
-    const result = await pool.query(
-      `WITH daily_nominal AS (
-         SELECT
-           jd.warga_id,
-           COALESCE(SUM(jd.nominal), 0) AS nominal_hari_ini
-         FROM jimpitan_details jd
-         WHERE jd.tanggal = $1::date
-         GROUP BY jd.warga_id
-       ),
-       daily_petugas AS (
-         SELECT DISTINCT ON (jd.warga_id)
-           jd.warga_id,
-           jd.petugas_id
-         FROM jimpitan_details jd
-         WHERE jd.tanggal = $1::date
-         ORDER BY jd.warga_id, jd.created_at DESC
-       )
-       SELECT
-         u.id,
-         u.nama,
-         COALESCE(u.jimpitan_saldo, 0) AS saldo,
-         COALESCE(dn.nominal_hari_ini, 0) AS nominal_hari_ini,
-         p.nama AS petugas
-       FROM users u
-       LEFT JOIN daily_nominal dn ON dn.warga_id = u.id
-       LEFT JOIN daily_petugas dp ON dp.warga_id = u.id
-       LEFT JOIN users p ON p.id = dp.petugas_id
-       ORDER BY u.nama ASC`,
-      [operationalDate.toISOString().slice(0, 10)]
-    );
-
-    const data = result.rows.map((row) => {
+    const rows = await listJimpitanByOperationalDate(operationalDate.toISOString().slice(0, 10));
+    const data = rows.map((row) => {
       const saldo = Number(row.saldo || 0);
       const nominalHariIni = Number(row.nominal_hari_ini || 0);
       const totalKewajibanHarian = hariKe * BIAYA_HARIAN;
@@ -394,64 +239,29 @@ export async function topUpJimpitan(req, res) {
     return res.status(400).json({ success: false, message: 'Nominal topup harus lebih dari 0' });
   }
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
-    const userCheck = await client.query('SELECT id, nama FROM users WHERE id = $1', [warga_id]);
-    if (userCheck.rows.length === 0) {
-      throw new Error('Warga tidak ditemukan');
-    }
-
-    const saldoResult = await client.query(
-      `UPDATE users
-       SET jimpitan_saldo = COALESCE(jimpitan_saldo, 0) + $1
-       WHERE id = $2
-       RETURNING jimpitan_saldo`,
-      [nilaiNominal, warga_id]
-    );
-
-    await client.query(
-      `INSERT INTO jimpitan_topups (warga_id, nominal, admin_id, note)
-       VALUES ($1, $2, $3, $4)`,
-      [warga_id, nilaiNominal, admin_id, note || null]
-    );
-
-    await client.query('COMMIT');
+    const saldoAkhir = await topUpJimpitanSaldo({
+      wargaId: warga_id,
+      nominal: nilaiNominal,
+      adminId: admin_id,
+      note: note || null
+    });
 
     return res.json({
       success: true,
-      saldo_akhir: Number(saldoResult.rows[0].jimpitan_saldo)
+      saldo_akhir: saldoAkhir
     });
   } catch (error) {
-    await client.query('ROLLBACK');
     return res.status(500).json({ success: false, message: error.message });
-  } finally {
-    client.release();
   }
 }
 
 export async function resetBulananJimpitan(_req, res) {
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
-    await client.query(
-      `UPDATE users
-       SET jimpitan_saldo = CASE
-         WHEN COALESCE(jimpitan_saldo, 0) >= $1 THEN COALESCE(jimpitan_saldo, 0) - $1
-         ELSE 0
-       END`,
-      [TARGET_BULANAN]
-    );
-
-    await client.query('COMMIT');
+    await resetBulananJimpitanSaldo(TARGET_BULANAN);
     return res.json({ success: true, message: 'Reset bulanan jimpitan selesai' });
   } catch (error) {
-    await client.query('ROLLBACK');
     return res.status(500).json({ success: false, message: error.message });
-  } finally {
-    client.release();
   }
 }
 
@@ -464,19 +274,7 @@ export async function ajukanSetorKeBendahara(req, res) {
     : new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString().slice(0, 7);
 
   try {
-    const recap = await pool.query(
-      `SELECT
-         COUNT(*) AS total_batch,
-         COALESCE(SUM(total_amount), 0) AS total_nominal
-       FROM jimpitan_batches
-       WHERE status = 'APPROVED'
-         AND approved_at IS NOT NULL
-         AND TO_CHAR(approved_at, 'YYYY-MM') = $1`,
-      [period]
-    );
-
-    const totalBatch = Number(recap.rows[0]?.total_batch || 0);
-    const totalNominal = Number(recap.rows[0]?.total_nominal || 0);
+    const { totalBatch, totalNominal } = await getApprovedBatchRecapByMonth(period);
 
     if (totalNominal <= 0) {
       return res.status(400).json({

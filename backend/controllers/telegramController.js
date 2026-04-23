@@ -1,6 +1,10 @@
 import crypto from 'crypto';
-import { pool } from '../db.js';
 import { sendTelegramMessage } from '../services/telegramService.js';
+import {
+  createTelegramActivationToken,
+  findUserByTelegramChatId,
+  linkTelegramChatWithCode
+} from '../models/telegramModel.js';
 
 function normalizeBotUsername(username) {
   if (!username) return '';
@@ -57,18 +61,11 @@ export async function telegramWebhook(req, res) {
   const payload = (startMatch[1] || '').trim();
 
   if (!payload) {
-    const userByChatId = await pool.query(
-      `SELECT nama
-       FROM users
-       WHERE telegram_chat_id = $1
-       LIMIT 1`,
-      [chatId]
-    );
-
-    if (userByChatId.rows.length > 0) {
+    const userByChatId = await findUserByTelegramChatId(chatId);
+    if (userByChatId) {
       await sendTelegramMessage(
         chatId,
-        `Selamat datang <b>${userByChatId.rows[0].nama}</b>.\n\nAkun Telegram Anda sudah terhubung dengan KasRT.`
+        `Selamat datang <b>${userByChatId.nama}</b>.\n\nAkun Telegram Anda sudah terhubung dengan KasRT.`
       );
     } else {
       await sendTelegramMessage(
@@ -90,57 +87,22 @@ export async function telegramWebhook(req, res) {
 
   const code = activationMatch[1].toLowerCase();
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
-    const tokenResult = await client.query(
-      `SELECT tlt.id, tlt.user_id, u.nama
-       FROM telegram_link_tokens tlt
-       JOIN users u ON u.id = tlt.user_id
-       WHERE code = $1
-         AND used_at IS NULL
-         AND expires_at > NOW()
-       FOR UPDATE`,
-      [code]
-    );
-
-    if (tokenResult.rowCount === 0) {
-      await client.query('COMMIT');
+    const token = await linkTelegramChatWithCode({ code, chatId });
+    if (!token) {
       await sendTelegramMessage(
         chatId,
         'Kode aktivasi tidak valid atau sudah kedaluwarsa. Silakan generate ulang dari dashboard KasRT.'
       );
       return res.json({ ok: true, status: 'invalid_or_expired_code' });
     }
-
-    const token = tokenResult.rows[0];
-
-    await client.query(
-      `UPDATE users
-       SET telegram_chat_id = $1
-       WHERE id = $2`,
-      [chatId, token.user_id]
-    );
-
-    await client.query(
-      `UPDATE telegram_link_tokens
-       SET used_at = NOW()
-       WHERE id = $1`,
-      [token.id]
-    );
-
-    await client.query('COMMIT');
     await sendTelegramMessage(
       chatId,
       `Selamat datang <b>${token.nama}</b>.\n\nAktivasi berhasil. Akun Telegram Anda sekarang terhubung dengan KasRT.`
     );
     return res.json({ ok: true });
   } catch (error) {
-    await client.query('ROLLBACK');
     return res.status(500).json({ ok: false, error: error.message });
-  } finally {
-    client.release();
   }
 }
 
@@ -157,11 +119,7 @@ export async function generateTelegramActivationLink(req, res) {
 
   const code = crypto.randomBytes(8).toString('hex');
 
-  await pool.query(
-    `INSERT INTO telegram_link_tokens (user_id, code, expires_at)
-     VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
-    [userId, code]
-  );
+  await createTelegramActivationToken({ userId, code });
 
   const activationLink = `https://t.me/${botUsername}?start=kasrt_${code}`;
 

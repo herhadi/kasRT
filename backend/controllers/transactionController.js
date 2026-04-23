@@ -1,33 +1,19 @@
-import { pool } from '../db.js';
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah } from '../services/telegramService.js';
+import {
+  approvePendingTransactionByType,
+  createExpense,
+  createTransfer,
+  findMonthlyTransferDuplicate,
+  findTransactionSummary,
+  findWalletById,
+  findWalletByName
+} from '../models/transactionModel.js';
 
 const KAS_JIMPITAN = 'Kas Jimpitan';
 const KAS_IURAN_WAJIB = 'Kas Iuran Wajib';
 const KAS_SOSIAL = 'Kas Sosial';
 const BENDAHARA_SOURCE_WALLETS = [KAS_JIMPITAN, KAS_IURAN_WAJIB];
-
-async function findWalletById(walletId) {
-  const result = await pool.query(
-    `SELECT id, name
-     FROM wallets
-     WHERE id = $1
-     LIMIT 1`,
-    [walletId]
-  );
-  return result.rows[0] || null;
-}
-
-async function findWalletByName(walletName) {
-  const result = await pool.query(
-    `SELECT id, name
-     FROM wallets
-     WHERE LOWER(name) = LOWER($1)
-     LIMIT 1`,
-    [walletName]
-  );
-  return result.rows[0] || null;
-}
 
 //
 // 🔁 TRANSFER
@@ -68,12 +54,12 @@ export async function transfer(req, res) {
     });
   }
 
-  const createResult = await pool.query(
-    `INSERT INTO transactions
-     (type, source_wallet_id, target_wallet_id, amount, status, created_by)
-     VALUES ('TRANSFER', $1, $2, $3, 'PENDING', $4)`,
-    [from_wallet, to_wallet, amount, user_id]
-  );
+  await createTransfer({
+    fromWallet: from_wallet,
+    toWallet: to_wallet,
+    amount,
+    userId: user_id
+  });
 
   await notifyRoles(
     ['Ketua', 'Sekretaris'],
@@ -94,36 +80,25 @@ export async function approveTransfer(req, res) {
 
   const approver_id = req.user.user_id;
 
-  const result = await pool.query(
-    `UPDATE transactions
-     SET status = 'APPROVED',
-         approved_by = $1,
-         approved_at = NOW()
-     WHERE id = $2
-       AND type = 'TRANSFER'
-       AND status = 'PENDING'
-     RETURNING id`,
-    [approver_id, transaction_id]
-  );
-
-  if (result.rows.length === 0) {
+  const approved = await approvePendingTransactionByType({
+    transactionId: transaction_id,
+    approverId: approver_id,
+    type: 'TRANSFER'
+  });
+  if (!approved) {
     return res.status(400).json({
       success: false,
       message: 'Transfer tidak ditemukan atau tidak bisa di-approve'
     });
   }
 
-  const info = await pool.query(
-    `SELECT created_by, amount FROM transactions WHERE id = $1`,
-    [transaction_id]
-  );
-
-  if (info.rows.length > 0) {
+  const info = await findTransactionSummary(transaction_id);
+  if (info) {
     await notifyUser(
-      info.rows[0].created_by,
+      info.created_by,
       `✅ <b>Transfer Disetujui</b>\n` +
         `Transaksi ID: <b>${transaction_id}</b>\n` +
-        `Nominal: <b>${formatRupiah(info.rows[0].amount)}</b>`
+        `Nominal: <b>${formatRupiah(info.amount)}</b>`
     );
   }
 
@@ -160,12 +135,7 @@ export async function expense(req, res) {
     });
   }
 
-  await pool.query(
-    `INSERT INTO transactions
-     (type, source_wallet_id, amount, status, created_by, description)
-     VALUES ('OUT', $1, $2, 'PENDING', $3, $4)`,
-    [wallet_id, amount, user_id, description]
-  );
+  await createExpense({ walletId: wallet_id, amount, userId: user_id, description });
 
   await notifyRoles(
     ['Ketua', 'Sekretaris'],
@@ -212,31 +182,24 @@ export async function transferSosialBulanan(req, res) {
     });
   }
 
-  const duplicate = await pool.query(
-    `SELECT id
-     FROM transactions
-     WHERE type = 'TRANSFER'
-       AND source_wallet_id = $1
-       AND target_wallet_id = $2
-       AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
-       AND status IN ('PENDING', 'APPROVED')
-     LIMIT 1`,
-    [sourceWallet.id, kasSosial.id]
-  );
-
-  if (duplicate.rows.length > 0) {
+  const duplicate = await findMonthlyTransferDuplicate({
+    sourceWalletId: sourceWallet.id,
+    targetWalletId: kasSosial.id
+  });
+  if (duplicate) {
     return res.status(400).json({
       success: false,
       message: 'Transfer dana sosial untuk bulan ini sudah diajukan'
     });
   }
 
-  await pool.query(
-    `INSERT INTO transactions
-     (type, source_wallet_id, target_wallet_id, amount, status, created_by, description)
-     VALUES ('TRANSFER', $1, $2, $3, 'PENDING', $4, $5)`,
-    [sourceWallet.id, kasSosial.id, amount, user_id, description || 'Setor dana sosial bulanan']
-  );
+  await createTransfer({
+    fromWallet: sourceWallet.id,
+    toWallet: kasSosial.id,
+    amount,
+    userId: user_id,
+    description: description || 'Setor dana sosial bulanan'
+  });
 
   await notifyRoles(
     ['Ketua', 'Sekretaris'],
@@ -272,12 +235,12 @@ export async function expenseSosial(req, res) {
     });
   }
 
-  await pool.query(
-    `INSERT INTO transactions
-     (type, source_wallet_id, amount, status, created_by, description)
-     VALUES ('OUT', $1, $2, 'PENDING', $3, $4)`,
-    [kasSosial.id, amount, user_id, description || 'Pengeluaran kas sosial']
-  );
+  await createExpense({
+    walletId: kasSosial.id,
+    amount,
+    userId: user_id,
+    description: description || 'Pengeluaran kas sosial'
+  });
 
   await notifyRoles(
     ['Ketua', 'Sekretaris'],
@@ -299,36 +262,25 @@ export async function approveExpense(req, res) {
 
   const approver_id = req.user.user_id;
 
-  const result = await pool.query(
-    `UPDATE transactions
-     SET status = 'APPROVED',
-         approved_by = $1,
-         approved_at = NOW()
-     WHERE id = $2
-       AND type = 'OUT'
-       AND status = 'PENDING'
-     RETURNING id`,
-    [approver_id, transaction_id]
-  );
-
-  if (result.rows.length === 0) {
+  const approved = await approvePendingTransactionByType({
+    transactionId: transaction_id,
+    approverId: approver_id,
+    type: 'OUT'
+  });
+  if (!approved) {
     return res.status(400).json({
       success: false,
       message: 'Pengeluaran tidak ditemukan atau tidak bisa di-approve'
     });
   }
 
-  const info = await pool.query(
-    `SELECT created_by, amount FROM transactions WHERE id = $1`,
-    [transaction_id]
-  );
-
-  if (info.rows.length > 0) {
+  const info = await findTransactionSummary(transaction_id);
+  if (info) {
     await notifyUser(
-      info.rows[0].created_by,
+      info.created_by,
       `✅ <b>Pengeluaran Disetujui</b>\n` +
         `Transaksi ID: <b>${transaction_id}</b>\n` +
-        `Nominal: <b>${formatRupiah(info.rows[0].amount)}</b>`
+        `Nominal: <b>${formatRupiah(info.amount)}</b>`
     );
   }
 
