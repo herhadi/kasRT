@@ -193,16 +193,30 @@ export async function listJimpitanByOperationalDate(operationalDate) {
        FROM jimpitan_details jd
        WHERE jd.tanggal = $1::date
        ORDER BY jd.warga_id, jd.created_at DESC
+     ),
+     daily_latest_input AS (
+       SELECT DISTINCT ON (jd.warga_id)
+         jd.warga_id,
+         jd.status AS detail_status,
+         jb.status AS batch_status
+       FROM jimpitan_details jd
+       LEFT JOIN jimpitan_batch_items jbi ON jbi.jimpitan_detail_id = jd.id
+       LEFT JOIN jimpitan_batches jb ON jb.id = jbi.batch_id
+       WHERE jd.tanggal = $1::date
+       ORDER BY jd.warga_id, jd.created_at DESC
      )
      SELECT
        u.id,
        u.nama,
        COALESCE(u.jimpitan_saldo, 0) AS saldo,
        COALESCE(dn.nominal_hari_ini, 0) AS nominal_hari_ini,
-       p.nama AS petugas
+       p.nama AS petugas,
+       dli.detail_status,
+       dli.batch_status
      FROM users u
      LEFT JOIN daily_nominal dn ON dn.warga_id = u.id
      LEFT JOIN daily_petugas dp ON dp.warga_id = u.id
+     LEFT JOIN daily_latest_input dli ON dli.warga_id = u.id
      LEFT JOIN users p ON p.id = dp.petugas_id
      ORDER BY u.nama ASC`,
     [operationalDate]
@@ -236,6 +250,86 @@ export async function topUpJimpitanSaldo({ wargaId, nominal, adminId, note = nul
 
     await client.query('COMMIT');
     return Number(saldoResult.rows[0].jimpitan_saldo);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function editNominalJimpitanByAdmin({ wargaId, nominalBaru, tanggalOperasional }) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const detailResult = await client.query(
+      `SELECT
+         jd.id,
+         jd.warga_id,
+         jd.nominal,
+         jd.status,
+         jbi.batch_id,
+         jb.status AS batch_status
+       FROM jimpitan_details jd
+       LEFT JOIN jimpitan_batch_items jbi ON jbi.jimpitan_detail_id = jd.id
+       LEFT JOIN jimpitan_batches jb ON jb.id = jbi.batch_id
+       WHERE jd.warga_id = $1
+         AND jd.tanggal = $2::date
+       ORDER BY jd.created_at DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [wargaId, tanggalOperasional]
+    );
+
+    if (detailResult.rows.length === 0) {
+      throw new Error('Data jimpitan warga pada tanggal operasional tidak ditemukan');
+    }
+
+    const detail = detailResult.rows[0];
+    const status = String(detail.status || '').toUpperCase();
+    const batchStatus = String(detail.batch_status || '').toUpperCase();
+
+    if (status === 'APPROVED' || batchStatus === 'APPROVED') {
+      throw new Error('Nominal tidak bisa diubah karena sudah APPROVED');
+    }
+
+    const nominalLama = Number(detail.nominal || 0);
+    const delta = nominalBaru - nominalLama;
+
+    await client.query(
+      `UPDATE jimpitan_details
+       SET nominal = $1
+       WHERE id = $2`,
+      [nominalBaru, detail.id]
+    );
+
+    const saldoResult = await client.query(
+      `UPDATE users
+       SET jimpitan_saldo = COALESCE(jimpitan_saldo, 0) + $1
+       WHERE id = $2
+       RETURNING jimpitan_saldo`,
+      [delta, detail.warga_id]
+    );
+
+    if (detail.batch_id && batchStatus === 'PENDING') {
+      await client.query(
+        `UPDATE jimpitan_batches
+         SET total_amount = COALESCE(total_amount, 0) + $1
+         WHERE id = $2`,
+        [delta, detail.batch_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    return {
+      detail_id: detail.id,
+      nominal_lama: nominalLama,
+      nominal_baru: nominalBaru,
+      delta,
+      saldo_akhir: Number(saldoResult.rows[0]?.jimpitan_saldo || 0),
+      batch_id: detail.batch_id || null
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

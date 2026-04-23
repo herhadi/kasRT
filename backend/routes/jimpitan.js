@@ -4,6 +4,7 @@ import { allowRoles } from '../middleware/role.js';
 import {
   approveJimpitan,
   ajukanSetorKeBendahara,
+  editNominalJimpitan,
   healthCheck,
   inputJimpitan,
   listJimpitan,
@@ -43,6 +44,14 @@ router.post(
   allowRoles('Admin Jimpitan', 'root'),
   validateRequiredFields(['warga_id', 'nominal']),
   asyncHandler(topUpJimpitan)
+);
+
+router.post(
+  '/edit-nominal',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  validateRequiredFields(['warga_id', 'nominal']),
+  asyncHandler(editNominalJimpitan)
 );
 
 router.post(

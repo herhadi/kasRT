@@ -1,0 +1,117 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light;
+
+  --bg-base: #f2f6ff;
+  --bg-grad-1: #dbeafe;
+  --bg-grad-2: #f0f9ff;
+  --bg-grad-3: #e0f2fe;
+
+  --accent: #1d4ed8;
+  --accent-strong: #1e40af;
+  --accent-soft: #93c5fd;
+
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+  --line: #dbe3f1;
+  --danger: #b91c1c;
+
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-strong: rgba(255, 255, 255, 0.95);
+  --shadow-lg: 0 18px 45px rgba(15, 23, 42, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg-base: #050b18;
+    --bg-grad-1: #0f172a;
+    --bg-grad-2: #111827;
+    --bg-grad-3: #082f49;
+
+    --accent: #60a5fa;
+    --accent-strong: #3b82f6;
+    --accent-soft: #1e3a8a;
+
+    --text-primary: #e2e8f0;
+    --text-muted: #94a3b8;
+    --line: #243244;
+    --danger: #f87171;
+
+    --surface: rgba(15, 23, 42, 0.72);
+    --surface-strong: rgba(15, 23, 42, 0.86);
+    --shadow-lg: 0 20px 48px rgba(2, 6, 23, 0.45);
+  }
+}
+
+html.light {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --bg-base: #050b18;
+  --bg-grad-1: #0f172a;
+  --bg-grad-2: #111827;
+  --bg-grad-3: #082f49;
+
+  --accent: #60a5fa;
+  --accent-strong: #3b82f6;
+  --accent-soft: #1e3a8a;
+
+  --text-primary: #1a1b1c;
+  --text-muted: #94a3b8;
+  --line: #243244;
+  --danger: #f87171;
+
+  --surface: rgba(15, 23, 42, 0.72);
+  --surface-strong: rgba(15, 23, 42, 0.86);
+  --shadow-lg: 0 20px 48px rgba(2, 6, 23, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-manrope), sans-serif;
+  background:
+    radial-gradient(1200px 500px at -10% -20%, var(--bg-grad-1), transparent 60%),
+    radial-gradient(900px 500px at 110% 20%, var(--bg-grad-3), transparent 60%),
+    linear-gradient(140deg, var(--bg-grad-2), color-mix(in srgb, var(--bg-base) 88%, white) 45%, var(--bg-base));
+  color: var(--text-primary);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.glass-card {
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  background: linear-gradient(160deg, var(--surface-strong), var(--surface));
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(10px);
+}
+
+.metric-value {
+  font-family: var(--font-space-grotesk), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.theme-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-icon-moon {
+  display: none;
+}
+
+html.dark .theme-icon-sun {
+  display: none;
+}
+
+html.dark .theme-icon-moon {
+  display: inline-flex;
+}

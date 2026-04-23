@@ -10,6 +10,7 @@ import jimpitanRoutes from './routes/jimpitan.js';
 import reportRoutes from './routes/report.js';
 import transactionRoutes from './routes/transaction.js';
 import telegramRoutes from './routes/telegram.js';
+import approvalRoutes from './routes/approval.js';
 
 const app = express();
 const PORT = process.env.PORT;
@@ -25,6 +26,7 @@ app.use('/jimpitan', jimpitanRoutes);
 app.use('/report', reportRoutes);
 app.use('/transaction', transactionRoutes);
 app.use('/telegram', telegramRoutes);
+app.use('/approval', approvalRoutes);
 
 app.get('/api/cron', (_req, res) => {
   return res.json({

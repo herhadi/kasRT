@@ -4,6 +4,7 @@ import {
   approveJimpitanBatch,
   createJimpitanDraftAndUpdateSaldo,
   createSetorBatch,
+  editNominalJimpitanByAdmin,
   findBatchCreator,
   getApprovedBatchRecapByMonth,
   listJimpitanByOperationalDate,
@@ -14,6 +15,19 @@ import {
 
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
+
+function buildApprovalLink() {
+  const base =
+    process.env.FRONTEND_BASE_URL ||
+    process.env.FRONTEND_URL ||
+    process.env.APP_BASE_URL ||
+    '';
+
+  if (!base) return '';
+
+  const normalized = String(base).trim().replace(/\/+$/, '');
+  return `${normalized}/approval`;
+}
 
 function getOperationalDate(now = new Date()) {
   const opDate = new Date(now);
@@ -134,13 +148,19 @@ export async function setorJimpitan(req, res) {
       });
     }
 
+    const approvalLink = buildApprovalLink();
+    const linkSection = approvalLink
+      ? `\n\n🔗 <a href="${approvalLink}">Buka Approval di Web</a>`
+      : '';
+
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
       `🔔 <b>Approval Setoran Jimpitan Dibutuhkan</b>\n` +
         `Batch ID: <b>${batch.batch_id}</b>\n` +
         `Petugas ID: <b>${petugas_id}</b>\n` +
         `Total: <b>${formatRupiah(batch.total)}</b>\n` +
-        `Rumah: <b>${batch.total_rumah}</b>`
+        `Rumah: <b>${batch.total_rumah}</b>` +
+        linkSection
     );
 
     return res.json({
@@ -207,6 +227,9 @@ export async function listJimpitan(req, res) {
       const isLunasUI = Boolean(lunasByInput || lunasBySaldo);
 
       const nominalSaran = isLunasUI ? 0 : calculateNominalSaran(saldo, hariKe);
+      const detailStatus = String(row.detail_status || '').toUpperCase();
+      const batchStatus = String(row.batch_status || '').toUpperCase();
+      const canEditNominal = detailStatus !== '' && detailStatus !== 'APPROVED' && batchStatus !== 'APPROVED';
 
       return {
         id: row.id,
@@ -216,7 +239,10 @@ export async function listJimpitan(req, res) {
         isLunas: isLunasUI,
         nominalSaran,
         nominalTerbayar: lunasByInput ? nominalHariIni : (lunasBySaldo ? 1 : 0),
-        saldo
+        saldo,
+        detailStatus,
+        batchStatus,
+        canEditNominal
       };
     });
 
@@ -253,6 +279,31 @@ export async function topUpJimpitan(req, res) {
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function editNominalJimpitan(req, res) {
+  const { warga_id, nominal } = req.body;
+  const nilaiNominal = Number(nominal ?? NaN);
+
+  if (!Number.isFinite(nilaiNominal) || nilaiNominal < 0) {
+    return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
+  }
+
+  try {
+    const tanggalOperasional = getOperationalDate().toISOString().slice(0, 10);
+    const result = await editNominalJimpitanByAdmin({
+      wargaId: warga_id,
+      nominalBaru: nilaiNominal,
+      tanggalOperasional
+    });
+
+    return res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
   }
 }
 
