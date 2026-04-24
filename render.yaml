@@ -25,7 +25,7 @@ services:
         sync: false
 
   - type: web
-    name: kasrt-frontend
+    name: kasrt02
     runtime: node
     region: singapore
     rootDir: frontend
