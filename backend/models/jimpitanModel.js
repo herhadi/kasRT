@@ -278,7 +278,7 @@ export async function editNominalJimpitanByAdmin({ wargaId, nominalBaru, tanggal
          AND jd.tanggal = $2::date
        ORDER BY jd.created_at DESC
        LIMIT 1
-       FOR UPDATE`,
+       FOR UPDATE OF jd`,
       [wargaId, tanggalOperasional]
     );
 

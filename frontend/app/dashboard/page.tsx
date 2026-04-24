@@ -6,7 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah, formatTanggalIndonesia } from '@/lib/helpers';
+import { formatRupiah } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { DashboardWargaData } from '@/types';
 
@@ -29,6 +29,18 @@ export default function DashboardPage() {
     if (hasAnyRole(user, ['Admin Koperasi'])) return '/report/dashboard-admin-koperasi';
     return null;
   }, [user]);
+
+  const operationalDate = useMemo(() => {
+    const now = new Date();
+    const hour = now.getHours();
+    const date = new Date(now);
+    // Operational day ends at 12:00 (noon) the next day
+    // So if it's before 12:00, we're still in previous day's operational period
+    if (hour < 12) {
+      date.setDate(date.getDate() - 1);
+    }
+    return date.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -70,8 +82,11 @@ export default function DashboardPage() {
 
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <section className="glass-card rounded-3xl p-6">
-          <p className="text-sm text-[var(--text-muted)]">{formatTanggalIndonesia(new Date())}</p>
-          <h1 className="mt-1 font-[var(--font-space-grotesk)] text-3xl font-bold">Halo, {user.nama}</h1>
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-gray-500">Operasional</p>
+            <p className="text-xs text-gray-600">{operationalDate}</p>
+          </div>
+          <h1 className="mt-3 font-[var(--font-space-grotesk)] text-3xl font-bold">Halo, {user.nama}</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">Role: {user.roles.join(', ') || 'Warga'}</p>
         </section>
 
@@ -79,14 +94,14 @@ export default function DashboardPage() {
 
         {wargaData ? (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-4 grid-cols-2 md:grid-cols-2 xl:grid-cols-4">
               <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
               <Metric title="Iuran Wajib" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
               <Metric title="Opsional" value={formatRupiah(wargaData.total_optional_bulan_ini)} />
               <Metric title="Total Kontribusi" value={formatRupiah(wargaData.total_kontribusi_bulan_ini)} />
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-2">
+            <section className="grid gap-4 grid-cols-1 lg:grid-cols-2">
               <Card title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
                 <div className="space-y-2 text-sm">
                   <Line label="Target Jimpitan" value={formatRupiah(wargaData.target_jimpitan_bulanan)} />
@@ -104,7 +119,7 @@ export default function DashboardPage() {
             </section>
 
             <Card title="Iuran Opsional" subtitle="Kontribusi di luar iuran dasar">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                 {wargaData.optional_contributions.filter((item) => item.is_mandatory === false).length === 0 ? (
                   <p className="text-sm text-[var(--text-muted)]">Belum ada kontribusi opsional bulan ini.</p>
                 ) : (

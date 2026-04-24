@@ -157,12 +157,12 @@ export default function ApprovalPage() {
       <Navbar />
 
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
-        <Card title="Approval Center" subtitle="Daftar transaksi pending muncul otomatis sesuai role Anda">
+        <Card title="Approval Center" subtitle={`${totalPending} transaksi pending`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[var(--text-muted)]">
-              Pending sekarang: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
+              Total pending: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
             </p>
-            <Button variant="ghost" onClick={() => void loadPending()} disabled={loadingList}>
+            <Button variant="ghost" className="text-sm px-3 py-1.5" onClick={() => void loadPending()} disabled={loadingList}>
               {loadingList ? 'Memuat...' : 'Refresh'}
             </Button>
           </div>
@@ -181,26 +181,28 @@ export default function ApprovalPage() {
         ) : null}
 
         {sections.map((section) => (
-          <Card key={section.key} title={section.label} subtitle={`${section.items.length} item pending`}>
-            <div className="space-y-3">
+          <Card key={section.key} title={section.label} subtitle={`${section.items.length} item`}>
+            <div className="space-y-2">
               {section.items.map((item) => {
                 const actionKey = `${item.kind}-${item.id}`;
                 const isApproving = approvingKey === actionKey;
 
                 return (
-                  <article key={actionKey} className="rounded-2xl border border-[var(--line)] bg-white/75 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <h4 className="font-semibold text-[var(--text-primary)]">{item.title}</h4>
-                        <p className="text-sm text-[var(--text-muted)]">{item.description}</p>
-                        <p className="text-sm text-[var(--text-muted)]">Dibuat: {formatTanggalIndonesia(item.created_at)}</p>
-                        <p className="metric-value text-lg font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
-                      </div>
-
-                      <Button onClick={() => void approveItem(item)} disabled={isApproving}>
-                        {isApproving ? 'Memproses...' : 'Approve'}
-                      </Button>
+                  <article key={actionKey} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-white/75 p-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(item.created_at)}</p>
                     </div>
+                    <div className="text-right">
+                      <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
+                    </div>
+                    <Button
+                      className="whitespace-nowrap text-sm px-3 py-1.5"
+                      onClick={() => void approveItem(item)}
+                      disabled={isApproving}
+                    >
+                      {isApproving ? '...' : 'Approve'}
+                    </Button>
                   </article>
                 );
               })}
@@ -208,8 +210,8 @@ export default function ApprovalPage() {
           </Card>
         ))}
 
-        <Card title="Riwayat Approval" subtitle={`Latest first, 10 data per halaman (total ${historyTotal})`}>
-          <div className="space-y-3">
+        <Card title="Riwayat Approval" subtitle={`Total ${historyTotal} transaksi`}>
+          <div className="space-y-2">
             {loadingHistory ? <p className="text-sm text-[var(--text-muted)]">Memuat riwayat...</p> : null}
 
             {!loadingHistory && historyItems.length === 0 ? (
@@ -217,16 +219,14 @@ export default function ApprovalPage() {
             ) : null}
 
             {historyItems.map((item) => (
-              <article key={`history-${item.kind}-${item.id}-${item.approved_at}`} className="rounded-2xl border border-[var(--line)] bg-white/75 p-4">
-                <div className="space-y-1">
-                  <h4 className="font-semibold text-[var(--text-primary)]">{item.title}</h4>
-                  <p className="text-sm text-[var(--text-muted)]">{item.description}</p>
-                  <p className="text-sm text-[var(--text-muted)]">Disetujui: {formatTanggalIndonesia(item.approved_at)}</p>
-                  <p className="text-sm text-[var(--text-muted)]">
-                    Approver: {item.approved_by_nama || item.approved_by || '-'}
+              <article key={`history-${item.kind}-${item.id}-${item.approved_at}`} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-white/75 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {formatTanggalIndonesia(item.approved_at)} • {item.approved_by_nama || item.approved_by || '-'}
                   </p>
-                  <p className="metric-value text-lg font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
                 </div>
+                <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
               </article>
             ))}
           </div>
@@ -234,16 +234,18 @@ export default function ApprovalPage() {
           <div className="mt-4 flex items-center justify-between">
             <Button
               variant="ghost"
+              className="text-sm px-3 py-1.5"
               disabled={historyPage <= 1 || loadingHistory}
               onClick={() => void loadHistory(Math.max(1, historyPage - 1))}
             >
               Sebelumnya
             </Button>
             <p className="text-sm text-[var(--text-muted)]">
-              Halaman {historyPage} / {historyTotalPages}
+              {historyPage} / {historyTotalPages}
             </p>
             <Button
               variant="ghost"
+              className="text-sm px-3 py-1.5"
               disabled={historyPage >= historyTotalPages || loadingHistory}
               onClick={() => void loadHistory(Math.min(historyTotalPages, historyPage + 1))}
             >
@@ -253,7 +255,13 @@ export default function ApprovalPage() {
         </Card>
 
         {message ? (
-          <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-3 text-sm text-[var(--text-primary)]">{message}</div>
+          <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+            message.includes('berhasil') 
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800' 
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}>
+            {message}
+          </div>
         ) : null}
       </div>
     </main>

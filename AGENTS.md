@@ -1,8 +1,8 @@
 # AGENTS.md — KasRT
 
-Dokumen ini menjelaskan peran sistem, hirarki approval, dan aturan implementasi yang dipakai pada codebase KasRT saat ini.
+Dokumen ini menjadi pedoman implementasi agent di codebase KasRT.
 
-## Peran
+## Peran Sistem
 
 - `Warga`
 - `Petugas Jimpitan`
@@ -12,49 +12,61 @@ Dokumen ini menjelaskan peran sistem, hirarki approval, dan aturan implementasi 
 - `Sekretaris`
 - `Admin`
 
-## Workflow Inti
+## Alur Inti
 
 ### Jimpitan
 
-1. Input jimpitan warga
-2. Setor batch (`PENDING`)
-3. Approve batch oleh level di atas (`Admin Jimpitan`)
-4. Masuk transaksi kas (`IN`, `APPROVED`)
+1. Petugas input jimpitan warga.
+2. Petugas melakukan setor batch -> status `PENDING`.
+3. Approver `Admin Jimpitan` (atau role setara yang diizinkan) melakukan approval.
+4. Sistem membentuk transaksi kas masuk dengan status final `APPROVED`.
 
 ### Transfer Kas
 
-1. Dibuat oleh `Bendahara` (`PENDING`)
-2. Di-approve oleh `Ketua`/`Sekretaris`
+1. Dibuat oleh `Bendahara` -> `PENDING`.
+2. Disetujui oleh `Ketua` atau `Sekretaris`.
 
 ### Pengeluaran
 
-1. Dibuat oleh `Bendahara` (`PENDING`)
-2. Di-approve oleh `Ketua`/`Sekretaris`
+1. Dibuat oleh `Bendahara` -> `PENDING`.
+2. Disetujui oleh `Ketua` atau `Sekretaris`.
 
 ## Aturan Approval (Wajib)
 
-- Semua transaksi keuangan harus lewat status `PENDING` -> `APPROVED`.
-- Approval hanya sah jika:
-  - role approver sesuai hirarki
-  - jenis transaksi sesuai endpoint approve
-  - status transaksi masih `PENDING`
-- Tidak boleh ada perubahan saldo tanpa transaksi tercatat.
+- Semua transaksi finansial wajib lewat state machine `PENDING -> APPROVED`.
+- Approval valid hanya jika:
+  - Approver punya role yang sesuai hirarki.
+  - Endpoint approve sesuai jenis transaksi.
+  - Status data masih `PENDING` saat dieksekusi.
+- Dilarang mengubah saldo tanpa transaksi tercatat.
 
-## Auth & Ownership
+## Auth, Ownership, Audit
 
-- Semua endpoint sensitif wajib pakai JWT (`Authorization: Bearer <token>`).
-- Identitas pelaku diambil dari `req.user`, bukan dari body.
-- Audit minimal menyimpan `created_by`, `approved_by`, `approved_at`.
+- Endpoint sensitif wajib JWT (`Authorization: Bearer <token>`).
+- Pelaku (`created_by`) dan approver (`approved_by`) harus bersumber dari `req.user`, bukan request body.
+- Audit minimum yang wajib ada:
+  - `created_by`
+  - `approved_by`
+  - `approved_at`
 
-## Frontend Rules
+## Arsitektur Frontend-Backend
 
-- Frontend di-serve dari backend Node yang sama (`localhost:3005` saat lokal).
-- `jimpitan.html` dan `index.html` memakai sesi:
+- Frontend berjalan sebagai aplikasi Next.js pada folder `frontend`.
+- Backend berjalan sebagai service API Node.js pada folder `backend`.
+- Frontend memakai env `NEXT_PUBLIC_API_URL` untuk mengakses backend.
+- Session frontend disimpan dengan key:
   - `kasrt_token`
   - `kasrt_user`
 
-## Telegram
+## Integrasi Telegram
 
 - Notifikasi approval dikirim berdasarkan role approver.
-- Aktivasi Telegram user dilakukan lewat link `/start kasrt_<kode>` dari dashboard.
+- Aktivasi Telegram dilakukan lewat link `/start kasrt_<kode>` dari dashboard.
 - Backend menyimpan `telegram_chat_id` setelah webhook valid.
+
+## Standar Perubahan Kode
+
+- Jangan bypass approval workflow demi shortcut implementasi.
+- Jangan pindahkan identitas actor ke payload client.
+- Pastikan setiap perubahan alur finansial tetap menjaga jejak audit.
+- Setiap endpoint baru terkait finansial harus mengikuti pola role check + pending check + audit update.

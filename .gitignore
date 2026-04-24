@@ -10,15 +10,15 @@
 # =========================
 node_modules/
 backend/node_modules/
-frontend-next/node_modules/
+frontend/node_modules/
 
 # =========================
 # NEXT.JS (FRONTEND)
 # =========================
-frontend-next/.next/
-frontend-next/out/
-frontend-next/.env.local
-frontend-next/.env.production
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env.production
 
 # =========================
 # TYPESCRIPT
@@ -84,7 +84,7 @@ backend/sql/
 adopsi_ini.*
 
 # =========================
-# REMOVE (tidak perlu diignore)
+# IGNORE
 # =========================
-# .gitignore ❌ (hapus dari ignore)
-# AGENTS.md ❌ (biarkan masuk repo)
+.gitignore
+AGENTS.md

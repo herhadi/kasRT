@@ -2,8 +2,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 import authRoutes from './routes/auth.js';
 import jimpitanRoutes from './routes/jimpitan.js';
@@ -14,9 +12,6 @@ import approvalRoutes from './routes/approval.js';
 
 const app = express();
 const PORT = process.env.PORT;
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const frontendDir = path.resolve(__dirname, '../frontend');
 
 app.use(cors());
 app.use(express.json());
@@ -36,10 +31,11 @@ app.get('/api/cron', (_req, res) => {
   });
 });
 
-app.use(express.static(frontendDir));
-
 app.get('/', (_req, res) => {
-  res.sendFile(path.join(frontendDir, 'login.html'));
+  res.json({
+    success: true,
+    message: 'KasRT Backend API aktif'
+  });
 });
 
 app.use((err, _req, res, _next) => {

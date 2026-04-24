@@ -13,6 +13,8 @@ import { formatRupiah } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { JimpitanListItem } from '@/types';
 
+type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
+
 export default function JimpitanPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function JimpitanPage() {
   const [selected, setSelected] = useState<JimpitanListItem | null>(null);
   const [error, setError] = useState('');
   const [setorLoading, setSetorLoading] = useState(false);
+  const [filter, setFilter] = useState<FilterStatus>('semua');
 
   const [topupWargaId, setTopupWargaId] = useState('');
   const [topupNominal, setTopupNominal] = useState('');
@@ -43,6 +46,22 @@ export default function JimpitanPage() {
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
+
+  const operationalDate = useMemo(() => {
+    const now = new Date();
+    const hour = now.getHours();
+    const date = new Date(now);
+    // Operational day ends at 12:00 (noon) the next day
+    if (hour < 12) {
+      date.setDate(date.getDate() - 1);
+    }
+    return date.toLocaleDateString('id-ID', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  }, []);
 
   const loadList = useCallback(async () => {
     try {
@@ -79,7 +98,6 @@ export default function JimpitanPage() {
         const isDepositMarker = ['deposit', 'sistem (saldo)'].includes(String(row.namaPetugas || '').toLowerCase());
         const isTunai = row.isLunas && Number(row.nominalTerbayar || 0) > 0 && !isDepositMarker;
 
-        // Samakan perilaku frontend lama: total setor hanya uang tunai yang diinput oleh petugas login.
         if (isTunai && String(row.namaPetugas || '') === String(user?.nama || '')) {
           acc.total += Number(row.nominalTerbayar || 0);
         }
@@ -96,6 +114,19 @@ export default function JimpitanPage() {
       return row.isLunas && Number(row.nominalTerbayar || 0) > 0 && marker !== 'deposit' && marker !== 'sistem (saldo)';
     });
   }, [items]);
+
+  const filteredItems = useMemo(() => {
+    switch (filter) {
+      case 'belum':
+        return items.filter((row) => !row.isLunas);
+      case 'lunas':
+        return items.filter((row) => row.isLunas && row.nominalTerbayar > 0);
+      case 'kosong':
+        return items.filter((row) => row.isLunas && row.nominalTerbayar === 0);
+      default:
+        return items;
+    }
+  }, [items, filter]);
 
   async function submitInput(nominal: number) {
     if (!selected) return;
@@ -272,6 +303,8 @@ export default function JimpitanPage() {
     if (row.isLunas) return;
     const roles = (user?.roles || []).map((role) => String(role).trim().toLowerCase());
     const isRoot = roles.includes('root');
+    
+    // Input only allowed between 21:00 - 06:00
     const hour = new Date().getHours();
     const isOperationalHour = hour >= 21 || hour < 6;
 
@@ -286,7 +319,7 @@ export default function JimpitanPage() {
   if (loading || !user) return <main className="min-h-screen" />;
 
   return (
-    <main className="min-h-screen pb-10">
+    <main className="min-h-screen pb-20 md:pb-10">
       <div className="pointer-events-none fixed left-1/2 top-4 z-[100] flex w-full max-w-md -translate-x-1/2 flex-col gap-2 px-4">
         {toasts.map((toast) => (
           <div
@@ -295,7 +328,7 @@ export default function JimpitanPage() {
               toast.kind === 'success'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                 : toast.kind === 'warning'
-                  ? 'border-amber-200 bg-amber-50 text-amber-800'
+                  ? 'border-amber-200 bg-amber-50 text-amber-700'
                   : 'border-red-200 bg-red-50 text-red-800'
             }`}
           >
@@ -306,29 +339,90 @@ export default function JimpitanPage() {
 
       <Navbar />
 
-      <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-
-        <section className="grid gap-4 md:grid-cols-4">
-          <Stat title="Lunas" value={String(stats.lunas)} />
-          <Stat title="Kosong" value={String(stats.kosong)} />
-          <Stat title="Belum" value={String(stats.belum)} />
-          <Stat title="Pendapatan" value={formatRupiah(stats.total)} />
-        </section>
-
-        <Card title="Aksi Setor" subtitle="Setor uang tunai ke Admin Jimpitan">
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handleSetor} disabled={setorLoading || stats.total <= 0}>
-              {setorLoading ? 'Memproses Setor...' : 'Setor ke Admin Jimpitan'}
-            </Button>
-            {hasTunaiData ? (
-              <Button variant="ghost" onClick={handleKirimRekapWA}>
-                Kirim Rekap WA
-              </Button>
-            ) : null}
+      <div className="sticky top-[73px] z-40 border-b border-gray-200 bg-white/95 backdrop-blur-lg px-4 py-3 md:px-6">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500">Operasional</p>
+              <p className="text-sm font-semibold text-gray-700">{operationalDate}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <p className="text-[10px] font-medium text-gray-500">Belum</p>
+                <p className="text-lg font-bold text-red-600">{stats.belum}</p>
+              </div>
+              <div className="h-8 w-px bg-gray-300" />
+              <div className="text-center">
+                <p className="text-[10px] font-medium text-gray-500">Lunas</p>
+                <p className="text-lg font-bold text-emerald-600">{stats.lunas}</p>
+              </div>
+              <div className="h-8 w-px bg-gray-300" />
+              <div className="text-center">
+                <p className="text-[10px] font-medium text-gray-500">Kosong</p>
+                <p className="text-lg font-bold text-gray-600">{stats.kosong}</p>
+              </div>
+              <div className="h-8 w-px bg-gray-300" />
+              <div className="text-center">
+                <p className="text-[10px] font-medium text-gray-500">Pendapatan</p>
+                <p className="text-lg font-bold text-blue-600">{formatRupiah(stats.total)}</p>
+              </div>
+            </div>
           </div>
-          <p className="mt-3 text-sm text-[var(--text-muted)]">Total tunai siap setor: {formatRupiah(stats.total)}</p>
-        </Card>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(['semua', 'belum', 'lunas', 'kosong'] as FilterStatus[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`flex-1 min-w-[80px] rounded-full px-3 py-1.5 text-xs font-semibold text-center transition ${
+                  filter === f
+                    ? 'bg-[var(--accent)] text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:shadow-sm'
+                }`}
+              >
+                {f === 'semua' ? `Semua (${items.length})` :
+                 f === 'belum' ? `Belum (${stats.belum})` :
+                 f === 'lunas' ? `Lunas (${stats.lunas})` :
+                 `Kosong (${stats.kosong})`}
+              </button>
+            ))}
+          </div>
+      </div>
+    </div>
+
+      {/* Buttons placed above the card warga list */}
+      <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
+        <div className="flex gap-3 pt-4">
+          {hasTunaiData ? (
+            <Button
+              variant="ghost"
+              className="flex-1 rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100 hover:shadow-md"
+              onClick={handleKirimRekapWA}
+            >
+              <span className="mr-2">📤</span>
+              Kirim Rekap WA
+            </Button>
+          ) : null}
+          
+          <Button
+            onClick={handleSetor}
+            disabled={setorLoading || stats.total <= 0}
+            className="flex-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {setorLoading ? (
+              <span>Memproses...</span>
+            ) : (
+              <span>
+                <span className="mr-2">💰</span>
+                Setor {formatRupiah(stats.total)}
+              </span>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
+        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         {isAdminJimpitan ? (
           <Card title="Top Up Saldo Warga" subtitle="Khusus Admin Jimpitan / root">
@@ -367,9 +461,12 @@ export default function JimpitanPage() {
           </Card>
         ) : null}
 
-        <Card title="Daftar Warga" subtitle="Klik warga yang belum lunas untuk input jimpitan">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {items.map((row) => {
+        <div>
+          <p className="mb-2 text-sm font-semibold text-gray-600">
+            Daftar Warga ({filteredItems.length})
+          </p>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {filteredItems.map((row) => {
               const marker = String(row.namaPetugas || '').toLowerCase();
               const canEditByAdmin =
                 isAdminJimpitan &&
@@ -394,7 +491,7 @@ export default function JimpitanPage() {
                 <article
                   key={row.id}
                   onClick={!row.isLunas ? () => handleCardClick(row) : undefined}
-                  className={`rounded-2xl border p-4 text-left transition ${
+                  className={`rounded-2xl border p-3 text-left transition ${
                     row.isLunas && Number(row.nominalTerbayar || 0) > 0
                       ? 'border-emerald-200 bg-emerald-50/70'
                       : row.isLunas
@@ -402,11 +499,11 @@ export default function JimpitanPage() {
                         : 'cursor-pointer border-[var(--line)] bg-white/75 hover:border-[var(--accent)] hover:shadow-lg'
                   }`}
                 >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold">{row.nama}</p>
+                <div className="flex items-start justify-between gap-1">
+                  <p className="font-semibold text-sm leading-tight">{row.nama}</p>
                   {statusLabel ? (
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ${
+                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap ${
                         statusLabel === 'APPROVED'
                           ? 'bg-emerald-100 text-emerald-700'
                           : statusLabel === 'PENDING APPROVAL'
@@ -418,21 +515,13 @@ export default function JimpitanPage() {
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">
-                  Status:{' '}
-                  {row.isLunas
-                    ? Number(row.nominalTerbayar || 0) > 0
-                      ? 'LUNAS'
-                      : 'KOSONG'
-                    : 'BELUM'}
-                </p>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">Saran: {formatRupiah(row.nominalSaran)}</p>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">Saldo: {formatRupiah(row.saldo)}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Saran: {formatRupiah(row.nominalSaran)}</p>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">Saldo: {formatRupiah(row.saldo)}</p>
                 {canEditByAdmin ? (
-                  <div className="mt-3">
+                  <div className="mt-2">
                     <Button
                       variant="ghost"
-                      className="w-full"
+                      className="w-full text-xs py-1"
                       onClick={(event) => {
                         event.stopPropagation();
                         setEditTarget(row);
@@ -443,15 +532,15 @@ export default function JimpitanPage() {
                     </Button>
                   </div>
                 ) : isAdminJimpitan && row.isLunas && row.namaPetugas ? (
-                  <p className="mt-3 text-xs text-[var(--text-muted)]">
-                    Nominal tidak bisa diedit karena status sudah APPROVED.
+                  <p className="mt-2 text-[10px] text-[var(--text-muted)]">
+                    APPROVED
                   </p>
                 ) : null}
                 </article>
               );
             })}
           </div>
-        </Card>
+        </div>
       </div>
 
       <FormJimpitan selected={selected} onSubmit={submitInput} onClose={() => setSelected(null)} />
@@ -497,14 +586,5 @@ export default function JimpitanPage() {
         </div>
       ) : null}
     </main>
-  );
-}
-
-function Stat({ title, value }: { title: string; value: string }) {
-  return (
-    <article className="glass-card rounded-3xl p-5">
-      <p className="text-sm text-[var(--text-muted)]">{title}</p>
-      <p className="metric-value mt-2 text-2xl font-bold text-[var(--accent)]">{value}</p>
-    </article>
   );
 }

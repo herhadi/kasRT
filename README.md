@@ -1,67 +1,71 @@
 # KasRT
 
-KasRT adalah sistem pengelolaan kas RT berbasis Node.js + PostgreSQL (Neon) dengan workflow approval bertingkat.
+KasRT adalah sistem kas RT dengan frontend Next.js dan backend Node.js + PostgreSQL.
 
-## Menjalankan Lokal (Tanpa `serve`)
+## Struktur Project
 
-Semua dijalankan dari backend Node saja.
+- `backend` -> API, auth JWT, approval workflow, integrasi Telegram.
+- `frontend` -> aplikasi Next.js (App Router) untuk login, dashboard, jimpitan, dan approval.
 
+## Workflow Bisnis
+
+1. Jimpitan
+- Petugas input jimpitan warga.
+- Petugas setor batch (status `PENDING`).
+- `Admin Jimpitan` melakukan approve.
+- Sistem mencatat transaksi kas masuk (`IN`, `APPROVED`).
+
+2. Transfer kas
+- Dibuat `Bendahara` (`PENDING`).
+- Di-approve `Ketua` atau `Sekretaris`.
+
+3. Pengeluaran
+- Dibuat `Bendahara` (`PENDING`).
+- Di-approve `Ketua` atau `Sekretaris`.
+
+## Menjalankan Lokal
+
+1. Jalankan backend:
 ```bash
 cd backend
 npm install
 npm start
 ```
 
-Akses dari browser:
-- `http://localhost:3005/` -> login
-- `http://localhost:3005/index.html` -> dashboard
-- `http://localhost:3005/jimpitan.html` -> input jimpitan
-
-## Status Frontend
-
-- `index.html` (dashboard) sudah aktif dan pakai JWT.
-- `jimpitan.html` sudah disesuaikan ke API Node saat ini:
-  - `GET /jimpitan/list` (dengan Bearer token)
-  - `POST /jimpitan/input` (dengan Bearer token)
-  - `POST /jimpitan/setor` (dengan Bearer token)
-- `jimpitan.html` membaca sesi dari:
-  - `kasrt_token`
-  - `kasrt_user`
-
-## Approval Bertingkat
-
-- Jimpitan: input/setor -> `PENDING` -> approve oleh `Admin Jimpitan` / `Admin`
-- Transfer: dibuat oleh `Bendahara` -> approve `Ketua` / `Sekretaris`
-- Pengeluaran: dibuat oleh `Bendahara` -> approve `Ketua` / `Sekretaris`
-
-Semua approval hanya berlaku untuk transaksi `PENDING` dan jenis transaksi yang benar.
-
-## Telegram Notification
-
-### Env wajib
-
-```env
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_BOT_USERNAME=
-TELEGRAM_WEBHOOK_SECRET=
+2. Jalankan frontend (terminal terpisah):
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-### Migrasi SQL
+3. Set environment frontend lokal (`frontend/.env.local`):
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3005
+NEXT_PUBLIC_WA_ADMIN=628xxxxxxxxxx
+```
 
-Jalankan:
-- `backend/sql/2026-04-21-jimpitan-adopsi-gas.sql`
-- `backend/sql/2026-04-21-telegram-chat-id.sql`
-- `backend/sql/2026-04-21-telegram-link-tokens.sql`
+## Deploy ke Render
 
-### Flow aktivasi Telegram user
+Deploy menggunakan `render.yaml` dengan 2 service:
 
-1. User login dashboard
-2. Klik `Aktifkan Telegram`
-3. Browser membuka bot Telegram (`/start kasrt_<kode>`)
-4. Webhook `POST /telegram/webhook` menyimpan `users.telegram_chat_id`
+1. `kasrt-backend`
+- Root: `backend`
+- Env wajib:
+  - `DATABASE_URL`
+  - `JWT_SECRET`
+  - `TELEGRAM_BOT_TOKEN`
+  - `TELEGRAM_BOT_USERNAME`
+  - `TELEGRAM_WEBHOOK_SECRET`
 
-## Render Deploy
+2. `kasrt-frontend`
+- Root: `frontend`
+- Env wajib:
+  - `NEXT_PUBLIC_API_URL` (isi URL service backend Render, contoh `https://kasrt-backend.onrender.com`)
+  - `NEXT_PUBLIC_WA_ADMIN`
 
-Blueprint tersedia di `render.yaml`.
+## Catatan API
 
-Sebelum deploy, pastikan env var production sudah diisi di Render.
+- Semua endpoint sensitif pakai JWT: `Authorization: Bearer <token>`.
+- Identitas actor diambil dari `req.user`.
+- Endpoint root backend (`/`) hanya untuk info status API.

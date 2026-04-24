@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: kalisalakrt02
+    name: kasrt-backend
     runtime: node
     region: singapore
     rootDir: backend
@@ -22,4 +22,21 @@ services:
       - key: TELEGRAM_BOT_USERNAME
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+
+  - type: web
+    name: kasrt-frontend
+    runtime: node
+    region: singapore
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_WA_ADMIN
         sync: false
