@@ -1,5 +1,53 @@
 import { pool } from '../db.js';
 
+export async function ensureJimpitanScheduleColumns() {
+  await pool.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS jimpitan_shift_hari SMALLINT
+  `);
+}
+
+export async function getUserJimpitanShiftHari(userId) {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `SELECT jimpitan_shift_hari
+     FROM users
+     WHERE id = $1`,
+    [userId]
+  );
+
+  if (result.rows.length === 0) return null;
+  const value = result.rows[0].jimpitan_shift_hari;
+  return value === null ? null : Number(value);
+}
+
+async function getCurrentMonthSaldoByWarga(client, wargaId, referenceDate = null) {
+  const refDateParam = referenceDate ? `${referenceDate}` : null;
+  const result = await client.query(
+    `WITH bulan_ref AS (
+       SELECT DATE_TRUNC('month', COALESCE($2::date, CURRENT_DATE)) AS month_start
+     ),
+     total_detail AS (
+       SELECT COALESCE(SUM(jd.nominal), 0) AS total
+       FROM jimpitan_details jd
+       CROSS JOIN bulan_ref br
+       WHERE jd.warga_id = $1
+         AND DATE_TRUNC('month', jd.tanggal::date) = br.month_start
+     ),
+     total_topup AS (
+       SELECT COALESCE(SUM(jt.nominal), 0) AS total
+       FROM jimpitan_topups jt
+       CROSS JOIN bulan_ref br
+       WHERE jt.warga_id = $1
+         AND DATE_TRUNC('month', jt.created_at::date) = br.month_start
+     )
+     SELECT (SELECT total FROM total_detail) + (SELECT total FROM total_topup) AS saldo_bulan_ini`,
+    [wargaId, refDateParam]
+  );
+
+  return Number(result.rows[0]?.saldo_bulan_ini || 0);
+}
+
 export async function createJimpitanDraftAndUpdateSaldo({ wargaId, nominal, tanggal, petugasId }) {
   const client = await pool.connect();
   try {
@@ -204,11 +252,27 @@ export async function listJimpitanByOperationalDate(operationalDate) {
        LEFT JOIN jimpitan_batches jb ON jb.id = jbi.batch_id
        WHERE jd.tanggal = $1::date
        ORDER BY jd.warga_id, jd.created_at DESC
+     ),
+     monthly_detail AS (
+       SELECT
+         jd.warga_id,
+         COALESCE(SUM(jd.nominal), 0) AS total_detail_bulan_ini
+       FROM jimpitan_details jd
+       WHERE DATE_TRUNC('month', jd.tanggal::date) = DATE_TRUNC('month', $1::date)
+       GROUP BY jd.warga_id
+     ),
+     monthly_topup AS (
+       SELECT
+         jt.warga_id,
+         COALESCE(SUM(jt.nominal), 0) AS total_topup_bulan_ini
+       FROM jimpitan_topups jt
+       WHERE DATE_TRUNC('month', jt.created_at::date) = DATE_TRUNC('month', $1::date)
+       GROUP BY jt.warga_id
      )
      SELECT
        u.id,
        u.nama,
-       COALESCE(u.jimpitan_saldo, 0) AS saldo,
+       COALESCE(md.total_detail_bulan_ini, 0) + COALESCE(mt.total_topup_bulan_ini, 0) AS saldo,
        COALESCE(dn.nominal_hari_ini, 0) AS nominal_hari_ini,
        p.nama AS petugas,
        dli.detail_status,
@@ -217,11 +281,47 @@ export async function listJimpitanByOperationalDate(operationalDate) {
      LEFT JOIN daily_nominal dn ON dn.warga_id = u.id
      LEFT JOIN daily_petugas dp ON dp.warga_id = u.id
      LEFT JOIN daily_latest_input dli ON dli.warga_id = u.id
+     LEFT JOIN monthly_detail md ON md.warga_id = u.id
+     LEFT JOIN monthly_topup mt ON mt.warga_id = u.id
      LEFT JOIN users p ON p.id = dp.petugas_id
      ORDER BY u.nama ASC`,
     [operationalDate]
   );
   return result.rows;
+}
+
+export async function listJimpitanWeeklySchedule() {
+  await ensureJimpitanScheduleColumns();
+
+  const petugasResult = await pool.query(
+    `SELECT DISTINCT
+       u.id,
+       u.nama,
+       u.jimpitan_shift_hari
+     FROM users u
+     JOIN user_roles ur ON ur.user_id = u.id
+     JOIN roles r ON r.id = ur.role_id
+     WHERE LOWER(r.name) IN ('petugas jimpitan', 'root')
+     ORDER BY u.nama ASC`
+  );
+
+  return {
+    petugas: petugasResult.rows
+  };
+}
+
+export async function updatePetugasShiftHari({ userId, shiftHari }) {
+  await ensureJimpitanScheduleColumns();
+
+  const result = await pool.query(
+    `UPDATE users
+     SET jimpitan_shift_hari = $1
+     WHERE id = $2
+     RETURNING id, nama, jimpitan_shift_hari`,
+    [shiftHari, userId]
+  );
+
+  return result.rows[0] || null;
 }
 
 export async function topUpJimpitanSaldo({ wargaId, nominal, adminId, note = null }) {
@@ -234,7 +334,7 @@ export async function topUpJimpitanSaldo({ wargaId, nominal, adminId, note = nul
       throw new Error('Warga tidak ditemukan');
     }
 
-    const saldoResult = await client.query(
+    await client.query(
       `UPDATE users
        SET jimpitan_saldo = COALESCE(jimpitan_saldo, 0) + $1
        WHERE id = $2
@@ -248,8 +348,10 @@ export async function topUpJimpitanSaldo({ wargaId, nominal, adminId, note = nul
       [wargaId, nominal, adminId, note]
     );
 
+    const saldoBulanIni = await getCurrentMonthSaldoByWarga(client, wargaId);
+
     await client.query('COMMIT');
-    return Number(saldoResult.rows[0].jimpitan_saldo);
+    return saldoBulanIni;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -304,7 +406,7 @@ export async function editNominalJimpitanByAdmin({ wargaId, nominalBaru, tanggal
       [nominalBaru, detail.id]
     );
 
-    const saldoResult = await client.query(
+    await client.query(
       `UPDATE users
        SET jimpitan_saldo = COALESCE(jimpitan_saldo, 0) + $1
        WHERE id = $2
@@ -321,13 +423,15 @@ export async function editNominalJimpitanByAdmin({ wargaId, nominalBaru, tanggal
       );
     }
 
+    const saldoBulanIni = await getCurrentMonthSaldoByWarga(client, detail.warga_id, tanggalOperasional);
+
     await client.query('COMMIT');
     return {
       detail_id: detail.id,
       nominal_lama: nominalLama,
       nominal_baru: nominalBaru,
       delta,
-      saldo_akhir: Number(saldoResult.rows[0]?.jimpitan_saldo || 0),
+      saldo_akhir: saldoBulanIni,
       batch_id: detail.batch_id || null
     };
   } catch (error) {
@@ -338,19 +442,14 @@ export async function editNominalJimpitanByAdmin({ wargaId, nominalBaru, tanggal
   }
 }
 
-export async function resetBulananJimpitanSaldo(targetBulanan) {
+export async function resetBulananJimpitanSaldo(_targetBulanan) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    await client.query(
-      `UPDATE users
-       SET jimpitan_saldo = CASE
-         WHEN COALESCE(jimpitan_saldo, 0) >= $1 THEN COALESCE(jimpitan_saldo, 0) - $1
-         ELSE 0
-       END`,
-      [targetBulanan]
-    );
+    // Saldo jimpitan dihitung per bulan dari transaksi/topup bulan berjalan.
+    // Nilai kolom users.jimpitan_saldo dinolkan untuk menjaga konsistensi data lama.
+    await client.query(`UPDATE users SET jimpitan_saldo = 0`);
 
     await client.query('COMMIT');
   } catch (error) {

@@ -50,6 +50,14 @@ export type JimpitanListItem = {
   canEditNominal?: boolean;
 };
 
+export type JimpitanScheduleData = {
+  petugas: Array<{
+    id: number;
+    nama: string;
+    jimpitan_shift_hari: number | null;
+  }>;
+};
+
 export type PendingApprovalItem = {
   kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE';
   id: string | number;

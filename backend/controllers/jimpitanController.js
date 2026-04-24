@@ -7,10 +7,13 @@ import {
   editNominalJimpitanByAdmin,
   findBatchCreator,
   getApprovedBatchRecapByMonth,
+  getUserJimpitanShiftHari,
   listJimpitanByOperationalDate,
+  listJimpitanWeeklySchedule,
   listWargaTotalsInBatch,
   resetBulananJimpitanSaldo,
-  topUpJimpitanSaldo
+  topUpJimpitanSaldo,
+  updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
 
 const TARGET_BULANAN = 15000;
@@ -38,6 +41,27 @@ function getOperationalDate(now = new Date()) {
   }
   opDate.setHours(0, 0, 0, 0);
   return opDate;
+}
+
+function getOperationalWeekdayNumber(date) {
+  return date.getDay() + 1;
+}
+
+async function getShiftAccessContext(userId, roles, operationalDate) {
+  const normalizedRoles = (roles || []).map((role) => String(role).trim().toLowerCase());
+  const isRoot = normalizedRoles.includes('root');
+  const isAdminJimpitan = normalizedRoles.includes('admin jimpitan');
+  const isBypassRole = isRoot || isAdminJimpitan;
+  const shiftHari = await getUserJimpitanShiftHari(userId);
+  const hariOperasional = getOperationalWeekdayNumber(operationalDate);
+  const canOperate = isBypassRole || (shiftHari !== null && shiftHari === hariOperasional);
+
+  return {
+    shiftHari,
+    hariOperasional,
+    canOperate,
+    isBypassRole
+  };
 }
 
 function canInputByTime(userRoles = [], now = new Date()) {
@@ -87,6 +111,8 @@ export async function inputJimpitan(req, res) {
     });
   }
   
+  const tanggalOperasional = getOperationalDate();
+
   if (!canInputByTime(roles)) {
     if (debug) console.log('[JIMPITAN][INPUT] reject: outside operational time');
     return res.status(403).json({
@@ -94,13 +120,19 @@ export async function inputJimpitan(req, res) {
       message: 'JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00 untuk non-admin.'
     });
   }
+
+  const access = await getShiftAccessContext(petugas_id, roles, tanggalOperasional);
+  if (!access.canOperate) {
+    return res.status(403).json({
+      success: false,
+      message: `Akses input ditolak. Shift Anda hari ${access.shiftHari || '-'}, sedangkan hari operasional saat ini ${access.hariOperasional}.`
+    });
+  }
   
   const nilaiNominal = Number(nominal || 0);
   if (nilaiNominal < 0) {
     return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
   }
-  
-  const tanggalOperasional = getOperationalDate();
   
   try {
     await createJimpitanDraftAndUpdateSaldo({
@@ -132,6 +164,15 @@ export async function setorJimpitan(req, res) {
     console.log('[JIMPITAN][SETOR] start', {
       petugas_id,
       detail_ids_count: inputDetailIds ? inputDetailIds.length : 0
+    });
+  }
+
+  const operationalDate = getOperationalDate();
+  const access = await getShiftAccessContext(petugas_id, req.user.roles || [], operationalDate);
+  if (!access.canOperate) {
+    return res.status(403).json({
+      success: false,
+      message: `Akses setor ditolak. Shift Anda hari ${access.shiftHari || '-'}, sedangkan hari operasional saat ini ${access.hariOperasional}.`
     });
   }
   
@@ -217,6 +258,7 @@ export async function listJimpitan(req, res) {
   try {
     const operationalDate = getOperationalDate();
     const hariKe = operationalDate.getDate();
+    const access = await getShiftAccessContext(req.user.user_id, req.user.roles || [], operationalDate);
     
     const rows = await listJimpitanByOperationalDate(operationalDate.toISOString().slice(0, 10));
     const data = rows.map((row) => {
@@ -251,10 +293,46 @@ export async function listJimpitan(req, res) {
     return res.json({
       success: true,
       operational_date: operationalDate,
+      operational_day: access.hariOperasional,
+      viewer_shift_day: access.shiftHari,
+      can_operate_today: access.canOperate,
       data
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+export async function getJimpitanSchedule(_req, res) {
+  try {
+    const data = await listJimpitanWeeklySchedule();
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function setPetugasShift(req, res) {
+  const userId = Number(req.body.user_id);
+  const shiftHariRaw = req.body.shift_hari;
+  const shiftHari = shiftHariRaw === null || shiftHariRaw === '' ? null : Number(shiftHariRaw);
+
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return res.status(400).json({ success: false, message: 'user_id tidak valid' });
+  }
+
+  if (shiftHari !== null && (!Number.isInteger(shiftHari) || shiftHari < 1 || shiftHari > 7)) {
+    return res.status(400).json({ success: false, message: 'shift_hari harus 1-7 atau null' });
+  }
+
+  try {
+    const row = await updatePetugasShiftHari({ userId, shiftHari });
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'User petugas tidak ditemukan' });
+    }
+    return res.json({ success: true, data: row });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 }
 

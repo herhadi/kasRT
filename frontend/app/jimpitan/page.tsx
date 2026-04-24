@@ -11,9 +11,19 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
-import { JimpitanListItem } from '@/types';
+import { JimpitanListItem, JimpitanScheduleData } from '@/types';
 
 type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
+
+const WEEKLY_SCHEDULE_DAYS = [
+  { key: 'ahad', label: 'Ahad' },
+  { key: 'senin', label: 'Senin' },
+  { key: 'selasa', label: 'Selasa' },
+  { key: 'rabu', label: 'Rabu' },
+  { key: 'kamis', label: 'Kamis' },
+  { key: 'jumat', label: "Jum'at" },
+  { key: 'sabtu', label: 'Sabtu' }
+] as const;
 
 export default function JimpitanPage() {
   const { user, loading } = useAuth();
@@ -32,6 +42,8 @@ export default function JimpitanPage() {
   const [editTarget, setEditTarget] = useState<JimpitanListItem | null>(null);
   const [editNominal, setEditNominal] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [scheduleData, setScheduleData] = useState<JimpitanScheduleData | null>(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
 
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
 
@@ -80,40 +92,70 @@ export default function JimpitanPage() {
     }
   }, []);
 
+  const loadSchedule = useCallback(async () => {
+    try {
+      setScheduleLoading(true);
+      const result = await apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule');
+      setScheduleData(result.data);
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : 'Gagal memuat jadwal jimpitan', 'error');
+    } finally {
+      setScheduleLoading(false);
+    }
+  }, [pushToast]);
+
   useEffect(() => {
     if (!user) return;
     const timer = window.setTimeout(() => {
       void loadList();
+      void loadSchedule();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [user, loadList]);
+  }, [user, loadList, loadSchedule]);
 
-  const stats = useMemo(() => {
-    return items.reduce(
-      (acc, row) => {
-        if (row.isLunas && row.nominalTerbayar > 0) acc.lunas += 1;
-        else if (row.isLunas) acc.kosong += 1;
-        else acc.belum += 1;
+  const recapData = useMemo(() => {
+    const normalizedUserName = String(user?.nama || '').trim().toLowerCase();
+    const stats = { lunas: 0, kosong: 0, belum: 0 };
+    const petugasBreakdown: Record<string, number> = {};
+    let totalSemuaTunai = 0;
+    let totalTunaiSaya = 0;
+    let sayaPernahInputHariIni = false;
 
-        const isDepositMarker = ['deposit', 'sistem (saldo)'].includes(String(row.namaPetugas || '').toLowerCase());
-        const isTunai = row.isLunas && Number(row.nominalTerbayar || 0) > 0 && !isDepositMarker;
+    items.forEach((row) => {
+      if (row.isLunas && row.nominalTerbayar > 0) stats.lunas += 1;
+      else if (row.isLunas) stats.kosong += 1;
+      else stats.belum += 1;
 
-        if (isTunai && String(row.namaPetugas || '') === String(user?.nama || '')) {
-          acc.total += Number(row.nominalTerbayar || 0);
-        }
+      const marker = String(row.namaPetugas || '').toLowerCase();
+      const isDeposit = marker === 'deposit' || marker === 'sistem (saldo)';
+      const namaPetugas = String(row.namaPetugas || '').trim();
+      const nominal = Number(row.nominalTerbayar || 0);
+      const isTunai = row.isLunas && nominal > 0 && !isDeposit && namaPetugas !== '';
 
-        return acc;
-      },
-      { lunas: 0, kosong: 0, belum: 0, total: 0 }
-    );
+      if (namaPetugas && !isDeposit && marker === normalizedUserName) {
+        sayaPernahInputHariIni = true;
+      }
+
+      if (!isTunai) return;
+
+      totalSemuaTunai += nominal;
+      petugasBreakdown[namaPetugas] = (petugasBreakdown[namaPetugas] || 0) + nominal;
+      if (marker === normalizedUserName) {
+        totalTunaiSaya += nominal;
+      }
+    });
+
+    return {
+      ...stats,
+      totalSemuaTunai,
+      totalTunaiSaya,
+      sayaPernahInputHariIni,
+      petugasBreakdown
+    };
   }, [items, user?.nama]);
 
-  const hasTunaiData = useMemo(() => {
-    return items.some((row) => {
-      const marker = String(row.namaPetugas || '').toLowerCase();
-      return row.isLunas && Number(row.nominalTerbayar || 0) > 0 && marker !== 'deposit' && marker !== 'sistem (saldo)';
-    });
-  }, [items]);
+  const canKirimRekap = recapData.sayaPernahInputHariIni;
+  const canSetor = recapData.totalTunaiSaya > 0;
 
   const filteredItems = useMemo(() => {
     switch (filter) {
@@ -145,12 +187,12 @@ export default function JimpitanPage() {
   }
 
   async function handleSetor() {
-    if (stats.total <= 0) {
+    if (!canSetor) {
       pushToast('Belum ada uang tunai yang bisa disetor.', 'warning');
       return;
     }
 
-    if (!window.confirm(`Setorkan dana ${formatRupiah(stats.total)} ke Admin Jimpitan?`)) {
+    if (!window.confirm(`Setorkan dana ${formatRupiah(recapData.totalTunaiSaya)} ke Admin Jimpitan?`)) {
       return;
     }
 
@@ -167,6 +209,11 @@ export default function JimpitanPage() {
   }
 
   function handleKirimRekapWA() {
+    if (!canKirimRekap) {
+      pushToast('Hanya petugas yang input pada hari operasional ini yang bisa kirim rekap WA.', 'warning');
+      return;
+    }
+
     if (!items.length) {
       pushToast('Data warga tidak ditemukan.', 'warning');
       return;
@@ -211,6 +258,12 @@ export default function JimpitanPage() {
 
     pesan += '\\n━━━━━━━━━━━━━━━\\n';
     pesan += `💰 *TOTAL TUNAI: ${formatRupiah(totalTunai)}*\\n`;
+    pesan += '👥 *DETAIL PETUGAS:*\\n';
+    Object.entries(recapData.petugasBreakdown)
+      .sort((a, b) => a[0].localeCompare(b[0], 'id'))
+      .forEach(([namaPetugas, subtotal]) => {
+        pesan += `   • ${namaPetugas}: ${formatRupiah(subtotal)}\\n`;
+      });
     pesan += '📊 *STATISTIK:*\\n';
     pesan += `   ✅ Lunas (Tunai): ${wargaTunai}\\n`;
     pesan += `   🏦 Lunas (Deposit): ${wargaDeposit}\\n`;
@@ -299,6 +352,23 @@ export default function JimpitanPage() {
     }
   }
 
+  async function handleSetPetugasShift(userId: number, value: string) {
+    const shiftHari = value === '' ? null : Number(value);
+    try {
+      await apiFetch('/jimpitan/set-petugas-shift', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: userId,
+          shift_hari: shiftHari
+        })
+      });
+      await loadSchedule();
+      pushToast('Jadwal petugas berhasil diperbarui.', 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal update jadwal petugas', 'error');
+    }
+  }
+
   function handleCardClick(row: JimpitanListItem) {
     if (row.isLunas) return;
     const roles = (user?.roles || []).map((role) => String(role).trim().toLowerCase());
@@ -349,22 +419,22 @@ export default function JimpitanPage() {
             <div className="flex items-center gap-3">
               <div className="text-center">
                 <p className="text-[10px] font-medium text-gray-500">Belum</p>
-                <p className="text-lg font-bold text-red-600">{stats.belum}</p>
+                <p className="text-lg font-bold text-red-600">{recapData.belum}</p>
               </div>
               <div className="h-8 w-px bg-gray-300" />
               <div className="text-center">
                 <p className="text-[10px] font-medium text-gray-500">Lunas</p>
-                <p className="text-lg font-bold text-emerald-600">{stats.lunas}</p>
+                <p className="text-lg font-bold text-emerald-600">{recapData.lunas}</p>
               </div>
               <div className="h-8 w-px bg-gray-300" />
               <div className="text-center">
                 <p className="text-[10px] font-medium text-gray-500">Kosong</p>
-                <p className="text-lg font-bold text-gray-600">{stats.kosong}</p>
+                <p className="text-lg font-bold text-gray-600">{recapData.kosong}</p>
               </div>
               <div className="h-8 w-px bg-gray-300" />
               <div className="text-center">
                 <p className="text-[10px] font-medium text-gray-500">Pendapatan</p>
-                <p className="text-lg font-bold text-blue-600">{formatRupiah(stats.total)}</p>
+                <p className="text-lg font-bold text-blue-600">{formatRupiah(recapData.totalSemuaTunai)}</p>
               </div>
             </div>
           </div>
@@ -381,9 +451,9 @@ export default function JimpitanPage() {
                 }`}
               >
                 {f === 'semua' ? `Semua (${items.length})` :
-                 f === 'belum' ? `Belum (${stats.belum})` :
-                 f === 'lunas' ? `Lunas (${stats.lunas})` :
-                 `Kosong (${stats.kosong})`}
+                 f === 'belum' ? `Belum (${recapData.belum})` :
+                 f === 'lunas' ? `Lunas (${recapData.lunas})` :
+                 `Kosong (${recapData.kosong})`}
               </button>
             ))}
           </div>
@@ -393,20 +463,19 @@ export default function JimpitanPage() {
       {/* Buttons placed above the card warga list */}
       <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
         <div className="flex gap-3 pt-4">
-          {hasTunaiData ? (
-            <Button
-              variant="ghost"
-              className="flex-1 rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100 hover:shadow-md"
-              onClick={handleKirimRekapWA}
-            >
-              <span className="mr-2">📤</span>
-              Kirim Rekap WA
-            </Button>
-          ) : null}
+          <Button
+            variant="ghost"
+            className="flex-1 rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleKirimRekapWA}
+            disabled={!canKirimRekap}
+          >
+            <span className="mr-2">📤</span>
+            Kirim Rekap WA
+          </Button>
           
           <Button
             onClick={handleSetor}
-            disabled={setorLoading || stats.total <= 0}
+            disabled={setorLoading || !canSetor}
             className="flex-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {setorLoading ? (
@@ -414,10 +483,17 @@ export default function JimpitanPage() {
             ) : (
               <span>
                 <span className="mr-2">💰</span>
-                Setor {formatRupiah(stats.total)}
+                {canSetor ? `Setor ${formatRupiah(recapData.totalTunaiSaya)}` : 'Setor'}
               </span>
             )}
           </Button>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+          <p>Total pendapatan tunai semua petugas hari ini: <b>{formatRupiah(recapData.totalSemuaTunai)}</b></p>
+          <p className="mt-1">
+            Porsi setor Anda: <b>{formatRupiah(recapData.totalTunaiSaya)}</b> {canKirimRekap ? '' : '(Anda belum input pada hari operasional ini)'}
+          </p>
         </div>
       </div>
 
@@ -460,6 +536,33 @@ export default function JimpitanPage() {
             </div>
           </Card>
         ) : null}
+
+        <Card
+          title="Jadwal Petugas 1 Minggu"
+          subtitle={isAdminJimpitan ? 'Atur shift mingguan petugas dari database' : 'Jadwal operasional mingguan'}
+        >
+          <div className="space-y-3">
+            {scheduleLoading ? <p className="text-sm text-[var(--text-muted)]">Memuat jadwal...</p> : null}
+            {scheduleData?.petugas?.map((petugas) => (
+              <div key={petugas.id} className="grid items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 p-3 md:grid-cols-[1fr,180px]">
+                <p className="text-sm font-semibold">{petugas.nama}</p>
+                <select
+                  className="w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-sm"
+                  value={petugas.jimpitan_shift_hari ?? ''}
+                  disabled={!isAdminJimpitan}
+                  onChange={(event) => void handleSetPetugasShift(petugas.id, event.target.value)}
+                >
+                  <option value="">Belum diatur</option>
+                  {WEEKLY_SCHEDULE_DAYS.map((day, index) => (
+                    <option key={day.key} value={index + 1}>
+                      {day.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </Card>
 
         <div>
           <p className="mb-2 text-sm font-semibold text-gray-600">
@@ -516,7 +619,7 @@ export default function JimpitanPage() {
                   ) : null}
                 </div>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Saran: {formatRupiah(row.nominalSaran)}</p>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">Saldo: {formatRupiah(row.saldo)}</p>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">Saldo Bulan Ini: {formatRupiah(row.saldo)}</p>
                 {canEditByAdmin ? (
                   <div className="mt-2">
                     <Button

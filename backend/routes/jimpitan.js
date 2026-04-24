@@ -5,10 +5,12 @@ import {
   approveJimpitan,
   ajukanSetorKeBendahara,
   editNominalJimpitan,
+  getJimpitanSchedule,
   healthCheck,
   inputJimpitan,
   listJimpitan,
   resetBulananJimpitan,
+  setPetugasShift,
   setorJimpitan,
   topUpJimpitan
 } from '../controllers/jimpitanController.js';
@@ -69,5 +71,19 @@ router.post(
 );
 
 router.get('/list', auth, asyncHandler(listJimpitan));
+
+router.get(
+  '/schedule',
+  auth,
+  asyncHandler(getJimpitanSchedule)
+);
+
+router.post(
+  '/set-petugas-shift',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  validateRequiredFields(['user_id']),
+  asyncHandler(setPetugasShift)
+);
 
 export default router;
