@@ -28,3 +28,33 @@ export async function findUserRoles(userId) {
   );
   return result.rows.map((row) => row.name);
 }
+
+export async function listWargaDropdownOptions() {
+  const wargaResult = await pool.query(
+    `SELECT DISTINCT u.id, u.nama, u.no_hp
+     FROM users u
+     JOIN user_roles ur ON ur.user_id = u.id
+     JOIN roles r ON r.id = ur.role_id
+     WHERE LOWER(TRIM(r.name)) = 'warga'
+     ORDER BY u.nama ASC`
+  );
+
+  if (wargaResult.rows.length > 0) {
+    return wargaResult.rows;
+  }
+
+  const fallbackResult = await pool.query(
+    `SELECT u.id, u.nama, u.no_hp
+     FROM users u
+     WHERE NOT EXISTS (
+       SELECT 1
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+       WHERE ur.user_id = u.id
+         AND LOWER(TRIM(r.name)) = 'root'
+     )
+     ORDER BY u.nama ASC`
+  );
+
+  return fallbackResult.rows;
+}

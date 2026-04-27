@@ -15,6 +15,17 @@ export default function Navbar() {
   const [pendingCount, setPendingCount] = useState(0);
   const canSeeApproval = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Admin Jimpitan', 'root']);
   const canManageUsers = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
+  const canSeeOps = hasAnyRole(user, [
+    'Bendahara',
+    'Admin Jimpitan',
+    'Admin Pembangunan',
+    'Admin Lingkungan',
+    'Admin Sosial',
+    'Admin Internet',
+    'Admin Koperasi',
+    'Admin Keamanan',
+    'root'
+  ]);
 
   useEffect(() => {
     if (!canSeeApproval) {
@@ -55,8 +66,9 @@ export default function Navbar() {
   const menus = [
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/jimpitan', label: 'Jimpitan', icon: '💰' },
+    { href: '/bendahara', label: 'Operasional', icon: '🧾', opsOnly: true },
     { href: '/approval', label: 'Approval', icon: '✅', gated: true },
-    { href: '/management/users', label: 'Manajemen', icon: '🛠️', managerOnly: true }
+    { href: '/management', label: 'Manajemen', icon: '🛠️', managerOnly: true }
   ];
 
   return (
@@ -95,7 +107,12 @@ export default function Navbar() {
         <div className="w-full overflow-x-auto md:overflow-visible">
           <nav className="flex w-full min-w-max items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1">
             {menus
-              .filter((menu) => (!menu.gated || canSeeApproval) && (!menu.managerOnly || canManageUsers))
+              .filter(
+                (menu) =>
+                  (!menu.gated || canSeeApproval) &&
+                  (!menu.managerOnly || canManageUsers) &&
+                  (!(menu as { opsOnly?: boolean }).opsOnly || canSeeOps)
+              )
               .map((menu) => {
                 const active = pathname === menu.href;
                 return (

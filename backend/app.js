@@ -10,6 +10,7 @@ import transactionRoutes from './routes/transaction.js';
 import telegramRoutes from './routes/telegram.js';
 import approvalRoutes from './routes/approval.js';
 import managementRoutes from './routes/management.js';
+import bendaharaRoutes from './routes/bendahara.js';
 import { ensureCoreMasterData } from './models/bootstrapModel.js';
 
 const app = express();
@@ -25,6 +26,7 @@ app.use('/transaction', transactionRoutes);
 app.use('/telegram', telegramRoutes);
 app.use('/approval', approvalRoutes);
 app.use('/management', managementRoutes);
+app.use('/bendahara', bendaharaRoutes);
 
 app.get('/api/cron', (_req, res) => {
   return res.json({

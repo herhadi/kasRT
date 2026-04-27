@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const adminEndpoint = useMemo(() => {
     if (!user) return null;
     if (hasAnyRole(user, ['Admin Jimpitan', 'root'])) return '/report/dashboard-admin-jimpitan';
+    if (hasAnyRole(user, ['Bendahara'])) return '/report/dashboard-admin-bendahara';
     if (hasAnyRole(user, ['Admin Pembangunan'])) return '/report/dashboard-admin-pembangunan';
     if (hasAnyRole(user, ['Admin Internet'])) return '/report/dashboard-admin-internet';
     if (hasAnyRole(user, ['Admin Lingkungan'])) return '/report/dashboard-admin-lingkungan';
@@ -172,7 +173,24 @@ export default function DashboardPage() {
 
             {adminData ? (
               <Card title="Panel Admin" subtitle="Ringkasan sesuai role Anda">
-                <pre className="overflow-auto rounded-2xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify(adminData, null, 2)}</pre>
+                {hasAnyRole(user, ['Bendahara']) ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Line label="Target Iuran Wajib / Bulan" value={formatRupiah(Number(adminData.iuran_wajib_target_bulanan || 0))} />
+                    <Line label="Target Bulan Ini" value={formatRupiah(Number(adminData.target_bulan_ini || 0))} />
+                    <Line label="Pemasukan Bulan Ini" value={formatRupiah(Number(adminData.pemasukan_bulan_ini || 0))} />
+                    <Line label="Total Warga" value={String(adminData.total_warga || 0)} />
+                    <Line label="Menunggak Bulan Ini" value={String(adminData.total_menunggak_bulan_ini || 0)} />
+                    <Line label="Pas Bulan Ini" value={String(adminData.total_pas_bulan_ini || 0)} />
+                    <Line label="Lebih Bulan Ini" value={String(adminData.total_lebih_bulan_ini || 0)} />
+                    <Line label="Nominal Tunggakan Bulan Ini" value={formatRupiah(Number(adminData.nominal_tunggakan_bulan_ini || 0))} />
+                    <Line
+                      label="Tunggakan Akumulatif Tahun Berjalan"
+                      value={formatRupiah(Number(adminData.nominal_tunggakan_akumulatif_tahun_berjalan || 0))}
+                    />
+                  </div>
+                ) : (
+                  <pre className="overflow-auto rounded-2xl bg-slate-900 p-4 text-xs text-slate-100">{JSON.stringify(adminData, null, 2)}</pre>
+                )}
               </Card>
             ) : null}
           </>

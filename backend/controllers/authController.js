@@ -1,5 +1,10 @@
 import jwt from 'jsonwebtoken';
-import { findUserById, findUserForLogin, findUserRoles } from '../models/authModel.js';
+import {
+  findUserById,
+  findUserForLogin,
+  findUserRoles,
+  listWargaDropdownOptions
+} from '../models/authModel.js';
 
 export async function login(req, res) {
   const { no_hp, pin } = req.body;
@@ -56,4 +61,13 @@ export async function me(req, res) {
       telegram_connected: Boolean(user.telegram_chat_id)
     }
   });
+}
+
+export async function getWargaOptions(_req, res) {
+  try {
+    const data = await listWargaDropdownOptions();
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
 }

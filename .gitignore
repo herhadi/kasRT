@@ -16,6 +16,8 @@ frontend/node_modules/
 # NEXT.JS (FRONTEND)
 # =========================
 frontend/.next/
+# Local Next.js build output (custom distDir)
+.next_local/
 frontend/out/
 frontend/.env.local
 frontend/.env.production

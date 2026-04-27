@@ -6,6 +6,7 @@ import {
   dashboardAdminJimpitan,
   dashboardAdminKoperasi,
   dashboardAdminLingkungan,
+  dashboardAdminBendahara,
   dashboardAdminPembangunan,
   dashboardWarga,
   laporanBulanan
@@ -52,6 +53,13 @@ router.get(
   auth,
   allowRoles('Admin Koperasi', 'root'),
   asyncHandler(dashboardAdminKoperasi)
+);
+
+router.get(
+  '/dashboard-admin-bendahara',
+  auth,
+  allowRoles('Bendahara', 'root'),
+  asyncHandler(dashboardAdminBendahara)
 );
 
 router.get(

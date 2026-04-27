@@ -3,6 +3,9 @@ import {
   getDashboardAdminKoperasiAggregate,
   getDashboardAdminLingkunganAggregate,
   getDashboardAdminPembangunanAggregate,
+  getDashboardBendaharaIuranWajibAggregate,
+  getTop10PenunggakIuranWajib,
+  getTrenIuranWajib6Bulan,
   getIuranBulananByWarga,
   getJimpitanBulananByWarga,
   getJimpitanHarianByWarga,
@@ -190,6 +193,51 @@ export async function dashboardAdminLingkungan(_req, res) {
         total_menunggak: Number(aggregate?.total_menunggak || 0),
         total_pas: Number(aggregate?.total_pas || 0),
         total_lebih: Number(aggregate?.total_lebih || 0)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false });
+  }
+}
+
+export async function dashboardAdminBendahara(_req, res) {
+  try {
+    const [aggregate, top10Penunggak, tren6Bulan] = await Promise.all([
+      getDashboardBendaharaIuranWajibAggregate(IURAN_WAJIB_TARGET),
+      getTop10PenunggakIuranWajib(IURAN_WAJIB_TARGET),
+      getTrenIuranWajib6Bulan(IURAN_WAJIB_TARGET)
+    ]);
+    const totalWarga = Number(aggregate?.total_warga || 0);
+    const targetBulanIni = totalWarga * IURAN_WAJIB_TARGET;
+    return res.json({
+      success: true,
+      data: {
+        iuran_wajib_target_bulanan: IURAN_WAJIB_TARGET,
+        total_warga: totalWarga,
+        target_bulan_ini: targetBulanIni,
+        pemasukan_bulan_ini: Number(aggregate?.pemasukan_bulan_ini || 0),
+        total_menunggak_bulan_ini: Number(aggregate?.total_menunggak_bulan_ini || 0),
+        total_pas_bulan_ini: Number(aggregate?.total_pas_bulan_ini || 0),
+        total_lebih_bulan_ini: Number(aggregate?.total_lebih_bulan_ini || 0),
+        nominal_tunggakan_bulan_ini: Number(aggregate?.nominal_tunggakan_bulan_ini || 0),
+        nominal_tunggakan_akumulatif_tahun_berjalan: Number(aggregate?.nominal_tunggakan_akumulatif_tahun_berjalan || 0),
+        top_10_penunggak: top10Penunggak.map((row) => ({
+          warga_id: row.warga_id,
+          nama: row.nama,
+          no_hp: row.no_hp,
+          iuran_bulan_ini: Number(row.iuran_bulan_ini || 0),
+          tunggakan_bulan_ini: Number(row.tunggakan_bulan_ini || 0),
+          iuran_tahun_ini: Number(row.iuran_tahun_ini || 0),
+          tunggakan_akumulatif: Number(row.tunggakan_akumulatif || 0)
+        })),
+        tren_6_bulan: tren6Bulan.map((row) => ({
+          bulan: row.bulan,
+          total_warga: Number(row.total_warga || 0),
+          target: Number(row.target || 0),
+          pemasukan: Number(row.pemasukan || 0),
+          tunggakan: Number(row.tunggakan || 0)
+        }))
       }
     });
   } catch (err) {

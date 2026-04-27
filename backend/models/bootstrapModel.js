@@ -8,22 +8,59 @@ export async function ensureCoreMasterData() {
 
 async function ensureRoles() {
   await pool.query(`
+    WITH desired(id, name) AS (
+      VALUES
+        (1, 'Ketua'),
+        (2, 'Sekretaris'),
+        (3, 'Bendahara'),
+        (4, 'Admin Pembangunan'),
+        (5, 'Admin Lingkungan'),
+        (6, 'Admin Sosial'),
+        (7, 'Admin Internet'),
+        (8, 'Admin Jimpitan'),
+        (9, 'Admin Koperasi'),
+        (10, 'Admin Keamanan'),
+        (11, 'Warga'),
+        (12, 'root')
+    )
+    UPDATE roles r
+    SET name = d.name
+    FROM desired d
+    WHERE r.id = d.id
+      AND r.name <> d.name
+      AND NOT EXISTS (
+        SELECT 1
+        FROM roles rx
+        WHERE LOWER(TRIM(rx.name)) = LOWER(TRIM(d.name))
+          AND rx.id <> r.id
+      )
+  `);
+
+  await pool.query(`
+    WITH desired(id, name) AS (
+      VALUES
+        (1, 'Ketua'),
+        (2, 'Sekretaris'),
+        (3, 'Bendahara'),
+        (4, 'Admin Pembangunan'),
+        (5, 'Admin Lingkungan'),
+        (6, 'Admin Sosial'),
+        (7, 'Admin Internet'),
+        (8, 'Admin Jimpitan'),
+        (9, 'Admin Koperasi'),
+        (10, 'Admin Keamanan'),
+        (11, 'Warga'),
+        (12, 'root')
+    )
     INSERT INTO roles (id, name)
-    VALUES
-      (1, 'Ketua'),
-      (2, 'Sekretaris'),
-      (3, 'Bendahara'),
-      (4, 'Admin Pembangunan'),
-      (5, 'Admin Lingkungan'),
-      (6, 'Admin Sosial'),
-      (7, 'Admin Internet'),
-      (8, 'Admin Jimpitan'),
-      (9, 'Admin Koperasi'),
-      (10, 'Admin Keamanan'),
-      (11, 'Warga'),
-      (12, 'root')
-    ON CONFLICT (id) DO UPDATE SET
-      name = EXCLUDED.name
+    SELECT d.id, d.name
+    FROM desired d
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM roles r
+      WHERE r.id = d.id
+         OR LOWER(TRIM(r.name)) = LOWER(TRIM(d.name))
+    )
   `);
 }
 

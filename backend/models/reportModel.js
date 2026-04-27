@@ -167,6 +167,197 @@ export async function getDashboardAdminLingkunganAggregate(lingkunganTargetBulan
   return result.rows[0] || {};
 }
 
+export async function getDashboardBendaharaIuranWajibAggregate(iuranWajibTargetBulanan) {
+  const result = await pool.query(
+    `WITH warga AS (
+       SELECT DISTINCT u.id
+       FROM users u
+       JOIN user_roles ur ON ur.user_id = u.id
+       JOIN roles r ON r.id = ur.role_id
+       WHERE LOWER(TRIM(r.name)) = 'warga'
+       UNION
+       SELECT u2.id
+       FROM users u2
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM users ux
+         JOIN user_roles urx ON urx.user_id = ux.id
+         JOIN roles rx ON rx.id = urx.role_id
+         WHERE LOWER(TRIM(rx.name)) = 'warga'
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM user_roles ur2
+         JOIN roles r2 ON r2.id = ur2.role_id
+         WHERE ur2.user_id = u2.id
+           AND LOWER(TRIM(r2.name)) = 'root'
+       )
+     ),
+     bulan_ini AS (
+       SELECT
+         it.warga_id,
+         COALESCE(SUM(it.amount), 0) AS total
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'iuran wajib'
+         AND DATE_TRUNC('month', it.tanggal) = DATE_TRUNC('month', CURRENT_DATE)
+       GROUP BY it.warga_id
+     ),
+     tahun_ini AS (
+       SELECT
+         it.warga_id,
+         COALESCE(SUM(it.amount), 0) AS total
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'iuran wajib'
+         AND DATE_TRUNC('year', it.tanggal) = DATE_TRUNC('year', CURRENT_DATE)
+       GROUP BY it.warga_id
+     ),
+     base AS (
+       SELECT
+         w.id AS warga_id,
+         COALESCE(bi.total, 0) AS iuran_bulan_ini,
+         COALESCE(ti.total, 0) AS iuran_tahun_ini
+       FROM warga w
+       LEFT JOIN bulan_ini bi ON bi.warga_id = w.id
+       LEFT JOIN tahun_ini ti ON ti.warga_id = w.id
+     )
+     SELECT
+       COUNT(*) AS total_warga,
+       COALESCE(SUM(iuran_bulan_ini), 0) AS pemasukan_bulan_ini,
+       COALESCE(SUM(CASE WHEN iuran_bulan_ini < $1 THEN 1 ELSE 0 END), 0) AS total_menunggak_bulan_ini,
+       COALESCE(SUM(CASE WHEN iuran_bulan_ini = $1 THEN 1 ELSE 0 END), 0) AS total_pas_bulan_ini,
+       COALESCE(SUM(CASE WHEN iuran_bulan_ini > $1 THEN 1 ELSE 0 END), 0) AS total_lebih_bulan_ini,
+       COALESCE(SUM(CASE WHEN iuran_bulan_ini < $1 THEN ($1 - iuran_bulan_ini) ELSE 0 END), 0) AS nominal_tunggakan_bulan_ini,
+       COALESCE(SUM(
+         GREATEST((EXTRACT(MONTH FROM CURRENT_DATE)::int * $1) - iuran_tahun_ini, 0)
+       ), 0) AS nominal_tunggakan_akumulatif_tahun_berjalan
+     FROM base`,
+    [iuranWajibTargetBulanan]
+  );
+  return result.rows[0] || {};
+}
+
+export async function getTop10PenunggakIuranWajib(iuranWajibTargetBulanan) {
+  const result = await pool.query(
+    `WITH warga AS (
+       SELECT DISTINCT u.id, u.nama, u.no_hp
+       FROM users u
+       JOIN user_roles ur ON ur.user_id = u.id
+       JOIN roles r ON r.id = ur.role_id
+       WHERE LOWER(TRIM(r.name)) = 'warga'
+       UNION
+       SELECT u2.id, u2.nama, u2.no_hp
+       FROM users u2
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM users ux
+         JOIN user_roles urx ON urx.user_id = ux.id
+         JOIN roles rx ON rx.id = urx.role_id
+         WHERE LOWER(TRIM(rx.name)) = 'warga'
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM user_roles ur2
+         JOIN roles r2 ON r2.id = ur2.role_id
+         WHERE ur2.user_id = u2.id
+           AND LOWER(TRIM(r2.name)) = 'root'
+       )
+     ),
+     iuran_bulan_ini AS (
+       SELECT it.warga_id, COALESCE(SUM(it.amount), 0) AS total
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'iuran wajib'
+         AND DATE_TRUNC('month', it.tanggal) = DATE_TRUNC('month', CURRENT_DATE)
+       GROUP BY it.warga_id
+     ),
+     iuran_tahun_ini AS (
+       SELECT it.warga_id, COALESCE(SUM(it.amount), 0) AS total
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'iuran wajib'
+         AND DATE_TRUNC('year', it.tanggal) = DATE_TRUNC('year', CURRENT_DATE)
+       GROUP BY it.warga_id
+     )
+     SELECT
+       w.id AS warga_id,
+       w.nama,
+       w.no_hp,
+       COALESCE(ib.total, 0) AS iuran_bulan_ini,
+       GREATEST($1 - COALESCE(ib.total, 0), 0) AS tunggakan_bulan_ini,
+       COALESCE(iy.total, 0) AS iuran_tahun_ini,
+       GREATEST((EXTRACT(MONTH FROM CURRENT_DATE)::int * $1) - COALESCE(iy.total, 0), 0) AS tunggakan_akumulatif
+     FROM warga w
+     LEFT JOIN iuran_bulan_ini ib ON ib.warga_id = w.id
+     LEFT JOIN iuran_tahun_ini iy ON iy.warga_id = w.id
+     WHERE GREATEST((EXTRACT(MONTH FROM CURRENT_DATE)::int * $1) - COALESCE(iy.total, 0), 0) > 0
+     ORDER BY tunggakan_akumulatif DESC, w.nama ASC
+     LIMIT 10`,
+    [iuranWajibTargetBulanan]
+  );
+  return result.rows;
+}
+
+export async function getTrenIuranWajib6Bulan(iuranWajibTargetBulanan) {
+  const result = await pool.query(
+    `WITH warga AS (
+       SELECT DISTINCT u.id
+       FROM users u
+       JOIN user_roles ur ON ur.user_id = u.id
+       JOIN roles r ON r.id = ur.role_id
+       WHERE LOWER(TRIM(r.name)) = 'warga'
+       UNION
+       SELECT u2.id
+       FROM users u2
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM users ux
+         JOIN user_roles urx ON urx.user_id = ux.id
+         JOIN roles rx ON rx.id = urx.role_id
+         WHERE LOWER(TRIM(rx.name)) = 'warga'
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM user_roles ur2
+         JOIN roles r2 ON r2.id = ur2.role_id
+         WHERE ur2.user_id = u2.id
+           AND LOWER(TRIM(r2.name)) = 'root'
+       )
+     ),
+     months AS (
+       SELECT DATE_TRUNC('month', CURRENT_DATE) - (g.n * INTERVAL '1 month') AS month_start
+       FROM generate_series(5, 0, -1) AS g(n)
+     ),
+     iuran_monthly AS (
+       SELECT
+         DATE_TRUNC('month', it.tanggal)::date AS month_start,
+         COALESCE(SUM(it.amount), 0) AS total
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'iuran wajib'
+         AND it.tanggal >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months'
+         AND it.tanggal < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+       GROUP BY DATE_TRUNC('month', it.tanggal)::date
+     ),
+     warga_count AS (
+       SELECT COUNT(*) AS total_warga FROM warga
+     )
+     SELECT
+       TO_CHAR(m.month_start, 'YYYY-MM') AS bulan,
+       COALESCE(wc.total_warga, 0) AS total_warga,
+       (COALESCE(wc.total_warga, 0) * $1) AS target,
+       COALESCE(im.total, 0) AS pemasukan,
+       GREATEST((COALESCE(wc.total_warga, 0) * $1) - COALESCE(im.total, 0), 0) AS tunggakan
+     FROM months m
+     CROSS JOIN warga_count wc
+     LEFT JOIN iuran_monthly im ON im.month_start = m.month_start::date
+     ORDER BY m.month_start ASC`,
+    [iuranWajibTargetBulanan]
+  );
+  return result.rows;
+}
+
 export async function getLaporanBulananByMonth(bulan) {
   const result = await pool.query(
     `SELECT

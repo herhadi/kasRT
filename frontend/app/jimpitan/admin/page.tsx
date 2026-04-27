@@ -10,12 +10,14 @@ import Input from '@/components/ui/Input';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { useAuth } from '@/lib/useAuth';
-import { JimpitanListItem, JimpitanScheduleData } from '@/types';
+import { JimpitanScheduleData } from '@/types';
+
+type WargaOption = { id: string; nama: string; no_hp?: string };
 
 export default function JimpitanAdminPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [items, setItems] = useState<JimpitanListItem[]>([]);
+  const [wargaOptions, setWargaOptions] = useState<WargaOption[]>([]);
   const [scheduleData, setScheduleData] = useState<JimpitanScheduleData | null>(null);
   const [selectedPetugasId, setSelectedPetugasId] = useState('');
   const [selectedShiftDay, setSelectedShiftDay] = useState('');
@@ -36,10 +38,10 @@ export default function JimpitanAdminPage() {
     }, 3200);
   }, []);
 
-  const loadList = useCallback(async () => {
-    const result = await apiFetch<{ success: boolean; data: JimpitanListItem[] }>('/jimpitan/list');
+  const loadWargaOptions = useCallback(async () => {
+    const result = await apiFetch<{ success: boolean; data: WargaOption[] }>('/auth/warga-options');
     const rows = result.data || [];
-    setItems(rows);
+    setWargaOptions(rows);
     setTopupWargaId((previous) => {
       if (previous && rows.some((row) => String(row.id) === String(previous))) return previous;
       return rows[0]?.id ? String(rows[0].id) : '';
@@ -66,10 +68,10 @@ export default function JimpitanAdminPage() {
       router.replace('/jimpitan');
       return;
     }
-    void Promise.all([loadList(), loadSchedule()]).catch((error) => {
+    void Promise.all([loadWargaOptions(), loadSchedule()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, router, loadList, loadSchedule, pushToast]);
+  }, [loading, user, isAdminJimpitan, router, loadWargaOptions, loadSchedule, pushToast]);
 
   const weeklyGroups = useMemo(() => {
     const days = scheduleData?.shift_days || [];
@@ -87,19 +89,18 @@ export default function JimpitanAdminPage() {
   }, [selectedPetugasId, scheduleData]);
 
   useEffect(() => {
-    if (!items.length) {
+    if (!wargaOptions.length) {
       setSelectedPetugasId('');
       return;
     }
     setSelectedPetugasId((prev) => {
-      if (prev && items.some((warga) => String(warga.id) === String(prev))) return prev;
-      return String(items[0].id);
+      if (prev && wargaOptions.some((warga) => String(warga.id) === String(prev))) return prev;
+      return String(wargaOptions[0].id);
     });
-  }, [items]);
+  }, [wargaOptions]);
 
   async function handleTopup() {
-    const selectedWarga = items.find((row) => String(row.id) === String(topupWargaId));
-    const wargaId = selectedWarga?.id;
+    const wargaId = String(topupWargaId || '').trim();
     const nominal = Number(topupNominal);
 
     if (!wargaId) {
@@ -118,7 +119,7 @@ export default function JimpitanAdminPage() {
         body: JSON.stringify({ warga_id: wargaId, nominal })
       });
       setTopupNominal('');
-      await loadList();
+      await loadWargaOptions();
       pushToast('Top up saldo berhasil.', 'success');
     } catch (error) {
       pushToast(error instanceof Error ? error.message : 'Top up gagal', 'error');
@@ -195,7 +196,7 @@ export default function JimpitanAdminPage() {
                 value={topupWargaId}
                 onChange={(event) => setTopupWargaId(event.target.value)}
               >
-                {items.map((row) => (
+                {wargaOptions.map((row) => (
                   <option key={row.id} value={row.id}>
                     {row.nama}
                   </option>
@@ -227,7 +228,7 @@ export default function JimpitanAdminPage() {
                 onChange={(event) => setSelectedPetugasId(event.target.value)}
               >
                 <option value="">Pilih warga</option>
-                {items.map((warga) => (
+                {wargaOptions.map((warga) => (
                   <option key={warga.id} value={String(warga.id)}>
                     {warga.nama}
                   </option>
