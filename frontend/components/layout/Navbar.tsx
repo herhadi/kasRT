@@ -58,14 +58,14 @@ export default function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--surface-strong)] shadow-sm backdrop-blur">
       <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="font-[var(--font-space-grotesk)] text-xl font-bold text-[var(--text-primary)]">KasRT</h1>
             <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
               <span>{user.nama}</span>
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+              <span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]">
                 {user.roles}
               </span>
             </div>
@@ -90,7 +90,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        <nav className="flex items-center gap-1 rounded-xl bg-gray-100 p-1">
+        <nav className="flex items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1">
           {menus
             .filter((menu) => !menu.gated || canSeeApproval)
             .map((menu) => {
@@ -101,8 +101,8 @@ export default function Navbar() {
                   href={menu.href}
                   className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
                     active
-                      ? 'bg-white text-[var(--accent)] shadow-md'
-                      : 'text-[var(--text-secondary)] hover:bg-white/60 hover:text-[var(--text-primary)]'
+                      ? 'bg-[var(--surface-strong)] text-[var(--accent)] shadow-md'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <span>{menu.icon}</span>

@@ -10,7 +10,7 @@ export default function Input({ label, className = '', ...props }: Props) {
       <span className="text-sm font-semibold text-[var(--text-primary)]">{label}</span>
       <input
         {...props}
-        className={`w-full rounded-2xl border border-[var(--line)] bg-white/80 px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-slate-400 focus:border-[var(--accent)] focus:ring-2 focus:ring-[color:var(--accent-soft)] ${className}`}
+        className={`w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[color:var(--accent-soft)] ${className}`}
       />
     </label>
   );

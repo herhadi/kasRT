@@ -409,31 +409,31 @@ export default function JimpitanPage() {
 
       <Navbar />
 
-      <div className="sticky top-[73px] z-40 border-b border-gray-200 bg-white/95 backdrop-blur-lg px-4 py-3 md:px-6">
+      <div className="sticky top-[73px] z-40 border-b border-[var(--line)] bg-[var(--surface-strong)]/95 backdrop-blur-lg px-4 py-3 md:px-6">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500">Operasional</p>
-              <p className="text-sm font-semibold text-gray-700">{operationalDate}</p>
+              <p className="text-xs text-[var(--text-muted)]">Operasional</p>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">{operationalDate}</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="text-center">
-                <p className="text-[10px] font-medium text-gray-500">Belum</p>
+                <p className="text-[10px] font-medium text-[var(--text-muted)]">Belum</p>
                 <p className="text-lg font-bold text-red-600">{recapData.belum}</p>
               </div>
-              <div className="h-8 w-px bg-gray-300" />
+              <div className="h-8 w-px bg-[var(--line)]" />
               <div className="text-center">
-                <p className="text-[10px] font-medium text-gray-500">Lunas</p>
+                <p className="text-[10px] font-medium text-[var(--text-muted)]">Lunas</p>
                 <p className="text-lg font-bold text-emerald-600">{recapData.lunas}</p>
               </div>
-              <div className="h-8 w-px bg-gray-300" />
+              <div className="h-8 w-px bg-[var(--line)]" />
               <div className="text-center">
-                <p className="text-[10px] font-medium text-gray-500">Kosong</p>
-                <p className="text-lg font-bold text-gray-600">{recapData.kosong}</p>
+                <p className="text-[10px] font-medium text-[var(--text-muted)]">Kosong</p>
+                <p className="text-lg font-bold text-[var(--text-muted)]">{recapData.kosong}</p>
               </div>
-              <div className="h-8 w-px bg-gray-300" />
+              <div className="h-8 w-px bg-[var(--line)]" />
               <div className="text-center">
-                <p className="text-[10px] font-medium text-gray-500">Pendapatan</p>
+                <p className="text-[10px] font-medium text-[var(--text-muted)]">Pendapatan</p>
                 <p className="text-lg font-bold text-blue-600">{formatRupiah(recapData.totalSemuaTunai)}</p>
               </div>
             </div>
@@ -447,7 +447,7 @@ export default function JimpitanPage() {
                 className={`flex-1 min-w-[80px] rounded-full px-3 py-1.5 text-xs font-semibold text-center transition ${
                   filter === f
                     ? 'bg-[var(--accent)] text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:shadow-sm'
+                    : 'bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-strong)] hover:shadow-sm'
                 }`}
               >
                 {f === 'semua' ? `Semua (${items.length})` :
@@ -489,7 +489,7 @@ export default function JimpitanPage() {
           </Button>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-primary)]">
           <p>Total pendapatan tunai semua petugas hari ini: <b>{formatRupiah(recapData.totalSemuaTunai)}</b></p>
           <p className="mt-1">
             Porsi setor Anda: <b>{formatRupiah(recapData.totalTunaiSaya)}</b> {canKirimRekap ? '' : '(Anda belum input pada hari operasional ini)'}
@@ -506,7 +506,7 @@ export default function JimpitanPage() {
               <label className="space-y-2 text-sm font-semibold">
                 <span>Pilih Warga</span>
                 <select
-                  className="w-full rounded-2xl border border-[var(--line)] bg-white/80 px-3 py-3"
+                  className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
                   value={topupWargaId}
                   onChange={(event) => setTopupWargaId(event.target.value)}
                 >
@@ -544,10 +544,10 @@ export default function JimpitanPage() {
           <div className="space-y-3">
             {scheduleLoading ? <p className="text-sm text-[var(--text-muted)]">Memuat jadwal...</p> : null}
             {scheduleData?.petugas?.map((petugas) => (
-              <div key={petugas.id} className="grid items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 p-3 md:grid-cols-[1fr,180px]">
+              <div key={petugas.id} className="grid items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 md:grid-cols-[1fr,180px]">
                 <p className="text-sm font-semibold">{petugas.nama}</p>
                 <select
-                  className="w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm"
                   value={petugas.jimpitan_shift_hari ?? ''}
                   disabled={!isAdminJimpitan}
                   onChange={(event) => void handleSetPetugasShift(petugas.id, event.target.value)}
@@ -565,7 +565,7 @@ export default function JimpitanPage() {
         </Card>
 
         <div>
-          <p className="mb-2 text-sm font-semibold text-gray-600">
+          <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
             Daftar Warga ({filteredItems.length})
           </p>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -599,7 +599,7 @@ export default function JimpitanPage() {
                       ? 'border-emerald-200 bg-emerald-50/70'
                       : row.isLunas
                         ? 'border-slate-300 bg-slate-100/80'
-                        : 'cursor-pointer border-[var(--line)] bg-white/75 hover:border-[var(--accent)] hover:shadow-lg'
+                        : 'cursor-pointer border-[var(--line)] bg-[var(--surface)] hover:border-[var(--accent)] hover:shadow-lg'
                   }`}
                 >
                 <div className="flex items-start justify-between gap-1">
