@@ -20,6 +20,9 @@
   --surface: rgba(255, 255, 255, 0.88);
   --surface-strong: rgba(255, 255, 255, 0.95);
   --shadow-lg: 0 18px 45px rgba(15, 23, 42, 0.08);
+  --nav-active-bg: color-mix(in srgb, #1d4ed8 16%, #ffffff);
+  --nav-active-text: #1e40af;
+  --nav-active-border: #2563eb;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +46,9 @@
     --surface: rgba(15, 23, 42, 0.72);
     --surface-strong: rgba(15, 23, 42, 0.86);
     --shadow-lg: 0 20px 48px rgba(2, 6, 23, 0.45);
+    --nav-active-bg: color-mix(in srgb, #60a5fa 45%, #1f2937);
+    --nav-active-text: #eff6ff;
+    --nav-active-border: #93c5fd;
   }
 }
 
@@ -70,6 +76,9 @@ html.dark {
   --surface: rgba(15, 23, 42, 0.72);
   --surface-strong: rgba(15, 23, 42, 0.86);
   --shadow-lg: 0 20px 48px rgba(2, 6, 23, 0.45);
+  --nav-active-bg: color-mix(in srgb, #60a5fa 45%, #1f2937);
+  --nav-active-text: #eff6ff;
+  --nav-active-border: #93c5fd;
 }
 
 * {

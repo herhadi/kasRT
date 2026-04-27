@@ -92,32 +92,34 @@ export default function Navbar() {
           </div>
         </div>
 
-        <nav className="flex items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1">
-          {menus
-            .filter((menu) => (!menu.gated || canSeeApproval) && (!menu.managerOnly || canManageUsers))
-            .map((menu) => {
-              const active = pathname === menu.href;
-              return (
-                <Link
-                  key={menu.href}
-                  href={menu.href}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
-                    active
-                      ? 'bg-[var(--surface-strong)] text-[var(--accent)] shadow-md'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  <span>{menu.icon}</span>
-                  <span>{menu.label}</span>
-                  {menu.href === '/approval' && pendingCount > 0 && !active ? (
-                    <span className="inline-flex items-center justify-center rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-slate-900 min-w-[20px]">
-                      {pendingCount}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
-        </nav>
+        <div className="w-full overflow-x-auto md:overflow-visible">
+          <nav className="flex w-full min-w-max items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1">
+            {menus
+              .filter((menu) => (!menu.gated || canSeeApproval) && (!menu.managerOnly || canManageUsers))
+              .map((menu) => {
+                const active = pathname === menu.href;
+                return (
+                  <Link
+                    key={menu.href}
+                    href={menu.href}
+                    className={`inline-flex min-w-[118px] flex-1 basis-0 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+                      active
+                        ? 'border bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] shadow-[0_8px_20px_rgba(29,78,216,0.2)] border-[var(--nav-active-border)]'
+                        : 'text-[var(--text-muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <span>{menu.icon}</span>
+                    <span>{menu.label}</span>
+                    {menu.href === '/approval' && pendingCount > 0 && !active ? (
+                      <span className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-slate-900">
+                        {pendingCount}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+          </nav>
+        </div>
       </div>
     </header>
   );
