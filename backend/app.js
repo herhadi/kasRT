@@ -9,6 +9,8 @@ import reportRoutes from './routes/report.js';
 import transactionRoutes from './routes/transaction.js';
 import telegramRoutes from './routes/telegram.js';
 import approvalRoutes from './routes/approval.js';
+import managementRoutes from './routes/management.js';
+import { ensureCoreMasterData } from './models/bootstrapModel.js';
 
 const app = express();
 const PORT = process.env.PORT;
@@ -22,6 +24,7 @@ app.use('/report', reportRoutes);
 app.use('/transaction', transactionRoutes);
 app.use('/telegram', telegramRoutes);
 app.use('/approval', approvalRoutes);
+app.use('/management', managementRoutes);
 
 app.get('/api/cron', (_req, res) => {
   return res.json({
@@ -46,6 +49,17 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+async function startServer() {
+  try {
+    await ensureCoreMasterData();
+    console.log('✅ Master data roles/wallets/contribution_types siap');
+  } catch (error) {
+    console.error('❌ Gagal memastikan master data:', error.message);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
+}
+
+void startServer();

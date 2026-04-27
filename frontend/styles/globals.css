@@ -115,3 +115,15 @@ html.dark .theme-icon-sun {
 html.dark .theme-icon-moon {
   display: inline-flex;
 }
+
+@keyframes kasrt-wiggle {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(0.8deg); }
+  50% { transform: rotate(0deg); }
+  75% { transform: rotate(-0.8deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.wiggle-card {
+  animation: kasrt-wiggle 220ms ease-in-out infinite;
+}

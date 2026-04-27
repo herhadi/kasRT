@@ -1,5 +1,5 @@
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
-import { formatRupiah } from '../services/telegramService.js';
+import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
 import {
   approveJimpitanBatch,
   createJimpitanDraftAndUpdateSaldo,
@@ -7,11 +7,16 @@ import {
   editNominalJimpitanByAdmin,
   findBatchCreator,
   getApprovedBatchRecapByMonth,
+  getJimpitanRouteOrder,
   getUserJimpitanShiftHari,
+  isValidJimpitanShiftDay,
+  listPetugasByShiftDay,
   listJimpitanByOperationalDate,
   listJimpitanWeeklySchedule,
   listWargaTotalsInBatch,
+  lockDailyJimpitanReminder,
   resetBulananJimpitanSaldo,
+  saveJimpitanRouteOrder,
   topUpJimpitanSaldo,
   updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
@@ -45,6 +50,12 @@ function getOperationalDate(now = new Date()) {
 
 function getOperationalWeekdayNumber(date) {
   return date.getDay() + 1;
+}
+
+function getJakartaNow() {
+  const now = new Date();
+  const jakartaString = now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+  return new Date(jakartaString);
 }
 
 async function getShiftAccessContext(userId, roles, operationalDate) {
@@ -313,24 +324,131 @@ export async function getJimpitanSchedule(_req, res) {
 }
 
 export async function setPetugasShift(req, res) {
-  const userId = Number(req.body.user_id);
+  const userId = String(req.body.user_id || '').trim();
   const shiftHariRaw = req.body.shift_hari;
   const shiftHari = shiftHariRaw === null || shiftHariRaw === '' ? null : Number(shiftHariRaw);
 
-  if (!Number.isFinite(userId) || userId <= 0) {
+  if (!userId) {
     return res.status(400).json({ success: false, message: 'user_id tidak valid' });
   }
 
-  if (shiftHari !== null && (!Number.isInteger(shiftHari) || shiftHari < 1 || shiftHari > 7)) {
-    return res.status(400).json({ success: false, message: 'shift_hari harus 1-7 atau null' });
+  if (shiftHari !== null && !Number.isInteger(shiftHari)) {
+    return res.status(400).json({ success: false, message: 'shift_hari harus integer atau null' });
   }
 
   try {
+    if (shiftHari !== null) {
+      const isValidShiftDay = await isValidJimpitanShiftDay(shiftHari);
+      if (!isValidShiftDay) {
+        return res.status(400).json({ success: false, message: 'shift_hari tidak ada di referensi' });
+      }
+    }
+
     const row = await updatePetugasShiftHari({ userId, shiftHari });
     if (!row) {
       return res.status(404).json({ success: false, message: 'User petugas tidak ditemukan' });
     }
     return res.json({ success: true, data: row });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getMyJimpitanRouteOrder(req, res) {
+  const userId = String(req.user.user_id || '').trim();
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'User tidak valid' });
+  }
+
+  try {
+    const operationalDate = getOperationalDate().toISOString().slice(0, 10);
+    const ordered_warga_ids = await getJimpitanRouteOrder({ userId, operationalDate });
+    return res.json({ success: true, data: { operational_date: operationalDate, ordered_warga_ids } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function saveMyJimpitanRouteOrder(req, res) {
+  const userId = String(req.user.user_id || '').trim();
+  const orderedRaw = Array.isArray(req.body.ordered_warga_ids) ? req.body.ordered_warga_ids : null;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'User tidak valid' });
+  }
+  if (!orderedRaw) {
+    return res.status(400).json({ success: false, message: 'ordered_warga_ids wajib berupa array' });
+  }
+
+  const ordered_warga_ids = orderedRaw
+    .map((id) => String(id || '').trim())
+    .filter((id) => id !== '');
+
+  if (ordered_warga_ids.length > 1000) {
+    return res.status(400).json({ success: false, message: 'ordered_warga_ids terlalu panjang' });
+  }
+
+  try {
+    const operationalDate = getOperationalDate().toISOString().slice(0, 10);
+    await saveJimpitanRouteOrder({ userId, operationalDate, orderedWargaIds: ordered_warga_ids });
+    return res.json({ success: true, data: { operational_date: operationalDate, ordered_warga_ids } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function sendJimpitanShiftReminder(req, res) {
+  const configuredSecret = process.env.CRON_SECRET || '';
+  const incomingSecret = String(req.headers['x-cron-secret'] || '');
+  const authHeader = String(req.headers.authorization || '');
+  const bearerSecret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
+  if (configuredSecret && incomingSecret !== configuredSecret && bearerSecret !== configuredSecret) {
+    return res.status(403).json({ success: false, message: 'Forbidden: invalid cron secret' });
+  }
+
+  const nowJakarta = getJakartaNow();
+  const shiftDay = getOperationalWeekdayNumber(nowJakarta);
+  const reminderDate = nowJakarta.toISOString().slice(0, 10);
+  const reminderType = 'SHIFT_2055';
+  const targetLabel = nowJakarta.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  try {
+    const petugas = await listPetugasByShiftDay(shiftDay);
+    const recipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
+    const lockAcquired = await lockDailyJimpitanReminder(reminderDate, reminderType, recipients.length);
+
+    if (!lockAcquired) {
+      return res.json({
+        success: true,
+        skipped: true,
+        message: 'Reminder hari ini sudah pernah dikirim',
+        shift_day: shiftDay,
+        total_recipients: recipients.length
+      });
+    }
+
+    const text =
+      `⏰ <b>Pengingat Jimpitan</b>\n` +
+      `Hari operasional: <b>${targetLabel}</b>\n` +
+      `Penarikan dimulai pukul <b>21:00 WIB</b>.\n` +
+      `Mohon siapkan proses jimpitan sesuai jadwal shift Anda.`;
+
+    await Promise.all(
+      recipients.map((row) => sendTelegramMessage(row.telegram_chat_id, text))
+    );
+
+    return res.json({
+      success: true,
+      shift_day: shiftDay,
+      total_target: petugas.length,
+      total_recipients: recipients.length
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

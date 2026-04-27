@@ -8,7 +8,7 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
-import { DashboardWargaData } from '@/types';
+import { DashboardWargaData, JimpitanScheduleData } from '@/types';
 
 type AdminPanelData = Record<string, number | string>;
 
@@ -18,6 +18,7 @@ export default function DashboardPage() {
 
   const [wargaData, setWargaData] = useState<DashboardWargaData | null>(null);
   const [adminData, setAdminData] = useState<AdminPanelData | null>(null);
+  const [scheduleData, setScheduleData] = useState<JimpitanScheduleData | null>(null);
   const [error, setError] = useState('');
 
   const adminEndpoint = useMemo(() => {
@@ -52,13 +53,15 @@ export default function DashboardPage() {
       setError('');
 
       try {
-        const [meResult, wargaResult] = await Promise.all([
+        const [meResult, wargaResult, scheduleResult] = await Promise.all([
           apiFetch<{ success: boolean; user: { id: number; nama: string; roles: string[]; telegram_connected?: boolean } }>('/auth/me'),
-          apiFetch<{ success: boolean; data: DashboardWargaData }>('/report/dashboard')
+          apiFetch<{ success: boolean; data: DashboardWargaData }>('/report/dashboard'),
+          apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule')
         ]);
 
         refreshUser(meResult.user);
         setWargaData(wargaResult.data);
+        setScheduleData(scheduleResult.data);
 
         if (adminEndpoint) {
           const adminResult = await apiFetch<{ success: boolean; data: AdminPanelData }>(adminEndpoint);
@@ -73,6 +76,15 @@ export default function DashboardPage() {
 
     loadDashboard();
   }, [user, adminEndpoint, refreshUser]);
+
+  const weeklyGroups = useMemo(() => {
+    const days = scheduleData?.shift_days || [];
+    const petugas = scheduleData?.petugas || [];
+    return days.map((day) => ({
+      ...day,
+      members: petugas.filter((person) => person.jimpitan_shift_hari === day.id)
+    }));
+  }, [scheduleData]);
 
   if (loading || !user) return <main className="min-h-screen" />;
 
@@ -132,6 +144,29 @@ export default function DashboardPage() {
                       </div>
                     ))
                 )}
+              </div>
+            </Card>
+
+            <Card title="Jadwal Petugas Jimpitan" subtitle="Akses bersama untuk seluruh warga (Ahad - Sabtu)">
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                  <thead>
+                    <tr className="bg-[var(--surface-strong)]">
+                      <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Hari</th>
+                      <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Petugas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weeklyGroups.map((day) => (
+                      <tr key={day.id} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{day.label}</td>
+                        <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">
+                          {day.members.length > 0 ? day.members.map((person) => person.nama).join(', ') : 'Belum dijadwalkan'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </Card>
 

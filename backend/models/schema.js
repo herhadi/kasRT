@@ -20,6 +20,7 @@ export const dbSchema = {
   jimpitan_batches: ['id', 'petugas_id', 'total_amount', 'status', 'approved_by', 'approved_at', 'created_at'],
   jimpitan_batch_items: ['id', 'batch_id', 'jimpitan_detail_id'],
   jimpitan_topups: ['id', 'warga_id', 'nominal', 'admin_id', 'note', 'created_at'],
+  jimpitan_shift_days: ['id', 'key_name', 'label', 'sort_order'],
   contribution_types: ['id', 'name', 'is_mandatory'],
   iuran_transactions: ['id', 'warga_id', 'contribution_type_id', 'amount', 'tanggal', 'created_at'],
   telegram_link_tokens: ['id', 'user_id', 'code', 'expires_at', 'used_at', 'created_at']

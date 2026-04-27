@@ -14,6 +14,7 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const canSeeApproval = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Admin Jimpitan', 'root']);
+  const canManageUsers = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
 
   useEffect(() => {
     if (!canSeeApproval) {
@@ -54,7 +55,8 @@ export default function Navbar() {
   const menus = [
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/jimpitan', label: 'Jimpitan', icon: '💰' },
-    { href: '/approval', label: 'Approval', icon: '✅', gated: true }
+    { href: '/approval', label: 'Approval', icon: '✅', gated: true },
+    { href: '/management/users', label: 'Manajemen', icon: '🛠️', managerOnly: true }
   ];
 
   return (
@@ -92,7 +94,7 @@ export default function Navbar() {
 
         <nav className="flex items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1">
           {menus
-            .filter((menu) => !menu.gated || canSeeApproval)
+            .filter((menu) => (!menu.gated || canSeeApproval) && (!menu.managerOnly || canManageUsers))
             .map((menu) => {
               const active = pathname === menu.href;
               return (

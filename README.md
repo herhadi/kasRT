@@ -57,12 +57,24 @@ Deploy menggunakan `render.yaml` dengan 2 service:
   - `TELEGRAM_BOT_TOKEN`
   - `TELEGRAM_BOT_USERNAME`
   - `TELEGRAM_WEBHOOK_SECRET`
+  - `CRON_SECRET` (rahasia untuk endpoint reminder cron)
 
 2. `kasrt-frontend`
 - Root: `frontend`
 - Env wajib:
   - `NEXT_PUBLIC_API_URL` (isi URL service backend Render, contoh `https://kasrt-backend.onrender.com`)
   - `NEXT_PUBLIC_WA_ADMIN`
+  - `API_URL` (URL backend untuk dipanggil route cron frontend)
+  - `CRON_SECRET` (harus sama dengan backend)
+
+## Reminder Telegram Jimpitan (20:55 WIB)
+
+- Endpoint backend: `POST /jimpitan/send-shift-reminder`
+- Endpoint ini mengirim pengingat ke user yang terjadwal pada hari tersebut.
+- Endpoint diamankan dengan header `x-cron-secret` (atau `Authorization: Bearer <CRON_SECRET>`).
+- Untuk trigger otomatis jam 20:55 WIB, arahkan scheduler/cron provider ke:
+  - `GET /api/cron` pada service frontend
+  - Jalankan setiap hari pukul 20:55 Asia/Jakarta
 
 ## Catatan API
 

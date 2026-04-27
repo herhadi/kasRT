@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
-import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import FormJimpitan from './FormJimpitan';
@@ -11,19 +11,9 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
-import { JimpitanListItem, JimpitanScheduleData } from '@/types';
+import { JimpitanListItem } from '@/types';
 
 type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
-
-const WEEKLY_SCHEDULE_DAYS = [
-  { key: 'ahad', label: 'Ahad' },
-  { key: 'senin', label: 'Senin' },
-  { key: 'selasa', label: 'Selasa' },
-  { key: 'rabu', label: 'Rabu' },
-  { key: 'kamis', label: 'Kamis' },
-  { key: 'jumat', label: "Jum'at" },
-  { key: 'sabtu', label: 'Sabtu' }
-] as const;
 
 export default function JimpitanPage() {
   const { user, loading } = useAuth();
@@ -35,15 +25,16 @@ export default function JimpitanPage() {
   const [setorLoading, setSetorLoading] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>('semua');
 
-  const [topupWargaId, setTopupWargaId] = useState('');
-  const [topupNominal, setTopupNominal] = useState('');
-  const [topupLoading, setTopupLoading] = useState(false);
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
   const [editTarget, setEditTarget] = useState<JimpitanListItem | null>(null);
   const [editNominal, setEditNominal] = useState('');
   const [editLoading, setEditLoading] = useState(false);
-  const [scheduleData, setScheduleData] = useState<JimpitanScheduleData | null>(null);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [routeOrder, setRouteOrder] = useState<string[]>([]);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [activeMoveId, setActiveMoveId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [savingRoute, setSavingRoute] = useState(false);
+  const pressTimerRef = useRef<number | null>(null);
 
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
 
@@ -58,6 +49,14 @@ export default function JimpitanPage() {
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
+
+  useEffect(() => {
+    return () => {
+      if (pressTimerRef.current) {
+        window.clearTimeout(pressTimerRef.current);
+      }
+    };
+  }, []);
 
   const operationalDate = useMemo(() => {
     const now = new Date();
@@ -80,38 +79,59 @@ export default function JimpitanPage() {
       setError('');
       const result = await apiFetch<{ success: boolean; data: JimpitanListItem[] }>('/jimpitan/list');
       setItems(result.data || []);
-      setTopupWargaId((previous) => {
-        const rows = result.data || [];
-        if (previous && rows.some((row) => String(row.id) === String(previous))) {
-          return previous;
-        }
-        return rows[0]?.id ? String(rows[0].id) : '';
-      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
     }
   }, []);
 
-  const loadSchedule = useCallback(async () => {
+  const normalizeRouteOrder = useCallback((rawOrder: string[], rows: JimpitanListItem[]) => {
+    const allIds = rows.map((row) => String(row.id));
+    const uniqueValid = rawOrder.filter((id, idx) => allIds.includes(id) && rawOrder.indexOf(id) === idx);
+    const missing = allIds.filter((id) => !uniqueValid.includes(id));
+    return [...uniqueValid, ...missing];
+  }, []);
+
+  const loadRouteOrder = useCallback(async (rows: JimpitanListItem[]) => {
     try {
-      setScheduleLoading(true);
-      const result = await apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule');
-      setScheduleData(result.data);
-    } catch (e) {
-      pushToast(e instanceof Error ? e.message : 'Gagal memuat jadwal jimpitan', 'error');
+      const result = await apiFetch<{ success: boolean; data: { ordered_warga_ids: string[] } }>('/jimpitan/route-order');
+      const ordered = normalizeRouteOrder((result.data?.ordered_warga_ids || []).map((id) => String(id)), rows);
+      setRouteOrder(ordered);
+    } catch {
+      const fallback = rows.map((row) => String(row.id));
+      setRouteOrder(fallback);
+    }
+  }, [normalizeRouteOrder]);
+
+  const saveRouteOrder = useCallback(async (orderedIds: string[]) => {
+    try {
+      setSavingRoute(true);
+      await apiFetch('/jimpitan/route-order', {
+        method: 'POST',
+        body: JSON.stringify({ ordered_warga_ids: orderedIds })
+      });
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal menyimpan urutan rute', 'error');
     } finally {
-      setScheduleLoading(false);
+      setSavingRoute(false);
     }
   }, [pushToast]);
 
   useEffect(() => {
     if (!user) return;
     const timer = window.setTimeout(() => {
-      void loadList();
-      void loadSchedule();
+      void (async () => {
+        try {
+          const result = await apiFetch<{ success: boolean; data: JimpitanListItem[] }>('/jimpitan/list');
+          const rows = result.data || [];
+          setItems(rows);
+          await loadRouteOrder(rows);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
+        }
+      })();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [user, loadList, loadSchedule]);
+  }, [user, loadRouteOrder]);
 
   const recapData = useMemo(() => {
     const normalizedUserName = String(user?.nama || '').trim().toLowerCase();
@@ -169,6 +189,16 @@ export default function JimpitanPage() {
         return items;
     }
   }, [items, filter]);
+
+  const orderedItems = useMemo(() => {
+    const orderMap = new Map(routeOrder.map((id, idx) => [String(id), idx]));
+    return [...filteredItems].sort((a, b) => {
+      const ai = orderMap.has(String(a.id)) ? (orderMap.get(String(a.id)) as number) : Number.MAX_SAFE_INTEGER;
+      const bi = orderMap.has(String(b.id)) ? (orderMap.get(String(b.id)) as number) : Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return String(a.nama).localeCompare(String(b.nama), 'id');
+    });
+  }, [filteredItems, routeOrder]);
 
   async function submitInput(nominal: number) {
     if (!selected) return;
@@ -290,40 +320,6 @@ export default function JimpitanPage() {
     pushToast('Browser tidak mendukung share. Dialihkan ke WA Admin.', 'success');
   }
 
-  async function handleTopup() {
-    const selectedWarga = items.find((row) => String(row.id) === String(topupWargaId));
-    const wargaId = selectedWarga?.id;
-    const nominal = Number(topupNominal);
-
-    if (!wargaId) {
-      pushToast('Pilih warga yang valid terlebih dahulu.', 'warning');
-      return;
-    }
-
-    if (!Number.isFinite(nominal) || nominal <= 0) {
-      pushToast('Nominal top up harus lebih dari 0.', 'warning');
-      return;
-    }
-
-    try {
-      setTopupLoading(true);
-      await apiFetch('/jimpitan/topup', {
-        method: 'POST',
-        body: JSON.stringify({
-          warga_id: wargaId,
-          nominal
-        })
-      });
-      setTopupNominal('');
-      await loadList();
-      pushToast('Top up saldo berhasil.', 'success');
-    } catch (e) {
-      pushToast(e instanceof Error ? e.message : 'Top up gagal', 'error');
-    } finally {
-      setTopupLoading(false);
-    }
-  }
-
   async function handleSaveEditNominal() {
     if (!editTarget) return;
     const nominal = Number(editNominal);
@@ -352,24 +348,69 @@ export default function JimpitanPage() {
     }
   }
 
-  async function handleSetPetugasShift(userId: number, value: string) {
-    const shiftHari = value === '' ? null : Number(value);
-    try {
-      await apiFetch('/jimpitan/set-petugas-shift', {
-        method: 'POST',
-        body: JSON.stringify({
-          user_id: userId,
-          shift_hari: shiftHari
-        })
-      });
-      await loadSchedule();
-      pushToast('Jadwal petugas berhasil diperbarui.', 'success');
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Gagal update jadwal petugas', 'error');
+  useEffect(() => {
+    if (!items.length) {
+      setRouteOrder([]);
+      return;
+    }
+    setRouteOrder((prev) => normalizeRouteOrder(prev, items));
+  }, [items, normalizeRouteOrder]);
+
+  function clearPressTimer() {
+    if (pressTimerRef.current) {
+      window.clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
     }
   }
 
+  function startPressToReorder(rowId: string) {
+    clearPressTimer();
+    pressTimerRef.current = window.setTimeout(() => {
+      setReorderMode(true);
+      setActiveMoveId(rowId);
+      pushToast('Mode atur rute aktif. Ketuk kartu lain untuk memindahkan urutan.', 'success');
+    }, 3000);
+  }
+
+  function moveActiveCardToTarget(targetId: string) {
+    if (!activeMoveId || activeMoveId === targetId) return;
+    const current = normalizeRouteOrder(routeOrder, items);
+    const fromIndex = current.indexOf(activeMoveId);
+    const toIndex = current.indexOf(targetId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const next = [...current];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setRouteOrder(next);
+    void saveRouteOrder(next);
+    setActiveMoveId(targetId);
+  }
+
+  function moveCard(dragId: string, targetId: string) {
+    if (!dragId || !targetId || dragId === targetId) return;
+    const current = normalizeRouteOrder(routeOrder, items);
+    const fromIndex = current.indexOf(dragId);
+    const toIndex = current.indexOf(targetId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const next = [...current];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setRouteOrder(next);
+    void saveRouteOrder(next);
+    setActiveMoveId(targetId);
+  }
+
+  function stopReorderMode() {
+    setReorderMode(false);
+    setActiveMoveId(null);
+    setDraggingId(null);
+  }
+
   function handleCardClick(row: JimpitanListItem) {
+    if (reorderMode) {
+      moveActiveCardToTarget(String(row.id));
+      return;
+    }
     if (row.isLunas) return;
     const roles = (user?.roles || []).map((role) => String(role).trim().toLowerCase());
     const isRoot = roles.includes('root');
@@ -462,10 +503,10 @@ export default function JimpitanPage() {
 
       {/* Buttons placed above the card warga list */}
       <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
-        <div className="flex gap-3 pt-4">
+        <div className="flex flex-wrap gap-3 pt-4">
           <Button
             variant="ghost"
-            className="flex-1 rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-w-[170px] flex-1 rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleKirimRekapWA}
             disabled={!canKirimRekap}
           >
@@ -476,7 +517,7 @@ export default function JimpitanPage() {
           <Button
             onClick={handleSetor}
             disabled={setorLoading || !canSetor}
-            className="flex-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-w-[170px] flex-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {setorLoading ? (
               <span>Memproses...</span>
@@ -487,6 +528,15 @@ export default function JimpitanPage() {
               </span>
             )}
           </Button>
+
+          {isAdminJimpitan ? (
+            <Link
+              href="/jimpitan/admin"
+              className="inline-flex min-w-[170px] flex-1 items-center justify-center rounded-xl border-2 border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-strong)] hover:shadow-md"
+            >
+              Menu Admin Jimpitan
+            </Link>
+          ) : null}
         </div>
 
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-primary)]">
@@ -494,82 +544,35 @@ export default function JimpitanPage() {
           <p className="mt-1">
             Porsi setor Anda: <b>{formatRupiah(recapData.totalTunaiSaya)}</b> {canKirimRekap ? '' : '(Anda belum input pada hari operasional ini)'}
           </p>
+          <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+            Tips rute: tahan kartu warga 3 detik untuk aktifkan mode atur rute. Kartu akan bergoyang, lalu seret (drag) kartu ke posisi tujuan.
+          </p>
+          {reorderMode ? (
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                variant="ghost"
+                className="rounded-xl px-3 py-1.5 text-xs"
+                onClick={stopReorderMode}
+              >
+                Selesai Atur Rute
+              </Button>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                {savingRoute ? 'Menyimpan urutan...' : 'Urutan rute tersimpan otomatis'}
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
         {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
-        {isAdminJimpitan ? (
-          <Card title="Top Up Saldo Warga" subtitle="Khusus Admin Jimpitan / root">
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="space-y-2 text-sm font-semibold">
-                <span>Pilih Warga</span>
-                <select
-                  className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                  value={topupWargaId}
-                  onChange={(event) => setTopupWargaId(event.target.value)}
-                >
-                  {items.map((row) => (
-                    <option key={row.id} value={row.id}>
-                      {row.nama}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Input
-                label="Nominal"
-                type="number"
-                min={1}
-                value={topupNominal}
-                onChange={(event) => setTopupNominal(event.target.value)}
-              />
-              <div className="flex items-end">
-                <Button
-                  className="w-full"
-                  onClick={handleTopup}
-                  disabled={topupLoading}
-                >
-                  {topupLoading ? 'Menyimpan...' : 'Simpan Top Up'}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ) : null}
-
-        <Card
-          title="Jadwal Petugas 1 Minggu"
-          subtitle={isAdminJimpitan ? 'Atur shift mingguan petugas dari database' : 'Jadwal operasional mingguan'}
-        >
-          <div className="space-y-3">
-            {scheduleLoading ? <p className="text-sm text-[var(--text-muted)]">Memuat jadwal...</p> : null}
-            {scheduleData?.petugas?.map((petugas) => (
-              <div key={petugas.id} className="grid items-center gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 md:grid-cols-[1fr,180px]">
-                <p className="text-sm font-semibold">{petugas.nama}</p>
-                <select
-                  className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm"
-                  value={petugas.jimpitan_shift_hari ?? ''}
-                  disabled={!isAdminJimpitan}
-                  onChange={(event) => void handleSetPetugasShift(petugas.id, event.target.value)}
-                >
-                  <option value="">Belum diatur</option>
-                  {WEEKLY_SCHEDULE_DAYS.map((day, index) => (
-                    <option key={day.key} value={index + 1}>
-                      {day.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        </Card>
-
         <div>
           <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
-            Daftar Warga ({filteredItems.length})
+            Daftar Warga ({orderedItems.length})
           </p>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filteredItems.map((row) => {
+            {orderedItems.map((row) => {
               const marker = String(row.namaPetugas || '').toLowerCase();
               const canEditByAdmin =
                 isAdminJimpitan &&
@@ -594,13 +597,40 @@ export default function JimpitanPage() {
                 <article
                   key={row.id}
                   onClick={!row.isLunas ? () => handleCardClick(row) : undefined}
+                  onPointerDown={() => startPressToReorder(String(row.id))}
+                  onPointerUp={clearPressTimer}
+                  onPointerLeave={clearPressTimer}
+                  draggable={reorderMode}
+                  onDragStart={(event) => {
+                    if (!reorderMode) return;
+                    const id = String(row.id);
+                    setDraggingId(id);
+                    setActiveMoveId(id);
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', id);
+                  }}
+                  onDragOver={(event) => {
+                    if (!reorderMode || !draggingId) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(event) => {
+                    if (!reorderMode) return;
+                    event.preventDefault();
+                    const dragId = event.dataTransfer.getData('text/plain') || draggingId;
+                    moveCard(String(dragId), String(row.id));
+                    setDraggingId(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingId(null);
+                  }}
                   className={`rounded-2xl border p-3 text-left transition ${
                     row.isLunas && Number(row.nominalTerbayar || 0) > 0
                       ? 'border-emerald-200 bg-emerald-50/70'
                       : row.isLunas
                         ? 'border-slate-300 bg-slate-100/80'
                         : 'cursor-pointer border-[var(--line)] bg-[var(--surface)] hover:border-[var(--accent)] hover:shadow-lg'
-                  }`}
+                  } ${reorderMode ? 'wiggle-card' : ''} ${activeMoveId === String(row.id) ? 'ring-2 ring-[var(--accent)]' : ''} ${draggingId === String(row.id) ? 'opacity-60' : ''}`}
                 >
                 <div className="flex items-start justify-between gap-1">
                   <p className="font-semibold text-sm leading-tight">{row.nama}</p>

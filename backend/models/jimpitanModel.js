@@ -1,6 +1,63 @@
 import { pool } from '../db.js';
 
+export async function ensureJimpitanShiftDaysTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jimpitan_shift_days (
+      id SMALLINT PRIMARY KEY,
+      key_name VARCHAR(20) NOT NULL UNIQUE,
+      label VARCHAR(30) NOT NULL,
+      sort_order SMALLINT NOT NULL UNIQUE
+    )
+  `);
+
+  await pool.query(`
+    INSERT INTO jimpitan_shift_days (id, key_name, label, sort_order)
+    VALUES
+      (1, 'ahad', 'Ahad', 1),
+      (2, 'senin', 'Senin', 2),
+      (3, 'selasa', 'Selasa', 3),
+      (4, 'rabu', 'Rabu', 4),
+      (5, 'kamis', 'Kamis', 5),
+      (6, 'jumat', 'Jum''at', 6),
+      (7, 'sabtu', 'Sabtu', 7)
+    ON CONFLICT (id) DO UPDATE SET
+      key_name = EXCLUDED.key_name,
+      label = EXCLUDED.label,
+      sort_order = EXCLUDED.sort_order
+  `);
+}
+
+export async function ensureJimpitanReminderLogTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jimpitan_reminder_logs (
+      id BIGSERIAL PRIMARY KEY,
+      reminder_date DATE NOT NULL,
+      reminder_type VARCHAR(40) NOT NULL,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      total_recipients INTEGER NOT NULL DEFAULT 0,
+      UNIQUE (reminder_date, reminder_type)
+    )
+  `);
+}
+
+export async function ensureJimpitanRouteOrderTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jimpitan_route_orders (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      operational_date DATE NOT NULL,
+      ordered_warga_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, operational_date)
+    )
+  `);
+}
+
 export async function ensureJimpitanScheduleColumns() {
+  await ensureJimpitanShiftDaysTable();
+  await ensureJimpitanReminderLogTable();
+  await ensureJimpitanRouteOrderTable();
+
   await pool.query(`
     ALTER TABLE users
       ADD COLUMN IF NOT EXISTS jimpitan_shift_hari SMALLINT
@@ -293,21 +350,64 @@ export async function listJimpitanByOperationalDate(operationalDate) {
 export async function listJimpitanWeeklySchedule() {
   await ensureJimpitanScheduleColumns();
 
+  const shiftDaysResult = await pool.query(
+    `SELECT id, key_name, label, sort_order
+     FROM jimpitan_shift_days
+     ORDER BY sort_order ASC`
+  );
+
   const petugasResult = await pool.query(
-    `SELECT DISTINCT
+    `SELECT
        u.id,
        u.nama,
        u.jimpitan_shift_hari
      FROM users u
-     JOIN user_roles ur ON ur.user_id = u.id
-     JOIN roles r ON r.id = ur.role_id
-     WHERE LOWER(r.name) IN ('petugas jimpitan', 'root')
      ORDER BY u.nama ASC`
   );
 
   return {
+    shift_days: shiftDaysResult.rows,
     petugas: petugasResult.rows
   };
+}
+
+export async function isValidJimpitanShiftDay(shiftHari) {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `SELECT 1
+     FROM jimpitan_shift_days
+     WHERE id = $1
+     LIMIT 1`,
+    [shiftHari]
+  );
+  return result.rows.length > 0;
+}
+
+export async function listPetugasByShiftDay(shiftHari) {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `SELECT
+       u.id,
+       u.nama,
+       u.telegram_chat_id
+     FROM users u
+     WHERE u.jimpitan_shift_hari = $1
+     ORDER BY u.nama ASC`,
+    [shiftHari]
+  );
+  return result.rows;
+}
+
+export async function lockDailyJimpitanReminder(reminderDate, reminderType, totalRecipients) {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `INSERT INTO jimpitan_reminder_logs (reminder_date, reminder_type, total_recipients)
+     VALUES ($1::date, $2, $3)
+     ON CONFLICT (reminder_date, reminder_type) DO NOTHING
+     RETURNING id`,
+    [reminderDate, reminderType, totalRecipients]
+  );
+  return result.rows.length > 0;
 }
 
 export async function updatePetugasShiftHari({ userId, shiftHari }) {
@@ -322,6 +422,34 @@ export async function updatePetugasShiftHari({ userId, shiftHari }) {
   );
 
   return result.rows[0] || null;
+}
+
+export async function getJimpitanRouteOrder({ userId, operationalDate }) {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `SELECT ordered_warga_ids
+     FROM jimpitan_route_orders
+     WHERE user_id = $1
+       AND operational_date = $2::date
+     LIMIT 1`,
+    [userId, operationalDate]
+  );
+  const raw = result.rows[0]?.ordered_warga_ids;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((id) => String(id)).filter(Boolean);
+}
+
+export async function saveJimpitanRouteOrder({ userId, operationalDate, orderedWargaIds }) {
+  await ensureJimpitanScheduleColumns();
+  await pool.query(
+    `INSERT INTO jimpitan_route_orders (user_id, operational_date, ordered_warga_ids, updated_at)
+     VALUES ($1, $2::date, $3::jsonb, NOW())
+     ON CONFLICT (user_id, operational_date)
+     DO UPDATE SET
+       ordered_warga_ids = EXCLUDED.ordered_warga_ids,
+       updated_at = NOW()`,
+    [userId, operationalDate, JSON.stringify(orderedWargaIds || [])]
+  );
 }
 
 export async function topUpJimpitanSaldo({ wargaId, nominal, adminId, note = null }) {

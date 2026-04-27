@@ -6,10 +6,13 @@ import {
   ajukanSetorKeBendahara,
   editNominalJimpitan,
   getJimpitanSchedule,
+  getMyJimpitanRouteOrder,
   healthCheck,
   inputJimpitan,
   listJimpitan,
   resetBulananJimpitan,
+  saveMyJimpitanRouteOrder,
+  sendJimpitanShiftReminder,
   setPetugasShift,
   setorJimpitan,
   topUpJimpitan
@@ -71,11 +74,18 @@ router.post(
 );
 
 router.get('/list', auth, asyncHandler(listJimpitan));
+router.get('/route-order', auth, asyncHandler(getMyJimpitanRouteOrder));
+router.post('/route-order', auth, asyncHandler(saveMyJimpitanRouteOrder));
 
 router.get(
   '/schedule',
   auth,
   asyncHandler(getJimpitanSchedule)
+);
+
+router.post(
+  '/send-shift-reminder',
+  asyncHandler(sendJimpitanShiftReminder)
 );
 
 router.post(

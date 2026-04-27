@@ -1,5 +1,5 @@
 export type UserSession = {
-  id: number;
+  id: string | number;
   nama: string;
   roles: string[];
   telegram_connected?: boolean;
@@ -37,7 +37,7 @@ export type DashboardWargaData = {
 };
 
 export type JimpitanListItem = {
-  id: number;
+  id: string | number;
   nama: string;
   status: 'LUNAS' | 'BELUM';
   namaPetugas: string;
@@ -51,11 +51,29 @@ export type JimpitanListItem = {
 };
 
 export type JimpitanScheduleData = {
-  petugas: Array<{
+  shift_days: Array<{
     id: number;
+    key_name: string;
+    label: string;
+    sort_order: number;
+  }>;
+  petugas: Array<{
+    id: string | number;
     nama: string;
     jimpitan_shift_hari: number | null;
   }>;
+};
+
+export type ManagementRoleItem = {
+  id: number;
+  name: string;
+};
+
+export type ManagementUserItem = {
+  id: string | number;
+  nama: string;
+  no_hp: string;
+  roles: string[];
 };
 
 export type PendingApprovalItem = {

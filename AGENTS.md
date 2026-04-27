@@ -2,15 +2,26 @@
 
 Dokumen ini menjadi pedoman implementasi agent di codebase KasRT.
 
+## Konvensi ID (Penting)
+
+- Semua identifier utama di sistem menggunakan `UUID`.
+- Jangan mengasumsikan ID bertipe integer pada frontend maupun backend.
+- Validasi `user_id`, `warga_id`, `created_by`, `approved_by`, dan relasi lain harus kompatibel UUID (string), kecuali field yang memang numerik secara eksplisit.
+
 ## Peran Sistem
 
 - `Warga`
-- `Petugas Jimpitan`
 - `Admin Jimpitan`
+- `Admin Pembangunan`
+- `Admin Lingkungan`
+- `Admin Sosial`
+- `Admin Internet`
+- `Admin Koperasi`
+- `Admin Keamanan`
 - `Bendahara`
 - `Ketua`
 - `Sekretaris`
-- `Admin`
+- `root`
 
 ## Alur Inti
 
