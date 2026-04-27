@@ -4,6 +4,11 @@ import {
   listFinanceWallets,
   listPengeluaranBulanan
 } from '../models/bendaharaModel.js';
+import {
+  closeYearlyBook,
+  getYearlyBookSummary,
+  openYearlyBook
+} from '../models/yearlyBookModel.js';
 
 export async function getBendaharaMasterData(req, res) {
   const month = String(req.query.month || '').trim();
@@ -69,6 +74,60 @@ export async function inputPengeluaranBulanan(req, res) {
     });
     const pengeluaran = await listPengeluaranBulanan();
     return res.json({ success: true, data: { pengeluaran } });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function getYearlyBook(req, res) {
+  const nowYear = new Date().getFullYear();
+  const rawYear = Number(req.query.year || nowYear);
+  const year = Number.isInteger(rawYear) ? rawYear : nowYear;
+  if (year < 2000 || year > 2100) {
+    return res.status(400).json({ success: false, message: 'year tidak valid' });
+  }
+
+  try {
+    const data = await getYearlyBookSummary(year);
+    return res.json({ success: true, data: { year, ...data } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function closeBookYear(req, res) {
+  const year = Number(req.body.year || 0);
+  const actor = String(req.user.user_id || '').trim();
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    return res.status(400).json({ success: false, message: 'year tidak valid' });
+  }
+  if (!actor) {
+    return res.status(401).json({ success: false, message: 'User tidak valid' });
+  }
+
+  try {
+    await closeYearlyBook({ year, actor });
+    const data = await getYearlyBookSummary(year);
+    return res.json({ success: true, data: { year, ...data } });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function openBookYear(req, res) {
+  const year = Number(req.body.year || 0);
+  const actor = String(req.user.user_id || '').trim();
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    return res.status(400).json({ success: false, message: 'year tidak valid' });
+  }
+  if (!actor) {
+    return res.status(401).json({ success: false, message: 'User tidak valid' });
+  }
+
+  try {
+    await openYearlyBook({ year, actor });
+    const data = await getYearlyBookSummary(year);
+    return res.json({ success: true, data: { year, ...data } });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

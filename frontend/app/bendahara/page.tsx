@@ -8,7 +8,7 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 
 type WargaItem = { id: string | number; nama: string };
@@ -47,6 +47,30 @@ type BendaharaReport = {
   nominal_tunggakan_akumulatif_tahun_berjalan: number;
   top_10_penunggak?: TopPenunggakItem[];
   tren_6_bulan?: TrenIuranItem[];
+};
+type YearlyWalletRow = {
+  wallet_id: number;
+  wallet_name: string;
+  opening_balance: number;
+  closing_balance: number;
+};
+type YearlyBookSummary = {
+  year: number;
+  period: {
+    year: number;
+    status: string;
+    opened_at?: string;
+    opened_by?: string;
+    closed_at?: string;
+    closed_by?: string;
+  } | null;
+  wallets: YearlyWalletRow[];
+  arrears: {
+    total_warga: number;
+    total_opening_arrears: number;
+    total_closing_arrears: number;
+    top10: Array<{ warga_id: string; nama: string; no_hp?: string; closing_arrears: number }>;
+  };
 };
 
 export default function BendaharaPage() {
@@ -90,6 +114,8 @@ export default function BendaharaPage() {
   });
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<BendaharaReport | null>(null);
+  const [yearlyYear, setYearlyYear] = useState(() => new Date().getFullYear());
+  const [yearlyBook, setYearlyBook] = useState<YearlyBookSummary | null>(null);
 
   const loadMaster = useCallback(async () => {
     const result = await apiFetch<{
@@ -115,6 +141,13 @@ export default function BendaharaPage() {
     setReport(result.data || null);
   }, []);
 
+  const loadYearlyBook = useCallback(async () => {
+    const result = await apiFetch<{ success: boolean; data: YearlyBookSummary }>(
+      `/bendahara/yearly-book?year=${encodeURIComponent(String(yearlyYear))}`
+    );
+    setYearlyBook(result.data || null);
+  }, [yearlyYear]);
+
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
@@ -126,10 +159,10 @@ export default function BendaharaPage() {
       return;
     }
     if (!isBendahara) return;
-    void Promise.all([loadMaster(), loadReport(), loadWargaOptions()]).catch((e) =>
+    void Promise.all([loadMaster(), loadReport(), loadWargaOptions(), loadYearlyBook()]).catch((e) =>
       setError(e instanceof Error ? e.message : 'Gagal memuat menu bendahara')
     );
-  }, [loading, canSeeOps, isBendahara, router, loadMaster, loadReport, loadWargaOptions]);
+  }, [loading, canSeeOps, isBendahara, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook]);
 
   const title = useMemo(() => (isBendahara ? 'Menu Bendahara' : 'Menu Keuangan'), [isBendahara]);
   const yearOptions = useMemo(() => {
@@ -142,7 +175,7 @@ export default function BendaharaPage() {
   }, [selectedMonthOnly, selectedYearOnly]);
 
   async function submitSetorIuran() {
-    const amount = iuranPreset === 'manual' ? Number(iuranManualAmount || 0) : Number(iuranPreset || 0);
+    const amount = iuranPreset === 'manual' ? parseRupiahInput(iuranManualAmount) : Number(iuranPreset || 0);
     if (!selectedWarga || !Number.isFinite(amount) || amount <= 0) {
       setError('Pilih warga dan isi nominal setoran iuran yang valid.');
       return;
@@ -167,7 +200,7 @@ export default function BendaharaPage() {
 
   async function submitExpense() {
     const wallet_id = Number(expenseWalletId || 0);
-    const amount = Number(expenseAmount || 0);
+    const amount = parseRupiahInput(expenseAmount);
     if (!wallet_id || !Number.isFinite(amount) || amount <= 0 || !expenseDesc.trim() || !expenseDate) {
       setError('Isi wallet, tanggal keluar, nominal, dan keterangan pengeluaran dengan benar.');
       return;
@@ -192,6 +225,45 @@ export default function BendaharaPage() {
       await loadMaster();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mencatat pengeluaran');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCloseYear() {
+    if (!window.confirm(`Tutup buku tahun ${yearlyYear}? Proses ini menyimpan saldo akhir & tunggakan tahunan.`)) return;
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/bendahara/yearly-book/close', {
+        method: 'POST',
+        body: JSON.stringify({ year: yearlyYear })
+      });
+      setMessage(`Closing tahun ${yearlyYear} berhasil.`);
+      await Promise.all([loadYearlyBook(), loadReport()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal closing tahunan');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleOpenNextYear() {
+    const nextYear = yearlyYear + 1;
+    if (!window.confirm(`Buka periode ${nextYear} dengan saldo awal dari closing ${yearlyYear}?`)) return;
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/bendahara/yearly-book/open', {
+        method: 'POST',
+        body: JSON.stringify({ year: nextYear })
+      });
+      setYearlyYear(nextYear);
+      setMessage(`Opening periode ${nextYear} berhasil dibuat.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal opening tahun berikutnya');
     } finally {
       setBusy(false);
     }
@@ -256,10 +328,11 @@ export default function BendaharaPage() {
                 <div className="mt-4 max-w-sm">
                   <Input
                     label="Nominal Manual"
-                    type="number"
-                    min={1}
-                    value={iuranManualAmount}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatRupiahInput(iuranManualAmount)}
                     onChange={(e) => setIuranManualAmount(e.target.value)}
+                    placeholder="Contoh: 30.000"
                   />
                 </div>
               ) : null}
@@ -291,7 +364,14 @@ export default function BendaharaPage() {
                     ))}
                   </select>
                 </label>
-                <Input label="Nominal" type="number" min={1} value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} />
+                <Input
+                  label="Nominal"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatRupiahInput(expenseAmount)}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  placeholder="Contoh: 150.000"
+                />
                 <Input label="Keterangan" value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Contoh: listrik balai RT" />
                 <div className="flex items-end">
                   <Button className="w-full" onClick={submitExpense} disabled={busy}>Catat Pengeluaran</Button>
@@ -368,6 +448,89 @@ export default function BendaharaPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </Card>
+
+            <Card title="Closing Tahunan" subtitle="Tutup buku tahunan untuk migrasi saldo akhir, saldo awal, dan carry forward tunggakan">
+              <div className="grid gap-3 md:grid-cols-4">
+                <Input
+                  label="Tahun Buku"
+                  type="number"
+                  min={2000}
+                  max={2100}
+                  value={String(yearlyYear)}
+                  onChange={(e) => setYearlyYear(Number(e.target.value || new Date().getFullYear()))}
+                />
+                <div className="flex items-end">
+                  <Button className="w-full" onClick={loadYearlyBook} disabled={busy}>Muat Data Tahun</Button>
+                </div>
+                <div className="flex items-end">
+                  <Button className="w-full" onClick={handleCloseYear} disabled={busy}>Close Tahun</Button>
+                </div>
+                <div className="flex items-end">
+                  <Button className="w-full" onClick={handleOpenNextYear} disabled={busy}>Open Tahun Berikutnya</Button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                <Line label="Status Periode" value={yearlyBook?.period?.status || 'BELUM ADA'} />
+                <Line label="Total Warga (Snapshot)" value={String(yearlyBook?.arrears?.total_warga || 0)} />
+                <Line label="Total Tunggakan Awal" value={formatRupiah(Number(yearlyBook?.arrears?.total_opening_arrears || 0))} />
+                <Line label="Total Tunggakan Akhir" value={formatRupiah(Number(yearlyBook?.arrears?.total_closing_arrears || 0))} />
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
+                  <table className="min-w-full border-separate border-spacing-0">
+                    <thead>
+                      <tr className="bg-[var(--surface-strong)]">
+                        <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Kas</th>
+                        <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Awal</th>
+                        <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Akhir</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(yearlyBook?.wallets || []).length === 0 ? (
+                        <tr className="bg-[var(--surface)]">
+                          <td colSpan={3} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada snapshot saldo kas.</td>
+                        </tr>
+                      ) : (
+                        (yearlyBook?.wallets || []).map((row) => (
+                          <tr key={row.wallet_id} className="bg-[var(--surface)]">
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.wallet_name || '-'}</td>
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-primary)]">{formatRupiah(Number(row.opening_balance || 0))}</td>
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.closing_balance || 0))}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
+                  <table className="min-w-full border-separate border-spacing-0">
+                    <thead>
+                      <tr className="bg-[var(--surface-strong)]">
+                        <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Top Tunggakan Akhir Tahun</th>
+                        <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(yearlyBook?.arrears?.top10 || []).length === 0 ? (
+                        <tr className="bg-[var(--surface)]">
+                          <td colSpan={2} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada data tunggakan akhir tahun.</td>
+                        </tr>
+                      ) : (
+                        (yearlyBook?.arrears?.top10 || []).map((row) => (
+                          <tr key={String(row.warga_id)} className="bg-[var(--surface)]">
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.nama || '-'}</td>
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-500">{formatRupiah(Number(row.closing_arrears || 0))}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </Card>
 

@@ -13,7 +13,7 @@ export default function Navbar() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
-  const canSeeApproval = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Admin Jimpitan', 'root']);
+  const canSeeApproval = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Bendahara', 'Admin Jimpitan', 'root']);
   const canManageUsers = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
   const canSeeOps = hasAnyRole(user, [
     'Bendahara',
@@ -63,10 +63,13 @@ export default function Navbar() {
 
   if (!user) return null;
 
+  const isAdminJimpitanOnly = hasAnyRole(user, ['Admin Jimpitan']) && !hasAnyRole(user, ['Bendahara', 'root']);
+  const operasionalLabel = isAdminJimpitanOnly ? 'Admin Jimpitan' : 'Operasional';
+
   const menus = [
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/jimpitan', label: 'Jimpitan', icon: '💰' },
-    { href: '/bendahara', label: 'Operasional', icon: '🧾', opsOnly: true },
+    { href: '/bendahara', label: operasionalLabel, icon: '🧾', opsOnly: true },
     { href: '/approval', label: 'Approval', icon: '✅', gated: true },
     { href: '/management', label: 'Manajemen', icon: '🛠️', managerOnly: true }
   ];

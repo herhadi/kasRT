@@ -1,9 +1,11 @@
 import { pool } from '../db.js';
+import { ensureYearlyBookTables } from './yearlyBookModel.js';
 
 export async function ensureCoreMasterData() {
   await ensureRoles();
   await ensureWallets();
   await ensureContributionTypes();
+  await ensureYearlyBookTables();
 }
 
 async function ensureRoles() {

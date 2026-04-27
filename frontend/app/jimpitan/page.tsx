@@ -9,7 +9,7 @@ import Input from '@/components/ui/Input';
 import FormJimpitan from './FormJimpitan';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { JimpitanListItem } from '@/types';
 
@@ -322,7 +322,7 @@ export default function JimpitanPage() {
 
   async function handleSaveEditNominal() {
     if (!editTarget) return;
-    const nominal = Number(editNominal);
+    const nominal = parseRupiahInput(editNominal);
     if (!Number.isFinite(nominal) || nominal < 0) {
       pushToast('Nominal edit tidak valid.', 'warning');
       return;
@@ -688,10 +688,11 @@ export default function JimpitanPage() {
             <div className="mt-4">
               <Input
                 label="Nominal Baru"
-                type="number"
-                min={0}
-                value={editNominal}
+                type="text"
+                inputMode="numeric"
+                value={formatRupiahInput(editNominal)}
                 onChange={(event) => setEditNominal(event.target.value)}
+                placeholder="Contoh: 1.500"
               />
             </div>
 

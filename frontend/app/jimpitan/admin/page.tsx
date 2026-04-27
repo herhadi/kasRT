@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
+import { formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { JimpitanScheduleData } from '@/types';
 
@@ -101,7 +102,7 @@ export default function JimpitanAdminPage() {
 
   async function handleTopup() {
     const wargaId = String(topupWargaId || '').trim();
-    const nominal = Number(topupNominal);
+    const nominal = parseRupiahInput(topupNominal);
 
     if (!wargaId) {
       pushToast('Pilih warga yang valid terlebih dahulu.', 'warning');
@@ -205,10 +206,11 @@ export default function JimpitanAdminPage() {
             </label>
             <Input
               label="Nominal"
-              type="number"
-              min={1}
-              value={topupNominal}
+              type="text"
+              inputMode="numeric"
+              value={formatRupiahInput(topupNominal)}
               onChange={(event) => setTopupNominal(event.target.value)}
+              placeholder="Contoh: 50.000"
             />
             <div className="flex items-end">
               <Button className="w-full" onClick={handleTopup} disabled={topupLoading}>

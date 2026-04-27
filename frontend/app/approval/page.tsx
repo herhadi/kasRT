@@ -26,7 +26,7 @@ export default function ApprovalPage() {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const canSeeApproval = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Admin Jimpitan', 'root']);
+  const canSeeApproval = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Bendahara', 'Admin Jimpitan', 'root']);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -170,7 +170,7 @@ export default function ApprovalPage() {
 
         {!canSeeApproval ? (
           <Card title="Tidak Ada Akses" subtitle="Role Anda tidak termasuk approver saat ini">
-            <p className="text-sm text-[var(--text-muted)]">Approval hanya untuk Admin Jimpitan, Ketua, Sekretaris, atau root.</p>
+            <p className="text-sm text-[var(--text-muted)]">Approval hanya untuk Admin Jimpitan, Bendahara, Ketua, Sekretaris, atau root.</p>
           </Card>
         ) : null}
 

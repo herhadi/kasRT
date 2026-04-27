@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import { formatRupiah } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import { JimpitanListItem } from '@/types';
 
 export default function FormJimpitan({
@@ -49,15 +49,15 @@ export default function FormJimpitan({
         <div className="mt-4 space-y-2">
           <Input
             label="Nominal Lainnya"
-            type="number"
-            min={0}
-            value={manualNominal}
+            type="text"
+            inputMode="numeric"
+            value={formatRupiahInput(manualNominal)}
             onChange={(event) => setManualNominal(event.target.value)}
-            placeholder="Contoh: 1500"
+            placeholder="Contoh: 1.500"
           />
           <Button
             className="w-full"
-            onClick={() => submitNominal(Number(manualNominal || 0))}
+            onClick={() => submitNominal(parseRupiahInput(manualNominal))}
             disabled={loading || manualNominal === ''}
           >
             Simpan Nominal
