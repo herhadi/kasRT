@@ -23,7 +23,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light):not(.dark) {
     color-scheme: dark;
 
     --bg-base: #050b18;
