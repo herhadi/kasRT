@@ -1,22 +1,12 @@
 import { pool } from '../db.js';
 
-const ASSIGNABLE_ADMIN_ROLE_NAMES = [
-  'Admin Jimpitan',
-  'Admin Pembangunan',
-  'Admin Lingkungan',
-  'Admin Sosial',
-  'Admin Internet',
-  'Admin Koperasi',
-  'Admin Keamanan'
-];
-
-export async function listAssignableAdminRoles() {
+export async function listAssignableOrganizationRoles() {
   const result = await pool.query(
     `SELECT id, name
      FROM roles
-     WHERE name = ANY($1::text[])
+     WHERE LOWER(TRIM(name)) <> 'warga'
+       AND LOWER(TRIM(name)) <> 'root'
      ORDER BY id ASC`,
-    [ASSIGNABLE_ADMIN_ROLE_NAMES]
   );
   return result.rows;
 }
@@ -102,7 +92,7 @@ export async function createWargaUser({ nama, noHp, pin }) {
   }
 }
 
-export async function setUserAdminRoles({ userId, roleIds }) {
+export async function setUserOrganizationRoles({ userId, roleIds }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -121,8 +111,8 @@ export async function setUserAdminRoles({ userId, roleIds }) {
     const availableRoles = await client.query(
       `SELECT id
        FROM roles
-       WHERE name = ANY($1::text[])`,
-      [ASSIGNABLE_ADMIN_ROLE_NAMES]
+       WHERE LOWER(TRIM(name)) <> 'warga'
+         AND LOWER(TRIM(name)) <> 'root'`
     );
     const allowedRoleIds = new Set(availableRoles.rows.map((row) => Number(row.id)));
 

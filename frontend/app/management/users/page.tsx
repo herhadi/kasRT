@@ -16,33 +16,33 @@ export default function UserManagementPage() {
   const router = useRouter();
 
   const [users, setUsers] = useState<ManagementUserItem[]>([]);
-  const [adminRoles, setAdminRoles] = useState<ManagementRoleItem[]>([]);
-  const [selectedRoles, setSelectedRoles] = useState<Record<string, number[]>>({});
+  const [organizationRoles, setOrganizationRoles] = useState<ManagementRoleItem[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [newNama, setNewNama] = useState('');
   const [newNoHp, setNewNoHp] = useState('');
   const [newPin, setNewPin] = useState('');
   const [savingUser, setSavingUser] = useState(false);
-  const [savingRoleUserId, setSavingRoleUserId] = useState<string>('');
+  const [savingRoles, setSavingRoles] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
   const canManage = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
+  const isRoot = hasAnyRole(user, ['root']);
 
   const loadData = useCallback(async () => {
     const result = await apiFetch<{
       success: boolean;
-      data: { users: ManagementUserItem[]; admin_roles: ManagementRoleItem[] };
+      data: { users: ManagementUserItem[]; organization_roles: ManagementRoleItem[] };
     }>('/management/users');
     const rows = result.data?.users || [];
-    const roles = result.data?.admin_roles || [];
+    const roles = result.data?.organization_roles || [];
     setUsers(rows);
-    setAdminRoles(roles);
-    const nextSelected: Record<string, number[]> = {};
-    rows.forEach((row) => {
-      const owned = new Set((row.roles || []).map((r) => String(r).toLowerCase()));
-      nextSelected[String(row.id)] = roles.filter((r) => owned.has(String(r.name).toLowerCase())).map((r) => Number(r.id));
+    setOrganizationRoles(roles);
+    setSelectedUserId((prev) => {
+      if (prev && rows.some((row) => String(row.id) === String(prev))) return prev;
+      return rows[0]?.id ? String(rows[0].id) : '';
     });
-    setSelectedRoles(nextSelected);
   }, []);
 
   useEffect(() => {
@@ -54,6 +54,21 @@ export default function UserManagementPage() {
     if (!canManage) return;
     void loadData().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data manajemen'));
   }, [loading, canManage, loadData]);
+
+  useEffect(() => {
+    if (!selectedUserId) {
+      setSelectedRoleId(null);
+      return;
+    }
+    const selectedUser = users.find((row) => String(row.id) === String(selectedUserId));
+    if (!selectedUser) {
+      setSelectedRoleId(null);
+      return;
+    }
+    const owned = new Set((selectedUser.roles || []).map((r) => String(r).toLowerCase()));
+    const mapped = organizationRoles.find((r) => owned.has(String(r.name).toLowerCase()));
+    setSelectedRoleId(mapped ? Number(mapped.id) : null);
+  }, [selectedUserId, users, organizationRoles]);
 
   async function handleAddWarga() {
     setError('');
@@ -84,22 +99,17 @@ export default function UserManagementPage() {
     }
   }
 
-  function toggleRole(userId: string, roleId: number) {
-    setSelectedRoles((prev) => {
-      const current = prev[userId] || [];
-      const exists = current.includes(roleId);
-      const next = exists ? current.filter((id) => id !== roleId) : [...current, roleId];
-      return { ...prev, [userId]: next.sort((a, b) => a - b) };
-    });
-  }
-
-  async function saveAdminRoles(userId: string) {
+  async function saveAdminRoles() {
     setError('');
     setMessage('');
-    const role_ids = selectedRoles[userId] || [];
+    if (!selectedUserId) {
+      setError('Pilih warga terlebih dahulu.');
+      return;
+    }
+    const role_ids = selectedRoleId ? [selectedRoleId] : [];
     try {
-      setSavingRoleUserId(userId);
-      await apiFetch(`/management/users/${encodeURIComponent(userId)}/admin-roles`, {
+      setSavingRoles(true);
+      await apiFetch(`/management/users/${encodeURIComponent(selectedUserId)}/admin-roles`, {
         method: 'POST',
         body: JSON.stringify({ role_ids })
       });
@@ -108,11 +118,24 @@ export default function UserManagementPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan role admin');
     } finally {
-      setSavingRoleUserId('');
+      setSavingRoles(false);
     }
   }
 
   if (loading || !user) return <main className="min-h-screen" />;
+
+  const organizationTableRows = organizationRoles.map((role) => {
+    const members = users.filter((row) =>
+      (row.roles || []).some((ownedRole) => String(ownedRole).toLowerCase() === String(role.name).toLowerCase())
+    );
+    return { role, members };
+  });
+
+  const leadershipRoleNames = new Set(['ketua', 'sekretaris']);
+  const roleOptions = organizationRoles.filter((role) => {
+    const isLeadership = leadershipRoleNames.has(String(role.name).toLowerCase());
+    return isRoot || !isLeadership;
+  });
 
   if (!canManage) {
     return (
@@ -148,42 +171,78 @@ export default function UserManagementPage() {
         {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
         {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div> : null}
 
-        <Card title="Penunjukan Admin" subtitle="Ketua/Sekretaris dapat menunjuk warga menjadi admin modul tertentu">
-          <div className="space-y-3">
-            {users.map((row) => {
-              const uid = String(row.id);
-              const selected = selectedRoles[uid] || [];
-              return (
-                <div key={uid} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{row.nama}</p>
-                      <p className="text-xs text-[var(--text-muted)]">{row.no_hp || '-'}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      className="px-3 py-1.5 text-xs"
-                      onClick={() => void saveAdminRoles(uid)}
-                      disabled={savingRoleUserId === uid}
-                    >
-                      {savingRoleUserId === uid ? 'Menyimpan...' : 'Simpan Role Admin'}
-                    </Button>
-                  </div>
-                  <div className="mt-3 grid gap-2 md:grid-cols-3">
-                    {adminRoles.map((role) => (
-                      <label key={`${uid}-${role.id}`} className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] px-3 py-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(Number(role.id))}
-                          onChange={() => toggleRole(uid, Number(role.id))}
-                        />
-                        <span>{role.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+        <Card title="Penunjukan Struktur" subtitle="Pilih warga dan tetapkan jabatan organisasi RT">
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="space-y-2 text-sm font-semibold md:col-span-2">
+              <span>Pilih Warga</span>
+              <select
+                className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
+                value={selectedUserId}
+                onChange={(event) => setSelectedUserId(event.target.value)}
+              >
+                {users.map((row) => (
+                  <option key={String(row.id)} value={String(row.id)}>
+                    {row.nama} ({row.no_hp || '-'})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2 text-sm font-semibold">
+              <span>Pilih Jabatan</span>
+              <select
+                className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
+                value={selectedRoleId ?? ''}
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  setSelectedRoleId(raw === '' ? null : Number(raw));
+                }}
+              >
+                <option value="">Tanpa Jabatan Tambahan</option>
+                {roleOptions.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="md:col-span-3 flex justify-end">
+              <Button className="w-full md:w-auto" onClick={saveAdminRoles} disabled={savingRoles || !selectedUserId}>
+                {savingRoles ? 'Menyimpan...' : 'Simpan Jabatan'}
+              </Button>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-[var(--text-muted)]">
+            Role `Warga` tetap melekat. Jabatan tambahan di sini bersifat organisasi.
+          </p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            Khusus jabatan `Ketua` dan `Sekretaris`, hanya `root` yang boleh menetapkan atau mengubah.
+          </p>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+              <thead>
+                <tr className="bg-[var(--surface-strong)]">
+                  <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Jabatan</th>
+                  <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Nama</th>
+                  <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">No HP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {organizationTableRows.map(({ role, members }) => (
+                  <tr key={role.id} className="bg-[var(--surface)]">
+                    <td className="border-b border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+                      {role.name}
+                    </td>
+                    <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">
+                      {members.length > 0 ? members.map((m) => m.nama).join(', ') : '-'}
+                    </td>
+                    <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">
+                      {members.length > 0 ? members.map((m) => m.no_hp || '-').join(', ') : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
       </div>
