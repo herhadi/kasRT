@@ -4,6 +4,7 @@ import { allowRoles } from '../middleware/role.js';
 
 import {
   approveExpense,
+  approveSosialReceipt,
   approveTransfer,
   expense,
   expenseSosial,
@@ -73,6 +74,14 @@ router.post(
   allowRoles('Ketua', 'Sekretaris', 'root'),
   validateRequiredFields(['transaction_id']),
   asyncHandler(approveExpense)
+);
+
+router.post(
+  '/approve-sosial-receipt',
+  auth,
+  allowRoles('Admin Sosial', 'root'),
+  validateRequiredFields(['transaction_id']),
+  asyncHandler(approveSosialReceipt)
 );
 
 export default router;

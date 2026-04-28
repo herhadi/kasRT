@@ -77,7 +77,7 @@ export type ManagementUserItem = {
 };
 
 export type PendingApprovalItem = {
-  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE';
+  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT';
   id: string | number;
   title: string;
   description: string;
@@ -89,6 +89,9 @@ export type PendingApprovalItem = {
     petugas_id?: string | number;
     created_by?: string | number;
     created_by_nama?: string | null;
+    request_id?: string | number;
+    periode?: string;
+    requested_by?: string | number;
   };
 };
 
@@ -99,7 +102,7 @@ export type PendingApprovalSection = {
 };
 
 export type ApprovalHistoryItem = {
-  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE';
+  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT';
   id: string | number;
   title: string;
   description: string;

@@ -9,7 +9,7 @@ export async function listPendingJimpitanBatches() {
        jb.petugas_id,
        u.nama AS petugas_nama
      FROM jimpitan_batches jb
-     LEFT JOIN users u ON u.id = jb.petugas_id
+     LEFT JOIN users u ON u.id::text = jb.petugas_id::text
      WHERE jb.status = 'PENDING'
      ORDER BY jb.created_at ASC`
   );
@@ -41,11 +41,13 @@ export async function listPendingTransactionApprovals() {
        sw.name AS source_wallet_name,
        tw.name AS target_wallet_name
      FROM transactions t
-     LEFT JOIN users u ON u.id = t.created_by
+     LEFT JOIN users u ON u.id::text = t.created_by::text
      LEFT JOIN wallets sw ON sw.id = t.source_wallet_id
      LEFT JOIN wallets tw ON tw.id = t.target_wallet_id
      WHERE t.status = 'PENDING'
        AND t.type IN ('TRANSFER', 'OUT')
+       AND COALESCE(t.description, '') NOT LIKE '[SOCIAL_RECEIPT]%'
+       AND COALESCE(t.description, '') NOT LIKE '[JIMPITAN_SETOR]%'
      ORDER BY t.created_at ASC`
   );
 
@@ -69,9 +71,80 @@ export async function listPendingTransactionApprovals() {
   });
 }
 
+export async function listPendingSosialReceiptApprovals() {
+  const result = await pool.query(
+    `SELECT
+       t.id,
+       t.amount,
+       t.created_at,
+       t.created_by,
+       u.nama AS created_by_nama,
+       sw.name AS source_wallet_name,
+       tw.name AS target_wallet_name
+     FROM transactions t
+     LEFT JOIN users u ON u.id::text = t.created_by::text
+     LEFT JOIN wallets sw ON sw.id = t.source_wallet_id
+     LEFT JOIN wallets tw ON tw.id = t.target_wallet_id
+     WHERE t.status = 'PENDING'
+       AND t.type = 'TRANSFER'
+       AND t.description LIKE '[SOCIAL_RECEIPT]%'
+     ORDER BY t.created_at ASC`
+  );
+
+  return result.rows.map((row) => ({
+    kind: 'SOCIAL_RECEIPT',
+    id: row.id,
+    title: 'Konfirmasi Dana Masuk Kas Sosial',
+    description: `${row.source_wallet_name || '-'} -> ${row.target_wallet_name || '-'} • ${row.created_by_nama || row.created_by}`,
+    amount: Number(row.amount || 0),
+    created_at: row.created_at,
+    meta: {
+      transaction_id: row.id,
+      created_by: row.created_by
+    }
+  }));
+}
+
+export async function listPendingSetorBendaharaApprovals() {
+  const result = await pool.query(
+    `SELECT
+       t.id,
+       t.amount,
+       t.created_at,
+       t.created_by,
+       u.nama AS created_by_nama,
+       sw.name AS source_wallet_name,
+       tw.name AS target_wallet_name,
+       t.description
+     FROM transactions t
+     LEFT JOIN users u ON u.id::text = t.created_by::text
+     LEFT JOIN wallets sw ON sw.id = t.source_wallet_id
+     LEFT JOIN wallets tw ON tw.id = t.target_wallet_id
+     WHERE t.status = 'PENDING'
+       AND t.type = 'TRANSFER'
+       AND t.description LIKE '[JIMPITAN_SETOR]%'
+     ORDER BY t.created_at ASC`
+  );
+
+  return result.rows.map((row) => ({
+    kind: 'JIMPITAN_HANDOVER',
+    id: row.id,
+    title: 'Setor Kas Jimpitan',
+    description: `${row.source_wallet_name || '-'} -> ${row.target_wallet_name || '-'} • ${row.created_by_nama || row.created_by}`,
+    amount: Number(row.amount || 0),
+    created_at: row.created_at,
+    meta: {
+      transaction_id: row.id,
+      created_by: row.created_by
+    }
+  }));
+}
+
 export async function listApprovalHistory({
   includeJimpitan = false,
   includeFinance = false,
+  includeHandover = false,
+  includeSocialReceipt = false,
   limit = 10,
   offset = 0
 }) {
@@ -90,8 +163,8 @@ export async function listApprovalHistory({
         jb.approved_by::text AS approved_by,
         approver.nama AS approved_by_nama
       FROM jimpitan_batches jb
-      LEFT JOIN users p ON p.id = jb.petugas_id
-      LEFT JOIN users approver ON approver.id = jb.approved_by
+      LEFT JOIN users p ON p.id::text = jb.petugas_id::text
+      LEFT JOIN users approver ON approver.id::text = jb.approved_by::text
       WHERE jb.status = 'APPROVED'
         AND jb.approved_at IS NOT NULL
     `);
@@ -115,10 +188,58 @@ export async function listApprovalHistory({
       FROM transactions t
       LEFT JOIN wallets sw ON sw.id = t.source_wallet_id
       LEFT JOIN wallets tw ON tw.id = t.target_wallet_id
-      LEFT JOIN users approver ON approver.id = t.approved_by
+      LEFT JOIN users approver ON approver.id::text = t.approved_by::text
       WHERE t.status = 'APPROVED'
         AND t.approved_at IS NOT NULL
         AND t.type IN ('TRANSFER', 'OUT')
+    `);
+  }
+
+  if (includeHandover) {
+    selects.push(`
+      SELECT
+        'JIMPITAN_HANDOVER'::text AS kind,
+        t.id::text AS id,
+        'Setor Kas Jimpitan' AS title,
+        (COALESCE(sw.name, '-') || ' -> ' || COALESCE(tw.name, '-') || ' • ' || COALESCE(req.nama, t.created_by::text)) AS description,
+        COALESCE(t.amount, 0)::numeric AS amount,
+        t.created_at,
+        t.approved_at,
+        t.approved_by::text AS approved_by,
+        approver.nama AS approved_by_nama
+      FROM transactions t
+      LEFT JOIN wallets sw ON sw.id = t.source_wallet_id
+      LEFT JOIN wallets tw ON tw.id = t.target_wallet_id
+      LEFT JOIN users req ON req.id::text = t.created_by::text
+      LEFT JOIN users approver ON approver.id::text = t.approved_by::text
+      WHERE t.status = 'APPROVED'
+        AND t.approved_at IS NOT NULL
+        AND t.type = 'TRANSFER'
+        AND t.description LIKE '[JIMPITAN_SETOR]%'
+    `);
+  }
+
+  if (includeSocialReceipt) {
+    selects.push(`
+      SELECT
+        'SOCIAL_RECEIPT'::text AS kind,
+        t.id::text AS id,
+        'Penerimaan Dana Sosial' AS title,
+        (COALESCE(sw.name, '-') || ' -> ' || COALESCE(tw.name, '-') || ' • ' || COALESCE(req.nama, t.created_by::text)) AS description,
+        COALESCE(t.amount, 0)::numeric AS amount,
+        t.created_at,
+        t.approved_at,
+        t.approved_by::text AS approved_by,
+        approver.nama AS approved_by_nama
+      FROM transactions t
+      LEFT JOIN wallets sw ON sw.id = t.source_wallet_id
+      LEFT JOIN wallets tw ON tw.id = t.target_wallet_id
+      LEFT JOIN users req ON req.id::text = t.created_by::text
+      LEFT JOIN users approver ON approver.id::text = t.approved_by::text
+      WHERE t.status = 'APPROVED'
+        AND t.approved_at IS NOT NULL
+        AND t.type = 'TRANSFER'
+        AND COALESCE(t.description, '') ILIKE '%sosial%'
     `);
   }
 

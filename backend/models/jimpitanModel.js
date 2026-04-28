@@ -340,7 +340,7 @@ export async function listJimpitanByOperationalDate(operationalDate) {
      LEFT JOIN daily_latest_input dli ON dli.warga_id = u.id
      LEFT JOIN monthly_detail md ON md.warga_id = u.id
      LEFT JOIN monthly_topup mt ON mt.warga_id = u.id
-     LEFT JOIN users p ON p.id = dp.petugas_id
+     LEFT JOIN users p ON p.id::text = dp.petugas_id::text
      ORDER BY u.nama ASC`,
     [operationalDate]
   );

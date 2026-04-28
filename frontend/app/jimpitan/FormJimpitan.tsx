@@ -9,14 +9,17 @@ import { JimpitanListItem } from '@/types';
 export default function FormJimpitan({
   selected,
   onSubmit,
-  onClose
+  onClose,
+  showManual = true
 }: {
   selected: JimpitanListItem | null;
   onSubmit: (nominal: number) => Promise<void>;
   onClose: () => void;
+  showManual?: boolean;
 }) {
   const [manualNominal, setManualNominal] = useState('');
   const [loading, setLoading] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   if (!selected) return null;
 
@@ -25,7 +28,6 @@ export default function FormJimpitan({
     setLoading(true);
     try {
       await onSubmit(nominal);
-      setManualNominal('');
     } finally {
       setLoading(false);
     }
@@ -46,23 +48,36 @@ export default function FormJimpitan({
           ))}
         </div>
 
-        <div className="mt-4 space-y-2">
-          <Input
-            label="Nominal Lainnya"
-            type="text"
-            inputMode="numeric"
-            value={formatRupiahInput(manualNominal)}
-            onChange={(event) => setManualNominal(event.target.value)}
-            placeholder="Contoh: 1.500"
-          />
-          <Button
-            className="w-full"
-            onClick={() => submitNominal(parseRupiahInput(manualNominal))}
-            disabled={loading || manualNominal === ''}
-          >
-            Simpan Nominal
-          </Button>
-        </div>
+        {showManual ? (
+          <div className="mt-4 space-y-2">
+            <button
+              type="button"
+              className="text-xs font-semibold text-[var(--accent)]"
+              onClick={() => setManualOpen((v) => !v)}
+            >
+              {manualOpen ? '▾ Sembunyikan Nominal Lainnya' : '▸ Nominal Lainnya'}
+            </button>
+            {manualOpen ? (
+              <>
+            <Input
+              label="Nominal Lainnya"
+              type="text"
+              inputMode="numeric"
+              value={formatRupiahInput(manualNominal)}
+              onChange={(event) => setManualNominal(event.target.value)}
+              placeholder="Contoh: 1.500"
+            />
+            <Button
+              className="w-full"
+              onClick={() => submitNominal(parseRupiahInput(manualNominal))}
+              disabled={loading || manualNominal === ''}
+            >
+              Simpan Nominal
+            </Button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
 
         <Button variant="danger" className="mt-4 w-full" onClick={onClose} disabled={loading}>
           Tutup

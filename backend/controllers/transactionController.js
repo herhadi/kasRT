@@ -2,6 +2,7 @@ import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah } from '../services/telegramService.js';
 import {
   approvePendingTransactionByType,
+  approvePendingTaggedTransfer,
   createExpense,
   createTransfer,
   findMonthlyTransferDuplicate,
@@ -198,15 +199,22 @@ export async function transferSosialBulanan(req, res) {
     toWallet: kasSosial.id,
     amount,
     userId: user_id,
-    description: description || 'Setor dana sosial bulanan'
+    description: `[SOCIAL_RECEIPT] ${description || 'Setor dana sosial bulanan'}`
   });
 
   await notifyRoles(
-    ['Ketua', 'Sekretaris'],
-    `🔔 <b>Approval Transfer Dana Sosial Dibutuhkan</b>\n` +
+    ['Admin Sosial', 'root'],
+    `🔔 <b>Approval Penerimaan Dana Sosial Baru</b>\n` +
       `Pengaju ID: <b>${user_id}</b>\n` +
       `Sumber: <b>${sourceWallet.name}</b>\n` +
       `Tujuan: <b>${KAS_SOSIAL}</b>\n` +
+      `Nominal: <b>${formatRupiah(amount)}</b>`
+  );
+  await notifyRoles(
+    ['Ketua', 'Sekretaris'],
+    `ℹ️ <b>Informasi Transfer Dana Sosial</b>\n` +
+      `Diajukan Bendahara, menunggu konfirmasi Admin Sosial.\n` +
+      `Sumber: <b>${sourceWallet.name}</b> • Tujuan: <b>${KAS_SOSIAL}</b>\n` +
       `Nominal: <b>${formatRupiah(amount)}</b>`
   );
 
@@ -243,7 +251,7 @@ export async function expenseSosial(req, res) {
   });
 
   await notifyRoles(
-    ['Ketua', 'Sekretaris'],
+    ['Ketua', 'Sekretaris', 'root'],
     `🔔 <b>Approval Pengeluaran Sosial Dibutuhkan</b>\n` +
       `Pengaju ID: <b>${user_id}</b>\n` +
       `Wallet: <b>${KAS_SOSIAL}</b>\n` +
@@ -283,6 +291,41 @@ export async function approveExpense(req, res) {
         `Nominal: <b>${formatRupiah(info.amount)}</b>`
     );
   }
+
+  return res.json({ success: true });
+}
+
+export async function approveSosialReceipt(req, res) {
+  const { transaction_id } = req.body;
+  const approver_id = req.user.user_id;
+
+  const approved = await approvePendingTaggedTransfer({
+    transactionId: transaction_id,
+    approverId: approver_id,
+    descriptionPrefix: '[SOCIAL_RECEIPT]'
+  });
+  if (!approved) {
+    return res.status(400).json({
+      success: false,
+      message: 'Transfer sosial tidak ditemukan atau sudah diproses'
+    });
+  }
+
+  const info = await findTransactionSummary(transaction_id);
+  if (info) {
+    await notifyUser(
+      info.created_by,
+      `✅ <b>Penerimaan Dana Sosial Disetujui Admin Sosial</b>\n` +
+        `Transaksi ID: <b>${transaction_id}</b>\n` +
+        `Nominal: <b>${formatRupiah(info.amount)}</b>`
+    );
+  }
+
+  await notifyRoles(
+    ['Ketua', 'Sekretaris'],
+    `ℹ️ <b>Transfer Dana Sosial Selesai</b>\n` +
+      `Transaksi ID: <b>${transaction_id}</b>`
+  );
 
   return res.json({ success: true });
 }

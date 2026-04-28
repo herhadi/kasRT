@@ -27,7 +27,7 @@ export async function linkTelegramChatWithCode({ code, chatId }) {
     const tokenResult = await client.query(
       `SELECT tlt.id, tlt.user_id, u.nama
        FROM telegram_link_tokens tlt
-       JOIN users u ON u.id = tlt.user_id
+       JOIN users u ON u.id::text = tlt.user_id::text
        WHERE code = $1
          AND used_at IS NULL
          AND expires_at > NOW()

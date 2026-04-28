@@ -1,11 +1,24 @@
 import {
   listApprovalHistory,
+  listPendingSosialReceiptApprovals,
+  listPendingSetorBendaharaApprovals,
   listPendingJimpitanBatches,
   listPendingTransactionApprovals
 } from '../models/approvalModel.js';
 
+function normalizeRoles(userRoles = []) {
+  if (Array.isArray(userRoles)) return userRoles;
+  if (typeof userRoles === 'string') {
+    return userRoles
+      .split(',')
+      .map((role) => role.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function hasAnyRole(userRoles = [], expectedRoles = []) {
-  const normalized = userRoles.map((role) => String(role).toLowerCase());
+  const normalized = normalizeRoles(userRoles).map((role) => String(role).toLowerCase());
   return expectedRoles.some((role) => normalized.includes(String(role).toLowerCase()));
 }
 
@@ -14,6 +27,8 @@ export async function getPendingApprovals(req, res) {
 
   const canApproveJimpitan = hasAnyRole(roles, ['Admin Jimpitan', 'root']);
   const canApproveFinance = hasAnyRole(roles, ['Ketua', 'Sekretaris', 'root']);
+  const canApproveSetorHandover = hasAnyRole(roles, ['Bendahara', 'root']);
+  const canApproveSosialReceipt = hasAnyRole(roles, ['Admin Sosial', 'root']);
 
   const sections = [];
 
@@ -35,6 +50,24 @@ export async function getPendingApprovals(req, res) {
     });
   }
 
+  if (canApproveSetorHandover) {
+    const rows = await listPendingSetorBendaharaApprovals();
+    sections.push({
+      key: 'jimpitan_handover',
+      label: 'Terima Setor Jimpitan',
+      items: rows
+    });
+  }
+
+  if (canApproveSosialReceipt) {
+    const rows = await listPendingSosialReceiptApprovals();
+    sections.push({
+      key: 'social_receipt',
+      label: 'Approval Dana Masuk Sosial',
+      items: rows
+    });
+  }
+
   const items = sections.flatMap((section) => section.items);
   return res.json({
     success: true,
@@ -51,6 +84,8 @@ export async function getApprovalHistory(req, res) {
 
   const canApproveJimpitan = hasAnyRole(roles, ['Admin Jimpitan', 'root']);
   const canApproveFinance = hasAnyRole(roles, ['Ketua', 'Sekretaris', 'root']);
+  const canApproveSetorHandover = hasAnyRole(roles, ['Bendahara', 'root']);
+  const canSeeSocialReceiptHistory = hasAnyRole(roles, ['Admin Sosial', 'Ketua', 'Sekretaris', 'root']);
 
   const page = Math.max(Number.parseInt(String(req.query?.page || '1'), 10) || 1, 1);
   const limitRaw = Number.parseInt(String(req.query?.limit || '10'), 10) || 10;
@@ -60,6 +95,8 @@ export async function getApprovalHistory(req, res) {
   const { total, rows } = await listApprovalHistory({
     includeJimpitan: canApproveJimpitan,
     includeFinance: canApproveFinance,
+    includeHandover: canApproveSetorHandover,
+    includeSocialReceipt: canSeeSocialReceiptHistory,
     limit,
     offset
   });

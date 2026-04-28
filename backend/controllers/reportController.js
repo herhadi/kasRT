@@ -4,6 +4,8 @@ import {
   getDashboardAdminLingkunganAggregate,
   getDashboardAdminPembangunanAggregate,
   getDashboardBendaharaIuranWajibAggregate,
+  getDashboardAdminSosialByMonth,
+  getFinanceRecapByMonth,
   getTop10PenunggakIuranWajib,
   getTrenIuranWajib6Bulan,
   getIuranBulananByWarga,
@@ -281,6 +283,52 @@ export async function dashboardAdminJimpitan(_req, res) {
     return res.json({
       success: true,
       data
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false });
+  }
+}
+
+export async function dashboardAdminSosial(req, res) {
+  const month = String(req.query.month || '').trim();
+  try {
+    const data = await getDashboardAdminSosialByMonth(month);
+    return res.json({
+      success: true,
+      data: {
+        saldo_total: Number(data.summary?.saldo_total || 0),
+        pemasukan_bulan: Number(data.summary?.pemasukan_bulan || 0),
+        pengeluaran_bulan: Number(data.summary?.pengeluaran_bulan || 0),
+        expenses: (data.expenses || []).map((row) => ({
+          id: row.id,
+          amount: Number(row.amount || 0),
+          status: row.status,
+          description: row.description || '',
+          created_at: row.created_at,
+          created_by_nama: row.created_by_nama || null
+        }))
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false });
+  }
+}
+
+export async function rekapKeuanganBulanan(req, res) {
+  const month = String(req.query.month || '').trim();
+  try {
+    const rows = await getFinanceRecapByMonth(month);
+    return res.json({
+      success: true,
+      data: rows.map((row) => ({
+        wallet_id: row.wallet_id,
+        wallet_name: row.wallet_name,
+        saldo_akhir: Number(row.saldo_akhir || 0),
+        pemasukan_bulan: Number(row.pemasukan_bulan || 0),
+        pengeluaran_bulan: Number(row.pengeluaran_bulan || 0)
+      }))
     });
   } catch (err) {
     console.error(err);

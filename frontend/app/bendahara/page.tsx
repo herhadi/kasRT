@@ -1,20 +1,27 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import WargaContributionGrid, { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
+import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, formatTanggalIndonesia, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
+import { PendingApprovalItem } from '@/types';
 
 type WargaItem = { id: string | number; nama: string };
-type WalletItem = { id: number; name: string };
+type IuranStatusItem = { warga_id: string; nama: string; paid_amount: number };
+type WalletItem = { id: string | number; name: string; balance?: number };
 type PengeluaranItem = {
   id: string | number;
+  transaction_type?: string;
+  status?: string;
   amount: number;
   description: string;
   created_at: string;
@@ -72,13 +79,36 @@ type YearlyBookSummary = {
     top10: Array<{ warga_id: string; nama: string; no_hp?: string; closing_arrears: number }>;
   };
 };
+type SosialSummary = {
+  saldo_total: number;
+  pemasukan_bulan: number;
+  pengeluaran_bulan: number;
+  expenses: Array<{
+    id: string | number;
+    amount: number;
+    status: string;
+    description: string;
+    created_at: string;
+    created_by_nama?: string | null;
+  }>;
+};
+type RekapKeuanganItem = {
+  wallet_id: string;
+  wallet_name: string;
+  saldo_akhir: number;
+  pemasukan_bulan: number;
+  pengeluaran_bulan: number;
+};
 
 export default function BendaharaPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   const canSeeOps = hasAnyRole(user, [
     'Bendahara',
+    'Ketua',
+    'Sekretaris',
     'Admin Jimpitan',
     'Admin Pembangunan',
     'Admin Lingkungan',
@@ -89,10 +119,15 @@ export default function BendaharaPage() {
     'root'
   ]);
   const isBendahara = hasAnyRole(user, ['Bendahara', 'root']);
+  const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
+  const isAdminSosial = hasAnyRole(user, ['Admin Sosial', 'root']);
+  const isSekretarisOrKetua = hasAnyRole(user, ['Sekretaris', 'Ketua', 'root']);
 
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [warga, setWarga] = useState<WargaItem[]>([]);
+  const [iuranStatus, setIuranStatus] = useState<IuranStatusItem[]>([]);
   const [wallets, setWallets] = useState<WalletItem[]>([]);
   const [pengeluaran, setPengeluaran] = useState<PengeluaranItem[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -103,11 +138,16 @@ export default function BendaharaPage() {
   const [selectedYearOnly, setSelectedYearOnly] = useState(() => String(new Date().getFullYear()));
 
   const [selectedWarga, setSelectedWarga] = useState('');
-  const [iuranPreset, setIuranPreset] = useState('30000');
-  const [iuranManualAmount, setIuranManualAmount] = useState('');
+  const [selectedWargaCard, setSelectedWargaCard] = useState<WargaContributionRow | null>(null);
   const [expenseWalletId, setExpenseWalletId] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDesc, setExpenseDesc] = useState('');
+  const [transferSosialSourceWalletId, setTransferSosialSourceWalletId] = useState('');
+  const [transferSosialAmount, setTransferSosialAmount] = useState('');
+  const [transferSosialDesc, setTransferSosialDesc] = useState('');
+  const [sosialExpenseAmount, setSosialExpenseAmount] = useState('');
+  const [sosialExpenseDesc, setSosialExpenseDesc] = useState('');
+  const [pendingSosialReceiptCount, setPendingSosialReceiptCount] = useState(0);
   const [expenseDate, setExpenseDate] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -116,18 +156,56 @@ export default function BendaharaPage() {
   const [report, setReport] = useState<BendaharaReport | null>(null);
   const [yearlyYear, setYearlyYear] = useState(() => new Date().getFullYear());
   const [yearlyBook, setYearlyBook] = useState<YearlyBookSummary | null>(null);
+  const [showClosingTools, setShowClosingTools] = useState(false);
+  const [pendingHandover, setPendingHandover] = useState<PendingApprovalItem[]>([]);
+  const [loadingHandover, setLoadingHandover] = useState(false);
+  const [sosialSummary, setSosialSummary] = useState<SosialSummary | null>(null);
+  const [rekapKeuangan, setRekapKeuangan] = useState<RekapKeuanganItem[]>([]);
+  const [showBendaharaDetail, setShowBendaharaDetail] = useState(false);
 
   const loadMaster = useCallback(async () => {
     const result = await apiFetch<{
       success: boolean;
-      data: { wallets: WalletItem[]; pengeluaran: PengeluaranItem[] };
+      data: { wallets: WalletItem[]; pengeluaran: PengeluaranItem[]; iuran_status?: IuranStatusItem[] };
     }>(`/bendahara/master?month=${encodeURIComponent(selectedMonth)}`);
     const ws = result.data?.wallets || [];
     const outs = result.data?.pengeluaran || [];
     setWallets(ws);
     setPengeluaran(outs);
+    setIuranStatus(result.data?.iuran_status || []);
     setExpenseWalletId((prev) => (prev && ws.some((w) => String(w.id) === String(prev)) ? prev : String(ws[0]?.id || '')));
+    setTransferSosialSourceWalletId((prev) => (prev && ws.some((w) => String(w.id) === String(prev)) ? prev : String(ws[0]?.id || '')));
   }, [selectedMonth]);
+
+  const loadPendingSosialReceiptCount = useCallback(async () => {
+    if (!isAdminSosial) return;
+    try {
+      const result = await apiFetch<{
+        success: boolean;
+        data: { sections: Array<{ key: string; items: Array<unknown> }> };
+      }>('/approval/pending');
+      const section = (result.data?.sections || []).find((row) => row.key === 'social_receipt');
+      setPendingSosialReceiptCount((section?.items || []).length);
+    } catch {
+      setPendingSosialReceiptCount(0);
+    }
+  }, [isAdminSosial]);
+
+  const loadSosialSummary = useCallback(async () => {
+    if (!isAdminSosial) return;
+    const result = await apiFetch<{ success: boolean; data: SosialSummary }>(
+      `/report/dashboard-admin-sosial?month=${encodeURIComponent(selectedMonth)}`
+    );
+    setSosialSummary(result.data || null);
+  }, [isAdminSosial, selectedMonth]);
+
+  const loadRekapKeuangan = useCallback(async () => {
+    if (!isSekretarisOrKetua) return;
+    const result = await apiFetch<{ success: boolean; data: RekapKeuanganItem[] }>(
+      `/report/rekap-keuangan?month=${encodeURIComponent(selectedMonth)}`
+    );
+    setRekapKeuangan(result.data || []);
+  }, [isSekretarisOrKetua, selectedMonth]);
 
   const loadWargaOptions = useCallback(async () => {
     const result = await apiFetch<{ success: boolean; data: WargaItem[] }>('/auth/warga-options');
@@ -148,9 +226,35 @@ export default function BendaharaPage() {
     setYearlyBook(result.data || null);
   }, [yearlyYear]);
 
+  const loadPendingHandover = useCallback(async () => {
+    if (!isBendahara) return;
+    setLoadingHandover(true);
+    try {
+      const result = await apiFetch<{
+        success: boolean;
+        data: {
+          sections: Array<{ key: string; items: PendingApprovalItem[] }>;
+        };
+      }>('/approval/pending');
+
+      const section = (result.data?.sections || []).find((item) => item.key === 'jimpitan_handover');
+      setPendingHandover(section?.items || []);
+    } catch {
+      setPendingHandover([]);
+    } finally {
+      setLoadingHandover(false);
+    }
+  }, [isBendahara]);
+
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
+
+  useEffect(() => {
+    if (pathname === '/bendahara') {
+      router.replace('/operasional');
+    }
+  }, [pathname, router]);
 
   useEffect(() => {
     if (loading) return;
@@ -158,27 +262,128 @@ export default function BendaharaPage() {
       router.replace('/dashboard');
       return;
     }
-    if (!isBendahara) return;
-    void Promise.all([loadMaster(), loadReport(), loadWargaOptions(), loadYearlyBook()]).catch((e) =>
+    if (!isBendahara) {
+      if (isAdminSosial) {
+        void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
+      }
+      if (isSekretarisOrKetua) {
+        void loadRekapKeuangan();
+      }
+      return;
+    }
+    void Promise.all([loadMaster(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadPendingHandover()]).catch((e) =>
       setError(e instanceof Error ? e.message : 'Gagal memuat menu bendahara')
     );
-  }, [loading, canSeeOps, isBendahara, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook]);
+  }, [loading, canSeeOps, isBendahara, isAdminSosial, isSekretarisOrKetua, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan]);
 
-  const title = useMemo(() => (isBendahara ? 'Menu Bendahara' : 'Menu Keuangan'), [isBendahara]);
+  useEffect(() => {
+    if (loading || !canSeeOps) return;
+    const interval = window.setInterval(() => {
+      if (isBendahara) {
+        void Promise.all([loadMaster(), loadReport(), loadPendingHandover()]);
+      } else {
+        if (isAdminSosial) {
+          void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
+        }
+        if (isSekretarisOrKetua) {
+          void loadRekapKeuangan();
+        }
+      }
+    }, 8000);
+    return () => window.clearInterval(interval);
+  }, [
+    loading,
+    canSeeOps,
+    isBendahara,
+    isAdminSosial,
+    isSekretarisOrKetua,
+    loadMaster,
+    loadReport,
+    loadPendingHandover,
+    loadPendingSosialReceiptCount,
+    loadSosialSummary,
+    loadRekapKeuangan
+  ]);
+
+  const title = useMemo(() => (isBendahara ? 'Menu Bendahara' : 'Menu Operasional'), [isBendahara]);
   const yearOptions = useMemo(() => {
     const current = new Date().getFullYear();
     return [current - 2, current - 1, current, current + 1];
   }, []);
+  const totalPengeluaranBulanTerpilih = useMemo(
+    () => pengeluaran.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [pengeluaran]
+  );
+  const totalSaldoRealtime = useMemo(
+    () => wallets.reduce((sum, wallet) => sum + Number(wallet.balance || 0), 0),
+    [wallets]
+  );
+  const rekapBendahara = useMemo(() => {
+    const detail = rekapKeuangan.filter((row) =>
+      ['kas iuran wajib', 'kas jimpitan'].includes(String(row.wallet_name || '').trim().toLowerCase())
+    );
+    const other = rekapKeuangan.filter(
+      (row) => !['kas iuran wajib', 'kas jimpitan'].includes(String(row.wallet_name || '').trim().toLowerCase())
+    );
+    const kasBendahara: RekapKeuanganItem = {
+      wallet_id: 'bendahara-aggregate',
+      wallet_name: 'Kas Bendahara',
+      pemasukan_bulan: detail.reduce((s, r) => s + Number(r.pemasukan_bulan || 0), 0),
+      pengeluaran_bulan: detail.reduce((s, r) => s + Number(r.pengeluaran_bulan || 0), 0),
+      saldo_akhir: detail.reduce((s, r) => s + Number(r.saldo_akhir || 0), 0)
+    };
+    return { kasBendahara, detail, other };
+  }, [rekapKeuangan]);
+  const iuranRows = useMemo<WargaContributionRow[]>(
+    () => {
+      const paidByWargaId = new Map(
+        iuranStatus.map((row) => [String(row.warga_id), Number(row.paid_amount || 0)])
+      );
+      return warga.map((w) => ({
+        id: String(w.id),
+        nama: w.nama,
+        paidAmount: paidByWargaId.get(String(w.id)) || 0,
+        targetAmount: 30000,
+        suggestionText: (() => {
+          const paid = paidByWargaId.get(String(w.id)) || 0;
+          const missing = Math.max(0, 30000 - paid);
+          if (missing <= 0) return 'Saran: lunas bulan ini';
+          const months = Math.max(1, Math.ceil(missing / 30000));
+          return `Saran: ${formatRupiah(months * 30000)} (${months} bulan)`;
+        })()
+      }));
+    },
+    [warga, iuranStatus]
+  );
+  const totalPendapatanBulanIni = useMemo(
+    () => iuranRows.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0),
+    [iuranRows]
+  );
 
   useEffect(() => {
     setSelectedMonth(`${selectedYearOnly}-${selectedMonthOnly}`);
   }, [selectedMonthOnly, selectedYearOnly]);
 
-  async function submitSetorIuran() {
-    const amount = iuranPreset === 'manual' ? parseRupiahInput(iuranManualAmount) : Number(iuranPreset || 0);
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  async function submitSetorIuran(amountInput: number): Promise<boolean> {
+    const amount = Number(amountInput || 0);
+    console.info('[BENDAHARA][IURAN] submit:start', {
+      warga_id: selectedWarga,
+      amount,
+      month: selectedMonth
+    });
     if (!selectedWarga || !Number.isFinite(amount) || amount <= 0) {
+      console.warn('[BENDAHARA][IURAN] submit:invalid-payload', {
+        warga_id: selectedWarga,
+        amount
+      });
       setError('Pilih warga dan isi nominal setoran iuran yang valid.');
-      return;
+      return false;
     }
     try {
       setBusy(true);
@@ -188,18 +393,36 @@ export default function BendaharaPage() {
         method: 'POST',
         body: JSON.stringify({ warga_id: selectedWarga, amount })
       });
+      console.info('[BENDAHARA][IURAN] submit:api-ok');
+      setIuranStatus((prev) => {
+        const idx = prev.findIndex((r) => String(r.warga_id) === String(selectedWarga));
+        if (idx < 0) {
+          const wargaNama = warga.find((w) => String(w.id) === String(selectedWarga))?.nama || 'Warga';
+          return [...prev, { warga_id: String(selectedWarga), nama: wargaNama, paid_amount: amount }];
+        }
+        const next = [...prev];
+        next[idx] = { ...next[idx], paid_amount: Number(next[idx].paid_amount || 0) + amount };
+        return next;
+      });
       setMessage('Setoran iuran wajib berhasil dicatat.');
+      setToast({ type: 'success', text: 'Setoran iuran berhasil dicatat.' });
       await loadReport();
       await loadMaster();
+      await loadPendingHandover();
+      console.info('[BENDAHARA][IURAN] submit:done');
+      return true;
     } catch (e) {
+      console.error('[BENDAHARA][IURAN] submit:error', e);
       setError(e instanceof Error ? e.message : 'Gagal menyimpan setoran iuran wajib');
+      setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal menyimpan setoran iuran wajib' });
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
   async function submitExpense() {
-    const wallet_id = Number(expenseWalletId || 0);
+    const wallet_id = String(expenseWalletId || '').trim();
     const amount = parseRupiahInput(expenseAmount);
     if (!wallet_id || !Number.isFinite(amount) || amount <= 0 || !expenseDesc.trim() || !expenseDate) {
       setError('Isi wallet, tanggal keluar, nominal, dan keterangan pengeluaran dengan benar.');
@@ -220,11 +443,69 @@ export default function BendaharaPage() {
       });
       setExpenseAmount('');
       setExpenseDesc('');
-      setMessage('Pengeluaran bulanan berhasil dicatat.');
+      setMessage('Pengeluaran diajukan dan menunggu approval Ketua/Sekretaris.');
       await loadReport();
       await loadMaster();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mencatat pengeluaran');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitTransferSosial() {
+    const from_wallet = String(transferSosialSourceWalletId || '').trim();
+    const amount = parseRupiahInput(transferSosialAmount);
+    if (!from_wallet || !Number.isFinite(amount) || amount <= 0) {
+      setError('Pilih wallet sumber dan isi nominal transfer sosial yang valid.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/transaction/transfer-sosial-bulanan', {
+        method: 'POST',
+        body: JSON.stringify({
+          from_wallet,
+          amount,
+          description: transferSosialDesc.trim() || 'Setor dana sosial bulanan'
+        })
+      });
+      setTransferSosialAmount('');
+      setTransferSosialDesc('');
+      setMessage('Transfer ke Kas Sosial diajukan, menunggu konfirmasi Admin Sosial.');
+      await loadRekapKeuangan();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal ajukan transfer dana sosial');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitSosialExpense() {
+    const amount = parseRupiahInput(sosialExpenseAmount);
+    if (!Number.isFinite(amount) || amount <= 0 || !sosialExpenseDesc.trim()) {
+      setError('Isi nominal dan keterangan pengeluaran sosial dengan benar.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/transaction/expense-sosial', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount,
+          description: sosialExpenseDesc.trim()
+        })
+      });
+      setSosialExpenseAmount('');
+      setSosialExpenseDesc('');
+      setMessage('Pengeluaran sosial diajukan, menunggu approval Ketua/Sekretaris.');
+      await Promise.all([loadSosialSummary(), loadRekapKeuangan()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal ajukan pengeluaran sosial');
     } finally {
       setBusy(false);
     }
@@ -269,6 +550,24 @@ export default function BendaharaPage() {
     }
   }
 
+  async function approveSetorMasuk(transactionId: string | number) {
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/jimpitan/approve-setor-bendahara', {
+        method: 'POST',
+        body: JSON.stringify({ transaction_id: transactionId })
+      });
+      setMessage('Setor kas jimpitan berhasil diterima Bendahara.');
+      await Promise.all([loadPendingHandover(), loadMaster(), loadReport()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal approve setor jimpitan');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading || !user) return <main className="min-h-screen" />;
 
   if (!canSeeOps) {
@@ -281,101 +580,242 @@ export default function BendaharaPage() {
 
   return (
     <main className="min-h-screen pb-10">
+      {toast ? (
+        <div
+          className={
+            toast.type === 'success'
+              ? 'fixed right-4 top-4 z-[70] rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-md'
+              : 'fixed right-4 top-4 z-[70] rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-md'
+          }
+        >
+          {toast.text}
+        </div>
+      ) : null}
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
-        <Card title={title} subtitle="Operasional keuangan untuk Bendahara dan admin terkait">
+        <Card title={title} subtitle="Input iuran wajib bulanan">
           {!isBendahara ? (
-            <p className="text-sm text-[var(--text-muted)]">
-              Anda memiliki akses menu bendahara. Fitur input keuangan penuh khusus untuk role Bendahara.
-            </p>
-          ) : (
-            <>
-              <div className="grid gap-4 md:grid-cols-3">
-                <label className="space-y-2 text-sm font-semibold">
-                  <span>Nominal Iuran Wajib</span>
-                  <select
-                    className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                    value={iuranPreset}
-                    onChange={(e) => setIuranPreset(e.target.value)}
-                  >
-                    <option value="30000">Rp30.000</option>
-                    <option value="60000">Rp60.000</option>
-                    <option value="90000">Rp90.000</option>
-                    <option value="120000">Rp120.000</option>
-                    <option value="150000">Rp150.000</option>
-                    <option value="manual">Input manual</option>
-                  </select>
-                </label>
-                <label className="space-y-2 text-sm font-semibold">
-                  <span>Pilih Warga</span>
-                  <select
-                    className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                    value={selectedWarga}
-                    onChange={(e) => setSelectedWarga(e.target.value)}
-                  >
-                    {warga.map((w) => (
-                      <option key={String(w.id)} value={String(w.id)}>
-                        {w.nama}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="flex items-end">
-                  <Button className="w-full" onClick={submitSetorIuran} disabled={busy}>Catat Iuran Wajib</Button>
-                </div>
-              </div>
-              {iuranPreset === 'manual' ? (
-                <div className="mt-4 max-w-sm">
-                  <Input
-                    label="Nominal Manual"
-                    type="text"
-                    inputMode="numeric"
-                    value={formatRupiahInput(iuranManualAmount)}
-                    onChange={(e) => setIuranManualAmount(e.target.value)}
-                    placeholder="Contoh: 30.000"
-                  />
+            <div className="space-y-3">
+              <p className="text-sm text-[var(--text-muted)]">
+                Anda memiliki akses menu operasional. Fitur input keuangan penuh khusus untuk role Bendahara.
+              </p>
+              {(isAdminSosial || isSekretarisOrKetua) ? (
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="space-y-2 text-sm font-semibold">
+                    <span>Filter Bulan</span>
+                    <select
+                      className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
+                      value={selectedMonthOnly}
+                      onChange={(e) => setSelectedMonthOnly(e.target.value)}
+                    >
+                      <option value="01">Januari</option>
+                      <option value="02">Februari</option>
+                      <option value="03">Maret</option>
+                      <option value="04">April</option>
+                      <option value="05">Mei</option>
+                      <option value="06">Juni</option>
+                      <option value="07">Juli</option>
+                      <option value="08">Agustus</option>
+                      <option value="09">September</option>
+                      <option value="10">Oktober</option>
+                      <option value="11">November</option>
+                      <option value="12">Desember</option>
+                    </select>
+                  </label>
+                  <label className="space-y-2 text-sm font-semibold">
+                    <span>Filter Tahun</span>
+                    <select
+                      className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
+                      value={selectedYearOnly}
+                      onChange={(e) => setSelectedYearOnly(e.target.value)}
+                    >
+                      {yearOptions.map((year) => (
+                        <option key={year} value={String(year)}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               ) : null}
+              {isAdminJimpitan ? (
+                <Link
+                  href="/jimpitan/admin"
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] hover:opacity-90 md:w-auto"
+                >
+                  Menu Admin Jimpitan
+                </Link>
+              ) : null}
+              {isAdminSosial ? (
+                <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Menu Admin Sosial</p>
+                  <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">
+                    Approval baru dana masuk sosial: <b>{pendingSosialReceiptCount}</b>
+                  </div>
+                  <Link
+                    href="/approval"
+                    className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] hover:opacity-90 md:w-auto"
+                  >
+                    Buka Approval
+                  </Link>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <Input
+                      label="Nominal Pengeluaran Sosial"
+                      type="text"
+                      inputMode="numeric"
+                      value={formatRupiahInput(sosialExpenseAmount)}
+                      onChange={(e) => setSosialExpenseAmount(e.target.value)}
+                      placeholder="Contoh: 250.000"
+                    />
+                    <Input
+                      label="Keterangan"
+                      value={sosialExpenseDesc}
+                      onChange={(e) => setSosialExpenseDesc(e.target.value)}
+                      placeholder="Contoh: santunan warga"
+                    />
+                    <div className="flex items-end">
+                      <Button className="w-full" onClick={submitSosialExpense} disabled={busy}>
+                        Ajukan Pengeluaran Sosial
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-3">
+                    <Line label="Saldo Kas Sosial" value={formatRupiah(Number(sosialSummary?.saldo_total || 0))} />
+                    <Line label="Pemasukan Bulan" value={formatRupiah(Number(sosialSummary?.pemasukan_bulan || 0))} />
+                    <Line label="Pengeluaran Bulan" value={formatRupiah(Number(sosialSummary?.pengeluaran_bulan || 0))} />
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                      <thead>
+                        <tr className="bg-[var(--surface-strong)]">
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(sosialSummary?.expenses || []).length === 0 ? (
+                          <tr className="bg-[var(--surface)]">
+                            <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada riwayat pengeluaran sosial pada bulan ini.</td>
+                          </tr>
+                        ) : (
+                          (sosialSummary?.expenses || []).map((row) => (
+                            <tr key={String(row.id)} className="bg-[var(--surface)]">
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{new Date(row.created_at).toLocaleDateString('id-ID')}</td>
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.description || '-'}</td>
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.status}</td>
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.amount || 0))}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+              {isSekretarisOrKetua ? (
+                <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Rekap Keuangan Bulanan (Bendahara & Admin)</p>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                      <thead>
+                        <tr className="bg-[var(--surface-strong)]">
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Kas</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pemasukan Bulan</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pengeluaran Bulan</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Akhir</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rekapKeuangan.length === 0 ? (
+                          <tr className="bg-[var(--surface)]">
+                            <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada data rekap.</td>
+                          </tr>
+                        ) : (
+                          <>
+                            <tr className="bg-[var(--surface)]">
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-2"
+                                  onClick={() => setShowBendaharaDetail((prev) => !prev)}
+                                >
+                                  <span>{showBendaharaDetail ? '▾' : '▸'}</span>
+                                  <span>Kas Bendahara</span>
+                                </button>
+                              </td>
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(Number(rekapBendahara.kasBendahara.pemasukan_bulan || 0))}</td>
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(Number(rekapBendahara.kasBendahara.pengeluaran_bulan || 0))}</td>
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(rekapBendahara.kasBendahara.saldo_akhir || 0))}</td>
+                            </tr>
+                            {showBendaharaDetail
+                              ? rekapBendahara.detail.map((row) => (
+                                  <tr key={row.wallet_id} className="bg-[var(--surface)]">
+                                    <td className="border-b border-[var(--line)] px-3 py-2 pl-8 text-sm text-[var(--text-primary)]">{row.wallet_name}</td>
+                                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(Number(row.pemasukan_bulan || 0))}</td>
+                                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(Number(row.pengeluaran_bulan || 0))}</td>
+                                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.saldo_akhir || 0))}</td>
+                                  </tr>
+                                ))
+                              : null}
+                            {rekapBendahara.other.map((row) => (
+                              <tr key={row.wallet_id} className="bg-[var(--surface)]">
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.wallet_name}</td>
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(Number(row.pemasukan_bulan || 0))}</td>
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(Number(row.pengeluaran_bulan || 0))}</td>
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.saldo_akhir || 0))}</td>
+                              </tr>
+                            ))}
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : isBendahara ? (
+            <>
+              <div
+                className="sticky z-40 mb-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)]/95 px-3 py-2 backdrop-blur"
+                style={{ top: 'var(--sticky-nav-offset)' }}
+              >
+                <p className="text-xs text-[var(--text-muted)]">Pendapatan Iuran Bulan Ini</p>
+                <p className="text-lg font-bold text-[var(--accent)]">{formatRupiah(totalPendapatanBulanIni)}</p>
+              </div>
+              <WargaContributionSection
+                rows={iuranRows}
+                selectedRow={selectedWargaCard}
+                loading={busy}
+                onOpen={(row) => {
+                  setSelectedWarga(String(row.id));
+                  setSelectedWargaCard(row);
+                }}
+                onClose={() => setSelectedWargaCard(null)}
+                onSubmit={async (amount) => {
+                  const ok = await submitSetorIuran(amount);
+                  if (ok) setSelectedWargaCard(null);
+                }}
+              />
             </>
-          )}
+          ) : null}
         </Card>
 
         {isBendahara ? (
           <>
-            <Card title="Pengeluaran Bulanan" subtitle="Pencatatan pengeluaran operasional bulanan">
-              <div className="grid gap-4 md:grid-cols-4">
-                <Input
-                  label="Tanggal Keluar"
-                  type="date"
-                  value={expenseDate}
-                  onChange={(e) => setExpenseDate(e.target.value)}
-                />
-                <label className="space-y-2 text-sm font-semibold">
-                  <span>Wallet</span>
-                  <select
-                    className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                    value={expenseWalletId}
-                    onChange={(e) => setExpenseWalletId(e.target.value)}
-                  >
-                    {wallets.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <Input
-                  label="Nominal"
-                  type="text"
-                  inputMode="numeric"
-                  value={formatRupiahInput(expenseAmount)}
-                  onChange={(e) => setExpenseAmount(e.target.value)}
-                  placeholder="Contoh: 150.000"
-                />
-                <Input label="Keterangan" value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Contoh: listrik balai RT" />
-                <div className="flex items-end">
-                  <Button className="w-full" onClick={submitExpense} disabled={busy}>Catat Pengeluaran</Button>
+            <Card title="Total Saldo Realtime" subtitle="Akumulasi saldo kas dari transaksi APPROVED">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Saldo</p>
+                  <p className="mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(totalSaldoRealtime)}</p>
                 </div>
+                {wallets.map((wallet) => (
+                  <div key={String(wallet.id)} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{wallet.name}</p>
+                    <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{formatRupiah(Number(wallet.balance || 0))}</p>
+                  </div>
+                ))}
               </div>
             </Card>
 
@@ -417,20 +857,26 @@ export default function BendaharaPage() {
                   </select>
                 </label>
               </div>
+              <div className="mb-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Pengeluaran Bulan Terpilih</p>
+                <p className="mt-1 text-xl font-bold text-rose-500">{formatRupiah(totalPengeluaranBulanTerpilih)}</p>
+              </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                   <thead>
                     <tr className="bg-[var(--surface-strong)]">
                       <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Tanggal</th>
+                      <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Jenis</th>
                       <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Wallet</th>
                       <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Keterangan</th>
+                      <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Status</th>
                       <th className="border-b border-[var(--line)] px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Nominal</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pengeluaran.length === 0 ? (
                       <tr className="bg-[var(--surface)]">
-                        <td colSpan={4} className="px-4 py-3 text-sm text-[var(--text-muted)]">Belum ada pengeluaran bulan ini.</td>
+                        <td colSpan={6} className="px-4 py-3 text-sm text-[var(--text-muted)]">Belum ada pengeluaran bulan ini.</td>
                       </tr>
                     ) : (
                       pengeluaran.map((row) => (
@@ -438,8 +884,12 @@ export default function BendaharaPage() {
                           <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">
                             {new Date(row.created_at).toLocaleDateString('id-ID')}
                           </td>
+                          <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">
+                            {row.transaction_type === 'TRANSFER' ? 'Transfer Sosial' : 'Pengeluaran'}
+                          </td>
                           <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.wallet_name || '-'}</td>
                           <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.description || '-'}</td>
+                          <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.status || '-'}</td>
                           <td className="border-b border-[var(--line)] px-4 py-3 text-right text-sm font-semibold text-[var(--accent)]">
                             {formatRupiah(Number(row.amount || 0))}
                           </td>
@@ -451,87 +901,183 @@ export default function BendaharaPage() {
               </div>
             </Card>
 
-            <Card title="Closing Tahunan" subtitle="Tutup buku tahunan untuk migrasi saldo akhir, saldo awal, dan carry forward tunggakan">
-              <div className="grid gap-3 md:grid-cols-4">
+            <Card title="Pengeluaran Bulanan" subtitle="Pencatatan pengeluaran operasional bulanan">
+              <div className="grid gap-4 md:grid-cols-4">
                 <Input
-                  label="Tahun Buku"
-                  type="number"
-                  min={2000}
-                  max={2100}
-                  value={String(yearlyYear)}
-                  onChange={(e) => setYearlyYear(Number(e.target.value || new Date().getFullYear()))}
+                  label="Tanggal Keluar"
+                  type="date"
+                  value={expenseDate}
+                  onChange={(e) => setExpenseDate(e.target.value)}
+                />
+                <label className="space-y-2 text-sm font-semibold">
+                  <span>Wallet</span>
+                  <select
+                    className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
+                    value={expenseWalletId}
+                    onChange={(e) => setExpenseWalletId(e.target.value)}
+                  >
+                    {wallets.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Input
+                  label="Nominal"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatRupiahInput(expenseAmount)}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  placeholder="Contoh: 150.000"
+                />
+                <Input label="Keterangan" value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Contoh: listrik balai RT" />
+                <div className="flex items-end">
+                  <Button className="w-full" onClick={submitExpense} disabled={busy}>Catat Pengeluaran</Button>
+                </div>
+              </div>
+            </Card>
+
+            <Card title="Transfer ke Kas Sosial" subtitle="Bendahara ajukan transfer, Admin Sosial yang konfirmasi penerimaan">
+              <div className="grid gap-4 md:grid-cols-4">
+                <label className="space-y-2 text-sm font-semibold">
+                  <span>Wallet Sumber</span>
+                  <select
+                    className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
+                    value={transferSosialSourceWalletId}
+                    onChange={(e) => setTransferSosialSourceWalletId(e.target.value)}
+                  >
+                    {wallets.map((w) => (
+                      <option key={String(w.id)} value={String(w.id)}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Input
+                  label="Nominal Transfer"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatRupiahInput(transferSosialAmount)}
+                  onChange={(e) => setTransferSosialAmount(e.target.value)}
+                  placeholder="Contoh: 500.000"
+                />
+                <Input
+                  label="Keterangan"
+                  value={transferSosialDesc}
+                  onChange={(e) => setTransferSosialDesc(e.target.value)}
+                  placeholder="Contoh: alokasi sosial bulanan"
                 />
                 <div className="flex items-end">
-                  <Button className="w-full" onClick={loadYearlyBook} disabled={busy}>Muat Data Tahun</Button>
-                </div>
-                <div className="flex items-end">
-                  <Button className="w-full" onClick={handleCloseYear} disabled={busy}>Close Tahun</Button>
-                </div>
-                <div className="flex items-end">
-                  <Button className="w-full" onClick={handleOpenNextYear} disabled={busy}>Open Tahun Berikutnya</Button>
+                  <Button className="w-full" onClick={submitTransferSosial} disabled={busy}>
+                    Ajukan Transfer Sosial
+                  </Button>
                 </div>
               </div>
+            </Card>
 
-              <div className="mt-4 grid gap-2 md:grid-cols-2">
-                <Line label="Status Periode" value={yearlyBook?.period?.status || 'BELUM ADA'} />
-                <Line label="Total Warga (Snapshot)" value={String(yearlyBook?.arrears?.total_warga || 0)} />
-                <Line label="Total Tunggakan Awal" value={formatRupiah(Number(yearlyBook?.arrears?.total_opening_arrears || 0))} />
-                <Line label="Total Tunggakan Akhir" value={formatRupiah(Number(yearlyBook?.arrears?.total_closing_arrears || 0))} />
+            <Card title="Closing Tahunan" subtitle="Tools tahunan (disembunyikan saat operasional harian/bulanan)">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-[var(--text-muted)]">Dipakai untuk tutup buku dan buka periode tahun berikutnya.</p>
+                <Button variant="ghost" onClick={() => setShowClosingTools((prev) => !prev)}>
+                  {showClosingTools ? 'Sembunyikan Tools Closing' : 'Buka Tools Closing Tahunan'}
+                </Button>
               </div>
 
-              <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
-                  <table className="min-w-full border-separate border-spacing-0">
-                    <thead>
-                      <tr className="bg-[var(--surface-strong)]">
-                        <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Kas</th>
-                        <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Awal</th>
-                        <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Akhir</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(yearlyBook?.wallets || []).length === 0 ? (
-                        <tr className="bg-[var(--surface)]">
-                          <td colSpan={3} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada snapshot saldo kas.</td>
-                        </tr>
-                      ) : (
-                        (yearlyBook?.wallets || []).map((row) => (
-                          <tr key={row.wallet_id} className="bg-[var(--surface)]">
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.wallet_name || '-'}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-primary)]">{formatRupiah(Number(row.opening_balance || 0))}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.closing_balance || 0))}</td>
+              {showClosingTools ? (
+                <>
+                  <div className="mt-4 grid gap-3 md:grid-cols-4">
+                    <Input
+                      label="Tahun Buku"
+                      type="text"
+                      inputMode="numeric"
+                      value={String(yearlyYear)}
+                      onChange={(e) => {
+                        const raw = String(e.target.value || '').replace(/[^\d]/g, '');
+                        if (!raw) {
+                          setYearlyYear(new Date().getFullYear());
+                          return;
+                        }
+                        const parsed = Number(raw);
+                        if (Number.isFinite(parsed)) {
+                          const bounded = Math.min(2100, Math.max(2000, parsed));
+                          setYearlyYear(bounded);
+                        }
+                      }}
+                    />
+                    <div className="flex items-end">
+                      <Button className="w-full" onClick={loadYearlyBook} disabled={busy}>Muat Data Tahun</Button>
+                    </div>
+                    <div className="flex items-end">
+                      <Button className="w-full" onClick={handleCloseYear} disabled={busy}>Close Tahun</Button>
+                    </div>
+                    <div className="flex items-end">
+                      <Button className="w-full" onClick={handleOpenNextYear} disabled={busy}>Open Tahun Berikutnya</Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-2 md:grid-cols-2">
+                    <Line label="Status Periode" value={yearlyBook?.period?.status || 'BELUM ADA'} />
+                    <Line label="Total Warga (Snapshot)" value={String(yearlyBook?.arrears?.total_warga || 0)} />
+                    <Line label="Total Tunggakan Awal" value={formatRupiah(Number(yearlyBook?.arrears?.total_opening_arrears || 0))} />
+                    <Line label="Total Tunggakan Akhir" value={formatRupiah(Number(yearlyBook?.arrears?.total_closing_arrears || 0))} />
+                  </div>
+
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[var(--surface-strong)]">
+                            <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Kas</th>
+                            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Awal</th>
+                            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Akhir</th>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {(yearlyBook?.wallets || []).length === 0 ? (
+                            <tr className="bg-[var(--surface)]">
+                              <td colSpan={3} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada snapshot saldo kas.</td>
+                            </tr>
+                          ) : (
+                            (yearlyBook?.wallets || []).map((row) => (
+                              <tr key={row.wallet_id} className="bg-[var(--surface)]">
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.wallet_name || '-'}</td>
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-primary)]">{formatRupiah(Number(row.opening_balance || 0))}</td>
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.closing_balance || 0))}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
 
-                <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
-                  <table className="min-w-full border-separate border-spacing-0">
-                    <thead>
-                      <tr className="bg-[var(--surface-strong)]">
-                        <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Top Tunggakan Akhir Tahun</th>
-                        <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(yearlyBook?.arrears?.top10 || []).length === 0 ? (
-                        <tr className="bg-[var(--surface)]">
-                          <td colSpan={2} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada data tunggakan akhir tahun.</td>
-                        </tr>
-                      ) : (
-                        (yearlyBook?.arrears?.top10 || []).map((row) => (
-                          <tr key={String(row.warga_id)} className="bg-[var(--surface)]">
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.nama || '-'}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-500">{formatRupiah(Number(row.closing_arrears || 0))}</td>
+                    <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[var(--surface-strong)]">
+                            <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Top Tunggakan Akhir Tahun</th>
+                            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                        </thead>
+                        <tbody>
+                          {(yearlyBook?.arrears?.top10 || []).length === 0 ? (
+                            <tr className="bg-[var(--surface)]">
+                              <td colSpan={2} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada data tunggakan akhir tahun.</td>
+                            </tr>
+                          ) : (
+                            (yearlyBook?.arrears?.top10 || []).map((row) => (
+                              <tr key={String(row.warga_id)} className="bg-[var(--surface)]">
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.nama || '-'}</td>
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-500">{formatRupiah(Number(row.closing_arrears || 0))}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : null}
             </Card>
 
             {report ? (

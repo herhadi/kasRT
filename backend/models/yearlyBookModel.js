@@ -29,7 +29,7 @@ export async function ensureYearlyBookTables() {
     CREATE TABLE IF NOT EXISTS yearly_wallet_balances (
       id BIGSERIAL PRIMARY KEY,
       year INTEGER NOT NULL,
-      wallet_id INTEGER NOT NULL,
+      wallet_id UUID NOT NULL,
       opening_balance NUMERIC(18,2) NOT NULL DEFAULT 0,
       closing_balance NUMERIC(18,2) NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -40,15 +40,59 @@ export async function ensureYearlyBookTables() {
   await pool.query(`
     ALTER TABLE yearly_wallet_balances
       ADD COLUMN IF NOT EXISTS year INTEGER,
-      ADD COLUMN IF NOT EXISTS wallet_id INTEGER,
+      ADD COLUMN IF NOT EXISTS wallet_id UUID,
       ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(18,2) NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS closing_balance NUMERIC(18,2) NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   `);
 
+  // UUID migration safety for legacy schemas that created wallet_id as INTEGER/TEXT.
+  await pool.query(`
+    ALTER TABLE yearly_wallet_balances
+      ALTER COLUMN wallet_id DROP NOT NULL
+  `);
+  await pool.query(`
+    ALTER TABLE yearly_wallet_balances
+      ALTER COLUMN wallet_id TYPE UUID
+      USING (
+        CASE
+          WHEN TRIM(wallet_id::text) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+            THEN TRIM(wallet_id::text)::uuid
+          ELSE NULL
+        END
+      )
+  `);
+  await pool.query(`
+    DELETE FROM yearly_wallet_balances
+    WHERE wallet_id IS NULL
+  `);
+  await pool.query(`
+    ALTER TABLE yearly_wallet_balances
+      ALTER COLUMN wallet_id SET NOT NULL
+  `);
+
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS yearly_wallet_balances_year_wallet_uidx
       ON yearly_wallet_balances (year, wallet_id)
+  `);
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints
+        WHERE table_schema = 'public'
+          AND table_name = 'yearly_wallet_balances'
+          AND constraint_name = 'yearly_wallet_balances_wallet_id_fkey'
+      ) THEN
+        ALTER TABLE yearly_wallet_balances
+          ADD CONSTRAINT yearly_wallet_balances_wallet_id_fkey
+          FOREIGN KEY (wallet_id) REFERENCES wallets(id)
+          ON UPDATE CASCADE
+          ON DELETE CASCADE;
+      END IF;
+    END $$;
   `);
 
   await pool.query(`
@@ -106,9 +150,8 @@ function toNextYearStart(year) {
 export async function getYearlyBookSummary(year) {
   try {
     await ensureYearlyBookTables();
-  } catch (error) {
+  } catch (_error) {
     // Keep endpoint alive for legacy schemas; summary can still be shown as empty.
-    console.error('[YEARLY_BOOK] ensureYearlyBookTables failed:', error.message);
   }
 
   try {
@@ -162,8 +205,8 @@ export async function getYearlyBookSummary(year) {
         usersResult.rows.forEach((row) => {
           usersById.set(String(row.id), { nama: row.nama, no_hp: row.no_hp });
         });
-      } catch (error) {
-        console.error('[YEARLY_BOOK] users lookup failed:', error.message);
+      } catch (_error) {
+        // Ignore users lookup failure and continue with fallback names.
       }
     }
 
@@ -192,7 +235,6 @@ export async function getYearlyBookSummary(year) {
     };
   } catch (error) {
     if (String(error?.message || '').toLowerCase().includes('operator does not exist: uuid = integer')) {
-      console.error('[YEARLY_BOOK] legacy uuid/int mismatch detected, return empty summary');
       return {
         period: null,
         wallets: [],

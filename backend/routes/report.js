@@ -6,8 +6,10 @@ import {
   dashboardAdminJimpitan,
   dashboardAdminKoperasi,
   dashboardAdminLingkungan,
+  dashboardAdminSosial,
   dashboardAdminBendahara,
   dashboardAdminPembangunan,
+  rekapKeuanganBulanan,
   dashboardWarga,
   laporanBulanan
 } from '../controllers/reportController.js';
@@ -67,6 +69,20 @@ router.get(
   auth,
   allowRoles('Admin Lingkungan', 'root'),
   asyncHandler(dashboardAdminLingkungan)
+);
+
+router.get(
+  '/dashboard-admin-sosial',
+  auth,
+  allowRoles('Admin Sosial', 'root'),
+  asyncHandler(dashboardAdminSosial)
+);
+
+router.get(
+  '/rekap-keuangan',
+  auth,
+  allowRoles('Ketua', 'Sekretaris', 'root'),
+  asyncHandler(rekapKeuanganBulanan)
 );
 
 export default router;

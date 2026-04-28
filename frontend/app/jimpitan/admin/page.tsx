@@ -9,11 +9,20 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, formatTanggalIndonesia, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { JimpitanScheduleData } from '@/types';
 
 type WargaOption = { id: string; nama: string; no_hp?: string };
+type SetorHistoryItem = {
+  id: number;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
+  description: string;
+  created_at: string;
+  approved_at?: string | null;
+  target_wallet_name?: string | null;
+};
 
 export default function JimpitanAdminPage() {
   const router = useRouter();
@@ -27,6 +36,14 @@ export default function JimpitanAdminPage() {
   const [topupLoading, setTopupLoading] = useState(false);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [setShiftLoading, setSetShiftLoading] = useState(false);
+  const [setorPeriod, setSetorPeriod] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [setorLoading, setSetorLoading] = useState(false);
+  const [setorHistoryLoading, setSetorHistoryLoading] = useState(false);
+  const [setorHistory, setSetorHistory] = useState<SetorHistoryItem[]>([]);
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
 
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
@@ -59,6 +76,16 @@ export default function JimpitanAdminPage() {
     }
   }, []);
 
+  const loadSetorHistory = useCallback(async () => {
+    setSetorHistoryLoading(true);
+    try {
+      const result = await apiFetch<{ success: boolean; data: SetorHistoryItem[] }>('/jimpitan/setor-history?limit=20');
+      setSetorHistory(result.data || []);
+    } finally {
+      setSetorHistoryLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (loading) return;
     if (!user) {
@@ -69,10 +96,10 @@ export default function JimpitanAdminPage() {
       router.replace('/jimpitan');
       return;
     }
-    void Promise.all([loadWargaOptions(), loadSchedule()]).catch((error) => {
+    void Promise.all([loadWargaOptions(), loadSchedule(), loadSetorHistory()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, router, loadWargaOptions, loadSchedule, pushToast]);
+  }, [loading, user, isAdminJimpitan, router, loadWargaOptions, loadSchedule, loadSetorHistory, pushToast]);
 
   const weeklyGroups = useMemo(() => {
     const days = scheduleData?.shift_days || [];
@@ -151,6 +178,33 @@ export default function JimpitanAdminPage() {
     }
   }
 
+  async function handleAjukanSetorBendahara() {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(setorPeriod)) {
+      pushToast('Format periode harus YYYY-MM.', 'warning');
+      return;
+    }
+    try {
+      setSetorLoading(true);
+      const result = await apiFetch<{
+        success: boolean;
+        data: { periode: string; total_batch: number; total_nominal: number };
+      }>('/jimpitan/ajukan-setor-bendahara', {
+        method: 'POST',
+        body: JSON.stringify({ bulan: setorPeriod })
+      });
+      const data = result.data;
+      pushToast(
+        `Pengajuan setor dikirim • ${data.periode} • batch ${data.total_batch}`,
+        'success'
+      );
+      await loadSetorHistory();
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal ajukan setor ke Bendahara', 'error');
+    } finally {
+      setSetorLoading(false);
+    }
+  }
+
   if (loading || !user) return <main className="min-h-screen" />;
 
   return (
@@ -217,6 +271,57 @@ export default function JimpitanAdminPage() {
                 {topupLoading ? 'Menyimpan...' : 'Simpan Top Up'}
               </Button>
             </div>
+          </div>
+        </Card>
+
+        <Card title="Setor Kas ke Bendahara" subtitle="Ajukan serah-terima kas jimpitan. Bendahara akan approve saat uang fisik diterima.">
+          <div className="grid gap-3 md:grid-cols-3">
+            <Input
+              label="Periode Rekap (YYYY-MM)"
+              value={setorPeriod}
+              onChange={(event) => setSetorPeriod(event.target.value)}
+              placeholder="Contoh: 2026-03"
+            />
+            <div className="flex items-end md:col-span-2">
+              <Button className="w-full md:w-auto" onClick={handleAjukanSetorBendahara} disabled={setorLoading}>
+                {setorLoading ? 'Mengajukan...' : 'Ajukan Setor ke Bendahara'}
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        <Card title="Riwayat Setor ke Bendahara" subtitle="Jejak pengajuan setor kas jimpitan oleh Admin Jimpitan">
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+              <thead>
+                <tr className="bg-[var(--surface-strong)]">
+                  <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Waktu Ajukan</th>
+                  <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Tujuan</th>
+                  <th className="border-b border-[var(--line)] px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Nominal</th>
+                  <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {setorHistoryLoading ? (
+                  <tr className="bg-[var(--surface)]">
+                    <td colSpan={4} className="px-4 py-3 text-sm text-[var(--text-muted)]">Memuat riwayat setor...</td>
+                  </tr>
+                ) : setorHistory.length === 0 ? (
+                  <tr className="bg-[var(--surface)]">
+                    <td colSpan={4} className="px-4 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat setor.</td>
+                  </tr>
+                ) : (
+                  setorHistory.map((row) => (
+                    <tr key={row.id} className="bg-[var(--surface)]">
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{formatTanggalIndonesia(row.created_at)}</td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.target_wallet_name || '-'}</td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.amount || 0))}</td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{row.status}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </Card>
 

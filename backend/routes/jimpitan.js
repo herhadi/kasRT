@@ -4,9 +4,11 @@ import { allowRoles } from '../middleware/role.js';
 import {
   approveJimpitan,
   ajukanSetorKeBendahara,
+  approveSetorJimpitanKeBendahara,
   editNominalJimpitan,
   getJimpitanSchedule,
   getMyJimpitanRouteOrder,
+  getSetorHistoryJimpitanAdmin,
   healthCheck,
   inputJimpitan,
   listJimpitan,
@@ -71,6 +73,20 @@ router.post(
   auth,
   allowRoles('Admin Jimpitan', 'root'),
   asyncHandler(ajukanSetorKeBendahara)
+);
+
+router.post(
+  '/approve-setor-bendahara',
+  auth,
+  allowRoles('Bendahara', 'root'),
+  asyncHandler(approveSetorJimpitanKeBendahara)
+);
+
+router.get(
+  '/setor-history',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  asyncHandler(getSetorHistoryJimpitanAdmin)
 );
 
 router.get('/list', auth, asyncHandler(listJimpitan));

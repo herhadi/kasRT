@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -450,7 +449,10 @@ export default function JimpitanPage() {
 
       <Navbar />
 
-      <div className="sticky top-[73px] z-40 border-b border-[var(--line)] bg-[var(--surface-strong)]/95 backdrop-blur-lg px-4 py-3 md:px-6">
+      <div
+        className="sticky z-40 border-b border-[var(--line)] bg-[var(--surface-strong)]/95 backdrop-blur-lg px-4 py-3 md:px-6"
+        style={{ top: 'var(--sticky-nav-offset)' }}
+      >
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
             <div>
@@ -515,6 +517,7 @@ export default function JimpitanPage() {
           </Button>
           
           <Button
+            variant="ghost"
             onClick={handleSetor}
             disabled={setorLoading || !canSetor}
             className="min-w-[170px] flex-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
@@ -529,14 +532,6 @@ export default function JimpitanPage() {
             )}
           </Button>
 
-          {isAdminJimpitan ? (
-            <Link
-              href="/jimpitan/admin"
-              className="inline-flex min-w-[170px] flex-1 items-center justify-center rounded-xl border-2 border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-strong)] hover:shadow-md"
-            >
-              Menu Admin Jimpitan
-            </Link>
-          ) : null}
         </div>
 
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-primary)]">
@@ -629,7 +624,7 @@ export default function JimpitanPage() {
                       ? 'border-emerald-200 bg-emerald-50/70'
                       : row.isLunas
                         ? 'border-slate-300 bg-slate-100/80'
-                        : 'cursor-pointer border-[var(--line)] bg-[var(--surface)] hover:border-[var(--accent)] hover:shadow-lg'
+                        : 'cursor-pointer border-red-200 bg-red-50/70 hover:border-red-300 hover:shadow-lg'
                   } ${reorderMode ? 'wiggle-card' : ''} ${activeMoveId === String(row.id) ? 'ring-2 ring-[var(--accent)]' : ''} ${draggingId === String(row.id) ? 'opacity-60' : ''}`}
                 >
                 <div className="flex items-start justify-between gap-1">

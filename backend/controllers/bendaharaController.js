@@ -2,6 +2,7 @@ import {
   catatPengeluaranBulanan,
   inputIuranWajibSetoran,
   listFinanceWallets,
+  listIuranWajibStatusByMonth,
   listPengeluaranBulanan
 } from '../models/bendaharaModel.js';
 import {
@@ -9,16 +10,20 @@ import {
   getYearlyBookSummary,
   openYearlyBook
 } from '../models/yearlyBookModel.js';
+import { notifyRoles } from '../services/approvalNotifier.js';
+import { formatRupiah } from '../services/telegramService.js';
 
 export async function getBendaharaMasterData(req, res) {
   const month = String(req.query.month || '').trim();
   const monthParam = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
   try {
-    const [wallets, pengeluaran] = await Promise.all([
+    const [wallets, pengeluaran, iuranStatus] = await Promise.all([
       listFinanceWallets(),
-      listPengeluaranBulanan({ month: monthParam || undefined })
+      listPengeluaranBulanan({ month: monthParam || undefined }),
+      listIuranWajibStatusByMonth({ month: monthParam || undefined })
     ]);
-    return res.json({ success: true, data: { wallets, pengeluaran } });
+    console.info('[BENDAHARA][MASTER] month=%s iuran_status=%d', monthParam || 'current', iuranStatus.length);
+    return res.json({ success: true, data: { wallets, pengeluaran, iuran_status: iuranStatus } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -44,14 +49,14 @@ export async function setorIuranWajibWarga(req, res) {
 }
 
 export async function inputPengeluaranBulanan(req, res) {
-  const walletId = Number(req.body.wallet_id || 0);
+  const walletId = String(req.body.wallet_id || '').trim();
   const amount = Number(req.body.amount || 0);
   const description = String(req.body.description || '').trim();
   const tanggalKeluarRaw = String(req.body.tanggal_keluar || '').trim();
   const tanggalKeluar = tanggalKeluarRaw || null;
   const actor = String(req.user.user_id || '').trim();
 
-  if (!Number.isInteger(walletId) || walletId <= 0) {
+  if (!walletId) {
     return res.status(400).json({ success: false, message: 'wallet_id tidak valid' });
   }
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -72,8 +77,15 @@ export async function inputPengeluaranBulanan(req, res) {
       createdBy: actor,
       tanggalKeluar
     });
+    await notifyRoles(
+      ['Ketua', 'Sekretaris'],
+      `🔔 <b>Approval Pengeluaran Bendahara Dibutuhkan</b>\n` +
+        `Nominal: <b>${formatRupiah(amount)}</b>\n` +
+        `Keterangan: <b>${description}</b>\n` +
+        `Tanggal Keluar: <b>${tanggalKeluar}</b>`
+    );
     const pengeluaran = await listPengeluaranBulanan();
-    return res.json({ success: true, data: { pengeluaran } });
+    return res.json({ success: true, message: 'Pengeluaran diajukan dan menunggu approval Ketua/Sekretaris', data: { pengeluaran } });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

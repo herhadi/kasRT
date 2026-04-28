@@ -1,6 +1,13 @@
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
 import {
+  approvePendingTaggedTransfer,
+  createTransfer,
+  findPendingTaggedTransferByDescription,
+  findWalletByName,
+  listTaggedTransfersByCreator
+} from '../models/transactionModel.js';
+import {
   approveJimpitanBatch,
   createJimpitanDraftAndUpdateSaldo,
   createSetorBatch,
@@ -532,6 +539,31 @@ export async function ajukanSetorKeBendahara(req, res) {
       });
     }
     
+    const kasJimpitan = await findWalletByName('Kas Jimpitan');
+    const kasIuranWajib = await findWalletByName('Kas Iuran Wajib');
+    if (!kasJimpitan || !kasIuranWajib) {
+      return res.status(400).json({
+        success: false,
+        message: 'Wallet Kas Jimpitan/Kas Iuran Wajib tidak ditemukan'
+      });
+    }
+
+    const tagDescription = `[JIMPITAN_SETOR] Setor kas jimpitan periode ${period} • batch ${totalBatch}`;
+    const duplicatePending = await findPendingTaggedTransferByDescription(`[JIMPITAN_SETOR] Setor kas jimpitan periode ${period}`);
+    if (duplicatePending) {
+      return res.status(400).json({
+        success: false,
+        message: `Pengajuan setor periode ${period} masih menunggu approval Bendahara`
+      });
+    }
+    await createTransfer({
+      fromWallet: kasJimpitan.id,
+      toWallet: kasIuranWajib.id,
+      amount: totalNominal,
+      userId: adminId,
+      description: tagDescription
+    });
+
     await notifyRoles(
       ['Bendahara', 'root'],
       `📦 <b>Pengajuan Setor Jimpitan ke Bendahara</b>\n` +
@@ -548,6 +580,73 @@ export async function ajukanSetorKeBendahara(req, res) {
         total_batch: totalBatch,
         total_nominal: totalNominal
       }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function approveSetorJimpitanKeBendahara(req, res) {
+  const transactionId = String(req.body.transaction_id || req.body.request_id || '').trim();
+  const bendaharaId = String(req.user.user_id || '').trim();
+
+  if (!transactionId) {
+    return res.status(400).json({ success: false, message: 'transaction_id tidak valid' });
+  }
+  if (!bendaharaId) {
+    return res.status(401).json({ success: false, message: 'User tidak valid' });
+  }
+
+  try {
+    const approved = await approvePendingTaggedTransfer({
+      transactionId,
+      approverId: bendaharaId,
+      descriptionPrefix: '[JIMPITAN_SETOR]'
+    });
+    if (!approved) {
+      return res.status(400).json({
+        success: false,
+        message: 'Transaksi setor jimpitan tidak ditemukan atau sudah diproses'
+      });
+    }
+
+    await notifyRoles(
+      ['Admin Jimpitan', 'root'],
+      `✅ <b>Setor Jimpitan Diterima Bendahara</b>\n` +
+        `Transaksi ID: <b>${transactionId}</b>`
+    );
+
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function getSetorHistoryJimpitanAdmin(req, res) {
+  const adminId = String(req.user.user_id || '').trim();
+  const limit = Number(req.query?.limit || 20);
+  if (!adminId) {
+    return res.status(401).json({ success: false, message: 'User tidak valid' });
+  }
+
+  try {
+    const rows = await listTaggedTransfersByCreator({
+      createdBy: adminId,
+      descriptionPrefix: '[JIMPITAN_SETOR]',
+      limit
+    });
+    return res.json({
+      success: true,
+      data: rows.map((row) => ({
+        id: row.id,
+        amount: Number(row.amount || 0),
+        status: row.status,
+        description: row.description || '',
+        created_at: row.created_at,
+        approved_at: row.approved_at,
+        approved_by: row.approved_by,
+        target_wallet_name: row.target_wallet_name || null
+      }))
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

@@ -2,6 +2,7 @@
 
 :root {
   color-scheme: light;
+  --sticky-nav-offset: 133px;
 
   --bg-base: #f2f6ff;
   --bg-grad-1: #dbeafe;
@@ -23,6 +24,12 @@
   --nav-active-bg: color-mix(in srgb, #1d4ed8 16%, #ffffff);
   --nav-active-text: #1e40af;
   --nav-active-border: #2563eb;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --sticky-nav-offset: 135px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

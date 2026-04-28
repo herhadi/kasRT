@@ -13,9 +13,9 @@ export default function Navbar() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
-  const canSeeApproval = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Bendahara', 'Admin Jimpitan', 'root']);
-  const canManageUsers = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
-  const canSeeOps = hasAnyRole(user, [
+  const canSeeApproval = hasAnyRole(user, [
+    'Ketua',
+    'Sekretaris',
     'Bendahara',
     'Admin Jimpitan',
     'Admin Pembangunan',
@@ -26,6 +26,27 @@ export default function Navbar() {
     'Admin Keamanan',
     'root'
   ]);
+  const canManageUsers = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
+  const canSeeOps = hasAnyRole(user, [
+    'Bendahara',
+    'Ketua',
+    'Sekretaris',
+    'Admin Jimpitan',
+    'Admin Pembangunan',
+    'Admin Lingkungan',
+    'Admin Sosial',
+    'Admin Internet',
+    'Admin Koperasi',
+    'Admin Keamanan',
+    'root'
+  ]);
+  const isBendahara = hasAnyRole(user, ['Bendahara', 'root']);
+  const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
+  const opsMenu = isBendahara
+    ? { href: '/operasional', label: 'Operasional', icon: '🧾' }
+    : isAdminJimpitan
+      ? { href: '/jimpitan/admin', label: 'Admin Jimpitan', icon: '🧺' }
+      : { href: '/operasional', label: 'Operasional', icon: '🧾' };
 
   useEffect(() => {
     if (!canSeeApproval) {
@@ -63,13 +84,10 @@ export default function Navbar() {
 
   if (!user) return null;
 
-  const isAdminJimpitanOnly = hasAnyRole(user, ['Admin Jimpitan']) && !hasAnyRole(user, ['Bendahara', 'root']);
-  const operasionalLabel = isAdminJimpitanOnly ? 'Admin Jimpitan' : 'Operasional';
-
   const menus = [
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/jimpitan', label: 'Jimpitan', icon: '💰' },
-    { href: '/bendahara', label: operasionalLabel, icon: '🧾', opsOnly: true },
+    { ...opsMenu, opsOnly: true },
     { href: '/approval', label: 'Approval', icon: '✅', gated: true },
     { href: '/management', label: 'Manajemen', icon: '🛠️', managerOnly: true }
   ];

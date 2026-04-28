@@ -26,7 +26,19 @@ export default function ApprovalPage() {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const canSeeApproval = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Bendahara', 'Admin Jimpitan', 'root']);
+  const canSeeApproval = hasAnyRole(user, [
+    'Ketua',
+    'Sekretaris',
+    'Bendahara',
+    'Admin Jimpitan',
+    'Admin Pembangunan',
+    'Admin Lingkungan',
+    'Admin Sosial',
+    'Admin Internet',
+    'Admin Koperasi',
+    'Admin Keamanan',
+    'root'
+  ]);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -140,6 +152,20 @@ export default function ApprovalPage() {
         });
       }
 
+      if (item.kind === 'JIMPITAN_HANDOVER') {
+        await apiFetch('/jimpitan/approve-setor-bendahara', {
+          method: 'POST',
+          body: JSON.stringify({ transaction_id: item.meta.transaction_id ?? item.id })
+        });
+      }
+
+      if (item.kind === 'SOCIAL_RECEIPT') {
+        await apiFetch('/transaction/approve-sosial-receipt', {
+          method: 'POST',
+          body: JSON.stringify({ transaction_id: item.meta.transaction_id ?? item.id })
+        });
+      }
+
       setMessage(`${item.title} berhasil di-approve.`);
       await loadPending();
       await loadHistory(historyPage);
@@ -170,7 +196,7 @@ export default function ApprovalPage() {
 
         {!canSeeApproval ? (
           <Card title="Tidak Ada Akses" subtitle="Role Anda tidak termasuk approver saat ini">
-            <p className="text-sm text-[var(--text-muted)]">Approval hanya untuk Admin Jimpitan, Bendahara, Ketua, Sekretaris, atau root.</p>
+            <p className="text-sm text-[var(--text-muted)]">Approval hanya untuk admin terkait, Bendahara, Ketua, Sekretaris, atau root.</p>
           </Card>
         ) : null}
 
