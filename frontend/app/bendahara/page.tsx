@@ -628,7 +628,7 @@ export default function BendaharaPage() {
         <Navbar />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
           <Card
-            title="Input Iuran Wajib OK"
+            title="Input Iuran Wajib"
             headerRight={
               <div className="w-full max-w-[220px]">
                 <Input
@@ -935,44 +935,27 @@ export default function BendaharaPage() {
               </div>
             </Card>
 
-            <Card title="List Pengeluaran" subtitle={`Riwayat pengeluaran untuk ${selectedMonth}`}>
-              <div className="mb-4 grid gap-3 md:grid-cols-3">
-                <label className="space-y-2 text-sm font-semibold">
-                  <span>Filter Bulan</span>
-                  <select
-                    className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                    value={selectedMonthOnly}
-                    onChange={(e) => setSelectedMonthOnly(e.target.value)}
-                  >
-                    <option value="01">Januari</option>
-                    <option value="02">Februari</option>
-                    <option value="03">Maret</option>
-                    <option value="04">April</option>
-                    <option value="05">Mei</option>
-                    <option value="06">Juni</option>
-                    <option value="07">Juli</option>
-                    <option value="08">Agustus</option>
-                    <option value="09">September</option>
-                    <option value="10">Oktober</option>
-                    <option value="11">November</option>
-                    <option value="12">Desember</option>
-                  </select>
-                </label>
-                <label className="space-y-2 text-sm font-semibold">
-                  <span>Filter Tahun</span>
-                  <select
-                    className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                    value={selectedYearOnly}
-                    onChange={(e) => setSelectedYearOnly(e.target.value)}
-                  >
-                    {yearOptions.map((year) => (
-                      <option key={year} value={String(year)}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+            <Card
+              title="List Pengeluaran"
+              subtitle={`Riwayat pengeluaran untuk ${selectedMonth}`}
+              headerRight={
+                <div className="w-full max-w-[220px]">
+                  <Input
+                    label="Periode"
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => {
+                      const value = String(e.target.value || '').trim();
+                      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return;
+                      setSelectedMonth(value);
+                      const [year, month] = value.split('-');
+                      setSelectedYearOnly(year);
+                      setSelectedMonthOnly(month);
+                    }}
+                  />
+                </div>
+              }
+            >
               <div className="mb-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Pengeluaran Bulan Terpilih</p>
                 <p className="mt-1 text-xl font-bold text-rose-500">{formatRupiah(totalPengeluaranBulanTerpilih)}</p>

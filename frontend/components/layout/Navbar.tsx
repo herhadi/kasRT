@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { hasAnyRole } from '@/lib/auth';
@@ -13,6 +13,7 @@ export default function Navbar() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
+  const navScrollerRef = useRef<HTMLDivElement | null>(null);
   const canSeeApproval = hasAnyRole(user, [
     'Ketua',
     'Sekretaris',
@@ -82,6 +83,14 @@ export default function Navbar() {
     };
   }, [canSeeApproval, user]);
 
+  useEffect(() => {
+    const scroller = navScrollerRef.current;
+    if (!scroller) return;
+    const activeEl = scroller.querySelector('[data-active="true"]') as HTMLElement | null;
+    if (!activeEl) return;
+    activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [pathname, canSeeApproval, canManageUsers, canSeeOps]);
+
   if (!user) return null;
 
   const menus = [
@@ -125,7 +134,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto md:overflow-visible">
+        <div ref={navScrollerRef} className="w-full overflow-x-auto md:overflow-visible">
           <nav className="flex w-full min-w-max items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1">
             {menus
               .filter(
@@ -140,6 +149,7 @@ export default function Navbar() {
                   <Link
                     key={menu.href}
                     href={menu.href}
+                    data-active={active ? 'true' : 'false'}
                     className={`inline-flex min-w-[118px] flex-1 basis-0 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
                       active
                         ? 'border bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] shadow-[0_8px_20px_rgba(29,78,216,0.2)] border-[var(--nav-active-border)]'
