@@ -88,7 +88,22 @@ export default function Navbar() {
     if (!scroller) return;
     const activeEl = scroller.querySelector('[data-active="true"]') as HTMLElement | null;
     if (!activeEl) return;
-    activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    const scrollerRect = scroller.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+    const leftOverflow = scrollerRect.left - activeRect.left;
+    const rightOverflow = activeRect.right - scrollerRect.right;
+    const margin = 12;
+
+    let delta = 0;
+    if (leftOverflow > 0) {
+      delta = -(leftOverflow + margin);
+    } else if (rightOverflow > 0) {
+      delta = rightOverflow + margin;
+    }
+
+    if (Math.abs(delta) > 1) {
+      scroller.scrollBy({ left: delta, behavior: 'smooth' });
+    }
   }, [pathname, canSeeApproval, canManageUsers, canSeeOps]);
 
   if (!user) return null;

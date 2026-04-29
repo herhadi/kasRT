@@ -1,5 +1,20 @@
 import { pool } from '../db.js';
 
+export async function ensureNotulenTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monthly_meeting_notes (
+      id BIGSERIAL PRIMARY KEY,
+      month CHAR(7) NOT NULL,
+      notes TEXT NOT NULL,
+      created_by UUID,
+      updated_by UUID,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (month)
+    )
+  `);
+}
+
 export async function listAssignableOrganizationRoles() {
   const result = await pool.query(
     `SELECT id, name
@@ -145,4 +160,27 @@ export async function setUserOrganizationRoles({ userId, roleIds }) {
   } finally {
     client.release();
   }
+}
+
+export async function getMeetingNoteByMonth(month) {
+  await ensureNotulenTable();
+  const result = await pool.query(
+    `SELECT month, notes, created_at, updated_at
+     FROM monthly_meeting_notes
+     WHERE month = $1
+     LIMIT 1`,
+    [month]
+  );
+  return result.rows[0] || null;
+}
+
+export async function upsertMeetingNoteByMonth({ month, notes, actorId }) {
+  await ensureNotulenTable();
+  await pool.query(
+    `INSERT INTO monthly_meeting_notes (month, notes, created_by, updated_by)
+     VALUES ($1, $2, $3, $3)
+     ON CONFLICT (month)
+     DO UPDATE SET notes = EXCLUDED.notes, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
+    [month, notes, actorId]
+  );
 }

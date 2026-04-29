@@ -1,8 +1,10 @@
 import {
   createWargaUser,
+  getMeetingNoteByMonth,
   listAssignableOrganizationRoles,
   listUsersWithRoles,
-  setUserOrganizationRoles
+  setUserOrganizationRoles,
+  upsertMeetingNoteByMonth
 } from '../models/managementModel.js';
 
 export async function getUserManagementData(_req, res) {
@@ -75,6 +77,37 @@ export async function updateUserAdminRoles(req, res) {
     }
 
     await setUserOrganizationRoles({ userId, roleIds });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function getMeetingNote(req, res) {
+  const month = String(req.query.month || '').trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return res.status(400).json({ success: false, message: 'month tidak valid (YYYY-MM)' });
+  }
+  try {
+    const data = await getMeetingNoteByMonth(month);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function saveMeetingNote(req, res) {
+  const month = String(req.body.month || '').trim();
+  const notes = String(req.body.notes || '').trim();
+  const actorId = String(req.user?.user_id || '').trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return res.status(400).json({ success: false, message: 'month tidak valid (YYYY-MM)' });
+  }
+  if (!notes) {
+    return res.status(400).json({ success: false, message: 'notes wajib diisi' });
+  }
+  try {
+    await upsertMeetingNoteByMonth({ month, notes, actorId });
     return res.json({ success: true });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

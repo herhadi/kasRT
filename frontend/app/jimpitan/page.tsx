@@ -258,48 +258,48 @@ export default function JimpitanPage() {
     let wargaKosong = 0;
     let wargaDeposit = 0;
 
-    let pesan = '📝 *REKAP JIMPITAN WARGA*\\n';
-    pesan += `📅 *${tglHeader}*\\n`;
-    pesan += '━━━━━━━━━━━━━━━\\n';
+    let pesan = '📝 *REKAP JIMPITAN WARGA*\n';
+    pesan += `📅 *${tglHeader}*\n`;
+    pesan += '━━━━━━━━━━━━━━━\n';
 
     items.forEach((w, index) => {
       const marker = String(w.namaPetugas || '').toLowerCase();
       const isDeposit = marker === 'deposit' || marker === 'sistem (saldo)';
 
-      pesan += `${index + 1}. *${w.nama.toUpperCase()}*\\n`;
+      pesan += `${index + 1}. *${w.nama.toUpperCase()}*\n`;
       if (w.isLunas) {
         if (isDeposit) {
-          pesan += '      └─ 🏦 _Lunas (Deposit)_\\n';
+          pesan += '      └─ 🏦 _Lunas (Deposit)_\n';
           wargaDeposit += 1;
         } else if (Number(w.nominalTerbayar || 0) > 0) {
-          pesan += `      └─ ✅ ${formatRupiah(w.nominalTerbayar)}\\n`;
+          pesan += `      └─ ✅ ${formatRupiah(w.nominalTerbayar)}\n`;
           totalTunai += Number(w.nominalTerbayar || 0);
           wargaTunai += 1;
         } else {
-          pesan += '      └─ ⚪ _Kosong_\\n';
+          pesan += '      └─ ⚪ _Kosong_\n';
           wargaKosong += 1;
         }
       } else {
-        pesan += '      └─ 🔴 _Belum_\\n';
+        pesan += '      └─ 🔴 _Belum_\n';
         wargaBelum += 1;
       }
     });
 
-    pesan += '\\n━━━━━━━━━━━━━━━\\n';
-    pesan += `💰 *TOTAL TUNAI: ${formatRupiah(totalTunai)}*\\n`;
-    pesan += '👥 *DETAIL PETUGAS:*\\n';
+    pesan += '\n━━━━━━━━━━━━━━━\n';
+    pesan += `💰 *TOTAL TUNAI: ${formatRupiah(totalTunai)}*\n`;
+    pesan += '👥 *DETAIL PETUGAS:*\n';
     Object.entries(recapData.petugasBreakdown)
       .sort((a, b) => a[0].localeCompare(b[0], 'id'))
       .forEach(([namaPetugas, subtotal]) => {
-        pesan += `   • ${namaPetugas}: ${formatRupiah(subtotal)}\\n`;
+        pesan += `   • ${namaPetugas}: ${formatRupiah(subtotal)}\n`;
       });
-    pesan += '📊 *STATISTIK:*\\n';
-    pesan += `   ✅ Lunas (Tunai): ${wargaTunai}\\n`;
-    pesan += `   🏦 Lunas (Deposit): ${wargaDeposit}\\n`;
-    pesan += `   ⚪ Kosong: ${wargaKosong}\\n`;
-    pesan += `   🔴 Belum: ${wargaBelum}\\n`;
-    pesan += '━━━━━━━━━━━━━━━\\n';
-    pesan += `_Dilaporkan oleh: ${user?.nama || 'Petugas'}_\\n`;
+    pesan += '📊 *STATISTIK:*\n';
+    pesan += `   ✅ Lunas (Tunai): ${wargaTunai}\n`;
+    pesan += `   🏦 Lunas (Deposit): ${wargaDeposit}\n`;
+    pesan += `   ⚪ Kosong: ${wargaKosong}\n`;
+    pesan += `   🔴 Belum: ${wargaBelum}\n`;
+    pesan += '━━━━━━━━━━━━━━━\n';
+    pesan += `_Dilaporkan oleh: ${user?.nama || 'Petugas'}_\n`;
 
     if (navigator.share) {
       navigator
@@ -644,7 +644,14 @@ export default function JimpitanPage() {
                   ) : null}
                 </div>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Saran: {formatRupiah(row.nominalSaran)}</p>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">Saldo Bulan Ini: {formatRupiah(row.saldo)}</p>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  Input Hari Ini:{' '}
+                  {row.isLunas
+                    ? `${formatRupiah(Number(row.nominalTerbayar || 0))} • ${
+                        row.namaPetugas ? `oleh ${row.namaPetugas}` : 'petugas tidak tercatat'
+                      }`
+                    : 'Belum diinput'}
+                </p>
                 {canEditByAdmin ? (
                   <div className="mt-2">
                     <Button

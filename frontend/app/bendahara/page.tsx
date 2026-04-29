@@ -166,6 +166,9 @@ export default function BendaharaPage() {
   const [sosialSummary, setSosialSummary] = useState<SosialSummary | null>(null);
   const [rekapKeuangan, setRekapKeuangan] = useState<RekapKeuanganItem[]>([]);
   const [showBendaharaDetail, setShowBendaharaDetail] = useState(false);
+  const [meetingNotes, setMeetingNotes] = useState('');
+  const [meetingNotesLoading, setMeetingNotesLoading] = useState(false);
+  const [speechListening, setSpeechListening] = useState(false);
   const iuranPageMode = pathname === '/operasional/iuran';
 
   const loadMaster = useCallback(async () => {
@@ -216,6 +219,18 @@ export default function BendaharaPage() {
       `/report/rekap-keuangan?month=${encodeURIComponent(selectedMonth)}`
     );
     setRekapKeuangan(result.data || []);
+  }, [isSekretarisOrKetua, selectedMonth]);
+
+  const loadMeetingNote = useCallback(async () => {
+    if (!isSekretarisOrKetua) return;
+    try {
+      const result = await apiFetch<{ success: boolean; data: { notes?: string } | null }>(
+        `/management/meeting-note?month=${encodeURIComponent(selectedMonth)}`
+      );
+      setMeetingNotes(String(result.data?.notes || ''));
+    } catch {
+      setMeetingNotes('');
+    }
   }, [isSekretarisOrKetua, selectedMonth]);
 
   const loadWargaOptions = useCallback(async () => {
@@ -288,14 +303,14 @@ export default function BendaharaPage() {
         void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
       }
       if (isSekretarisOrKetua) {
-        void loadRekapKeuangan();
+        void Promise.all([loadRekapKeuangan(), loadMeetingNote()]);
       }
       return;
     }
     void Promise.all([loadMaster(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadPendingHandover(), loadOpeningArrears()]).catch((e) =>
       setError(e instanceof Error ? e.message : 'Gagal memuat menu bendahara')
     );
-  }, [loading, canSeeOps, isBendahara, isAdminSosial, isSekretarisOrKetua, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears]);
+  }, [loading, canSeeOps, isBendahara, isAdminSosial, isSekretarisOrKetua, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
 
   useEffect(() => {
     if (loading || !canSeeOps) return;
@@ -307,7 +322,7 @@ export default function BendaharaPage() {
           void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
         }
         if (isSekretarisOrKetua) {
-          void loadRekapKeuangan();
+          void Promise.all([loadRekapKeuangan(), loadMeetingNote()]);
         }
       }
     }, 8000);
@@ -324,8 +339,65 @@ export default function BendaharaPage() {
     loadPendingSosialReceiptCount,
     loadSosialSummary,
     loadRekapKeuangan,
-    loadOpeningArrears
+    loadOpeningArrears,
+    loadMeetingNote
   ]);
+
+  async function saveMeetingNote() {
+    if (!isSekretarisOrKetua) return;
+    try {
+      setMeetingNotesLoading(true);
+      await apiFetch('/management/meeting-note', {
+        method: 'POST',
+        body: JSON.stringify({ month: selectedMonth, notes: meetingNotes })
+      });
+      setToast({ type: 'success', text: 'Notulen rapat berhasil disimpan.' });
+    } catch (e) {
+      setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal simpan notulen.' });
+    } finally {
+      setMeetingNotesLoading(false);
+    }
+  }
+
+  function handleSpeechToText() {
+    type SpeechRecognitionCtor = new () => {
+      lang: string;
+      interimResults: boolean;
+      continuous: boolean;
+      onstart: (() => void) | null;
+      onresult: ((event: { resultIndex: number; results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }> }) => void) | null;
+      onerror: (() => void) | null;
+      onend: (() => void) | null;
+      start: () => void;
+    };
+    const SpeechRecognitionCtor =
+      typeof window !== 'undefined'
+        ? ((window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor }).SpeechRecognition ||
+          (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionCtor }).webkitSpeechRecognition)
+        : null;
+    if (!SpeechRecognitionCtor) {
+      setToast({ type: 'error', text: 'Browser ini belum mendukung input suara.' });
+      return;
+    }
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = 'id-ID';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    let finalText = '';
+    recognition.onstart = () => setSpeechListening(true);
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const transcript = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) finalText += transcript;
+        else interim += transcript;
+      }
+      setMeetingNotes((prev) => `${prev}${prev ? '\n' : ''}${(finalText || interim).trim()}`.trim());
+    };
+    recognition.onerror = () => setToast({ type: 'error', text: 'Gagal memproses suara.' });
+    recognition.onend = () => setSpeechListening(false);
+    recognition.start();
+  }
 
   const title = useMemo(() => (isBendahara ? 'Menu Bendahara' : 'Menu Operasional'), [isBendahara]);
   const yearOptions = useMemo(() => {
@@ -871,6 +943,25 @@ export default function BendaharaPage() {
                         )}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              ) : null}
+              {isSekretarisOrKetua ? (
+                <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Notulen Rapat Bulanan</p>
+                  <textarea
+                    className="min-h-[160px] w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                    value={meetingNotes}
+                    onChange={(e) => setMeetingNotes(e.target.value)}
+                    placeholder="Tulis ringkasan keputusan rapat bulan ini..."
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" onClick={handleSpeechToText} disabled={speechListening}>
+                      {speechListening ? 'Mendengarkan...' : '🎙️ Input Suara'}
+                    </Button>
+                    <Button onClick={saveMeetingNote} disabled={meetingNotesLoading}>
+                      {meetingNotesLoading ? 'Menyimpan...' : 'Simpan Notulen'}
+                    </Button>
                   </div>
                 </div>
               ) : null}
