@@ -137,6 +137,36 @@ export async function ensureYearlyBookTables() {
     CREATE UNIQUE INDEX IF NOT EXISTS yearly_warga_arrears_year_warga_uidx
       ON yearly_warga_arrears (year, warga_id)
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS yearly_warga_contribution_arrears (
+      id BIGSERIAL PRIMARY KEY,
+      year INTEGER NOT NULL,
+      warga_id UUID NOT NULL,
+      contribution_type_id INTEGER NOT NULL,
+      opening_arrears NUMERIC(18,2) NOT NULL DEFAULT 0,
+      closing_arrears NUMERIC(18,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (year, warga_id, contribution_type_id)
+    )
+  `);
+
+  await pool.query(`
+    ALTER TABLE yearly_warga_contribution_arrears
+      ADD COLUMN IF NOT EXISTS year INTEGER,
+      ADD COLUMN IF NOT EXISTS warga_id UUID,
+      ADD COLUMN IF NOT EXISTS contribution_type_id INTEGER,
+      ADD COLUMN IF NOT EXISTS opening_arrears NUMERIC(18,2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS closing_arrears NUMERIC(18,2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS yearly_warga_contrib_arrears_uidx
+      ON yearly_warga_contribution_arrears (year, warga_id, contribution_type_id)
+  `);
 }
 
 function toYearStart(year) {

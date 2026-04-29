@@ -112,6 +112,34 @@ export async function listPengeluaranBulanan({ month, limit = 100 } = {}) {
   return result.rows;
 }
 
+export async function listPendapatanBulanan({ month } = {}) {
+  const isValidMonth = typeof month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
+  const params = isValidMonth ? [month, KAS_IURAN_WAJIB, KAS_JIMPITAN] : [KAS_IURAN_WAJIB, KAS_JIMPITAN];
+  const sql = isValidMonth
+    ? `SELECT w.name AS wallet_name, COALESCE(SUM(t.amount), 0) AS total
+       FROM transactions t
+       JOIN wallets w ON w.id = t.target_wallet_id
+       WHERE t.type = 'IN'
+         AND t.status = 'APPROVED'
+         AND LOWER(w.name) IN (LOWER($2), LOWER($3))
+         AND DATE_TRUNC('month', t.created_at) = DATE_TRUNC('month', TO_DATE($1, 'YYYY-MM'))
+       GROUP BY w.name`
+    : `SELECT w.name AS wallet_name, COALESCE(SUM(t.amount), 0) AS total
+       FROM transactions t
+       JOIN wallets w ON w.id = t.target_wallet_id
+       WHERE t.type = 'IN'
+         AND t.status = 'APPROVED'
+         AND LOWER(w.name) IN (LOWER($1), LOWER($2))
+         AND DATE_TRUNC('month', t.created_at) = DATE_TRUNC('month', CURRENT_DATE)
+       GROUP BY w.name`;
+
+  const result = await pool.query(sql, params);
+  const map = new Map(result.rows.map((r) => [String(r.wallet_name || '').toLowerCase(), Number(r.total || 0)]));
+  const iuran = map.get(KAS_IURAN_WAJIB.toLowerCase()) || 0;
+  const jimpitan = map.get(KAS_JIMPITAN.toLowerCase()) || 0;
+  return { iuran, jimpitan, total: iuran + jimpitan };
+}
+
 async function findIuranWajibContributionTypeId(client) {
   const result = await client.query(
     `SELECT id
@@ -198,4 +226,55 @@ export async function listIuranWajibStatusByMonth({ month }) {
     [monthDate]
   );
   return result.rows;
+}
+
+async function findContributionTypeIdByName(name) {
+  const result = await pool.query(
+    `SELECT id FROM contribution_types WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+    [name]
+  );
+  if (!result.rows.length) throw new Error(`Contribution type ${name} tidak ditemukan`);
+  return Number(result.rows[0].id);
+}
+
+export async function listOpeningArrearsByContribution({ year, contributionName }) {
+  const contributionTypeId = await findContributionTypeIdByName(contributionName);
+  const result = await pool.query(
+    `SELECT y.warga_id::text AS warga_id, y.opening_arrears
+     FROM yearly_warga_contribution_arrears y
+     WHERE y.year = $1
+       AND y.contribution_type_id = $2`,
+    [year, contributionTypeId]
+  );
+  return result.rows.map((row) => ({
+    warga_id: String(row.warga_id),
+    opening_arrears: Number(row.opening_arrears || 0)
+  }));
+}
+
+export async function upsertOpeningArrearsByContribution({ year, contributionName, items }) {
+  const contributionTypeId = await findContributionTypeIdByName(contributionName);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const row of items) {
+      const wargaId = String(row.warga_id || '').trim();
+      const value = Number(row.opening_arrears || 0);
+      if (!wargaId || !Number.isFinite(value) || value < 0) continue;
+      await client.query(
+        `INSERT INTO yearly_warga_contribution_arrears
+         (year, warga_id, contribution_type_id, opening_arrears, updated_at)
+         VALUES ($1, $2::uuid, $3, $4, NOW())
+         ON CONFLICT (year, warga_id, contribution_type_id)
+         DO UPDATE SET opening_arrears = EXCLUDED.opening_arrears, updated_at = NOW()`,
+        [year, wargaId, contributionTypeId, value]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }

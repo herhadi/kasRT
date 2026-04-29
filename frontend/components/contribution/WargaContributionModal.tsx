@@ -49,9 +49,15 @@ export default function WargaContributionModal({
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Input Iuran</p>
         <h3 className="mt-1 text-lg font-bold text-[var(--text-primary)]">{wargaNama}</h3>
 
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-2.5">
           {presets.map((preset) => (
-            <Button key={preset.amount} variant="ghost" className="px-2 py-2 text-xs" onClick={() => void onSubmit(preset.amount)} disabled={loading}>
+            <Button
+              key={preset.amount}
+              variant="ghost"
+              className="min-h-[46px] rounded-xl px-3 py-2.5 text-sm font-semibold"
+              onClick={() => void onSubmit(preset.amount)}
+              disabled={loading}
+            >
               {preset.label}
             </Button>
           ))}

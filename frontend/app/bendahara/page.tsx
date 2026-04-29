@@ -7,7 +7,7 @@ import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import WargaContributionGrid, { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
+import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -99,6 +99,8 @@ type RekapKeuanganItem = {
   pemasukan_bulan: number;
   pengeluaran_bulan: number;
 };
+type PendapatanSummary = { iuran: number; jimpitan: number; total: number };
+type OpeningArrearsItem = { warga_id: string; opening_arrears: number };
 
 export default function BendaharaPage() {
   const { user, loading } = useAuth();
@@ -129,6 +131,8 @@ export default function BendaharaPage() {
   const [warga, setWarga] = useState<WargaItem[]>([]);
   const [iuranStatus, setIuranStatus] = useState<IuranStatusItem[]>([]);
   const [wallets, setWallets] = useState<WalletItem[]>([]);
+  const [pendapatan, setPendapatan] = useState<PendapatanSummary>({ iuran: 0, jimpitan: 0, total: 0 });
+  const [openingArrears, setOpeningArrears] = useState<Record<string, number>>({});
   const [pengeluaran, setPengeluaran] = useState<PengeluaranItem[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -162,19 +166,26 @@ export default function BendaharaPage() {
   const [sosialSummary, setSosialSummary] = useState<SosialSummary | null>(null);
   const [rekapKeuangan, setRekapKeuangan] = useState<RekapKeuanganItem[]>([]);
   const [showBendaharaDetail, setShowBendaharaDetail] = useState(false);
+  const iuranPageMode = pathname === '/operasional/iuran';
 
   const loadMaster = useCallback(async () => {
     const result = await apiFetch<{
       success: boolean;
-      data: { wallets: WalletItem[]; pengeluaran: PengeluaranItem[]; iuran_status?: IuranStatusItem[] };
+      data: { wallets: WalletItem[]; pengeluaran: PengeluaranItem[]; iuran_status?: IuranStatusItem[]; pendapatan?: PendapatanSummary };
     }>(`/bendahara/master?month=${encodeURIComponent(selectedMonth)}`);
     const ws = result.data?.wallets || [];
     const outs = result.data?.pengeluaran || [];
     setWallets(ws);
     setPengeluaran(outs);
     setIuranStatus(result.data?.iuran_status || []);
+    setPendapatan(result.data?.pendapatan || { iuran: 0, jimpitan: 0, total: 0 });
     setExpenseWalletId((prev) => (prev && ws.some((w) => String(w.id) === String(prev)) ? prev : String(ws[0]?.id || '')));
-    setTransferSosialSourceWalletId((prev) => (prev && ws.some((w) => String(w.id) === String(prev)) ? prev : String(ws[0]?.id || '')));
+    const kasIuran = ws.find((w) => String(w.name || '').trim().toLowerCase() === 'kas iuran wajib');
+    setTransferSosialSourceWalletId((prev) =>
+      prev && ws.some((w) => String(w.id) === String(prev))
+        ? prev
+        : String(kasIuran?.id || ws[0]?.id || '')
+    );
   }, [selectedMonth]);
 
   const loadPendingSosialReceiptCount = useCallback(async () => {
@@ -218,6 +229,16 @@ export default function BendaharaPage() {
     const result = await apiFetch<{ success: boolean; data: BendaharaReport }>('/report/dashboard-admin-bendahara');
     setReport(result.data || null);
   }, []);
+
+  const loadOpeningArrears = useCallback(async () => {
+    const year = Number(selectedYearOnly || new Date().getFullYear());
+    const result = await apiFetch<{ success: boolean; data: OpeningArrearsItem[] }>(
+      `/bendahara/opening-arrears?year=${encodeURIComponent(String(year))}&contribution=${encodeURIComponent('Iuran Wajib')}`
+    );
+    const map: Record<string, number> = {};
+    for (const row of result.data || []) map[String(row.warga_id)] = Number(row.opening_arrears || 0);
+    setOpeningArrears(map);
+  }, [selectedYearOnly]);
 
   const loadYearlyBook = useCallback(async () => {
     const result = await apiFetch<{ success: boolean; data: YearlyBookSummary }>(
@@ -271,16 +292,16 @@ export default function BendaharaPage() {
       }
       return;
     }
-    void Promise.all([loadMaster(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadPendingHandover()]).catch((e) =>
+    void Promise.all([loadMaster(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadPendingHandover(), loadOpeningArrears()]).catch((e) =>
       setError(e instanceof Error ? e.message : 'Gagal memuat menu bendahara')
     );
-  }, [loading, canSeeOps, isBendahara, isAdminSosial, isSekretarisOrKetua, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan]);
+  }, [loading, canSeeOps, isBendahara, isAdminSosial, isSekretarisOrKetua, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears]);
 
   useEffect(() => {
     if (loading || !canSeeOps) return;
     const interval = window.setInterval(() => {
       if (isBendahara) {
-        void Promise.all([loadMaster(), loadReport(), loadPendingHandover()]);
+        void Promise.all([loadMaster(), loadReport(), loadPendingHandover(), loadOpeningArrears()]);
       } else {
         if (isAdminSosial) {
           void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
@@ -302,7 +323,8 @@ export default function BendaharaPage() {
     loadPendingHandover,
     loadPendingSosialReceiptCount,
     loadSosialSummary,
-    loadRekapKeuangan
+    loadRekapKeuangan,
+    loadOpeningArrears
   ]);
 
   const title = useMemo(() => (isBendahara ? 'Menu Bendahara' : 'Menu Operasional'), [isBendahara]);
@@ -316,6 +338,10 @@ export default function BendaharaPage() {
   );
   const totalSaldoRealtime = useMemo(
     () => wallets.reduce((sum, wallet) => sum + Number(wallet.balance || 0), 0),
+    [wallets]
+  );
+  const kasIuranWajibWallet = useMemo(
+    () => wallets.find((w) => String(w.name || '').trim().toLowerCase() === 'kas iuran wajib') || null,
     [wallets]
   );
   const rekapBendahara = useMemo(() => {
@@ -344,16 +370,19 @@ export default function BendaharaPage() {
         nama: w.nama,
         paidAmount: paidByWargaId.get(String(w.id)) || 0,
         targetAmount: 30000,
+        canInput: hasAnyRole(user, ['root']) || (paidByWargaId.get(String(w.id)) || 0) < 30000,
         suggestionText: (() => {
           const paid = paidByWargaId.get(String(w.id)) || 0;
-          const missing = Math.max(0, 30000 - paid);
-          if (missing <= 0) return 'Saran: lunas bulan ini';
-          const months = Math.max(1, Math.ceil(missing / 30000));
-          return `Saran: ${formatRupiah(months * 30000)} (${months} bulan)`;
+          const opening = Number(openingArrears[String(w.id)] || 0);
+          const missingThisMonth = Math.max(0, 30000 - paid);
+          const totalNeed = opening + missingThisMonth;
+          if (totalNeed <= 0) return 'Saran: lunas bulan ini';
+          const months = Math.max(1, Math.ceil(totalNeed / 30000));
+          return `Saran: ${formatRupiah(totalNeed)} (${months} bulan)`;
         })()
       }));
     },
-    [warga, iuranStatus]
+    [warga, iuranStatus, openingArrears]
   );
   const totalPendapatanBulanIni = useMemo(
     () => iuranRows.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0),
@@ -391,7 +420,11 @@ export default function BendaharaPage() {
       setMessage('');
       await apiFetch('/bendahara/setor-iuran-wajib', {
         method: 'POST',
-        body: JSON.stringify({ warga_id: selectedWarga, amount })
+        body: JSON.stringify({
+          warga_id: selectedWarga,
+          amount,
+          tanggal: `${selectedMonth}-01`
+        })
       });
       console.info('[BENDAHARA][IURAN] submit:api-ok');
       setIuranStatus((prev) => {
@@ -574,6 +607,73 @@ export default function BendaharaPage() {
     return (
       <main className="min-h-screen pb-10">
         <Navbar />
+      </main>
+    );
+  }
+
+  if (iuranPageMode && isBendahara) {
+    return (
+      <main className="min-h-screen pb-10">
+        {toast ? (
+          <div
+            className={
+              toast.type === 'success'
+                ? 'fixed right-4 top-4 z-[70] rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-md'
+                : 'fixed right-4 top-4 z-[70] rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-md'
+            }
+          >
+            {toast.text}
+          </div>
+        ) : null}
+        <Navbar />
+        <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <Card
+            title="Input Iuran Wajib OK"
+            headerRight={
+              <div className="w-full max-w-[220px]">
+                <Input
+                  label="Periode"
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    const value = String(e.target.value || '').trim();
+                    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return;
+                    setSelectedMonth(value);
+                    const [year, month] = value.split('-');
+                    setSelectedYearOnly(year);
+                    setSelectedMonthOnly(month);
+                  }}
+                />
+              </div>
+            }
+          >
+            <div
+              className="sticky z-40 mb-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)]/95 px-3 py-2 backdrop-blur"
+              style={{ top: 'var(--sticky-nav-offset)' }}
+            >
+              <p className="text-sm font-semibold text-[var(--text-muted)]">Pendapatan Bulan Ini</p>
+              <div className="mt-1.5 grid grid-cols-1 gap-1.5 text-base md:grid-cols-3">
+                <p className="text-[var(--text-primary)]">Iuran: <b className="text-[1.02rem]">{formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0))}</b></p>
+                <p className="text-[var(--text-primary)]">Jimpitan: <b className="text-[1.02rem]">{formatRupiah(Number(pendapatan.jimpitan || 0))}</b></p>
+                <p className="text-[var(--accent)]">Total: <b className="text-[1.14rem] font-extrabold">{formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0))}</b></p>
+              </div>
+            </div>
+            <WargaContributionSection
+              rows={iuranRows}
+              selectedRow={selectedWargaCard}
+              loading={busy}
+              onOpen={(row) => {
+                setSelectedWarga(String(row.id));
+                setSelectedWargaCard(row);
+              }}
+              onClose={() => setSelectedWargaCard(null)}
+              onSubmit={async (amount) => {
+                const ok = await submitSetorIuran(amount);
+                if (ok) setSelectedWargaCard(null);
+              }}
+            />
+          </Card>
+        </div>
       </main>
     );
   }
@@ -781,23 +881,39 @@ export default function BendaharaPage() {
                 className="sticky z-40 mb-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)]/95 px-3 py-2 backdrop-blur"
                 style={{ top: 'var(--sticky-nav-offset)' }}
               >
-                <p className="text-xs text-[var(--text-muted)]">Pendapatan Iuran Bulan Ini</p>
-                <p className="text-lg font-bold text-[var(--accent)]">{formatRupiah(totalPendapatanBulanIni)}</p>
+                <p className="text-xs text-[var(--text-muted)]">Pendapatan Bulan Ini</p>
+                <div className="mt-1 grid grid-cols-1 gap-1 text-sm md:grid-cols-3">
+                  <p className="text-[var(--text-primary)]">Iuran: <b>{formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0))}</b></p>
+                  <p className="text-[var(--text-primary)]">Jimpitan: <b>{formatRupiah(Number(pendapatan.jimpitan || 0))}</b></p>
+                  <p className="text-[var(--accent)]">Total: <b>{formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0))}</b></p>
+                </div>
               </div>
-              <WargaContributionSection
-                rows={iuranRows}
-                selectedRow={selectedWargaCard}
-                loading={busy}
-                onOpen={(row) => {
-                  setSelectedWarga(String(row.id));
-                  setSelectedWargaCard(row);
-                }}
-                onClose={() => setSelectedWargaCard(null)}
-                onSubmit={async (amount) => {
-                  const ok = await submitSetorIuran(amount);
-                  if (ok) setSelectedWargaCard(null);
-                }}
-              />
+              {!iuranPageMode ? (
+                <div className="mb-3">
+                  <Link
+                    href="/operasional/iuran"
+                    className="inline-flex rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                  >
+                    Input Iuran
+                  </Link>
+                </div>
+              ) : null}
+              {iuranPageMode ? (
+                <WargaContributionSection
+                  rows={iuranRows}
+                  selectedRow={selectedWargaCard}
+                  loading={busy}
+                  onOpen={(row) => {
+                    setSelectedWarga(String(row.id));
+                    setSelectedWargaCard(row);
+                  }}
+                  onClose={() => setSelectedWargaCard(null)}
+                  onSubmit={async (amount) => {
+                    const ok = await submitSetorIuran(amount);
+                    if (ok) setSelectedWargaCard(null);
+                  }}
+                />
+              ) : null}
             </>
           ) : null}
         </Card>
@@ -947,7 +1063,7 @@ export default function BendaharaPage() {
                     value={transferSosialSourceWalletId}
                     onChange={(e) => setTransferSosialSourceWalletId(e.target.value)}
                   >
-                    {wallets.map((w) => (
+                    {(kasIuranWajibWallet ? [kasIuranWajibWallet] : []).map((w) => (
                       <option key={String(w.id)} value={String(w.id)}>
                         {w.name}
                       </option>
@@ -960,7 +1076,7 @@ export default function BendaharaPage() {
                   inputMode="numeric"
                   value={formatRupiahInput(transferSosialAmount)}
                   onChange={(e) => setTransferSosialAmount(e.target.value)}
-                  placeholder="Contoh: 500.000"
+                  placeholder="Contoh: 300.000"
                 />
                 <Input
                   label="Keterangan"
@@ -970,17 +1086,108 @@ export default function BendaharaPage() {
                 />
                 <div className="flex items-end">
                   <Button className="w-full" onClick={submitTransferSosial} disabled={busy}>
-                    Ajukan Transfer Sosial
+                    Transfer ke Kas Sosial
                   </Button>
                 </div>
               </div>
-            </Card>
+            </Card>            
+
+            {report ? (
+              <Card title="Report Bendahara" subtitle="Ringkasan iuran wajib dan tunggakan">
+                <div className="grid gap-2 md:grid-cols-2">
+                  <Line label="Target Iuran Wajib / Bulan" value={formatRupiah(Number(report.iuran_wajib_target_bulanan || 0))} />
+                  <Line label="Target Bulan Ini" value={formatRupiah(Number(report.target_bulan_ini || 0))} />
+                  <Line label="Pemasukan Bulan Ini" value={formatRupiah(Number(report.pemasukan_bulan_ini || 0))} />
+                  <Line label="Total Warga" value={String(report.total_warga || 0)} />
+                  <Line label="Menunggak Bulan Ini" value={String(report.total_menunggak_bulan_ini || 0)} />
+                  <Line label="Nominal Tunggakan Bulan Ini" value={formatRupiah(Number(report.nominal_tunggakan_bulan_ini || 0))} />
+                  <Line label="Tunggakan Akumulatif Tahun Berjalan" value={formatRupiah(Number(report.nominal_tunggakan_akumulatif_tahun_berjalan || 0))} />
+                </div>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-2">         
+                  <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[var(--surface-strong)]">
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tren 6 Bulan</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Target</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Masuk</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tunggakan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(report.tren_6_bulan || []).map((row) => (
+                          <tr key={row.bulan} className="bg-[var(--surface)]">
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.bulan}</td>
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-primary)]">{formatRupiah(Number(row.target || 0))}</td>
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.pemasukan || 0))}</td>
+                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-500">{formatRupiah(Number(row.tunggakan || 0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    Grafik Tren 6 Bulan
+                  </p>
+                  <div className="space-y-2">
+                    {(report.tren_6_bulan || []).map((row) => {
+                      const target = Number(row.target || 0);
+                      const pemasukan = Number(row.pemasukan || 0);
+                      const ratio = target > 0 ? Math.min((pemasukan / target) * 100, 100) : 0;
+                      return (
+                        <div key={`bar-${row.bulan}`} className="space-y-1">
+                          <div className="flex items-center justify-between gap-3 text-xs">
+                            <span className="font-semibold text-[var(--text-primary)]">{row.bulan}</span>
+                            <span className="text-[var(--text-muted)]">{formatRupiah(pemasukan)} / {formatRupiah(target)}</span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
+                            <div
+                              className="h-full rounded-full bg-[var(--accent)] transition-all"
+                              style={{ width: `${ratio}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>                  
+                </div>
+
+                <div className="mt-4 overflow-x-auto rounded-2xl border border-[var(--line)]">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[var(--surface-strong)]">
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Top 10 Penunggak</th>
+                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tunggakan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(report.top_10_penunggak || []).length === 0 ? (
+                          <tr className="bg-[var(--surface)]">
+                            <td colSpan={2} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada data penunggak.</td>
+                          </tr>
+                        ) : (
+                          (report.top_10_penunggak || []).map((row) => (
+                            <tr key={String(row.warga_id)} className="bg-[var(--surface)]">
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.nama}</td>
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.tunggakan_akumulatif || 0))}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+              </Card>
+            ) : null}
 
             <Card title="Closing Tahunan" subtitle="Tools tahunan (disembunyikan saat operasional harian/bulanan)">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-[var(--text-muted)]">Dipakai untuk tutup buku dan buka periode tahun berikutnya.</p>
                 <Button variant="ghost" onClick={() => setShowClosingTools((prev) => !prev)}>
-                  {showClosingTools ? 'Sembunyikan Tools Closing' : 'Buka Tools Closing Tahunan'}
+                  {showClosingTools ? 'Sembunyikan Tools Closing' : 'Buka Closing Tahunan'}
                 </Button>
               </div>
 
@@ -1079,97 +1286,6 @@ export default function BendaharaPage() {
                 </>
               ) : null}
             </Card>
-
-            {report ? (
-              <Card title="Report Bendahara" subtitle="Ringkasan iuran wajib dan tunggakan">
-                <div className="grid gap-2 md:grid-cols-2">
-                  <Line label="Target Iuran Wajib / Bulan" value={formatRupiah(Number(report.iuran_wajib_target_bulanan || 0))} />
-                  <Line label="Target Bulan Ini" value={formatRupiah(Number(report.target_bulan_ini || 0))} />
-                  <Line label="Pemasukan Bulan Ini" value={formatRupiah(Number(report.pemasukan_bulan_ini || 0))} />
-                  <Line label="Total Warga" value={String(report.total_warga || 0)} />
-                  <Line label="Menunggak Bulan Ini" value={String(report.total_menunggak_bulan_ini || 0)} />
-                  <Line label="Nominal Tunggakan Bulan Ini" value={formatRupiah(Number(report.nominal_tunggakan_bulan_ini || 0))} />
-                  <Line label="Tunggakan Akumulatif Tahun Berjalan" value={formatRupiah(Number(report.nominal_tunggakan_akumulatif_tahun_berjalan || 0))} />
-                </div>
-
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
-                    <table className="min-w-full border-separate border-spacing-0">
-                      <thead>
-                        <tr className="bg-[var(--surface-strong)]">
-                          <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Top 10 Penunggak</th>
-                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tunggakan</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(report.top_10_penunggak || []).length === 0 ? (
-                          <tr className="bg-[var(--surface)]">
-                            <td colSpan={2} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada data penunggak.</td>
-                          </tr>
-                        ) : (
-                          (report.top_10_penunggak || []).map((row) => (
-                            <tr key={String(row.warga_id)} className="bg-[var(--surface)]">
-                              <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.nama}</td>
-                              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.tunggakan_akumulatif || 0))}</td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
-                    <table className="min-w-full border-separate border-spacing-0">
-                      <thead>
-                        <tr className="bg-[var(--surface-strong)]">
-                          <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tren 6 Bulan</th>
-                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Target</th>
-                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Masuk</th>
-                          <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tunggakan</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(report.tren_6_bulan || []).map((row) => (
-                          <tr key={row.bulan} className="bg-[var(--surface)]">
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.bulan}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-primary)]">{formatRupiah(Number(row.target || 0))}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.pemasukan || 0))}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-500">{formatRupiah(Number(row.tunggakan || 0))}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                    Grafik Tren 6 Bulan
-                  </p>
-                  <div className="space-y-2">
-                    {(report.tren_6_bulan || []).map((row) => {
-                      const target = Number(row.target || 0);
-                      const pemasukan = Number(row.pemasukan || 0);
-                      const ratio = target > 0 ? Math.min((pemasukan / target) * 100, 100) : 0;
-                      return (
-                        <div key={`bar-${row.bulan}`} className="space-y-1">
-                          <div className="flex items-center justify-between gap-3 text-xs">
-                            <span className="font-semibold text-[var(--text-primary)]">{row.bulan}</span>
-                            <span className="text-[var(--text-muted)]">{formatRupiah(pemasukan)} / {formatRupiah(target)}</span>
-                          </div>
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
-                            <div
-                              className="h-full rounded-full bg-[var(--accent)] transition-all"
-                              style={{ width: `${ratio}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </Card>
-            ) : null}
           </>
         ) : null}
 

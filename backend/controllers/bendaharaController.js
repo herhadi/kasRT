@@ -1,9 +1,12 @@
 import {
   catatPengeluaranBulanan,
   inputIuranWajibSetoran,
+  listOpeningArrearsByContribution,
   listFinanceWallets,
   listIuranWajibStatusByMonth,
-  listPengeluaranBulanan
+  listPendapatanBulanan,
+  listPengeluaranBulanan,
+  upsertOpeningArrearsByContribution
 } from '../models/bendaharaModel.js';
 import {
   closeYearlyBook,
@@ -17,15 +20,45 @@ export async function getBendaharaMasterData(req, res) {
   const month = String(req.query.month || '').trim();
   const monthParam = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
   try {
-    const [wallets, pengeluaran, iuranStatus] = await Promise.all([
+    const [wallets, pengeluaran, iuranStatus, pendapatan] = await Promise.all([
       listFinanceWallets(),
       listPengeluaranBulanan({ month: monthParam || undefined }),
-      listIuranWajibStatusByMonth({ month: monthParam || undefined })
+      listIuranWajibStatusByMonth({ month: monthParam || undefined }),
+      listPendapatanBulanan({ month: monthParam || undefined })
     ]);
     console.info('[BENDAHARA][MASTER] month=%s iuran_status=%d', monthParam || 'current', iuranStatus.length);
-    return res.json({ success: true, data: { wallets, pengeluaran, iuran_status: iuranStatus } });
+    return res.json({ success: true, data: { wallets, pengeluaran, iuran_status: iuranStatus, pendapatan } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getOpeningArrears(req, res) {
+  const year = Number(req.query.year || new Date().getFullYear());
+  const contribution = String(req.query.contribution || 'Iuran Wajib').trim();
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    return res.status(400).json({ success: false, message: 'year tidak valid' });
+  }
+  try {
+    const data = await listOpeningArrearsByContribution({ year, contributionName: contribution });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function saveOpeningArrears(req, res) {
+  const year = Number(req.body.year || new Date().getFullYear());
+  const contribution = String(req.body.contribution || 'Iuran Wajib').trim();
+  const items = Array.isArray(req.body.items) ? req.body.items : [];
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    return res.status(400).json({ success: false, message: 'year tidak valid' });
+  }
+  try {
+    await upsertOpeningArrearsByContribution({ year, contributionName: contribution, items });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
   }
 }
 

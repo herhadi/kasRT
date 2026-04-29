@@ -168,10 +168,10 @@ export async function transferSosialBulanan(req, res) {
     return res.status(400).json({ success: false, message: 'Wallet sumber tidak ditemukan' });
   }
 
-  if (!BENDAHARA_SOURCE_WALLETS.includes(sourceWallet.name)) {
+  if (sourceWallet.name !== KAS_IURAN_WAJIB) {
     return res.status(403).json({
       success: false,
-      message: 'Transfer sosial hanya boleh dari Kas Jimpitan atau Kas Iuran Wajib'
+      message: 'Transfer sosial hanya boleh dari Kas Iuran Wajib'
     });
   }
 

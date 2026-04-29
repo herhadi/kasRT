@@ -9,6 +9,7 @@ export type WargaContributionRow = {
   paidAmount: number;
   targetAmount: number;
   suggestionText?: string;
+  canInput?: boolean;
 };
 
 export default function WargaContributionGrid({
@@ -22,6 +23,7 @@ export default function WargaContributionGrid({
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
       {rows.map((row) => {
         const done = row.paidAmount >= row.targetAmount;
+        const canInput = row.canInput ?? true;
         return (
           <article
             key={row.id}
@@ -38,8 +40,13 @@ export default function WargaContributionGrid({
             {row.suggestionText ? (
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">{row.suggestionText}</p>
             ) : null}
-            <Button variant="ghost" className="mt-3 w-full" onClick={() => onInput(row)}>
-              Input Iuran
+            <Button
+              variant="ghost"
+              className="mt-3 w-full"
+              onClick={() => onInput(row)}
+              disabled={!canInput}
+            >
+              {canInput ? 'Input Iuran' : 'Sudah Diinput'}
             </Button>
           </article>
         );
