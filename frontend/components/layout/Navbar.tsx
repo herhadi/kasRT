@@ -168,7 +168,7 @@ export default function Navbar() {
                     key={menu.href}
                     href={menu.href}
                     data-active={active ? 'true' : 'false'}
-                    className={`inline-flex min-w-[118px] flex-1 basis-0 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+                    className={`inline-flex min-w-[118px] flex-none items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
                       active
                         ? 'border bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] shadow-[0_8px_20px_rgba(29,78,216,0.2)] border-[var(--nav-active-border)]'
                         : 'text-[var(--text-muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]'

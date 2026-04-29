@@ -169,6 +169,7 @@ export default function BendaharaPage() {
   const [meetingNotes, setMeetingNotes] = useState('');
   const [meetingNotesLoading, setMeetingNotesLoading] = useState(false);
   const [speechListening, setSpeechListening] = useState(false);
+  const [meetingNotesDirty, setMeetingNotesDirty] = useState(false);
   const speechRecognitionRef = useRef<null | {
     stop: () => void;
   }>(null);
@@ -231,11 +232,15 @@ export default function BendaharaPage() {
       const result = await apiFetch<{ success: boolean; data: { notes?: string } | null }>(
         `/management/meeting-note?month=${encodeURIComponent(selectedMonth)}`
       );
-      setMeetingNotes(String(result.data?.notes || ''));
+      if (!meetingNotesDirty) {
+        setMeetingNotes(String(result.data?.notes || ''));
+      }
     } catch {
-      setMeetingNotes('');
+      if (!meetingNotesDirty) {
+        setMeetingNotes('');
+      }
     }
-  }, [isSekretarisOrKetua, selectedMonth]);
+  }, [isSekretarisOrKetua, selectedMonth, meetingNotesDirty]);
 
   const loadWargaOptions = useCallback(async () => {
     const result = await apiFetch<{ success: boolean; data: WargaItem[] }>('/auth/warga-options');
@@ -355,6 +360,7 @@ export default function BendaharaPage() {
         method: 'POST',
         body: JSON.stringify({ month: selectedMonth, notes: meetingNotes })
       });
+      setMeetingNotesDirty(false);
       setToast({ type: 'success', text: 'Notulen rapat berhasil disimpan.' });
     } catch (e) {
       setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal simpan notulen.' });
@@ -978,7 +984,10 @@ export default function BendaharaPage() {
                   <textarea
                     className="min-h-[160px] w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--text-primary)]"
                     value={meetingNotes}
-                    onChange={(e) => setMeetingNotes(e.target.value)}
+                    onChange={(e) => {
+                      setMeetingNotes(e.target.value);
+                      setMeetingNotesDirty(true);
+                    }}
                     placeholder="Tulis ringkasan keputusan rapat bulan ini..."
                   />
                   <div className="flex flex-wrap gap-2">
