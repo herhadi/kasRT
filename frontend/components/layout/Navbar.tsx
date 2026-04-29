@@ -88,22 +88,25 @@ export default function Navbar() {
     if (!scroller) return;
     const activeEl = scroller.querySelector('[data-active="true"]') as HTMLElement | null;
     if (!activeEl) return;
-    const scrollerRect = scroller.getBoundingClientRect();
-    const activeRect = activeEl.getBoundingClientRect();
-    const leftOverflow = scrollerRect.left - activeRect.left;
-    const rightOverflow = activeRect.right - scrollerRect.right;
-    const margin = 12;
+    const raf = window.requestAnimationFrame(() => {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const activeRect = activeEl.getBoundingClientRect();
+      const margin = 12;
+      const leftOverflow = scrollerRect.left - activeRect.left;
+      const rightOverflow = activeRect.right - scrollerRect.right;
 
-    let delta = 0;
-    if (leftOverflow > 0) {
-      delta = -(leftOverflow + margin);
-    } else if (rightOverflow > 0) {
-      delta = rightOverflow + margin;
-    }
+      let targetLeft = scroller.scrollLeft;
+      if (leftOverflow > 0) {
+        targetLeft = Math.max(0, scroller.scrollLeft - leftOverflow - margin);
+      } else if (rightOverflow > 0) {
+        targetLeft = scroller.scrollLeft + rightOverflow + margin;
+      }
 
-    if (Math.abs(delta) > 1) {
-      scroller.scrollBy({ left: delta, behavior: 'smooth' });
-    }
+      if (Math.abs(targetLeft - scroller.scrollLeft) > 1) {
+        scroller.scrollTo({ left: targetLeft, behavior: 'smooth' });
+      }
+    });
+    return () => window.cancelAnimationFrame(raf);
   }, [pathname, canSeeApproval, canManageUsers, canSeeOps]);
 
   if (!user) return null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
@@ -169,6 +169,10 @@ export default function BendaharaPage() {
   const [meetingNotes, setMeetingNotes] = useState('');
   const [meetingNotesLoading, setMeetingNotesLoading] = useState(false);
   const [speechListening, setSpeechListening] = useState(false);
+  const speechRecognitionRef = useRef<null | {
+    stop: () => void;
+  }>(null);
+  const speechBaseTextRef = useRef('');
   const iuranPageMode = pathname === '/operasional/iuran';
 
   const loadMaster = useCallback(async () => {
@@ -359,7 +363,8 @@ export default function BendaharaPage() {
     }
   }
 
-  function handleSpeechToText() {
+  function startSpeechToText() {
+    if (speechListening) return;
     type SpeechRecognitionCtor = new () => {
       lang: string;
       interimResults: boolean;
@@ -380,23 +385,43 @@ export default function BendaharaPage() {
       return;
     }
     const recognition = new SpeechRecognitionCtor();
+    speechRecognitionRef.current = recognition;
     recognition.lang = 'id-ID';
     recognition.interimResults = true;
-    recognition.continuous = false;
+    recognition.continuous = true;
+    speechBaseTextRef.current = meetingNotes;
     let finalText = '';
-    recognition.onstart = () => setSpeechListening(true);
+    recognition.onstart = () => {
+      setSpeechListening(true);
+      speechBaseTextRef.current = meetingNotes;
+    };
     recognition.onresult = (event) => {
-      let interim = '';
+      let interimText = '';
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const transcript = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) finalText += transcript;
-        else interim += transcript;
+        if (event.results[i].isFinal) finalText += `${transcript} `;
+        else interimText += `${transcript} `;
       }
-      setMeetingNotes((prev) => `${prev}${prev ? '\n' : ''}${(finalText || interim).trim()}`.trim());
+      const base = speechBaseTextRef.current.trim();
+      const composed = `${base}${base ? '\n' : ''}${`${finalText}${interimText}`.trim()}`.trim();
+      setMeetingNotes(composed);
     };
     recognition.onerror = () => setToast({ type: 'error', text: 'Gagal memproses suara.' });
-    recognition.onend = () => setSpeechListening(false);
+    recognition.onend = () => {
+      setSpeechListening(false);
+      speechRecognitionRef.current = null;
+      speechBaseTextRef.current = '';
+    };
     recognition.start();
+  }
+
+  function stopSpeechToText() {
+    if (!speechRecognitionRef.current) return;
+    try {
+      speechRecognitionRef.current.stop();
+    } catch {
+      /* noop */
+    }
   }
 
   const title = useMemo(() => (isBendahara ? 'Menu Bendahara' : 'Menu Operasional'), [isBendahara]);
@@ -956,8 +981,14 @@ export default function BendaharaPage() {
                     placeholder="Tulis ringkasan keputusan rapat bulan ini..."
                   />
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="ghost" onClick={handleSpeechToText} disabled={speechListening}>
-                      {speechListening ? 'Mendengarkan...' : '🎙️ Input Suara'}
+                    <Button
+                      variant="ghost"
+                      onPointerDown={startSpeechToText}
+                      onPointerUp={stopSpeechToText}
+                      onPointerLeave={stopSpeechToText}
+                      onPointerCancel={stopSpeechToText}
+                    >
+                      {speechListening ? '🎙️ Lepas untuk berhenti' : '🎙️ Tahan untuk bicara'}
                     </Button>
                     <Button onClick={saveMeetingNote} disabled={meetingNotesLoading}>
                       {meetingNotesLoading ? 'Menyimpan...' : 'Simpan Notulen'}
