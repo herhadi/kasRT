@@ -374,6 +374,7 @@ export default function BendaharaPage() {
       onerror: (() => void) | null;
       onend: (() => void) | null;
       start: () => void;
+      stop: () => void;
     };
     const SpeechRecognitionCtor =
       typeof window !== 'undefined'
