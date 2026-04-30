@@ -14,6 +14,7 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const navScrollerRef = useRef<HTMLDivElement | null>(null);
+  const navScrollPosRef = useRef(0);
   
   // Disable browser scroll restoration
   useEffect(() => {
@@ -60,29 +61,40 @@ export default function Navbar() {
     return () => { window.clearTimeout(kickoff); window.clearInterval(interval); };
   }, [canSeeApproval, user]);
 
-  // Capture ALL pointer events at document level to scroll BEFORE browser reacts
   useEffect(() => {
-    const handlePointerDown = (e: PointerEvent) => {
-      if (window.innerWidth >= 768) return; // Only on mobile
-      
-      const target = e.target as HTMLElement;
-      const link = target.closest('a');
-      if (!link) return;
-      
-      const scroller = navScrollerRef.current;
-      if (!scroller) return;
-      
-      // Scroll the clicked element to the left instantly
-      const scrollerRect = scroller.getBoundingClientRect();
-      const linkRect = link.getBoundingClientRect();
-      
-      const scrollTo = scroller.scrollLeft + (linkRect.left - scrollerRect.left) - 8;
-      scroller.scrollLeft = Math.max(0, scrollTo);
+    const scroller = navScrollerRef.current;
+    if (!scroller) return;
+
+    const handleScroll = () => {
+      navScrollPosRef.current = scroller.scrollLeft;
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('kasrt_nav_scroll_left', String(scroller.scrollLeft));
+      }
     };
 
-    document.addEventListener('pointerdown', handlePointerDown, true); // Capture phase
-    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+    const saved = typeof window !== 'undefined'
+      ? Number(window.sessionStorage.getItem('kasrt_nav_scroll_left') || 0)
+      : 0;
+    if (Number.isFinite(saved) && saved > 0) {
+      scroller.scrollLeft = saved;
+      navScrollPosRef.current = saved;
+    }
+
+    scroller.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scroller.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    const scroller = navScrollerRef.current;
+    if (!scroller) return;
+    const saved = typeof window !== 'undefined'
+      ? Number(window.sessionStorage.getItem('kasrt_nav_scroll_left') || navScrollPosRef.current || 0)
+      : navScrollPosRef.current;
+    const target = Number.isFinite(saved) ? saved : 0;
+    window.requestAnimationFrame(() => {
+      scroller.scrollLeft = target;
+    });
+  }, [pathname]);
 
   if (!user) return null;
 
@@ -121,7 +133,7 @@ export default function Navbar() {
         </div>
 
         <div ref={navScrollerRef} className="w-full overflow-x-auto md:overflow-visible">
-          <nav className="flex w-full min-w-max items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1">
+          <nav className="flex w-full min-w-max items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 md:min-w-0 md:gap-2 md:p-1.5">
             {menus
               .filter(menu => 
                 (!menu.gated || canSeeApproval) &&
@@ -135,16 +147,21 @@ export default function Navbar() {
                     key={menu.href}
                     href={menu.href}
                     data-active={active ? 'true' : 'false'}
-                    className={`inline-flex min-w-[118px] flex-none items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
-                      active 
-                        ? 'border bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] shadow-[0_8px_20px_rgba(29,78,216,0.2)] border-[var(--nav-active-border)]'
+                    className={`inline-flex min-w-[118px] flex-none items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors md:min-w-0 md:flex-1 ${
+                      active
+                        ? 'border bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] border-[var(--nav-active-border)]'
                         : 'text-[var(--text-muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]'
                     }`}
                   >
                     <span>{menu.icon}</span>
                     <span>{menu.label}</span>
-                    {menu.href === '/approval' && pendingCount > 0 && !active ? (
-                      <span className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-slate-900">
+                    {menu.href === '/approval' && pendingCount > 0 ? (
+                      <span
+                        className={`inline-flex min-w-[20px] items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          active ? 'bg-amber-400/0 text-transparent' : 'bg-amber-400 text-slate-900'
+                        }`}
+                        aria-hidden={active ? 'true' : 'false'}
+                      >
                         {pendingCount}
                       </span>
                     ) : null}
