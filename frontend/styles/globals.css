@@ -206,6 +206,17 @@ html.dark .btn-action-green:hover {
   outline-offset: 2px;
 }
 
+.link-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  border-width: 2px;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 /* Reusable surface tone for inner rows/cards across pages */
 .surface-muted {
   background: color-mix(in srgb, var(--surface-strong) 78%, transparent);

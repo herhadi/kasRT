@@ -482,15 +482,15 @@ export default function JimpitanPage() {
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 mb-1 grid w-full grid-cols-2 gap-2 md:grid-cols-4">
             {(['semua', 'belum', 'lunas', 'kosong'] as FilterStatus[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`flex-1 min-w-[80px] rounded-full px-3 py-1.5 text-xs font-semibold text-center transition ${
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-center transition ${
                   filter === f
-                    ? 'bg-[var(--accent)] text-white shadow-md'
-                    : 'bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-strong)] hover:shadow-sm'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                    : 'border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)]'
                 }`}
               >
                 {f === 'semua' ? `Semua (${items.length})` :

@@ -7,7 +7,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 export default function Button({ variant = 'primary', className = '', ...props }: Props) {
   const classes = {
     primary:
-      'bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] shadow-[0_10px_25px_rgba(30,64,175,0.25)]',
+      'btn-action-blue border-2 text-[var(--btn-ghost-text)] shadow-[0_10px_25px_rgba(30,64,175,0.18)]',
     ghost: 'bg-[var(--btn-ghost-bg)] text-[var(--btn-ghost-text)] hover:bg-[var(--btn-ghost-bg-hover)] border border-[var(--line)]',
     danger: 'bg-[var(--btn-danger-bg)] text-white hover:bg-[var(--btn-danger-bg-hover)]'
   };

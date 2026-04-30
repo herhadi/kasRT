@@ -7,6 +7,7 @@ import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import SummaryTripleCard from '@/components/ui/SummaryTripleCard';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 import { apiFetch } from '@/lib/api';
@@ -811,17 +812,15 @@ export default function BendaharaPage() {
               </div>
             }
           >
-            <div
-              className="sticky z-40 mb-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)]/95 px-3 py-2 backdrop-blur"
-              style={{ top: 'var(--sticky-nav-offset)' }}
-            >
-              <p className="text-sm font-semibold text-[var(--text-muted)]">Pendapatan Bulan Ini</p>
-              <div className="mt-1.5 grid grid-cols-1 gap-1.5 text-base md:grid-cols-3">
-                <p className="text-[var(--text-primary)]">Iuran: <b className="text-[1.02rem]">{formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0))}</b></p>
-                <p className="text-[var(--text-primary)]">Jimpitan: <b className="text-[1.02rem]">{formatRupiah(Number(pendapatan.jimpitan || 0))}</b></p>
-                <p className="text-[var(--accent)]">Total: <b className="text-[1.14rem] font-extrabold">{formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0))}</b></p>
-              </div>
-            </div>
+            <SummaryTripleCard
+              title="Pendapatan Bulan Ini"
+              sticky
+              items={[
+                { label: 'Iuran', value: formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0)) },
+                { label: 'Jimpitan', value: formatRupiah(Number(pendapatan.jimpitan || 0)), className: 'hidden md:block' },
+                { label: 'Total', value: formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0)), emphasize: true, className: 'hidden md:block' }
+              ]}
+            />
             <WargaContributionSection
               rows={iuranRows}
               selectedRow={selectedWargaCard}
@@ -869,7 +868,7 @@ export default function BendaharaPage() {
               {isAdminJimpitan ? (
                 <Link
                   href="/jimpitan/admin"
-                  className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] hover:opacity-90 md:w-auto"
+                  className="btn-action-blue link-action w-full md:w-auto"
                 >
                   Menu Admin Jimpitan
                 </Link>
@@ -882,7 +881,7 @@ export default function BendaharaPage() {
                   </div>
                   <Link
                     href="/approval"
-                    className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] hover:opacity-90 md:w-auto"
+                    className="btn-action-blue link-action w-full md:w-auto"
                   >
                     Buka Approval
                   </Link>
@@ -1108,17 +1107,15 @@ export default function BendaharaPage() {
             </div>
           ) : isBendahara ? (
             <>
-              <div
-                className="sticky z-40 mb-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)]/95 px-3 py-2 backdrop-blur"
-                style={{ top: 'var(--sticky-nav-offset)' }}
-              >
-                <p className="text-xs text-[var(--text-muted)]">Pendapatan Bulan Ini</p>
-                <div className="mt-1 grid grid-cols-1 gap-1 text-sm md:grid-cols-3">
-                  <p className="text-[var(--text-primary)]">Iuran: <b>{formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0))}</b></p>
-                  <p className="text-[var(--text-primary)]">Jimpitan: <b>{formatRupiah(Number(pendapatan.jimpitan || 0))}</b></p>
-                  <p className="text-[var(--accent)]">Total: <b>{formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0))}</b></p>
-                </div>
-              </div>
+              <SummaryTripleCard
+                title="Pendapatan Bulan Ini"
+                sticky
+                items={[
+                  { label: 'Iuran', value: formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0)) },
+                  { label: 'Jimpitan', value: formatRupiah(Number(pendapatan.jimpitan || 0)), className: 'hidden md:block' },
+                  { label: 'Total', value: formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0)), emphasize: true, className: 'hidden md:block' }
+                ]}
+              />
               {!iuranPageMode ? (
                 <div className="mb-3">
                   <Link
@@ -1152,18 +1149,16 @@ export default function BendaharaPage() {
         {isBendahara ? (
           <>
             <Card title="Total Saldo Realtime" subtitle="Akumulasi saldo kas dari transaksi APPROVED">
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Saldo</p>
-                  <p className="mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(totalSaldoRealtime)}</p>
-                </div>
-                {wallets.map((wallet) => (
-                  <div key={String(wallet.id)} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{wallet.name}</p>
-                    <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{formatRupiah(Number(wallet.balance || 0))}</p>
-                  </div>
-                ))}
-              </div>
+              <SummaryTripleCard
+                title="Ringkasan Saldo"
+                items={[
+                  ...wallets.map((wallet) => ({
+                    label: String(wallet.name || '-'),
+                    value: formatRupiah(Number(wallet.balance || 0))
+                  })),
+                  { label: 'Total Saldo', value: formatRupiah(totalSaldoRealtime), emphasize: true }
+                ]}
+              />
             </Card>
 
             <Card

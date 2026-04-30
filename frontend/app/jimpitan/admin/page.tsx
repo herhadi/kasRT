@@ -236,7 +236,7 @@ export default function JimpitanAdminPage() {
           </div>
           <Link
             href="/jimpitan"
-            className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] hover:opacity-90"
+            className="btn-action-blue link-action px-3 py-2"
           >
             Kembali ke Input
           </Link>
