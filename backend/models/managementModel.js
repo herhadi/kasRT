@@ -13,6 +13,12 @@ export async function ensureNotulenTable() {
       UNIQUE (month)
     )
   `);
+  await pool.query(`
+    ALTER TABLE monthly_meeting_notes
+      ADD COLUMN IF NOT EXISTS meeting_date DATE,
+      ADD COLUMN IF NOT EXISTS start_time TIME,
+      ADD COLUMN IF NOT EXISTS agenda TEXT
+  `);
 }
 
 export async function listAssignableOrganizationRoles() {
@@ -165,7 +171,7 @@ export async function setUserOrganizationRoles({ userId, roleIds }) {
 export async function getMeetingNoteByMonth(month) {
   await ensureNotulenTable();
   const result = await pool.query(
-    `SELECT month, notes, created_at, updated_at
+    `SELECT month, notes, meeting_date, start_time, agenda, created_at, updated_at
      FROM monthly_meeting_notes
      WHERE month = $1
      LIMIT 1`,
@@ -174,13 +180,19 @@ export async function getMeetingNoteByMonth(month) {
   return result.rows[0] || null;
 }
 
-export async function upsertMeetingNoteByMonth({ month, notes, actorId }) {
+export async function upsertMeetingNoteByMonth({ month, notes, meetingDate, startTime, agenda, actorId }) {
   await ensureNotulenTable();
   await pool.query(
-    `INSERT INTO monthly_meeting_notes (month, notes, created_by, updated_by)
-     VALUES ($1, $2, $3, $3)
+    `INSERT INTO monthly_meeting_notes (month, notes, meeting_date, start_time, agenda, created_by, updated_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $6)
      ON CONFLICT (month)
-     DO UPDATE SET notes = EXCLUDED.notes, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
-    [month, notes, actorId]
+     DO UPDATE SET
+       notes = EXCLUDED.notes,
+       meeting_date = EXCLUDED.meeting_date,
+       start_time = EXCLUDED.start_time,
+       agenda = EXCLUDED.agenda,
+       updated_by = EXCLUDED.updated_by,
+       updated_at = NOW()`,
+    [month, notes, meetingDate || null, startTime || null, agenda || null, actorId]
   );
 }

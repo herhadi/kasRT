@@ -167,13 +167,19 @@ export default function BendaharaPage() {
   const [rekapKeuangan, setRekapKeuangan] = useState<RekapKeuanganItem[]>([]);
   const [showBendaharaDetail, setShowBendaharaDetail] = useState(false);
   const [meetingNotes, setMeetingNotes] = useState('');
+  const [meetingDate, setMeetingDate] = useState('');
+  const [meetingStartTime, setMeetingStartTime] = useState('');
+  const [meetingAgenda, setMeetingAgenda] = useState('');
   const [meetingNotesLoading, setMeetingNotesLoading] = useState(false);
   const [speechListening, setSpeechListening] = useState(false);
   const [meetingNotesDirty, setMeetingNotesDirty] = useState(false);
+  const [meetingHistoryMonth, setMeetingHistoryMonth] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
+  const [meetingHistoryText, setMeetingHistoryText] = useState('');
   const speechRecognitionRef = useRef<null | {
     stop: () => void;
   }>(null);
   const speechBaseTextRef = useRef('');
+  const speechPressedRef = useRef(false);
   const iuranPageMode = pathname === '/operasional/iuran';
 
   const loadMaster = useCallback(async () => {
@@ -234,6 +240,9 @@ export default function BendaharaPage() {
       );
       if (!meetingNotesDirty) {
         setMeetingNotes(String(result.data?.notes || ''));
+        setMeetingDate(String((result.data as { meeting_date?: string } | null)?.meeting_date || ''));
+        setMeetingStartTime(String((result.data as { start_time?: string } | null)?.start_time || '').slice(0, 5));
+        setMeetingAgenda(String((result.data as { agenda?: string } | null)?.agenda || ''));
       }
     } catch {
       if (!meetingNotesDirty) {
@@ -241,6 +250,19 @@ export default function BendaharaPage() {
       }
     }
   }, [isSekretarisOrKetua, selectedMonth, meetingNotesDirty]);
+
+  const loadMeetingHistory = useCallback(async () => {
+    if (!isSekretarisOrKetua) return;
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(meetingHistoryMonth)) return;
+    try {
+      const result = await apiFetch<{ success: boolean; data: { notes?: string } | null }>(
+        `/management/meeting-note?month=${encodeURIComponent(meetingHistoryMonth)}`
+      );
+      setMeetingHistoryText(String(result.data?.notes || ''));
+    } catch {
+      setMeetingHistoryText('');
+    }
+  }, [isSekretarisOrKetua, meetingHistoryMonth]);
 
   const loadWargaOptions = useCallback(async () => {
     const result = await apiFetch<{ success: boolean; data: WargaItem[] }>('/auth/warga-options');
@@ -358,7 +380,13 @@ export default function BendaharaPage() {
       setMeetingNotesLoading(true);
       await apiFetch('/management/meeting-note', {
         method: 'POST',
-        body: JSON.stringify({ month: selectedMonth, notes: meetingNotes })
+        body: JSON.stringify({
+          month: selectedMonth,
+          notes: meetingNotes,
+          meeting_date: meetingDate || null,
+          start_time: meetingStartTime || null,
+          agenda: meetingAgenda || null
+        })
       });
       setMeetingNotesDirty(false);
       setToast({ type: 'success', text: 'Notulen rapat berhasil disimpan.' });
@@ -369,7 +397,26 @@ export default function BendaharaPage() {
     }
   }
 
+  function sendMeetingNoteToWA() {
+    const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
+    const d = meetingDate ? new Date(`${meetingDate}T00:00:00`) : null;
+    const tglLabel = d ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(d) : selectedMonth;
+    const text =
+      `📝 *NOTULEN RAPAT RT*\n` +
+      `📅 *${tglLabel}*\n` +
+      `🕒 *Mulai: ${meetingStartTime || '-'} WIB*\n` +
+      `📌 *Agenda:* ${meetingAgenda || '-'}\n` +
+      `🗂️ *Hasil Rapat:*\n` +
+      `━━━━━━━━━━━━━━━\n` +
+      `${meetingNotes || '-'}\n` +
+      `━━━━━━━━━━━━━━━\n` +
+      `_Dicatat oleh: ${user?.nama || 'Sekretaris'}_`;
+    const urlWA = `https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(text)}`;
+    window.open(urlWA, '_blank');
+  }
+
   function startSpeechToText() {
+    speechPressedRef.current = true;
     if (speechListening) return;
     type SpeechRecognitionCtor = new () => {
       lang: string;
@@ -417,12 +464,20 @@ export default function BendaharaPage() {
     recognition.onend = () => {
       setSpeechListening(false);
       speechRecognitionRef.current = null;
+      // Jika user masih menekan tombol, lanjut rekam ulang otomatis.
+      if (speechPressedRef.current) {
+        window.setTimeout(() => {
+          startSpeechToText();
+        }, 120);
+        return;
+      }
       speechBaseTextRef.current = '';
     };
     recognition.start();
   }
 
   function stopSpeechToText() {
+    speechPressedRef.current = false;
     if (!speechRecognitionRef.current) return;
     try {
       speechRecognitionRef.current.stop();
@@ -502,6 +557,11 @@ export default function BendaharaPage() {
     const t = window.setTimeout(() => setToast(null), 2500);
     return () => window.clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    if (!isSekretarisOrKetua) return;
+    void loadMeetingHistory();
+  }, [isSekretarisOrKetua, loadMeetingHistory]);
 
   async function submitSetorIuran(amountInput: number): Promise<boolean> {
     const amount = Number(amountInput || 0);
@@ -804,43 +864,7 @@ export default function BendaharaPage() {
                 Anda memiliki akses menu operasional. Fitur input keuangan penuh khusus untuk role Bendahara.
               </p>
               {(isAdminSosial || isSekretarisOrKetua) ? (
-                <div className="grid gap-3 md:grid-cols-3">
-                  <label className="space-y-2 text-sm font-semibold">
-                    <span>Filter Bulan</span>
-                    <select
-                      className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                      value={selectedMonthOnly}
-                      onChange={(e) => setSelectedMonthOnly(e.target.value)}
-                    >
-                      <option value="01">Januari</option>
-                      <option value="02">Februari</option>
-                      <option value="03">Maret</option>
-                      <option value="04">April</option>
-                      <option value="05">Mei</option>
-                      <option value="06">Juni</option>
-                      <option value="07">Juli</option>
-                      <option value="08">Agustus</option>
-                      <option value="09">September</option>
-                      <option value="10">Oktober</option>
-                      <option value="11">November</option>
-                      <option value="12">Desember</option>
-                    </select>
-                  </label>
-                  <label className="space-y-2 text-sm font-semibold">
-                    <span>Filter Tahun</span>
-                    <select
-                      className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                      value={selectedYearOnly}
-                      onChange={(e) => setSelectedYearOnly(e.target.value)}
-                    >
-                      {yearOptions.map((year) => (
-                        <option key={year} value={String(year)}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+                <></>
               ) : null}
               {isAdminJimpitan ? (
                 <Link
@@ -920,7 +944,24 @@ export default function BendaharaPage() {
               ) : null}
               {isSekretarisOrKetua ? (
                 <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Rekap Keuangan Bulanan (Bendahara & Admin)</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Rekap Keuangan Bulanan (Bendahara & Admin)</p>
+                    <div className="w-full max-w-[220px]">
+                      <Input
+                        label="Periode"
+                        type="month"
+                        value={selectedMonth}
+                        onChange={(e) => {
+                          const value = String(e.target.value || '').trim();
+                          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return;
+                          setSelectedMonth(value);
+                          const [year, month] = value.split('-');
+                          setSelectedYearOnly(year);
+                          setSelectedMonthOnly(month);
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                       <thead>
@@ -990,20 +1031,78 @@ export default function BendaharaPage() {
                     }}
                     placeholder="Tulis ringkasan keputusan rapat bulan ini..."
                   />
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-3">
+                    <Input
+                      label="Tanggal Rapat"
+                      type="date"
+                      value={meetingDate}
+                      onChange={(e) => {
+                        setMeetingDate(e.target.value);
+                        setMeetingNotesDirty(true);
+                      }}
+                    />
+                    <Input
+                      label="Waktu Mulai"
+                      type="time"
+                      value={meetingStartTime}
+                      onChange={(e) => {
+                        setMeetingStartTime(e.target.value);
+                        setMeetingNotesDirty(true);
+                      }}
+                    />
+                    <Input
+                      label="Agenda Rapat"
+                      value={meetingAgenda}
+                      onChange={(e) => {
+                        setMeetingAgenda(e.target.value);
+                        setMeetingNotesDirty(true);
+                      }}
+                      placeholder="Contoh: evaluasi iuran bulanan"
+                    />
+                  </div>
+                  <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-2">
                     <Button
                       variant="ghost"
+                      className="btn-action-blue w-full"
                       onPointerDown={startSpeechToText}
                       onPointerUp={stopSpeechToText}
                       onPointerLeave={stopSpeechToText}
                       onPointerCancel={stopSpeechToText}
                     >
-                      {speechListening ? '🎙️ Lepas untuk berhenti' : '🎙️ Tahan untuk bicara'}
+                      {speechListening ? '🎙️ Lepas untuk berhenti' : '🎙️ Tekan & tahan'}
                     </Button>
-                    <Button onClick={saveMeetingNote} disabled={meetingNotesLoading}>
+                    <Button className="btn-action-green w-full" onClick={saveMeetingNote} disabled={meetingNotesLoading}>
                       {meetingNotesLoading ? 'Menyimpan...' : 'Simpan Notulen'}
                     </Button>
                   </div>
+                  <Button variant="ghost" className="btn-action-blue w-full" onClick={sendMeetingNoteToWA}>
+                    Kirim WA
+                  </Button>
+                </div>
+              ) : null}
+              {isSekretarisOrKetua ? (
+                <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Riwayat Notulen</p>
+                    <div className="w-full max-w-[220px]">
+                      <Input
+                        label="Periode Riwayat"
+                        type="month"
+                        value={meetingHistoryMonth}
+                        onChange={(e) => {
+                          const value = String(e.target.value || '').trim();
+                          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return;
+                          setMeetingHistoryMonth(value);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <textarea
+                    className="min-h-[130px] w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                    value={meetingHistoryText}
+                    readOnly
+                    placeholder="Belum ada notulen untuk periode ini."
+                  />
                 </div>
               ) : null}
             </div>
@@ -1024,7 +1123,7 @@ export default function BendaharaPage() {
                 <div className="mb-3">
                   <Link
                     href="/operasional/iuran"
-                    className="inline-flex rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                    className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold"
                   >
                     Input Iuran
                   </Link>

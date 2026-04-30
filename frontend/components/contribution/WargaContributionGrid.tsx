@@ -29,8 +29,8 @@ export default function WargaContributionGrid({
             key={row.id}
             className={
               done
-                ? 'rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4'
-                : 'rounded-2xl border border-red-200 bg-red-50/70 p-4'
+                ? 'card-status-paid rounded-2xl border p-4'
+                : 'card-status-unpaid rounded-2xl border p-4'
             }
           >
             <p className="text-sm font-semibold text-[var(--text-primary)]">{row.nama}</p>

@@ -508,7 +508,7 @@ export default function JimpitanPage() {
         <div className="flex flex-wrap gap-3 pt-4">
           <Button
             variant="ghost"
-            className="min-w-[170px] flex-1 rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-action-green min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleKirimRekapWA}
             disabled={!canKirimRekap}
           >
@@ -520,7 +520,7 @@ export default function JimpitanPage() {
             variant="ghost"
             onClick={handleSetor}
             disabled={setorLoading || !canSetor}
-            className="min-w-[170px] flex-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-action-blue min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {setorLoading ? (
               <span>Memproses...</span>
@@ -621,10 +621,10 @@ export default function JimpitanPage() {
                   }}
                   className={`rounded-2xl border p-3 text-left transition ${
                     row.isLunas && Number(row.nominalTerbayar || 0) > 0
-                      ? 'border-emerald-200 bg-emerald-50/70'
+                      ? 'card-status-paid'
                       : row.isLunas
-                        ? 'border-slate-300 bg-slate-100/80'
-                        : 'cursor-pointer border-red-200 bg-red-50/70 hover:border-red-300 hover:shadow-lg'
+                        ? 'card-status-empty'
+                        : 'card-status-unpaid cursor-pointer hover:shadow-lg'
                   } ${reorderMode ? 'wiggle-card' : ''} ${activeMoveId === String(row.id) ? 'ring-2 ring-[var(--accent)]' : ''} ${draggingId === String(row.id) ? 'opacity-60' : ''}`}
                 >
                 <div className="flex items-start justify-between gap-1">

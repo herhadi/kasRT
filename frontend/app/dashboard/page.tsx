@@ -139,7 +139,7 @@ export default function DashboardPage() {
                   wargaData.optional_contributions
                     .filter((item) => item.is_mandatory === false)
                     .map((item) => (
-                      <div key={item.name} className="rounded-2xl border border-[var(--line)] bg-white/70 p-4">
+                      <div key={item.name} className="surface-muted rounded-2xl border border-[var(--line)] p-4">
                         <p className="text-sm font-semibold">{item.name}</p>
                         <p className="metric-value mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
                       </div>
@@ -195,7 +195,7 @@ export default function DashboardPage() {
             ) : null}
           </>
         ) : (
-          <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-3 text-sm text-[var(--text-muted)]">
+          <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3 text-sm text-[var(--text-muted)]">
             Memuat dashboard...
           </div>
         )}
@@ -215,7 +215,7 @@ function Metric({ title, value }: { title: string; value: string }) {
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-white/70 px-3 py-2">
+    <div className="surface-muted flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] px-3 py-2">
       <span className="text-[var(--text-muted)]">{label}</span>
       <strong className="text-right">{value}</strong>
     </div>

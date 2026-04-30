@@ -214,7 +214,7 @@ export default function ApprovalPage() {
                 const isApproving = approvingKey === actionKey;
 
                 return (
-                  <article key={actionKey} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-white/75 p-3">
+                  <article key={actionKey} className="surface-muted flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
                       <p className="text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(item.created_at)}</p>
@@ -245,7 +245,7 @@ export default function ApprovalPage() {
             ) : null}
 
             {historyItems.map((item) => (
-              <article key={`history-${item.kind}-${item.id}-${item.approved_at}`} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-white/75 p-3">
+              <article key={`history-${item.kind}-${item.id}-${item.approved_at}`} className="surface-muted flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
                   <p className="text-xs text-[var(--text-muted)]">

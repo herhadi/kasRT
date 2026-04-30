@@ -24,6 +24,11 @@
   --nav-active-bg: color-mix(in srgb, #1d4ed8 16%, #ffffff);
   --nav-active-text: #1e40af;
   --nav-active-border: #2563eb;
+  --btn-ghost-bg: rgba(255, 255, 255, 0.9);
+  --btn-ghost-bg-hover: rgba(255, 255, 255, 0.98);
+  --btn-ghost-text: #0f172a;
+  --btn-danger-bg: #b91c1c;
+  --btn-danger-bg-hover: #991b1b;
 }
 
 @media (min-width: 768px) {
@@ -56,6 +61,11 @@
     --nav-active-bg: color-mix(in srgb, #60a5fa 45%, #1f2937);
     --nav-active-text: #eff6ff;
     --nav-active-border: #93c5fd;
+    --btn-ghost-bg: rgba(51, 65, 85, 0.9);
+    --btn-ghost-bg-hover: rgba(71, 85, 105, 0.95);
+    --btn-ghost-text: #f1f5f9;
+    --btn-danger-bg: #ef4444;
+    --btn-danger-bg-hover: #dc2626;
   }
 }
 
@@ -86,6 +96,11 @@ html.dark {
   --nav-active-bg: color-mix(in srgb, #60a5fa 45%, #1f2937);
   --nav-active-text: #eff6ff;
   --nav-active-border: #93c5fd;
+  --btn-ghost-bg: rgba(51, 65, 85, 0.9);
+  --btn-ghost-bg-hover: rgba(71, 85, 105, 0.95);
+  --btn-ghost-text: #f1f5f9;
+  --btn-danger-bg: #ef4444;
+  --btn-danger-bg-hover: #dc2626;
 }
 
 * {
@@ -142,4 +157,71 @@ html.dark .theme-icon-moon {
 
 .wiggle-card {
   animation: kasrt-wiggle 220ms ease-in-out infinite;
+}
+
+/* Reusable action button styles (for non-Button components like Link) */
+.btn-action-blue {
+  border: 2px solid #93c5fd;
+  background: #dbeafe;
+  color: #1d4ed8;
+  box-shadow: 0 8px 20px rgba(29, 78, 216, 0.16);
+}
+.btn-action-blue:hover {
+  background: #bfdbfe;
+}
+
+.btn-action-green {
+  border: 2px solid #86efac;
+  background: #dcfce7;
+  color: #15803d;
+  box-shadow: 0 8px 20px rgba(21, 128, 61, 0.16);
+}
+.btn-action-green:hover {
+  background: #bbf7d0;
+}
+
+html.dark .btn-action-blue {
+  border-color: #60a5fa;
+  background: #1e3a8a;
+  color: #dbeafe;
+  box-shadow: 0 10px 24px rgba(30, 64, 175, 0.35);
+}
+html.dark .btn-action-blue:hover {
+  background: #1d4ed8;
+}
+
+html.dark .btn-action-green {
+  border-color: #4ade80;
+  background: #14532d;
+  color: #dcfce7;
+  box-shadow: 0 10px 24px rgba(20, 83, 45, 0.35);
+}
+html.dark .btn-action-green:hover {
+  background: #166534;
+}
+
+.btn-action-blue:focus-visible,
+.btn-action-green:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Reusable surface tone for inner rows/cards across pages */
+.surface-muted {
+  background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
+}
+
+.card-status-paid {
+  border-color: color-mix(in srgb, #10b981 55%, var(--line));
+  background: color-mix(in srgb, #10b981 10%, var(--surface-strong));
+}
+
+.card-status-unpaid {
+  border-color: color-mix(in srgb, #ef4444 48%, var(--line));
+  background: color-mix(in srgb, #ef4444 10%, var(--surface-strong));
+}
+
+.card-status-empty {
+  border-color: color-mix(in srgb, #64748b 45%, var(--line));
+  background: color-mix(in srgb, #64748b 11%, var(--surface-strong));
 }
