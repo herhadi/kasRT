@@ -152,6 +152,10 @@ export default function BendaharaPage() {
   const [transferSosialDesc, setTransferSosialDesc] = useState('');
   const [sosialExpenseAmount, setSosialExpenseAmount] = useState('');
   const [sosialExpenseDesc, setSosialExpenseDesc] = useState('');
+  const [sosialExpenseDate, setSosialExpenseDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
   const [pendingSosialReceiptCount, setPendingSosialReceiptCount] = useState(0);
   const [expenseDate, setExpenseDate] = useState(() => {
     const now = new Date();
@@ -695,7 +699,8 @@ export default function BendaharaPage() {
         method: 'POST',
         body: JSON.stringify({
           amount,
-          description: sosialExpenseDesc.trim()
+          description: sosialExpenseDesc.trim(),
+          tanggal_keluar: sosialExpenseDate
         })
       });
       setSosialExpenseAmount('');
@@ -875,13 +880,30 @@ export default function BendaharaPage() {
               ) : null}
               {isAdminSosial ? (
                 <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Menu Admin Sosial</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Menu Admin Sosial</p>
+                    <div className="w-full max-w-[220px]">
+                      <Input
+                        label="Periode"
+                        type="month"
+                        value={selectedMonth}
+                        onChange={(e) => {
+                          const value = String(e.target.value || '').trim();
+                          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return;
+                          setSelectedMonth(value);
+                          const [year, month] = value.split('-');
+                          setSelectedYearOnly(year);
+                          setSelectedMonthOnly(month);
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">
                     Approval baru dana masuk sosial: <b>{pendingSosialReceiptCount}</b>
                   </div>
                   <Link
                     href="/approval"
-                    className="btn-action-blue link-action w-full md:w-auto"
+                    className="btn-action-blue inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold md:w-auto"
                   >
                     Buka Approval
                   </Link>
@@ -895,16 +917,25 @@ export default function BendaharaPage() {
                       placeholder="Contoh: 250.000"
                     />
                     <Input
-                      label="Keterangan"
-                      value={sosialExpenseDesc}
-                      onChange={(e) => setSosialExpenseDesc(e.target.value)}
-                      placeholder="Contoh: santunan warga"
+                      label="Tanggal Pengeluaran"
+                      type="date"
+                      value={sosialExpenseDate}
+                      onChange={(e) => setSosialExpenseDate(e.target.value)}
                     />
-                    <div className="flex items-end">
+                    <div className="flex items-end md:col-span-1">
                       <Button className="w-full" onClick={submitSosialExpense} disabled={busy}>
                         Ajukan Pengeluaran Sosial
                       </Button>
                     </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-[var(--text-primary)]">Keterangan</label>
+                    <textarea
+                      className="mt-2 min-h-[88px] w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                      value={sosialExpenseDesc}
+                      onChange={(e) => setSosialExpenseDesc(e.target.value)}
+                      placeholder="Contoh: santunan warga"
+                    />
                   </div>
                   <div className="grid gap-2 md:grid-cols-3">
                     <Line label="Saldo Kas Sosial" value={formatRupiah(Number(sosialSummary?.saldo_total || 0))} />
@@ -930,7 +961,7 @@ export default function BendaharaPage() {
                           (sosialSummary?.expenses || []).map((row) => (
                             <tr key={String(row.id)} className="bg-[var(--surface)]">
                               <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{new Date(row.created_at).toLocaleDateString('id-ID')}</td>
-                              <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.description || '-'}</td>
+                              <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)] break-words whitespace-normal">{row.description || '-'}</td>
                               <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.status}</td>
                               <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.amount || 0))}</td>
                             </tr>
@@ -1213,7 +1244,7 @@ export default function BendaharaPage() {
                             {row.transaction_type === 'TRANSFER' ? 'Transfer Sosial' : 'Pengeluaran'}
                           </td>
                           <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.wallet_name || '-'}</td>
-                          <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.description || '-'}</td>
+                          <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)] break-words whitespace-normal">{row.description || '-'}</td>
                           <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.status || '-'}</td>
                           <td className="border-b border-[var(--line)] px-4 py-3 text-right text-sm font-semibold text-[var(--accent)]">
                             {formatRupiah(Number(row.amount || 0))}

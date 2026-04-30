@@ -619,7 +619,7 @@ export default function JimpitanPage() {
                   onDragEnd={() => {
                     setDraggingId(null);
                   }}
-                  className={`rounded-2xl border p-3 text-left transition ${
+                  className={`rounded-2xl border p-4 text-left transition ${
                     row.isLunas && Number(row.nominalTerbayar || 0) > 0
                       ? 'card-status-paid'
                       : row.isLunas
@@ -627,7 +627,7 @@ export default function JimpitanPage() {
                         : 'card-status-unpaid cursor-pointer hover:shadow-lg'
                   } ${reorderMode ? 'wiggle-card' : ''} ${activeMoveId === String(row.id) ? 'ring-2 ring-[var(--accent)]' : ''} ${draggingId === String(row.id) ? 'opacity-60' : ''}`}
                 >
-                <div className="flex items-start justify-between gap-1">
+                <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold text-sm leading-tight">{row.nama}</p>
                   {statusLabel ? (
                     <span
@@ -643,8 +643,8 @@ export default function JimpitanPage() {
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">Saran: {formatRupiah(row.nominalSaran)}</p>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                <p className="mt-2 text-xs text-[var(--text-muted)]">Saran: {formatRupiah(row.nominalSaran)}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
                   Input Hari Ini:{' '}
                   {row.isLunas
                     ? `${formatRupiah(Number(row.nominalTerbayar || 0))} • ${

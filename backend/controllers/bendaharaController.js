@@ -26,7 +26,6 @@ export async function getBendaharaMasterData(req, res) {
       listIuranWajibStatusByMonth({ month: monthParam || undefined }),
       listPendapatanBulanan({ month: monthParam || undefined })
     ]);
-    console.info('[BENDAHARA][MASTER] month=%s iuran_status=%d', monthParam || 'current', iuranStatus.length);
     return res.json({ success: true, data: { wallets, pengeluaran, iuran_status: iuranStatus, pendapatan } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
