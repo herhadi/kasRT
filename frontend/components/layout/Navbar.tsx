@@ -36,10 +36,13 @@ export default function Navbar() {
   ]);
   const isBendahara = hasAnyRole(user, ['Bendahara', 'root']);
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
+  const isAdminInternet = hasAnyRole(user, ['Admin Internet', 'root']);
   const isKetua = hasAnyRole(user, ['Ketua']);
   const jimpitanMenuHref = '/jimpitan';
   const opsMenu = isBendahara
     ? { href: '/operasional', label: 'Operasional', icon: '🧾' }
+    : isAdminInternet
+      ? { href: '/operasional/internet', label: 'Operasional', icon: '🌐' }
     : isAdminJimpitan
       ? { href: '/operasional/jimpitan', label: 'Operasional Jimpitan', icon: '🧺' }
       : { href: '/operasional', label: 'Operasional', icon: '🧾' };

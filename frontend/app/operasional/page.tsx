@@ -176,13 +176,10 @@ export default function OperasionalHomePage() {
             ) : null}
 
             {(isKetua || canOpenLingkunganModule) ? (
-              <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Lingkungan</p>
-                  <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">Segera</span>
-                </div>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">Akan dipisah jadi modul mandiri sesuai role.</p>
-              </div>
+              <Link href="/operasional/lingkungan" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Lingkungan</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Iuran lingkungan, tunggakan, pengeluaran, dan riwayat.</p>
+              </Link>
             ) : null}
 
             {(isKetua || canOpenInternetModule) ? (

@@ -37,6 +37,10 @@ type InternetHistory = {
   payments: Array<{ id: string; tanggal: string; nama: string; amount: number; note?: string; kind: 'PAYMENT' }>;
   expenses: Array<{ id: string; tanggal: string; nama: string; amount: number; note?: string; kind: 'EXPENSE' }>;
 };
+type InternetYearlyHistory = {
+  year: string;
+  recap: Array<{ month: string; pemasukan: number; pengeluaran: number }>;
+};
 
 export default function OperasionalInternetPage() {
   const pathname = usePathname();
@@ -44,6 +48,8 @@ export default function OperasionalInternetPage() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [summary, setSummary] = useState<InternetSummary | null>(null);
   const [history, setHistory] = useState<InternetHistory | null>(null);
+  const [yearlyHistory, setYearlyHistory] = useState<InternetYearlyHistory | null>(null);
+  const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -72,7 +78,9 @@ export default function OperasionalInternetPage() {
     ]);
     setSummary(sumRes.data || null);
     setHistory(histRes.data || null);
-  }, [canAccess, month]);
+    const yRes = await apiFetch<{ success: boolean; data: InternetYearlyHistory }>(`/internet/history?year=${encodeURIComponent(historyYear)}`);
+    setYearlyHistory(yRes.data || null);
+  }, [canAccess, month, historyYear]);
 
   useEffect(() => {
     void loadAll().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data internet'));
@@ -242,7 +250,10 @@ export default function OperasionalInternetPage() {
 
           {canWrite ? (
             <div className="mt-4 grid gap-3 md:grid-cols-4">
-              <div className="md:col-span-4 flex justify-end">
+              <div className="md:col-span-4 flex items-center justify-between">
+                <Link href="/operasional/internet/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">
+                  Input Iuran
+                </Link>
                 <Button variant="ghost" className="btn-action-blue" onClick={() => setShowTariffSetting((v) => !v)}>
                   ⚙️ Pengaturan Tarif
                 </Button>
@@ -277,44 +288,64 @@ export default function OperasionalInternetPage() {
               </button>
             ))}
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {pager.pagedItems.map((row) => (
-              <div key={row.warga_id} className={`rounded-2xl border px-3 py-3 ${row.arrears > 0 ? 'border-red-200 bg-red-50/60' : 'border-emerald-200 bg-emerald-50/60'}`}>
-                <p className="text-sm font-semibold text-[var(--text-primary)]">{row.nama}</p>
-                <p className="text-xs text-[var(--text-muted)]">Bayar bulan ini: {formatRupiah(row.paid_amount)} / {formatRupiah(row.target_amount)}</p>
-                <p className="text-xs text-[var(--text-muted)]">Tunggakan bulan ini: {formatRupiah(row.arrears)}</p>
-                <p className={`text-xs font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>Total tunggakan: {formatRupiah(row.total_arrears)}</p>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+              <thead>
+                <tr className="bg-[var(--surface-strong)]">
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Bayar/Target</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tunggakan Bulan</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Tunggakan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pager.pagedItems.length === 0 ? (
+                  <tr className="bg-[var(--surface)]">
+                    <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Tidak ada data warga untuk filter ini.</td>
+                  </tr>
+                ) : (
+                  pager.pagedItems.map((row) => (
+                    <tr key={row.warga_id} className="bg-[var(--surface)]">
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">{row.nama}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-primary)]">
+                        {formatRupiah(row.paid_amount)} / {formatRupiah(row.target_amount)}
+                      </td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-600">{formatRupiah(row.arrears)}</td>
+                      <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                        {formatRupiah(row.total_arrears)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
           <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
         </Card>
 
         {!iuranOnlyMode ? (
-        <Card title="Riwayat Internet" subtitle="Pemasukan dan pengeluaran bulan terpilih">
+        <Card
+          title="Riwayat Internet"
+          subtitle="Total pemasukan dan pengeluaran per bulan"
+          headerRight={<div className="w-full max-w-[160px]"><Input label="Tahun" type="text" inputMode="numeric" value={historyYear} onChange={(e) => setHistoryYear(String(e.target.value || '').replace(/[^\d]/g, '').slice(0, 4))} /></div>}
+        >
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
               <thead>
                 <tr className="bg-[var(--surface-strong)]">
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Jenis</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nama</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Catatan</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Bulan</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pemasukan</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pengeluaran</th>
                 </tr>
               </thead>
               <tbody>
-                {[...(history?.payments || []), ...(history?.expenses || [])]
-                  .sort((a, b) => String(b.tanggal).localeCompare(String(a.tanggal)))
-                  .map((row) => (
-                    <tr key={`${row.kind}-${row.id}`} className="bg-[var(--surface)]">
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{new Date(row.tanggal).toLocaleDateString('id-ID')}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.kind === 'PAYMENT' ? 'Iuran' : 'Pengeluaran'}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.nama || '-'}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm break-words whitespace-normal">{row.note || '-'}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold">{formatRupiah(Number(row.amount || 0))}</td>
-                    </tr>
-                  ))}
+                {(yearlyHistory?.recap || []).map((row) => (
+                  <tr key={row.month} className="bg-[var(--surface)]">
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.month}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">{formatRupiah(Number(row.pemasukan || 0))}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(Number(row.pengeluaran || 0))}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

@@ -245,3 +245,40 @@ export async function getInternetHistory(month) {
   );
   return { payments: payments.rows, expenses: expenses.rows };
 }
+
+export async function getInternetMonthlyRecapByYear(year) {
+  const y = Number(year);
+  const rows = await pool.query(
+    `WITH months AS (
+       SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
+       FROM generate_series(
+         TO_DATE($1 || '-01', 'YYYY-MM'),
+         TO_DATE($1 || '-12', 'YYYY-MM'),
+         interval '1 month'
+       ) m
+     ),
+     p AS (
+       SELECT month_key, COALESCE(SUM(amount),0) AS pemasukan
+       FROM inet_payments
+       WHERE month_key LIKE ($1 || '-%')
+       GROUP BY month_key
+     ),
+     e AS (
+       SELECT TO_CHAR(expense_date, 'YYYY-MM') AS month_key, COALESCE(SUM(amount),0) AS pengeluaran
+       FROM inet_expenses
+       WHERE TO_CHAR(expense_date, 'YYYY') = $1
+       GROUP BY TO_CHAR(expense_date, 'YYYY-MM')
+     )
+     SELECT m.month_key, COALESCE(p.pemasukan,0) AS pemasukan, COALESCE(e.pengeluaran,0) AS pengeluaran
+     FROM months m
+     LEFT JOIN p ON p.month_key = m.month_key
+     LEFT JOIN e ON e.month_key = m.month_key
+     ORDER BY m.month_key DESC`,
+    [String(y)]
+  );
+  return rows.rows.map((r) => ({
+    month: String(r.month_key),
+    pemasukan: Number(r.pemasukan || 0),
+    pengeluaran: Number(r.pengeluaran || 0)
+  }));
+}

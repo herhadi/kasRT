@@ -4,6 +4,7 @@ import {
   addInternetPayment,
   ensureInternetMembersFromWarga,
   getInternetHistory,
+  getInternetMonthlyRecapByYear,
   getInternetSummary,
   listInternetTariffs,
   setInternetTariff
@@ -45,6 +46,11 @@ export async function postInternetExpenseHandler(req, res) {
 }
 
 export async function getInternetHistoryHandler(req, res) {
+  const year = String(req.query.year || '').trim();
+  if (/^\d{4}$/.test(year)) {
+    const recap = await getInternetMonthlyRecapByYear(year);
+    return res.json({ success: true, data: { year, recap } });
+  }
   const month = String(req.query.month || '').trim();
   const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : new Date().toISOString().slice(0, 7);
   const data = await getInternetHistory(monthKey);
