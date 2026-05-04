@@ -95,6 +95,10 @@ export default function OperasionalHomePage() {
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Internet</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Iuran wajib internet, tunggakan, pengeluaran, dan riwayat.</p>
               </Link>
+              <Link href="/operasional/koperasi" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Koperasi</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Pinjaman koperasi, simulasi bunga flat/menurun, dan draft pembiayaan.</p>
+              </Link>
             </div>
           </Card>
         </div>
@@ -190,13 +194,10 @@ export default function OperasionalHomePage() {
             ) : null}
 
             {(isKetua || canOpenKoperasiModule) ? (
-              <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Koperasi</p>
-                  <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">Segera</span>
-                </div>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">Akan dipisah jadi modul mandiri sesuai role.</p>
-              </div>
+              <Link href="/operasional/koperasi" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Koperasi</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Pinjaman koperasi, simulasi bunga flat/menurun, dan draft pembiayaan.</p>
+              </Link>
             ) : null}
 
             {(isKetua || canOpenKeamananModule) ? (

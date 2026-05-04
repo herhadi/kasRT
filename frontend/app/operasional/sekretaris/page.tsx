@@ -20,6 +20,11 @@ type RekapItem = {
   pemasukan_bulan: number;
   pengeluaran_bulan: number;
 };
+type KoperasiSummary = {
+  kas_saldo: number;
+  total_angsuran_masuk: number;
+  loans: Array<{ sisa_piutang: number }>;
+};
 
 export default function OperasionalSekretarisPage() {
   const { user, loading } = useAuth();
@@ -37,6 +42,7 @@ export default function OperasionalSekretarisPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [showBendaharaDetail, setShowBendaharaDetail] = useState(false);
+  const [koperasi, setKoperasi] = useState<KoperasiSummary | null>(null);
   const [historyMonth, setHistoryMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -57,13 +63,15 @@ export default function OperasionalSekretarisPage() {
     if (!canAccess) return;
     try {
       setError('');
-      const [rekapRes, noteRes] = await Promise.all([
+      const [rekapRes, noteRes, kopRes] = await Promise.all([
         apiFetch<{ success: boolean; data: RekapItem[] }>(`/report/rekap-keuangan?month=${encodeURIComponent(month)}`),
         apiFetch<{ success: boolean; data: { notes?: string; meeting_date?: string; start_time?: string; agenda?: string } | null }>(
           `/management/meeting-note?month=${encodeURIComponent(month)}`
-        )
+        ),
+        apiFetch<{ success: boolean; data: KoperasiSummary }>('/koperasi/summary')
       ]);
       setRekap(rekapRes.data || []);
+      setKoperasi(kopRes.data || null);
       setNotes(String(noteRes.data?.notes || ''));
       setMeetingDate(String(noteRes.data?.meeting_date || ''));
       setStartTime(String(noteRes.data?.start_time || '').slice(0, 5));
@@ -259,6 +267,19 @@ export default function OperasionalSekretarisPage() {
               onPrev={rekapPager.prev}
               onNext={rekapPager.next}
             />
+          </div>
+        </Card>
+        <Card title="Ringkasan Koperasi" subtitle="Monitoring sekretaris: kas koperasi dan piutang berjalan">
+          <div className="grid gap-2 md:grid-cols-3">
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">
+              Kas Koperasi: <b>{formatRupiah(Number(koperasi?.kas_saldo || 0))}</b>
+            </div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">
+              Angsuran Masuk: <b>{formatRupiah(Number(koperasi?.total_angsuran_masuk || 0))}</b>
+            </div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">
+              Total Piutang: <b>{formatRupiah((koperasi?.loans || []).reduce((a, b) => a + Number(b.sisa_piutang || 0), 0))}</b>
+            </div>
           </div>
         </Card>
 

@@ -50,6 +50,7 @@ export default function OperasionalInternetPage() {
   const [history, setHistory] = useState<InternetHistory | null>(null);
   const [yearlyHistory, setYearlyHistory] = useState<InternetYearlyHistory | null>(null);
   const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
+  const [historyYearMonth, setHistoryYearMonth] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -231,16 +232,7 @@ export default function OperasionalInternetPage() {
         <Card
           title="Operasional Internet"
           subtitle="Iuran wajib internet bulanan, tunggakan, dan pengeluaran"
-          headerRight={
-            <div className="flex w-full flex-wrap items-end justify-end gap-2">
-              <Link href="/operasional/internet/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">
-                Input Iuran
-              </Link>
-              <div className="w-full max-w-[220px]">
-                <Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-              </div>
-            </div>
-          }
+          headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
         >
           <div className="grid gap-2 md:grid-cols-3">
             <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
@@ -327,7 +319,22 @@ export default function OperasionalInternetPage() {
         <Card
           title="Riwayat Internet"
           subtitle="Total pemasukan dan pengeluaran per bulan"
-          headerRight={<div className="w-full max-w-[160px]"><Input label="Tahun" type="text" inputMode="numeric" value={historyYear} onChange={(e) => setHistoryYear(String(e.target.value || '').replace(/[^\d]/g, '').slice(0, 4))} /></div>}
+          headerRight={
+            <div className="w-full max-w-[220px]">
+              <Input
+                label="Tahun"
+                type="month"
+                value={historyYearMonth}
+                onChange={(e) => {
+                  const v = String(e.target.value || '');
+                  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) {
+                    setHistoryYearMonth(v);
+                    setHistoryYear(v.slice(0, 4));
+                  }
+                }}
+              />
+            </div>
+          }
         >
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">

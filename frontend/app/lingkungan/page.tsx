@@ -27,6 +27,7 @@ export default function LingkunganPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [yearly, setYearly] = useState<Yearly | null>(null);
   const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
+  const [historyYearMonth, setHistoryYearMonth] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -183,7 +184,26 @@ export default function LingkunganPage() {
         </table></div>
         <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
       </Card>
-      <Card title="Riwayat Lingkungan" subtitle="Total pemasukan dan pengeluaran per bulan" headerRight={<div className="w-full max-w-[160px]"><Input label="Tahun" type="text" inputMode="numeric" value={historyYear} onChange={(e) => setHistoryYear(String(e.target.value || '').replace(/[^\d]/g, '').slice(0, 4))} /></div>}>
+      <Card
+        title="Riwayat Lingkungan"
+        subtitle="Total pemasukan dan pengeluaran per bulan"
+        headerRight={
+          <div className="w-full max-w-[220px]">
+            <Input
+              label="Tahun"
+              type="month"
+              value={historyYearMonth}
+              onChange={(e) => {
+                const v = String(e.target.value || '');
+                if (/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) {
+                  setHistoryYearMonth(v);
+                  setHistoryYear(v.slice(0, 4));
+                }
+              }}
+            />
+          </div>
+        }
+      >
         <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
           <thead><tr className="bg-[var(--surface-strong)]">
             <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Bulan</th>
@@ -204,4 +224,3 @@ export default function LingkunganPage() {
     </div></main>
   );
 }
-

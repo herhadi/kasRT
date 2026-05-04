@@ -14,9 +14,11 @@ import bendaharaRoutes from './routes/bendahara.js';
 import tabunganRoutes from './routes/tabungan.js';
 import internetRoutes from './routes/internet.js';
 import lingkunganRoutes from './routes/lingkungan.js';
+import koperasiRoutes from './routes/koperasi.js';
 import { ensureCoreMasterData } from './models/bootstrapModel.js';
 import { ensureInternetTables } from './models/internetModel.js';
 import { ensureLingkunganTables } from './models/lingkunganModel.js';
+import { ensureKoperasiTables } from './models/koperasiModel.js';
 
 const app = express();
 const PORT = process.env.PORT;
@@ -35,6 +37,7 @@ app.use('/bendahara', bendaharaRoutes);
 app.use('/tabungan', tabunganRoutes);
 app.use('/internet', internetRoutes);
 app.use('/lingkungan', lingkunganRoutes);
+app.use('/koperasi', koperasiRoutes);
 
 app.get('/api/cron', (_req, res) => {
   return res.json({
@@ -64,6 +67,7 @@ async function startServer() {
     await ensureCoreMasterData();
     await ensureInternetTables();
     await ensureLingkunganTables();
+    await ensureKoperasiTables();
     console.log('✅ Master data roles/wallets/contribution_types siap');
   } catch (error) {
     console.error('❌ Gagal memastikan master data:', error.message);
