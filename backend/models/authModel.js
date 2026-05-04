@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export async function findUserForLogin(noHp) {
   const result = await pool.query(
@@ -36,6 +37,7 @@ export async function listWargaDropdownOptions() {
      JOIN user_roles ur ON ur.user_id = u.id
      JOIN roles r ON r.id = ur.role_id
      WHERE LOWER(TRIM(r.name)) = 'warga'
+       AND ${ELIGIBLE_USERS_CLAUSE}
      ORDER BY u.nama ASC`
   );
 
@@ -46,13 +48,7 @@ export async function listWargaDropdownOptions() {
   const fallbackResult = await pool.query(
     `SELECT u.id, u.nama, u.no_hp
      FROM users u
-     WHERE NOT EXISTS (
-       SELECT 1
-       FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE ur.user_id = u.id
-         AND LOWER(TRIM(r.name)) = 'root'
-     )
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
      ORDER BY u.nama ASC`
   );
 

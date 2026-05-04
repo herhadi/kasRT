@@ -1,0 +1,329 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import Navbar from '@/components/layout/Navbar';
+import Card from '@/components/ui/Card';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import { apiFetch } from '@/lib/api';
+import { hasAnyRole } from '@/lib/auth';
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
+import { useAuth } from '@/lib/useAuth';
+import usePagination from '@/lib/hooks/usePagination';
+import PaginationControls from '@/components/pagination/PaginationControls';
+import WargaContributionSection from '@/components/contribution/WargaContributionSection';
+import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
+
+type InternetRow = {
+  warga_id: string;
+  nama: string;
+  paid_amount: number;
+  target_amount: number;
+  arrears: number;
+  total_arrears: number;
+};
+type InternetSummary = {
+  month: string;
+  monthly_fee: number;
+  pemasukan: number;
+  pengeluaran: number;
+  rows: InternetRow[];
+  tariffs: Array<{ id: string; effective_month: string; monthly_fee: number }>;
+};
+type InternetHistory = {
+  month: string;
+  payments: Array<{ id: string; tanggal: string; nama: string; amount: number; note?: string; kind: 'PAYMENT' }>;
+  expenses: Array<{ id: string; tanggal: string; nama: string; amount: number; note?: string; kind: 'EXPENSE' }>;
+};
+
+export default function OperasionalInternetPage() {
+  const pathname = usePathname();
+  const { user, loading } = useAuth();
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [summary, setSummary] = useState<InternetSummary | null>(null);
+  const [history, setHistory] = useState<InternetHistory | null>(null);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [selectedWargaId, setSelectedWargaId] = useState('');
+  const [payAmount, setPayAmount] = useState('');
+  const [payNote, setPayNote] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [tariffValue, setTariffValue] = useState('');
+  const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
+  const [showTariffSetting, setShowTariffSetting] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
+
+  const canAccess = hasAnyRole(user, ['Admin Internet', 'Ketua', 'Sekretaris', 'root']);
+  const canWrite = hasAnyRole(user, ['Admin Internet', 'root']);
+  const iuranOnlyMode = pathname === '/operasional/internet/iuran';
+
+  const loadAll = useCallback(async () => {
+    if (!canAccess) return;
+    setError('');
+    const [sumRes, histRes] = await Promise.all([
+      apiFetch<{ success: boolean; data: InternetSummary }>(`/internet/summary?month=${encodeURIComponent(month)}`),
+      apiFetch<{ success: boolean; data: InternetHistory }>(`/internet/history?month=${encodeURIComponent(month)}`)
+    ]);
+    setSummary(sumRes.data || null);
+    setHistory(histRes.data || null);
+  }, [canAccess, month]);
+
+  useEffect(() => {
+    void loadAll().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data internet'));
+  }, [loadAll]);
+
+  useEffect(() => {
+    if (!summary?.rows?.length) return;
+    setSelectedWargaId((prev) => (prev && summary.rows.some((r) => r.warga_id === prev) ? prev : summary.rows[0].warga_id));
+    if (!tariffValue) setTariffValue(String(Math.round(Number(summary.monthly_fee || 0))));
+  }, [summary]);
+
+  const filteredRows = useMemo(() => {
+    const rows = summary?.rows || [];
+    if (filter === 'belum') return rows.filter((r) => Number(r.arrears || 0) > 0);
+    if (filter === 'sudah') return rows.filter((r) => Number(r.arrears || 0) <= 0);
+    return rows;
+  }, [summary, filter]);
+  const pager = usePagination(filteredRows, 20);
+  const contributionRows = useMemo<WargaContributionRow[]>(
+    () =>
+      (summary?.rows || []).map((r) => ({
+        id: r.warga_id,
+        nama: r.nama,
+        paidAmount: Number(r.paid_amount || 0),
+        targetAmount: Number(summary?.monthly_fee || 0),
+        canInput: true,
+        suggestionText: `Total tunggakan: ${formatRupiah(Number(r.total_arrears || 0))}`
+      })),
+    [summary]
+  );
+
+  async function submitPayment(forcedAmount?: number) {
+    const amount = Number.isFinite(forcedAmount as number) ? Number(forcedAmount) : parseRupiahInput(payAmount);
+    if (!selectedWargaId || amount <= 0) return setError('Pilih warga dan nominal valid.');
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/internet/payment', {
+        method: 'POST',
+        body: JSON.stringify({
+          warga_id: selectedWargaId,
+          month,
+          amount,
+          paid_at: expenseDate,
+          note: payNote
+        })
+      });
+      setPayAmount('');
+      setPayNote('');
+      setMessage('Iuran internet berhasil dicatat.');
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal input iuran internet');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitExpense() {
+    const amount = parseRupiahInput(expenseAmount);
+    if (amount <= 0 || !expenseDesc.trim()) return setError('Nominal dan keterangan pengeluaran wajib.');
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/internet/expense', {
+        method: 'POST',
+        body: JSON.stringify({ expense_date: expenseDate, amount, description: expenseDesc.trim() })
+      });
+      setExpenseAmount('');
+      setExpenseDesc('');
+      setMessage('Pengeluaran internet berhasil dicatat.');
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal input pengeluaran internet');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitTariff() {
+    const monthly_fee = parseRupiahInput(tariffValue);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(tariffMonth) || monthly_fee <= 0) return setError('Periode tarif dan nominal wajib valid.');
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/internet/tariff', {
+        method: 'POST',
+        body: JSON.stringify({ effective_month: tariffMonth, monthly_fee })
+      });
+      setMessage('Tarif internet berhasil disimpan.');
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal menyimpan tarif internet');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading || !user) return <main className="min-h-screen" />;
+
+  if (iuranOnlyMode) {
+    return (
+      <main className="min-h-screen pb-10">
+        <Navbar />
+        <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <Card
+            title="Input Iuran Internet"
+            subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`}
+            headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
+          >
+            <WargaContributionSection
+              rows={contributionRows}
+              selectedRow={selectedRow}
+              loading={busy}
+              presets={[
+                { label: '60rb', amount: 60000 },
+                { label: '120rb', amount: 120000 },
+                { label: '180rb', amount: 180000 },
+                { label: '240rb', amount: 240000 },
+                { label: '300rb', amount: 300000 },
+                { label: '360rb', amount: 360000 }
+              ]}
+              onOpen={(row) => {
+                setSelectedWargaId(String(row.id));
+                setSelectedRow(row);
+              }}
+              onClose={() => setSelectedRow(null)}
+              onSubmit={async (amount) => {
+                await submitPayment(amount);
+                setSelectedRow(null);
+              }}
+            />
+          </Card>
+          {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+          {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen pb-10">
+      <Navbar />
+      <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        <Card
+          title="Operasional Internet"
+          subtitle="Iuran wajib internet bulanan, tunggakan, dan pengeluaran"
+          headerRight={
+            <div className="flex w-full flex-wrap items-end justify-end gap-2">
+              <Link href="/operasional/internet/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">
+                Input Iuran
+              </Link>
+              <div className="w-full max-w-[220px]">
+                <Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+              </div>
+            </div>
+          }
+        >
+          <div className="grid gap-2 md:grid-cols-3">
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pemasukan Bulan: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pengeluaran Bulan: <b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
+          </div>
+
+          {canWrite ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <div className="md:col-span-4 flex justify-end">
+                <Button variant="ghost" className="btn-action-blue" onClick={() => setShowTariffSetting((v) => !v)}>
+                  ⚙️ Pengaturan Tarif
+                </Button>
+              </div>
+              {showTariffSetting ? (
+                <>
+                  <Input label="Tarif Berlaku Mulai" type="month" value={tariffMonth} onChange={(e) => setTariffMonth(e.target.value)} />
+                  <Input label="Nominal Tarif Baru" type="text" inputMode="numeric" value={formatRupiahInput(tariffValue)} onChange={(e) => setTariffValue(e.target.value)} />
+                  <div className="md:col-span-2 flex items-end"><Button className="w-full" onClick={submitTariff} disabled={busy}>Simpan Tarif</Button></div>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+
+        {canWrite && !iuranOnlyMode ? (
+          <Card title="Pengeluaran Internet" subtitle="Riwayat biaya internet RT">
+            <div className="grid gap-3 md:grid-cols-4">
+              <Input label="Tanggal" type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} />
+              <Input label="Nominal" type="text" inputMode="numeric" value={formatRupiahInput(expenseAmount)} onChange={(e) => setExpenseAmount(e.target.value)} />
+              <Input label="Keterangan" value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} />
+              <div className="flex items-end"><Button className="w-full" onClick={submitExpense} disabled={busy}>Catat Pengeluaran</Button></div>
+            </div>
+          </Card>
+        ) : null}
+
+        <Card title="Status Iuran Warga" subtitle="Hitungan tunggakan mengikuti tarif efektif per bulan">
+          <div className="mb-3 flex w-full gap-2">
+            {(['semua', 'belum', 'sudah'] as const).map((f) => (
+              <button key={f} type="button" onClick={() => { setFilter(f); pager.reset(); }} className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${filter === f ? 'opacity-100' : 'opacity-70'}`}>
+                {f === 'semua' ? `Semua (${summary?.rows?.length || 0})` : f === 'belum' ? `Belum (${(summary?.rows || []).filter((r) => r.arrears > 0).length})` : `Sudah (${(summary?.rows || []).filter((r) => r.arrears <= 0).length})`}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {pager.pagedItems.map((row) => (
+              <div key={row.warga_id} className={`rounded-2xl border px-3 py-3 ${row.arrears > 0 ? 'border-red-200 bg-red-50/60' : 'border-emerald-200 bg-emerald-50/60'}`}>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{row.nama}</p>
+                <p className="text-xs text-[var(--text-muted)]">Bayar bulan ini: {formatRupiah(row.paid_amount)} / {formatRupiah(row.target_amount)}</p>
+                <p className="text-xs text-[var(--text-muted)]">Tunggakan bulan ini: {formatRupiah(row.arrears)}</p>
+                <p className={`text-xs font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>Total tunggakan: {formatRupiah(row.total_arrears)}</p>
+              </div>
+            ))}
+          </div>
+          <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
+        </Card>
+
+        {!iuranOnlyMode ? (
+        <Card title="Riwayat Internet" subtitle="Pemasukan dan pengeluaran bulan terpilih">
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+              <thead>
+                <tr className="bg-[var(--surface-strong)]">
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Jenis</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nama</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Catatan</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...(history?.payments || []), ...(history?.expenses || [])]
+                  .sort((a, b) => String(b.tanggal).localeCompare(String(a.tanggal)))
+                  .map((row) => (
+                    <tr key={`${row.kind}-${row.id}`} className="bg-[var(--surface)]">
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{new Date(row.tanggal).toLocaleDateString('id-ID')}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.kind === 'PAYMENT' ? 'Iuran' : 'Pengeluaran'}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.nama || '-'}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm break-words whitespace-normal">{row.note || '-'}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold">{formatRupiah(Number(row.amount || 0))}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+        ) : null}
+
+        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
+      </div>
+    </main>
+  );
+}

@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import { formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 
 type Preset = { label: string; amount: number };
 
 export default function WargaContributionModal({
   open,
   wargaNama,
+  currentBalance,
   presets,
   loading,
   showManual = true,
@@ -19,6 +20,7 @@ export default function WargaContributionModal({
 }: {
   open: boolean;
   wargaNama: string;
+  currentBalance?: number | null;
   presets: Preset[];
   loading: boolean;
   showManual?: boolean;
@@ -48,6 +50,11 @@ export default function WargaContributionModal({
       <div className="glass-card w-full max-w-sm rounded-2xl p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Input Iuran</p>
         <h3 className="mt-1 text-lg font-bold text-[var(--text-primary)]">{wargaNama}</h3>
+        {typeof currentBalance === 'number' ? (
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            Saldo saat ini: <b>{formatRupiah(currentBalance)}</b>
+          </p>
+        ) : null}
 
         <div className="mt-3 grid grid-cols-3 gap-2.5">
           {presets.map((preset) => (

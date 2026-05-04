@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export async function getJimpitanHarianByWarga(userId) {
   const result = await pool.query(
@@ -175,6 +176,7 @@ export async function getDashboardBendaharaIuranWajibAggregate(iuranWajibTargetB
        JOIN user_roles ur ON ur.user_id = u.id
        JOIN roles r ON r.id = ur.role_id
        WHERE LOWER(TRIM(r.name)) = 'warga'
+         AND ${ELIGIBLE_USERS_CLAUSE}
        UNION
        SELECT u2.id
        FROM users u2
@@ -185,13 +187,7 @@ export async function getDashboardBendaharaIuranWajibAggregate(iuranWajibTargetB
          JOIN roles rx ON rx.id = urx.role_id
          WHERE LOWER(TRIM(rx.name)) = 'warga'
        )
-       AND NOT EXISTS (
-         SELECT 1
-         FROM user_roles ur2
-         JOIN roles r2 ON r2.id = ur2.role_id
-         WHERE ur2.user_id = u2.id
-           AND LOWER(TRIM(r2.name)) = 'root'
-       )
+       AND ${ELIGIBLE_USERS_CLAUSE.replaceAll('u.', 'u2.').replaceAll('urx', 'ur2').replaceAll('rx', 'r2')}
      ),
      bulan_ini AS (
        SELECT
@@ -246,6 +242,7 @@ export async function getTop10PenunggakIuranWajib(iuranWajibTargetBulanan) {
        JOIN user_roles ur ON ur.user_id = u.id
        JOIN roles r ON r.id = ur.role_id
        WHERE LOWER(TRIM(r.name)) = 'warga'
+         AND ${ELIGIBLE_USERS_CLAUSE}
        UNION
        SELECT u2.id, u2.nama, u2.no_hp
        FROM users u2
@@ -256,13 +253,7 @@ export async function getTop10PenunggakIuranWajib(iuranWajibTargetBulanan) {
          JOIN roles rx ON rx.id = urx.role_id
          WHERE LOWER(TRIM(rx.name)) = 'warga'
        )
-       AND NOT EXISTS (
-         SELECT 1
-         FROM user_roles ur2
-         JOIN roles r2 ON r2.id = ur2.role_id
-         WHERE ur2.user_id = u2.id
-           AND LOWER(TRIM(r2.name)) = 'root'
-       )
+       AND ${ELIGIBLE_USERS_CLAUSE.replaceAll('u.', 'u2.').replaceAll('urx', 'ur2').replaceAll('rx', 'r2')}
      ),
      iuran_bulan_ini AS (
        SELECT it.warga_id, COALESCE(SUM(it.amount), 0) AS total
@@ -307,6 +298,7 @@ export async function getTrenIuranWajib6Bulan(iuranWajibTargetBulanan) {
        JOIN user_roles ur ON ur.user_id = u.id
        JOIN roles r ON r.id = ur.role_id
        WHERE LOWER(TRIM(r.name)) = 'warga'
+         AND ${ELIGIBLE_USERS_CLAUSE}
        UNION
        SELECT u2.id
        FROM users u2
@@ -317,13 +309,7 @@ export async function getTrenIuranWajib6Bulan(iuranWajibTargetBulanan) {
          JOIN roles rx ON rx.id = urx.role_id
          WHERE LOWER(TRIM(rx.name)) = 'warga'
        )
-       AND NOT EXISTS (
-         SELECT 1
-         FROM user_roles ur2
-         JOIN roles r2 ON r2.id = ur2.role_id
-         WHERE ur2.user_id = u2.id
-           AND LOWER(TRIM(r2.name)) = 'root'
-       )
+       AND ${ELIGIBLE_USERS_CLAUSE.replaceAll('u.', 'u2.').replaceAll('urx', 'ur2').replaceAll('rx', 'r2')}
      ),
      months AS (
        SELECT DATE_TRUNC('month', CURRENT_DATE) - (g.n * INTERVAL '1 month') AS month_start

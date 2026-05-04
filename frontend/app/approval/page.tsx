@@ -10,6 +10,8 @@ import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatTanggalIndonesia } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { ApprovalHistoryItem, PendingApprovalItem, PendingApprovalSection } from '@/types';
+import usePagination from '@/lib/hooks/usePagination';
+import PaginationControls from '@/components/pagination/PaginationControls';
 
 export default function ApprovalPage() {
   const { user, loading } = useAuth();
@@ -207,33 +209,12 @@ export default function ApprovalPage() {
         ) : null}
 
         {sections.map((section) => (
-          <Card key={section.key} title={section.label} subtitle={`${section.items.length} item`}>
-            <div className="space-y-2">
-              {section.items.map((item) => {
-                const actionKey = `${item.kind}-${item.id}`;
-                const isApproving = approvingKey === actionKey;
-
-                return (
-                  <article key={actionKey} className="surface-muted flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
-                      <p className="text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(item.created_at)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
-                    </div>
-                    <Button
-                      className="whitespace-nowrap text-sm px-3 py-1.5"
-                      onClick={() => void approveItem(item)}
-                      disabled={isApproving}
-                    >
-                      {isApproving ? '...' : 'Approve'}
-                    </Button>
-                  </article>
-                );
-              })}
-            </div>
-          </Card>
+          <SectionWithPagination
+            key={section.key}
+            section={section}
+            approvingKey={approvingKey}
+            approveItem={approveItem}
+          />
         ))}
 
         <Card title="Riwayat Approval" subtitle={`Total ${historyTotal} transaksi`}>
@@ -291,5 +272,47 @@ export default function ApprovalPage() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+function SectionWithPagination({
+  section,
+  approvingKey,
+  approveItem
+}: {
+  section: PendingApprovalSection;
+  approvingKey: string;
+  approveItem: (item: PendingApprovalItem) => Promise<void>;
+}) {
+  const pager = usePagination(section.items, 10);
+  return (
+    <Card title={section.label} subtitle={`${section.items.length} item`}>
+            <div className="space-y-2">
+              {pager.pagedItems.map((item) => {
+                const actionKey = `${item.kind}-${item.id}`;
+                const isApproving = approvingKey === actionKey;
+
+                return (
+                  <article key={actionKey} className="surface-muted flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(item.created_at)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
+                    </div>
+                    <Button
+                      className="whitespace-nowrap text-sm px-3 py-1.5"
+                      onClick={() => void approveItem(item)}
+                      disabled={isApproving}
+                    >
+                      {isApproving ? '...' : 'Approve'}
+                    </Button>
+                  </article>
+                );
+              })}
+            </div>
+      <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
+    </Card>
   );
 }

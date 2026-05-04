@@ -36,10 +36,12 @@ export default function Navbar() {
   ]);
   const isBendahara = hasAnyRole(user, ['Bendahara', 'root']);
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
+  const isKetua = hasAnyRole(user, ['Ketua']);
+  const jimpitanMenuHref = '/jimpitan';
   const opsMenu = isBendahara
     ? { href: '/operasional', label: 'Operasional', icon: '🧾' }
     : isAdminJimpitan
-      ? { href: '/jimpitan/admin', label: 'Admin Jimpitan', icon: '🧺' }
+      ? { href: '/operasional/jimpitan', label: 'Operasional Jimpitan', icon: '🧺' }
       : { href: '/operasional', label: 'Operasional', icon: '🧾' };
 
   useEffect(() => {
@@ -100,7 +102,7 @@ export default function Navbar() {
 
   const menus = [
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { href: '/jimpitan', label: 'Jimpitan', icon: '💰' },
+    { href: jimpitanMenuHref, label: 'Jimpitan', icon: '💰' },
     { ...opsMenu, opsOnly: true },
     { href: '/approval', label: 'Approval', icon: '✅', gated: true },
     { href: '/management', label: 'Manajemen', icon: '🛠️', managerOnly: true }
@@ -143,7 +145,7 @@ export default function Navbar() {
               .map(menu => {
                 const active =
                   pathname === menu.href ||
-                  (menu.href === '/operasional' && (pathname?.startsWith('/operasional') || pathname === '/sosial' || pathname === '/tabungan'));
+                  (menu.href === '/operasional' && pathname?.startsWith('/operasional'));
                 return (
                   <Link
                     key={menu.href}

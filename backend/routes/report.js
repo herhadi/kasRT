@@ -60,7 +60,7 @@ router.get(
 router.get(
   '/dashboard-admin-bendahara',
   auth,
-  allowRoles('Bendahara', 'root'),
+  allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'),
   asyncHandler(dashboardAdminBendahara)
 );
 
@@ -74,7 +74,7 @@ router.get(
 router.get(
   '/dashboard-admin-sosial',
   auth,
-  allowRoles('Admin Sosial', 'root'),
+  allowRoles('Admin Sosial', 'Ketua', 'Sekretaris', 'root'),
   asyncHandler(dashboardAdminSosial)
 );
 

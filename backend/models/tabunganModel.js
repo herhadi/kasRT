@@ -1,5 +1,6 @@
 import { pool } from '../db.js';
 import { randomUUID } from 'crypto';
+import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export async function ensureTabunganTables() {
   await pool.query(`
@@ -54,7 +55,7 @@ export async function ensureTabunganTables() {
       tx_type VARCHAR(20) NOT NULL
         CHECK (tx_type IN ('DEPOSIT', 'WITHDRAW', 'ALLOCATE', 'SETTLEMENT', 'ADJUSTMENT')),
       direction VARCHAR(10) NOT NULL CHECK (direction IN ('CREDIT', 'DEBIT')),
-      amount NUMERIC(18, 2) NOT NULL CHECK (amount >= 5000),
+      amount NUMERIC(18, 2) NOT NULL CHECK (amount >= 0),
       description TEXT,
       status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
@@ -67,6 +68,23 @@ export async function ensureTabunganTables() {
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS tab_ledger_warga_idx ON tab_ledger (warga_id, created_at DESC)
+  `);
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        WHERE t.relname = 'tab_ledger'
+          AND c.conname = 'tab_ledger_amount_check'
+      ) THEN
+        ALTER TABLE tab_ledger DROP CONSTRAINT tab_ledger_amount_check;
+      END IF;
+      ALTER TABLE tab_ledger
+        ADD CONSTRAINT tab_ledger_amount_check CHECK (amount >= 0);
+    END $$;
   `);
 
   await pool.query(`
@@ -89,19 +107,33 @@ export async function ensureTabunganTables() {
 
 export async function listTabunganWargaSummary() {
   const result = await pool.query(
-    `SELECT
+    `WITH warga_role AS (
+       SELECT DISTINCT u.id
+       FROM users u
+       JOIN user_roles ur ON ur.user_id = u.id
+       JOIN roles r ON r.id = ur.role_id
+       WHERE LOWER(TRIM(r.name)) = 'warga'
+         AND ${ELIGIBLE_USERS_CLAUSE}
+     ),
+     eligible_all AS (
+       SELECT u.id
+       FROM users u
+       WHERE ${ELIGIBLE_USERS_CLAUSE}
+     ),
+     warga_final AS (
+       SELECT id FROM warga_role
+       UNION
+       SELECT id
+       FROM eligible_all
+       WHERE NOT EXISTS (SELECT 1 FROM warga_role)
+     )
+     SELECT
        u.id::text AS warga_id,
        u.nama,
        COALESCE(sa.total_balance, 0) AS total_balance
-     FROM users u
+     FROM warga_final wf
+     JOIN users u ON u.id = wf.id
      LEFT JOIN tab_savings_accounts sa ON sa.warga_id = u.id
-     WHERE NOT EXISTS (
-       SELECT 1
-       FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE ur.user_id = u.id
-         AND LOWER(TRIM(r.name)) = 'root'
-     )
      ORDER BY u.nama ASC`
   );
   return result.rows.map((r) => ({
@@ -156,27 +188,41 @@ export async function createTabunganEvent({ title, eventDate, totalAmount, notes
     await client.query(
       `INSERT INTO tab_events
        (id, title, event_date, total_amount, notes, status, created_by, approved_by, approved_at)
-       VALUES ($1, $2, $3::date, $4, $5, 'APPROVED', $6::uuid, $6::uuid, NOW())`,
+       VALUES ($1, $2, $3::date, $4, $5, 'POSTED', $6::uuid, $6::uuid, NOW())`,
       [eventId, title, eventDate, totalAmount, notes || null, createdBy]
     );
 
     const wargaRows = await client.query(
-      `SELECT u.id::text AS warga_id
-       FROM users u
-       WHERE NOT EXISTS (
-         SELECT 1
-         FROM user_roles ur
+      `WITH warga_role AS (
+         SELECT DISTINCT u.id
+         FROM users u
+         JOIN user_roles ur ON ur.user_id = u.id
          JOIN roles r ON r.id = ur.role_id
-         WHERE ur.user_id = u.id
-           AND LOWER(TRIM(r.name)) = 'root'
-       )`
+         WHERE LOWER(TRIM(r.name)) = 'warga'
+           AND ${ELIGIBLE_USERS_CLAUSE}
+       ),
+       eligible_all AS (
+         SELECT u.id
+         FROM users u
+         WHERE ${ELIGIBLE_USERS_CLAUSE}
+       ),
+       warga_final AS (
+         SELECT id FROM warga_role
+         UNION
+         SELECT id
+         FROM eligible_all
+         WHERE NOT EXISTS (SELECT 1 FROM warga_role)
+       )
+       SELECT id::text AS warga_id
+       FROM warga_final`
     );
 
     const wargaIds = wargaRows.rows.map((r) => String(r.warga_id));
     if (!wargaIds.length) throw new Error('Data warga kosong');
 
-    const perWarga = Math.floor((Number(totalAmount) / wargaIds.length) * 100) / 100;
-    const remainder = Number((Number(totalAmount) - perWarga * wargaIds.length).toFixed(2));
+    const total = Number(totalAmount || 0);
+    const perWarga = Math.floor((total / wargaIds.length) * 100) / 100;
+    const remainder = Number((total - perWarga * wargaIds.length).toFixed(2));
 
     for (let i = 0; i < wargaIds.length; i += 1) {
       const wargaId = wargaIds[i];
@@ -189,9 +235,9 @@ export async function createTabunganEvent({ title, eventDate, totalAmount, notes
         [wargaId]
       );
       const saldo = Number(saldoRow.rows[0]?.total_balance || 0);
-      const covered = Math.min(saldo, allocAmount);
-      const outstanding = Number((allocAmount - covered).toFixed(2));
-      const status = outstanding > 0 ? 'DEFICIT' : saldo > allocAmount ? 'SURPLUS' : 'SETTLED';
+      const covered = allocAmount;
+      const outstanding = 0;
+      const status = Number((saldo - allocAmount).toFixed(2)) >= 0 ? 'SETTLED' : 'DEFICIT';
 
       const allocationId = randomUUID();
       await client.query(
@@ -218,7 +264,7 @@ export async function createTabunganEvent({ title, eventDate, totalAmount, notes
 
         await client.query(
           `UPDATE tab_savings_accounts
-           SET total_balance = GREATEST(0, total_balance - $1),
+           SET total_balance = total_balance - $1,
                updated_at = NOW()
            WHERE warga_id = $2::uuid`,
           [covered, wargaId]
@@ -318,14 +364,11 @@ export async function closeTabunganYear({ year }) {
     `INSERT INTO tab_yearly_balances (id, year, warga_id, closing_balance, updated_at)
      SELECT gen_random_uuid(), $1, u.id, COALESCE(sa.total_balance, 0), NOW()
      FROM users u
+     JOIN user_roles ur ON ur.user_id = u.id
+     JOIN roles r ON r.id = ur.role_id
      LEFT JOIN tab_savings_accounts sa ON sa.warga_id = u.id
-     WHERE NOT EXISTS (
-       SELECT 1
-       FROM user_roles ur
-       JOIN roles r ON r.id = ur.role_id
-       WHERE ur.user_id = u.id
-         AND LOWER(TRIM(r.name)) = 'root'
-     )
+     WHERE LOWER(TRIM(r.name)) = 'warga'
+       AND ${ELIGIBLE_USERS_CLAUSE}
      ON CONFLICT (year, warga_id)
      DO UPDATE SET closing_balance = EXCLUDED.closing_balance, updated_at = NOW()`,
     [year]

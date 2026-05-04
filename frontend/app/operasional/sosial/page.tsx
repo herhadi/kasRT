@@ -1,4 +1,3 @@
 'use client';
 
-export { default } from '../../bendahara/page';
-
+export { default } from '../../sosial/page';

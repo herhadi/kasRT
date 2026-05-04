@@ -18,6 +18,21 @@ export async function apiFetch<T = unknown>(endpoint: string, options: ApiFetchO
   if (auth && token) {
     (headers as Record<string, string>).Authorization = `Bearer ${token}`;
   }
+  if (typeof window !== 'undefined' && endpoint.startsWith('/tabungan')) {
+    const authHeader =
+      (headers as Record<string, string>).Authorization ||
+      (headers as Record<string, string>).authorization ||
+      null;
+    console.info('[API][TABUNGAN][REQ]', {
+      endpoint,
+      method: rest.method || 'GET',
+      auth,
+      tokenFromStorage: Boolean(token),
+      tokenLenFromStorage: token?.length || 0,
+      hasAuthHeader: Boolean(authHeader),
+      authHeaderPreview: authHeader ? String(authHeader).slice(0, 20) : null
+    });
+  }
 
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...rest,
@@ -25,6 +40,13 @@ export async function apiFetch<T = unknown>(endpoint: string, options: ApiFetchO
   });
 
   const payload = await response.json().catch(() => ({}));
+  if (typeof window !== 'undefined' && endpoint.startsWith('/tabungan') && !response.ok) {
+    console.warn('[API][TABUNGAN][ERR]', {
+      endpoint,
+      status: response.status,
+      message: payload?.message || null
+    });
+  }
 
   if (response.status === 401) {
     clearSession();

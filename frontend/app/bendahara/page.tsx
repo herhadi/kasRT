@@ -124,7 +124,8 @@ export default function BendaharaPage() {
   const isBendahara = hasAnyRole(user, ['Bendahara', 'root']);
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
   const isAdminSosial = hasAnyRole(user, ['Admin Sosial', 'root']);
-  const isSekretarisOrKetua = hasAnyRole(user, ['Sekretaris', 'Ketua', 'root']);
+  const isKetua = hasAnyRole(user, ['Ketua']);
+  const isSekretaris = hasAnyRole(user, ['Sekretaris', 'root']);
 
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -185,14 +186,35 @@ export default function BendaharaPage() {
   }>(null);
   const speechBaseTextRef = useRef('');
   const speechPressedRef = useRef(false);
-  const iuranPageMode = pathname === '/operasional/iuran';
+  const iuranPageMode = pathname === '/operasional/iuran' || pathname === '/operasional/bendahara/iuran';
+  const bendaharaMode = pathname === '/operasional/bendahara' || pathname === '/operasional' || pathname === '/bendahara';
+  const sekretarisMode = pathname === '/operasional/sekretaris';
 
   const loadMaster = useCallback(async () => {
     const result = await apiFetch<{
       success: boolean;
       data: { wallets: WalletItem[]; pengeluaran: PengeluaranItem[]; iuran_status?: IuranStatusItem[]; pendapatan?: PendapatanSummary };
     }>(`/bendahara/master?month=${encodeURIComponent(selectedMonth)}`);
-    const ws = result.data?.wallets || [];
+    let ws = result.data?.wallets || [];
+    if (ws.length === 0 && (isKetua || isSekretaris)) {
+      try {
+        const rekap = await apiFetch<{ success: boolean; data: RekapKeuanganItem[] }>(
+          `/report/rekap-keuangan?month=${encodeURIComponent(selectedMonth)}`
+        );
+        const rows = rekap.data || [];
+        ws = rows
+          .filter((r) =>
+            ['kas iuran wajib', 'kas jimpitan'].includes(String(r.wallet_name || '').trim().toLowerCase())
+          )
+          .map((r) => ({
+            id: String(r.wallet_id || r.wallet_name),
+            name: String(r.wallet_name || '-'),
+            balance: Number(r.saldo_akhir || 0)
+          }));
+      } catch {
+        // noop: biarkan ws kosong bila fallback juga gagal
+      }
+    }
     const outs = result.data?.pengeluaran || [];
     setWallets(ws);
     setPengeluaran(outs);
@@ -205,7 +227,7 @@ export default function BendaharaPage() {
         ? prev
         : String(kasIuran?.id || ws[0]?.id || '')
     );
-  }, [selectedMonth]);
+  }, [selectedMonth, isKetua, isSekretaris]);
 
   const loadPendingSosialReceiptCount = useCallback(async () => {
     if (!isAdminSosial) return;
@@ -230,15 +252,15 @@ export default function BendaharaPage() {
   }, [isAdminSosial, selectedMonth]);
 
   const loadRekapKeuangan = useCallback(async () => {
-    if (!isSekretarisOrKetua) return;
+    if (!isSekretaris) return;
     const result = await apiFetch<{ success: boolean; data: RekapKeuanganItem[] }>(
       `/report/rekap-keuangan?month=${encodeURIComponent(selectedMonth)}`
     );
     setRekapKeuangan(result.data || []);
-  }, [isSekretarisOrKetua, selectedMonth]);
+  }, [isSekretaris, selectedMonth]);
 
   const loadMeetingNote = useCallback(async () => {
-    if (!isSekretarisOrKetua) return;
+    if (!isSekretaris) return;
     try {
       const result = await apiFetch<{ success: boolean; data: { notes?: string } | null }>(
         `/management/meeting-note?month=${encodeURIComponent(selectedMonth)}`
@@ -254,10 +276,10 @@ export default function BendaharaPage() {
         setMeetingNotes('');
       }
     }
-  }, [isSekretarisOrKetua, selectedMonth, meetingNotesDirty]);
+  }, [isSekretaris, selectedMonth, meetingNotesDirty]);
 
   const loadMeetingHistory = useCallback(async () => {
-    if (!isSekretarisOrKetua) return;
+    if (!isSekretaris) return;
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(meetingHistoryMonth)) return;
     try {
       const result = await apiFetch<{ success: boolean; data: { notes?: string } | null }>(
@@ -267,7 +289,7 @@ export default function BendaharaPage() {
     } catch {
       setMeetingHistoryText('');
     }
-  }, [isSekretarisOrKetua, meetingHistoryMonth]);
+  }, [isSekretaris, meetingHistoryMonth]);
 
   const loadWargaOptions = useCallback(async () => {
     const result = await apiFetch<{ success: boolean; data: WargaItem[] }>('/auth/warga-options');
@@ -334,11 +356,11 @@ export default function BendaharaPage() {
       router.replace('/dashboard');
       return;
     }
-    if (!isBendahara) {
+    if (!isBendahara && !isKetua) {
       if (isAdminSosial) {
         void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
       }
-      if (isSekretarisOrKetua) {
+      if (isSekretaris) {
         void Promise.all([loadRekapKeuangan(), loadMeetingNote()]);
       }
       return;
@@ -346,18 +368,18 @@ export default function BendaharaPage() {
     void Promise.all([loadMaster(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadPendingHandover(), loadOpeningArrears()]).catch((e) =>
       setError(e instanceof Error ? e.message : 'Gagal memuat menu bendahara')
     );
-  }, [loading, canSeeOps, isBendahara, isAdminSosial, isSekretarisOrKetua, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
+  }, [loading, canSeeOps, isBendahara, isKetua, isAdminSosial, isSekretaris, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
 
   useEffect(() => {
     if (loading || !canSeeOps) return;
     const interval = window.setInterval(() => {
-      if (isBendahara) {
+      if (isBendahara || isKetua) {
         void Promise.all([loadMaster(), loadReport(), loadPendingHandover(), loadOpeningArrears()]);
       } else {
         if (isAdminSosial) {
           void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
         }
-        if (isSekretarisOrKetua) {
+        if (isSekretaris) {
           void Promise.all([loadRekapKeuangan(), loadMeetingNote()]);
         }
       }
@@ -367,8 +389,9 @@ export default function BendaharaPage() {
     loading,
     canSeeOps,
     isBendahara,
+    isKetua,
     isAdminSosial,
-    isSekretarisOrKetua,
+    isSekretaris,
     loadMaster,
     loadReport,
     loadPendingHandover,
@@ -380,7 +403,7 @@ export default function BendaharaPage() {
   ]);
 
   async function saveMeetingNote() {
-    if (!isSekretarisOrKetua) return;
+    if (!isSekretaris) return;
     try {
       setMeetingNotesLoading(true);
       await apiFetch('/management/meeting-note', {
@@ -491,7 +514,7 @@ export default function BendaharaPage() {
     }
   }
 
-  const title = useMemo(() => (isBendahara ? 'Menu Bendahara' : 'Menu Operasional'), [isBendahara]);
+  const title = useMemo(() => ((isBendahara || isKetua) ? 'Menu Bendahara' : 'Menu Operasional'), [isBendahara, isKetua]);
   const yearOptions = useMemo(() => {
     const current = new Date().getFullYear();
     return [current - 2, current - 1, current, current + 1];
@@ -506,6 +529,10 @@ export default function BendaharaPage() {
   );
   const kasIuranWajibWallet = useMemo(
     () => wallets.find((w) => String(w.name || '').trim().toLowerCase() === 'kas iuran wajib') || null,
+    [wallets]
+  );
+  const kasJimpitanWallet = useMemo(
+    () => wallets.find((w) => String(w.name || '').trim().toLowerCase() === 'kas jimpitan') || null,
     [wallets]
   );
   const rekapBendahara = useMemo(() => {
@@ -564,9 +591,9 @@ export default function BendaharaPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!isSekretarisOrKetua) return;
+    if (!isSekretaris) return;
     void loadMeetingHistory();
-  }, [isSekretarisOrKetua, loadMeetingHistory]);
+  }, [isSekretaris, loadMeetingHistory]);
 
   async function submitSetorIuran(amountInput: number): Promise<boolean> {
     const amount = Number(amountInput || 0);
@@ -781,7 +808,7 @@ export default function BendaharaPage() {
     );
   }
 
-  if (iuranPageMode && isBendahara) {
+  if (iuranPageMode && (isBendahara || isKetua)) {
     return (
       <main className="min-h-screen pb-10">
         {toast ? (
@@ -862,17 +889,17 @@ export default function BendaharaPage() {
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card title={title} subtitle="Input iuran wajib bulanan">
-          {!isBendahara ? (
+          {!isBendahara && !bendaharaMode && !sekretarisMode ? (
             <div className="space-y-3">
               <p className="text-sm text-[var(--text-muted)]">
                 Anda memiliki akses menu operasional. Fitur input keuangan penuh khusus untuk role Bendahara.
               </p>
-              {(isAdminSosial || isSekretarisOrKetua) ? (
+              {(isAdminSosial || isSekretaris || isKetua) ? (
                 <></>
               ) : null}
               {isAdminJimpitan ? (
                 <Link
-                  href="/jimpitan/admin"
+                  href="/operasional/jimpitan"
                   className="btn-action-blue link-action w-full md:w-auto"
                 >
                   Menu Admin Jimpitan
@@ -972,7 +999,7 @@ export default function BendaharaPage() {
                   </div>
                 </div>
               ) : null}
-              {isSekretarisOrKetua ? (
+              {(isSekretaris || sekretarisMode) ? (
                 <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">Rekap Keuangan Bulanan (Bendahara & Admin)</p>
@@ -1049,7 +1076,7 @@ export default function BendaharaPage() {
                   </div>
                 </div>
               ) : null}
-              {isSekretarisOrKetua ? (
+              {(isSekretaris || sekretarisMode) ? (
                 <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">Notulen Rapat Bulanan</p>
                   <textarea
@@ -1110,7 +1137,7 @@ export default function BendaharaPage() {
                   </Button>
                 </div>
               ) : null}
-              {isSekretarisOrKetua ? (
+              {(isSekretaris || sekretarisMode) ? (
                 <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">Riwayat Notulen</p>
@@ -1136,7 +1163,7 @@ export default function BendaharaPage() {
                 </div>
               ) : null}
             </div>
-          ) : isBendahara ? (
+          ) : (isBendahara || bendaharaMode) ? (
             <>
               <SummaryTripleCard
                 title="Pendapatan Bulan Ini"
@@ -1150,7 +1177,7 @@ export default function BendaharaPage() {
               {!iuranPageMode ? (
                 <div className="mb-3">
                   <Link
-                    href="/operasional/iuran"
+                    href="/operasional/bendahara/iuran"
                     className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold"
                   >
                     Input Iuran
@@ -1177,16 +1204,14 @@ export default function BendaharaPage() {
           ) : null}
         </Card>
 
-        {isBendahara ? (
+        {(isBendahara || isKetua) ? (
           <>
             <Card title="Total Saldo Realtime" subtitle="Akumulasi saldo kas dari transaksi APPROVED">
               <SummaryTripleCard
                 title="Ringkasan Saldo"
                 items={[
-                  ...wallets.map((wallet) => ({
-                    label: String(wallet.name || '-'),
-                    value: formatRupiah(Number(wallet.balance || 0))
-                  })),
+                  { label: 'Kas Iuran Wajib', value: formatRupiah(Number(kasIuranWajibWallet?.balance || 0)) },
+                  { label: 'Kas Jimpitan', value: formatRupiah(Number(kasJimpitanWallet?.balance || 0)) },
                   { label: 'Total Saldo', value: formatRupiah(totalSaldoRealtime), emphasize: true }
                 ]}
               />

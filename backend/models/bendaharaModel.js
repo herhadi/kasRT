@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 const KAS_IURAN_WAJIB = 'Kas Iuran Wajib';
 const KAS_JIMPITAN = 'Kas Jimpitan';
@@ -198,15 +199,9 @@ export async function listIuranWajibStatusByMonth({ month }) {
 
   const result = await pool.query(
     `WITH warga AS (
-       SELECT DISTINCT u.id::text AS warga_id, u.nama
-       FROM users u
-       WHERE NOT EXISTS (
-         SELECT 1
-         FROM user_roles urx
-         JOIN roles rx ON rx.id = urx.role_id
-         WHERE urx.user_id = u.id
-           AND LOWER(TRIM(rx.name)) = 'root'
-       )
+     SELECT DISTINCT u.id::text AS warga_id, u.nama
+     FROM users u
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
      ),
      iuran AS (
        SELECT it.warga_id::text AS warga_id, COALESCE(SUM(it.amount), 0) AS total

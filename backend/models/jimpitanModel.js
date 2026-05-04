@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export async function ensureJimpitanShiftDaysTable() {
   await pool.query(`
@@ -341,6 +342,7 @@ export async function listJimpitanByOperationalDate(operationalDate) {
      LEFT JOIN monthly_detail md ON md.warga_id = u.id
      LEFT JOIN monthly_topup mt ON mt.warga_id = u.id
      LEFT JOIN users p ON p.id::text = dp.petugas_id::text
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
      ORDER BY u.nama ASC`,
     [operationalDate]
   );
@@ -362,6 +364,7 @@ export async function listJimpitanWeeklySchedule() {
        u.nama,
        u.jimpitan_shift_hari
      FROM users u
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
      ORDER BY u.nama ASC`
   );
 
@@ -392,6 +395,7 @@ export async function listPetugasByShiftDay(shiftHari) {
        u.telegram_chat_id
      FROM users u
      WHERE u.jimpitan_shift_hari = $1
+       AND ${ELIGIBLE_USERS_CLAUSE}
      ORDER BY u.nama ASC`,
     [shiftHari]
   );

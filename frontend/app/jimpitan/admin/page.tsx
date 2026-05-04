@@ -12,6 +12,8 @@ import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, formatTanggalIndonesia, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { JimpitanScheduleData } from '@/types';
+import usePagination from '@/lib/hooks/usePagination';
+import PaginationControls from '@/components/pagination/PaginationControls';
 
 type WargaOption = { id: string; nama: string; no_hp?: string };
 type SetorHistoryItem = {
@@ -47,6 +49,7 @@ export default function JimpitanAdminPage() {
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
 
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
+  const isKetua = hasAnyRole(user, ['Ketua']);
 
   const pushToast = useCallback((message: string, kind: 'success' | 'error' | 'warning' = 'success') => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -92,14 +95,14 @@ export default function JimpitanAdminPage() {
       router.replace('/login');
       return;
     }
-    if (!isAdminJimpitan) {
+    if (!isAdminJimpitan && !isKetua) {
       router.replace('/jimpitan');
       return;
     }
     void Promise.all([loadWargaOptions(), loadSchedule(), loadSetorHistory()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, router, loadWargaOptions, loadSchedule, loadSetorHistory, pushToast]);
+  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSchedule, loadSetorHistory, pushToast]);
 
   const weeklyGroups = useMemo(() => {
     const days = scheduleData?.shift_days || [];
@@ -109,6 +112,7 @@ export default function JimpitanAdminPage() {
       members: petugas.filter((person) => person.jimpitan_shift_hari === day.id)
     }));
   }, [scheduleData]);
+  const setorHistoryPager = usePagination(setorHistory, 20);
 
   useEffect(() => {
     if (!selectedPetugasId || !scheduleData?.petugas) return;
@@ -126,6 +130,9 @@ export default function JimpitanAdminPage() {
       return String(wargaOptions[0].id);
     });
   }, [wargaOptions]);
+  useEffect(() => {
+    setorHistoryPager.reset();
+  }, [setorHistory.length]);
 
   async function handleTopup() {
     const wargaId = String(topupWargaId || '').trim();
@@ -311,7 +318,7 @@ export default function JimpitanAdminPage() {
                     <td colSpan={4} className="px-4 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat setor.</td>
                   </tr>
                 ) : (
-                  setorHistory.map((row) => (
+                  setorHistoryPager.pagedItems.map((row) => (
                     <tr key={row.id} className="bg-[var(--surface)]">
                       <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{formatTanggalIndonesia(row.created_at)}</td>
                       <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.target_wallet_name || '-'}</td>
@@ -322,6 +329,12 @@ export default function JimpitanAdminPage() {
                 )}
               </tbody>
             </table>
+            <PaginationControls
+              page={setorHistoryPager.page}
+              totalPages={setorHistoryPager.totalPages}
+              onPrev={setorHistoryPager.prev}
+              onNext={setorHistoryPager.next}
+            />
           </div>
         </Card>
 

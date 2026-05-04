@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 const IURAN_WAJIB_TARGET = 30000;
 
@@ -341,6 +342,7 @@ export async function closeYearlyBook({ year, actor }) {
          JOIN user_roles ur ON ur.user_id = u.id
          JOIN roles r ON r.id = ur.role_id
          WHERE LOWER(TRIM(r.name)) = 'warga'
+           AND ${ELIGIBLE_USERS_CLAUSE}
          UNION
          SELECT u2.id AS warga_id
          FROM users u2
@@ -351,13 +353,7 @@ export async function closeYearlyBook({ year, actor }) {
            JOIN roles rx ON rx.id = urx.role_id
            WHERE LOWER(TRIM(rx.name)) = 'warga'
          )
-         AND NOT EXISTS (
-           SELECT 1
-           FROM user_roles ur2
-           JOIN roles r2 ON r2.id = ur2.role_id
-           WHERE ur2.user_id = u2.id
-             AND LOWER(TRIM(r2.name)) = 'root'
-         )
+         AND ${ELIGIBLE_USERS_CLAUSE.replaceAll('u.', 'u2.').replaceAll('urx', 'ur2').replaceAll('rx', 'r2')}
        ),
        iuran_tahun AS (
          SELECT it.warga_id AS warga_id, COALESCE(SUM(it.amount), 0) AS total

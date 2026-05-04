@@ -29,7 +29,16 @@ export default function OperasionalHomePage() {
   const isBendahara = hasAnyRole(user, ['Bendahara', 'root']);
   const isAdminSosial = hasAnyRole(user, ['Admin Sosial', 'root']);
   const isAdminPembangunan = hasAnyRole(user, ['Admin Pembangunan', 'root']);
-  const isSekretarisOrKetua = hasAnyRole(user, ['Sekretaris', 'Ketua']);
+  const isSekretaris = hasAnyRole(user, ['Sekretaris']);
+  const isKetua = hasAnyRole(user, ['Ketua']);
+  const canOpenBendaharaModule = hasAnyRole(user, ['Bendahara', 'Sekretaris', 'Ketua', 'root']);
+  const canOpenSosialModule = hasAnyRole(user, ['Admin Sosial', 'Sekretaris', 'Ketua', 'root']);
+  const canOpenTabunganModule = hasAnyRole(user, ['Admin Pembangunan', 'Sekretaris', 'Ketua', 'root']);
+  const canOpenJimpitanModule = hasAnyRole(user, ['Admin Jimpitan', 'Sekretaris', 'Ketua', 'root']);
+  const canOpenLingkunganModule = hasAnyRole(user, ['Admin Lingkungan', 'Sekretaris', 'Ketua', 'root']);
+  const canOpenInternetModule = hasAnyRole(user, ['Admin Internet', 'Sekretaris', 'Ketua', 'root']);
+  const canOpenKoperasiModule = hasAnyRole(user, ['Admin Koperasi', 'Sekretaris', 'Ketua', 'root']);
+  const canOpenKeamananModule = hasAnyRole(user, ['Admin Keamanan', 'Sekretaris', 'Ketua', 'root']);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -37,22 +46,8 @@ export default function OperasionalHomePage() {
 
   useEffect(() => {
     if (loading || !user || !canSeeOps) return;
-    if (isSekretarisOrKetua) return;
-    const operationalRoleCount = [isBendahara, isAdminSosial, isAdminPembangunan].filter(Boolean).length;
-    if (operationalRoleCount !== 1) return;
-    if (isBendahara) {
-      router.replace('/operasional/bendahara');
-      return;
-    }
-    if (isAdminSosial) {
-      router.replace('/sosial');
-      return;
-    }
-    if (isAdminPembangunan) {
-      router.replace('/tabungan');
-      return;
-    }
-  }, [loading, user, canSeeOps, isBendahara, isAdminSosial, isAdminPembangunan, isSekretarisOrKetua, router]);
+    // keep operasional menu visible for all roles
+  }, [loading, user, canSeeOps]);
 
   if (loading || !user) return <main className="min-h-screen" />;
 
@@ -69,34 +64,155 @@ export default function OperasionalHomePage() {
     );
   }
 
+  if (isKetua) {
+    return (
+      <main className="min-h-screen pb-10">
+        <Navbar />
+        <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
+          <Card title="Operasional Ketua" subtitle="Monitoring lintas modul (view-only selain root)">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Link href="/operasional/bendahara" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Bendahara</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Iuran wajib, pengeluaran, transfer, dan laporan bendahara.</p>
+              </Link>
+              <Link href="/operasional/sosial" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Sosial</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Pengeluaran sosial, approval masuk, dan riwayat sosial.</p>
+              </Link>
+              <Link href="/operasional/tabungan" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Tabungan Pembangunan</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Tabungan warga untuk kebutuhan khusus pembangunan.</p>
+              </Link>
+              <Link href="/operasional/sekretaris" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Sekretaris</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Rekap bulanan, notulen, dan monitoring organisasi.</p>
+              </Link>
+              <Link href="/operasional/jimpitan" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Jimpitan</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Jadwal petugas, top up, dan setor ke bendahara.</p>
+              </Link>
+              <Link href="/operasional/internet" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Internet</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Iuran wajib internet, tunggakan, pengeluaran, dan riwayat.</p>
+              </Link>
+            </div>
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen pb-10">
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
-        <Card title="Operasional" subtitle="Mengarahkan ke modul sesuai role...">
+        <Card title="Operasional">
           <div className="grid gap-3 md:grid-cols-2">
-            {isBendahara ? (
+            {isKetua && canOpenJimpitanModule ? (
+              <Link href="/operasional/jimpitan" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Jimpitan</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Jadwal petugas, top up, dan setor ke bendahara.</p>
+              </Link>
+            ) : null}
+            {hasAnyRole(user, ['Admin Jimpitan']) && !isKetua ? (
+              <Link href="/operasional/jimpitan" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Jimpitan</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Jadwal petugas, top up, dan setor ke bendahara.</p>
+              </Link>
+            ) : null}
+
+            {isKetua && canOpenBendaharaModule ? (
               <Link href="/operasional/bendahara" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Bendahara</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Iuran wajib, pengeluaran, transfer, dan laporan bendahara.</p>
               </Link>
             ) : null}
 
-            {isAdminSosial ? (
-              <Link href="/sosial" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+            {isKetua && canOpenSosialModule ? (
+              <Link href="/operasional/sosial" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Sosial</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Pengeluaran sosial, approval masuk, dan riwayat sosial.</p>
+              </Link>
+            ) : null}
+            {isAdminSosial && !isKetua ? (
+              <Link href="/operasional/sosial" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Sosial</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Pengeluaran sosial, approval masuk, dan riwayat sosial.</p>
               </Link>
             ) : null}
 
-            {isAdminPembangunan ? (
-              <Link href="/tabungan" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+            {isKetua && canOpenTabunganModule ? (
+              <Link href="/operasional/tabungan" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Tabungan Pembangunan</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Tabungan warga untuk kebutuhan khusus pembangunan.</p>
+              </Link>
+            ) : null}
+            {isAdminPembangunan && !isKetua ? (
+              <Link href="/operasional/tabungan" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Tabungan Pembangunan</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Tabungan warga untuk kebutuhan khusus pembangunan.</p>
               </Link>
             ) : null}
 
-            {!isBendahara && !isAdminSosial && !isAdminPembangunan ? (
+            {isKetua ? (
+              <Link href="/operasional/sekretaris" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Sekretaris</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Rekap bulanan, notulen, dan monitoring organisasi.</p>
+              </Link>
+            ) : null}
+
+            {isBendahara && !isKetua ? (
+              <Link href="/operasional/bendahara" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Bendahara</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Input iuran, pengeluaran, transfer, dan rekap bendahara.</p>
+              </Link>
+            ) : null}
+
+            {isSekretaris && !isKetua ? (
+              <Link href="/operasional/sekretaris" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Sekretaris</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Rekap keuangan bulanan dan notulen rapat.</p>
+              </Link>
+            ) : null}
+
+            {(isKetua || canOpenLingkunganModule) ? (
+              <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Lingkungan</p>
+                  <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">Segera</span>
+                </div>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Akan dipisah jadi modul mandiri sesuai role.</p>
+              </div>
+            ) : null}
+
+            {(isKetua || canOpenInternetModule) ? (
+              <Link href="/operasional/internet" className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Internet</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Iuran wajib internet, tunggakan, pengeluaran, dan riwayat.</p>
+              </Link>
+            ) : null}
+
+            {(isKetua || canOpenKoperasiModule) ? (
+              <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Koperasi</p>
+                  <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">Segera</span>
+                </div>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Akan dipisah jadi modul mandiri sesuai role.</p>
+              </div>
+            ) : null}
+
+            {(isKetua || canOpenKeamananModule) ? (
+              <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Operasional Keamanan</p>
+                  <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">Segera</span>
+                </div>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Akan dipisah jadi modul mandiri sesuai role.</p>
+              </div>
+            ) : null}
+
+            {!isKetua && !isSekretaris && !canOpenBendaharaModule && !canOpenSosialModule && !canOpenTabunganModule ? (
               <p className="text-sm text-[var(--text-muted)]">Modul khusus role Anda akan ditambahkan bertahap.</p>
             ) : null}
           </div>

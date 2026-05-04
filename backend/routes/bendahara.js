@@ -14,15 +14,15 @@ import {
 
 const router = express.Router();
 
-router.use(auth, allowRoles('Bendahara', 'root'));
+router.use(auth);
 
-router.get('/master', asyncHandler(getBendaharaMasterData));
-router.get('/opening-arrears', asyncHandler(getOpeningArrears));
-router.get('/yearly-book', asyncHandler(getYearlyBook));
-router.post('/setor-iuran-wajib', asyncHandler(setorIuranWajibWarga));
-router.post('/opening-arrears', asyncHandler(saveOpeningArrears));
-router.post('/pengeluaran', asyncHandler(inputPengeluaranBulanan));
-router.post('/yearly-book/close', asyncHandler(closeBookYear));
-router.post('/yearly-book/open', asyncHandler(openBookYear));
+router.get('/master', allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getBendaharaMasterData));
+router.get('/opening-arrears', allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getOpeningArrears));
+router.get('/yearly-book', allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getYearlyBook));
+router.post('/setor-iuran-wajib', allowRoles('Bendahara', 'root'), asyncHandler(setorIuranWajibWarga));
+router.post('/opening-arrears', allowRoles('Bendahara', 'root'), asyncHandler(saveOpeningArrears));
+router.post('/pengeluaran', allowRoles('Bendahara', 'root'), asyncHandler(inputPengeluaranBulanan));
+router.post('/yearly-book/close', allowRoles('Bendahara', 'root'), asyncHandler(closeBookYear));
+router.post('/yearly-book/open', allowRoles('Bendahara', 'root'), asyncHandler(openBookYear));
 
 export default router;
