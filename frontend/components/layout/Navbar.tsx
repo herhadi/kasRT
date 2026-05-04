@@ -141,7 +141,9 @@ export default function Navbar() {
                 (!(menu as { opsOnly?: boolean }).opsOnly || canSeeOps)
               )
               .map(menu => {
-                const active = pathname === menu.href;
+                const active =
+                  pathname === menu.href ||
+                  (menu.href === '/operasional' && (pathname?.startsWith('/operasional') || pathname === '/sosial' || pathname === '/tabungan'));
                 return (
                   <Link
                     key={menu.href}

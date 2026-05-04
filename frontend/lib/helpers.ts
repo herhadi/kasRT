@@ -26,3 +26,12 @@ export function formatTanggalIndonesia(dateValue: Date | string) {
 export function safeNumber(value: unknown) {
   return Number(value || 0);
 }
+
+export function normalizePinInput(value: string, maxLength = 6) {
+  return digitsOnly(value).slice(0, maxLength);
+}
+
+export function isValidPin(value: string, minLength = 4, maxLength = 6) {
+  const pin = normalizePinInput(value, maxLength);
+  return pin.length >= minLength && pin.length <= maxLength;
+}

@@ -29,6 +29,7 @@ export default function OperasionalHomePage() {
   const isBendahara = hasAnyRole(user, ['Bendahara', 'root']);
   const isAdminSosial = hasAnyRole(user, ['Admin Sosial', 'root']);
   const isAdminPembangunan = hasAnyRole(user, ['Admin Pembangunan', 'root']);
+  const isSekretarisOrKetua = hasAnyRole(user, ['Sekretaris', 'Ketua']);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -36,6 +37,9 @@ export default function OperasionalHomePage() {
 
   useEffect(() => {
     if (loading || !user || !canSeeOps) return;
+    if (isSekretarisOrKetua) return;
+    const operationalRoleCount = [isBendahara, isAdminSosial, isAdminPembangunan].filter(Boolean).length;
+    if (operationalRoleCount !== 1) return;
     if (isBendahara) {
       router.replace('/operasional/bendahara');
       return;
@@ -48,7 +52,7 @@ export default function OperasionalHomePage() {
       router.replace('/tabungan');
       return;
     }
-  }, [loading, user, canSeeOps, isBendahara, isAdminSosial, isAdminPembangunan, router]);
+  }, [loading, user, canSeeOps, isBendahara, isAdminSosial, isAdminPembangunan, isSekretarisOrKetua, router]);
 
   if (loading || !user) return <main className="min-h-screen" />;
 

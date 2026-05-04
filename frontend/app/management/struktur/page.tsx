@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
+import { isValidPin, normalizePinInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { ManagementRoleItem, ManagementUserItem } from '@/types';
 
@@ -91,6 +92,10 @@ export default function UserManagementPage() {
       setError('Nama, nomor HP, dan PIN wajib diisi.');
       return;
     }
+    if (!isValidPin(pin)) {
+      setError('PIN harus 4 sampai 6 digit angka.');
+      return;
+    }
 
     try {
       setSavingUser(true);
@@ -169,7 +174,14 @@ export default function UserManagementPage() {
           <div className="grid gap-3 md:grid-cols-4">
             <Input label="Nama Warga" value={newNama} onChange={(e) => setNewNama(e.target.value)} placeholder="Nama lengkap" />
             <Input label="Nomor HP" value={newNoHp} onChange={(e) => setNewNoHp(e.target.value)} placeholder="08xxxxxxxxxx" />
-            <Input label="PIN" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="4-6 digit" />
+            <Input
+              label="PIN"
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={newPin}
+              onChange={(e) => setNewPin(normalizePinInput(e.target.value))}
+            />
             <div className="flex items-end">
               <Button className="w-full" onClick={handleAddWarga} disabled={savingUser}>
                 {savingUser ? 'Menyimpan...' : 'Tambah Warga'}

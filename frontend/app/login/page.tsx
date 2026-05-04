@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/useAuth';
 import { LoginResponse } from '@/types';
+import { isValidPin, normalizePinInput } from '@/lib/helpers';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 
@@ -34,6 +35,10 @@ export default function LoginPage() {
 
     if (!noHp.trim() || !pin.trim()) {
       setMessage('Nomor HP dan PIN wajib diisi.');
+      return;
+    }
+    if (!isValidPin(pin.trim())) {
+      setMessage('PIN harus 4 sampai 6 digit angka.');
       return;
     }
 
@@ -96,7 +101,16 @@ export default function LoginPage() {
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
               <Input label="Nomor HP" type="tel" placeholder="08xxxxxxxxxx" value={noHp} onChange={(e) => setNoHp(e.target.value)} />
-              <Input label="PIN" type="password" placeholder="••••" value={pin} onChange={(e) => setPin(e.target.value)} minLength={4} maxLength={6} />
+              <Input
+                label="PIN"
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={pin}
+                onChange={(e) => setPin(normalizePinInput(e.target.value))}
+                minLength={4}
+                maxLength={6}
+              />
 
               {message ? (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{message}</div>
