@@ -131,6 +131,18 @@ export default function DashboardPage() {
               </Card>
             </section>
 
+            {wargaData.koperasi_has_loan ? (
+              <Card title="Pinjaman Koperasi" subtitle="Informasi angsuran pinjaman aktif">
+                <div className="space-y-2 text-sm">
+                  <Line label="Angsuran / Bulan" value={formatRupiah(Number(wargaData.koperasi_loan_monthly_installment || 0))} />
+                  <Line
+                    label="Progress Angsuran"
+                    value={`Angsuran ke-${Math.min(Number(wargaData.koperasi_loan_current_installment_no || 1), Number(wargaData.koperasi_loan_tenor_months || 0))}/${Number(wargaData.koperasi_loan_tenor_months || 0)}`}
+                  />
+                </div>
+              </Card>
+            ) : null}
+
             <Card title="Iuran Opsional" subtitle="Kontribusi di luar iuran dasar">
               <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                 {wargaData.optional_contributions.filter((item) => item.is_mandatory === false).length === 0 ? (

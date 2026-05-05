@@ -15,10 +15,12 @@ import tabunganRoutes from './routes/tabungan.js';
 import internetRoutes from './routes/internet.js';
 import lingkunganRoutes from './routes/lingkungan.js';
 import koperasiRoutes from './routes/koperasi.js';
+import securityRoutes from './routes/security.js';
 import { ensureCoreMasterData } from './models/bootstrapModel.js';
 import { ensureInternetTables } from './models/internetModel.js';
 import { ensureLingkunganTables } from './models/lingkunganModel.js';
 import { ensureKoperasiTables } from './models/koperasiModel.js';
+import { ensureSecurityTables } from './models/securityModel.js';
 
 const app = express();
 const PORT = process.env.PORT;
@@ -38,6 +40,7 @@ app.use('/tabungan', tabunganRoutes);
 app.use('/internet', internetRoutes);
 app.use('/lingkungan', lingkunganRoutes);
 app.use('/koperasi', koperasiRoutes);
+app.use('/security', securityRoutes);
 
 app.get('/api/cron', (_req, res) => {
   return res.json({
@@ -68,6 +71,7 @@ async function startServer() {
     await ensureInternetTables();
     await ensureLingkunganTables();
     await ensureKoperasiTables();
+    await ensureSecurityTables();
     console.log('✅ Master data roles/wallets/contribution_types siap');
   } catch (error) {
     console.error('❌ Gagal memastikan master data:', error.message);

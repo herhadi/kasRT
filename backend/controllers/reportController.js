@@ -9,6 +9,7 @@ import {
   getTop10PenunggakIuranWajib,
   getTrenIuranWajib6Bulan,
   getIuranBulananByWarga,
+  getActiveLoanProgressByWarga,
   getJimpitanBulananByWarga,
   getJimpitanHarianByWarga,
   getLaporanBulananByMonth,
@@ -30,6 +31,7 @@ export async function dashboardWarga(req, res) {
     const jimpitan_hari_ini = await getJimpitanHarianByWarga(user_id);
     const jimpitan_bulan_ini = await getJimpitanBulananByWarga(user_id);
     const iuranRows = await getIuranBulananByWarga(user_id);
+    const loanProgress = await getActiveLoanProgressByWarga(user_id);
 
     let iuran_wajib_bulan_ini = 0;
     let internet_bulan_ini = 0;
@@ -108,7 +110,14 @@ export async function dashboardWarga(req, res) {
         lingkungan_bulan_ini,
         lingkungan_target_bulanan: LINGKUNGAN_TARGET_BULANAN,
         lingkungan_is_member: lingkunganMember,
-        lingkungan_status
+        lingkungan_status,
+        koperasi_has_loan: Boolean(loanProgress),
+        koperasi_loan_monthly_installment: loanProgress
+          ? Math.round((Number(loanProgress.total_due_all || 0) / Math.max(Number(loanProgress.tenor_months || 1), 1)) * 100) / 100
+          : 0,
+        koperasi_loan_paid_installments: Number(loanProgress?.paid_installments || 0),
+        koperasi_loan_tenor_months: Number(loanProgress?.tenor_months || 0),
+        koperasi_loan_current_installment_no: Number(loanProgress?.current_installment_no || 0)
       }
     });
   } catch (err) {

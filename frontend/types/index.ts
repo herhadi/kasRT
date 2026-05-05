@@ -34,6 +34,11 @@ export type DashboardWargaData = {
   lingkungan_target_bulanan: number;
   lingkungan_is_member: boolean;
   lingkungan_status: 'MENUNGGAK' | 'PAS' | 'LEBIH' | 'NON_MEMBER';
+  koperasi_has_loan: boolean;
+  koperasi_loan_monthly_installment: number;
+  koperasi_loan_paid_installments: number;
+  koperasi_loan_tenor_months: number;
+  koperasi_loan_current_installment_no: number;
 };
 
 export type JimpitanListItem = {

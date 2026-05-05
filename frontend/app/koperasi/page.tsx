@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
+import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -38,9 +39,10 @@ export default function KoperasiPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const [showActiveOnly, setShowActiveOnly] = useState(true);
   const [showMemberSection, setShowMemberSection] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [registerTarget, setRegisterTarget] = useState<Member | null>(null);
+  const [joinFee, setJoinFee] = useState('');
   const memberPager = usePagination(members, 10);
 
   async function loadAll() {
@@ -59,12 +61,15 @@ export default function KoperasiPage() {
   useEffect(() => { void loadAll().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data')); }, [canAccess]);
   const selectedName = useMemo(() => members.find((m) => m.warga_id === wargaId)?.nama || '-', [members, wargaId]);
   const activeMembers = useMemo(() => members.filter((m) => Boolean(m.is_active)), [members]);
+  const previewGrandTotal = useMemo(
+    () => plan.reduce((acc, row) => acc + Number(row.total_due || 0), 0),
+    [plan]
+  );
 
   useEffect(() => {
-    const source = showActiveOnly ? activeMembers : members;
-    if (!source.length) return;
-    if (!source.some((m) => m.warga_id === wargaId)) setWargaId(source[0].warga_id);
-  }, [activeMembers, members, showActiveOnly, wargaId]);
+    if (!members.length) return;
+    if (!members.some((m) => m.warga_id === wargaId)) setWargaId(members[0].warga_id);
+  }, [members, wargaId]);
   useEffect(() => {
     memberPager.reset();
   }, [members.length]);
@@ -164,6 +169,27 @@ export default function KoperasiPage() {
     }
   }
 
+  async function submitRegisterMember() {
+    if (!registerTarget) return;
+    const fee = parseRupiahInput(joinFee);
+    if (fee <= 0) return setError('Biaya registrasi wajib diisi.');
+    try {
+      setBusy(true); setError(''); setMessage('');
+      await apiFetch('/koperasi/members/register', {
+        method: 'POST',
+        body: JSON.stringify({ warga_id: registerTarget.warga_id, join_fee: fee })
+      });
+      setMessage('Registrasi anggota berhasil, status aktif.');
+      setRegisterTarget(null);
+      setJoinFee('');
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal registrasi anggota');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading || !user) return <main className="min-h-screen" />;
 
   return (
@@ -178,6 +204,9 @@ export default function KoperasiPage() {
               <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Total Piutang: <b>{formatRupiah((summary?.loans || []).reduce((a, b) => a + Number(b.sisa_piutang || 0), 0))}</b></div>
             </div>
           )}
+          <div className="mt-3">
+            <Link href="/operasional/koperasi/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran Wajib</Link>
+          </div>
         </Card>
 
         {canWrite ? (
@@ -189,7 +218,7 @@ export default function KoperasiPage() {
             </div>
             {showMemberSection ? <><div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
               <thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead>
-              <tbody>{memberPager.pagedItems.map((m) => <tr key={m.warga_id}><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><button type="button" className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${m.is_active ? 'opacity-70' : ''}`} onClick={() => void setMemberActive(m.warga_id, !m.is_active)} disabled={busy}>{m.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button></td></tr>)}
+              <tbody>{memberPager.pagedItems.map((m) => <tr key={m.warga_id}><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><button type="button" className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${m.is_active ? 'opacity-70' : ''}`} onClick={() => { if (m.is_active) void setMemberActive(m.warga_id, false); else { setRegisterTarget(m); setJoinFee(''); } }} disabled={busy}>{m.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button></td></tr>)}
               {!members.length ? <tr><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td></tr> : null}</tbody>
             </table></div>
             <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} /></> : null}
@@ -197,14 +226,19 @@ export default function KoperasiPage() {
         ) : null}
 
         {canWrite ? (
-          <Card title="Buat Pinjaman Baru">
+          <Card
+            title="Buat Pinjaman Baru"
+            headerRight={
+              <span className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${members.find((m) => m.warga_id === wargaId)?.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                {members.find((m) => m.warga_id === wargaId)?.is_active ? 'Aktif' : 'Belum aktif'}
+              </span>
+            }
+          >
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="md:col-span-2 flex items-center gap-2">
-                <button type="button" className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${showActiveOnly ? '' : 'opacity-70'}`} onClick={() => setShowActiveOnly(true)}>Anggota Aktif</button>
-                <button type="button" className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${showActiveOnly ? 'opacity-70' : ''}`} onClick={() => setShowActiveOnly(false)}>Semua Warga</button>
+              <div className="block space-y-2">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">Warga</span>
+                <select value={wargaId} onChange={(e) => setWargaId(e.target.value)} className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm">{members.map((m) => <option key={m.warga_id} value={m.warga_id}>{m.nama}</option>)}</select>
               </div>
-              <label className="block space-y-2"><span className="text-sm font-semibold text-[var(--text-primary)]">Warga</span><select value={wargaId} onChange={(e) => setWargaId(e.target.value)} className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm">{(showActiveOnly ? activeMembers : members).map((m) => <option key={m.warga_id} value={m.warga_id}>{m.nama}</option>)}</select></label>
-              <Input label="Nama" value={selectedName} readOnly />
               <Input label="Pokok Pinjaman" type="text" inputMode="numeric" value={formatRupiahInput(principal)} onChange={(e) => setPrincipal(e.target.value)} />
               <Input label="Tenor (bulan)" type="number" min={1} value={tenor} onChange={(e) => setTenor(e.target.value)} />
               <Input label="Bunga / bulan (%)" type="number" step="0.1" min={0.1} max={2.5} value={rate} onChange={(e) => setRate(e.target.value)} />
@@ -243,11 +277,34 @@ export default function KoperasiPage() {
                 <h3 className="text-base font-semibold text-[var(--text-primary)]">Preview Angsuran</h3>
                 <button type="button" className="btn-action-blue rounded-xl px-3 py-1.5 text-xs" onClick={() => setShowPreviewModal(false)}>Tutup</button>
               </div>
+              <div className="mb-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">
+                <span className="text-[var(--text-muted)]">Warga: </span>
+                <span className="font-semibold text-[var(--text-primary)]">{selectedName || '-'}</span>
+              </div>
               <div className="max-h-[60vh] overflow-auto">
                 <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                   <thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Ke</th><th className="px-3 py-2 text-left text-xs">Bulan</th><th className="px-3 py-2 text-right text-xs">Pokok</th><th className="px-3 py-2 text-right text-xs">Bunga</th><th className="px-3 py-2 text-right text-xs">Total</th></tr></thead>
                   <tbody>{plan.map((r) => <tr key={`${r.installment_no}-${r.due_month}`}><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{r.installment_no}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{r.due_month}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right text-sm">{formatRupiah(r.principal_due)}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right text-sm">{formatRupiah(r.interest_due)}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right text-sm font-semibold">{formatRupiah(r.total_due)}</td></tr>)}</tbody>
                 </table>
+              </div>
+              <div className="mt-3 flex justify-end rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">
+                <span className="text-[var(--text-muted)]">Grand Total: </span>
+                <span className="ml-2 font-semibold text-[var(--accent)]">{formatRupiah(previewGrandTotal)}</span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {registerTarget ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">Registrasi Anggota Baru</h3>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">{registerTarget.nama}</p>
+              <div className="mt-3">
+                <Input label="Biaya Registrasi" type="text" inputMode="numeric" value={formatRupiahInput(joinFee)} onChange={(e) => setJoinFee(e.target.value)} />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button variant="ghost" className="btn-action-blue" onClick={() => setRegisterTarget(null)}>Batal</Button>
+                <Button onClick={submitRegisterMember} disabled={busy}>Bayar & Aktifkan</Button>
               </div>
             </div>
           </div>

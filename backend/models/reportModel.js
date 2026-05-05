@@ -41,6 +41,31 @@ export async function getIuranBulananByWarga(userId) {
   return result.rows;
 }
 
+export async function getActiveLoanProgressByWarga(userId) {
+  const result = await pool.query(
+    `SELECT
+       l.id AS loan_id,
+       l.tenor_months,
+       COALESCE(SUM(i.total_due), 0) AS total_due_all,
+       COALESCE(SUM(i.paid_principal + i.paid_interest), 0) AS total_paid_all,
+       COALESCE(SUM(CASE WHEN i.status = 'PAID' THEN 1 ELSE 0 END), 0) AS paid_installments,
+       COALESCE(
+         MIN(CASE WHEN i.status <> 'PAID' THEN i.installment_no END),
+         MAX(i.installment_no),
+         1
+       ) AS current_installment_no
+     FROM kop_loans l
+     LEFT JOIN kop_installments i ON i.loan_id = l.id
+     WHERE l.warga_id = $1::uuid
+       AND l.status = 'ACTIVE'
+     GROUP BY l.id, l.tenor_months
+     ORDER BY l.created_at DESC
+     LIMIT 1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
 export async function isInternetMember(userId) {
   const result = await pool.query(
     `SELECT EXISTS (

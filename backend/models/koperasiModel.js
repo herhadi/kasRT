@@ -103,6 +103,17 @@ export async function ensureKoperasiTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kop_member_fees (
+      id UUID PRIMARY KEY,
+      warga_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      paid_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      amount NUMERIC(18,2) NOT NULL CHECK (amount > 0),
+      created_by UUID NOT NULL REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 }
 
 export function buildInstallmentPlan({ principal, tenorMonths, interestModel, interestRateMonthly, firstDueMonth }) {
@@ -187,6 +198,68 @@ export async function setKoperasiMemberActive({ wargaId, isActive }) {
     [wargaId, Boolean(isActive)]
   );
   return { warga_id: wargaId, is_active: Boolean(isActive) };
+}
+
+export async function registerKoperasiMember({ wargaId, joinFee, createdBy }) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO kop_members (warga_id, is_active, joined_at, created_at, updated_at)
+       VALUES ($1::uuid, TRUE, CURRENT_DATE, NOW(), NOW())
+       ON CONFLICT (warga_id)
+       DO UPDATE SET is_active = TRUE, updated_at = NOW()`,
+      [wargaId]
+    );
+    await client.query(
+      `INSERT INTO kop_member_fees (id, warga_id, paid_date, amount, created_by)
+       VALUES ($1, $2::uuid, CURRENT_DATE, $3, $4::uuid)`,
+      [randomUUID(), wargaId, joinFee, createdBy]
+    );
+    await client.query(
+      `INSERT INTO kop_ledger (id, tx_date, tx_type, direction, amount, description, created_by)
+       VALUES ($1, CURRENT_DATE, 'ADJUSTMENT', 'CREDIT', $2, $3, $4::uuid)`,
+      [randomUUID(), joinFee, 'Biaya pendaftaran anggota koperasi', createdBy]
+    );
+    await client.query('COMMIT');
+    return { warga_id: wargaId, join_fee: Number(joinFee) };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function upsertKoperasiMonthlyFee({ effectiveMonth, amount, updatedBy }) {
+  await pool.query(
+    `INSERT INTO kop_settings (id, key_name, value_json, updated_by, updated_at)
+     VALUES ($1, 'monthly_fee', $2::jsonb, $3::uuid, NOW())
+     ON CONFLICT (key_name)
+     DO UPDATE SET value_json = EXCLUDED.value_json, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
+    [randomUUID(), JSON.stringify({ effective_month: effectiveMonth, amount }), updatedBy]
+  );
+}
+
+export async function getKoperasiIuranSummary(month) {
+  const [feeRes, memberRes, paidRes] = await Promise.all([
+    pool.query(`SELECT value_json FROM kop_settings WHERE key_name='monthly_fee' LIMIT 1`),
+    pool.query(`SELECT u.id AS warga_id, u.nama FROM kop_members km JOIN users u ON u.id = km.warga_id WHERE km.is_active = TRUE ORDER BY u.nama`),
+    pool.query(
+      `SELECT loan_id AS warga_id, COALESCE(SUM(amount),0) AS paid
+       FROM kop_payments
+       WHERE TO_CHAR(paid_date, 'YYYY-MM') = $1
+       GROUP BY loan_id`,
+      [month]
+    )
+  ]);
+  const fee = Number(feeRes.rows[0]?.value_json?.amount || 0);
+  const paidMap = new Map(paidRes.rows.map((r) => [String(r.warga_id), Number(r.paid || 0)]));
+  const rows = memberRes.rows.map((m) => {
+    const paid = Number(paidMap.get(String(m.warga_id)) || 0);
+    return { warga_id: m.warga_id, nama: m.nama, paid_amount: paid, target_amount: fee, arrears: Math.max(0, fee - paid) };
+  });
+  return { month, monthly_fee: fee, rows };
 }
 
 export async function activateKoperasiLoan({ loanId, firstDueMonth, approvedBy }) {

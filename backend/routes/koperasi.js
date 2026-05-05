@@ -4,8 +4,11 @@ import { allowRoles } from '../middleware/role.js';
 import {
   activateLoanHandler,
   createLoanDraftHandler,
+  koperasiIuranSummaryHandler,
   koperasiMemberSetActiveHandler,
   koperasiMembersHandler,
+  koperasiRegisterMemberHandler,
+  koperasiSetMonthlyFeeHandler,
   koperasiSummaryHandler,
   paymentLoanHandler,
   previewLoanPlanHandler
@@ -20,6 +23,9 @@ router.post('/loan/activate', allowRoles('Admin Koperasi', 'root'), asyncHandler
 router.post('/loan/payment', allowRoles('Admin Koperasi', 'root'), asyncHandler(paymentLoanHandler));
 router.get('/members', allowRoles('Admin Koperasi', 'Ketua', 'Sekretaris', 'root'), asyncHandler(koperasiMembersHandler));
 router.post('/members/set-active', allowRoles('Admin Koperasi', 'root'), asyncHandler(koperasiMemberSetActiveHandler));
+router.post('/members/register', allowRoles('Admin Koperasi', 'root'), asyncHandler(koperasiRegisterMemberHandler));
+router.post('/iuran/monthly-fee', allowRoles('Admin Koperasi', 'root'), asyncHandler(koperasiSetMonthlyFeeHandler));
+router.get('/iuran/summary', allowRoles('Admin Koperasi', 'Ketua', 'Sekretaris', 'root'), asyncHandler(koperasiIuranSummaryHandler));
 router.get('/summary', allowRoles('Admin Koperasi', 'Ketua', 'Sekretaris', 'root'), asyncHandler(koperasiSummaryHandler));
 
 export default router;

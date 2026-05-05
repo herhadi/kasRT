@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
@@ -25,6 +26,7 @@ type KoperasiSummary = {
   total_angsuran_masuk: number;
   loans: Array<{ sisa_piutang: number }>;
 };
+type AttendanceItem = { warga_id: string; nama: string; hadir: boolean };
 
 export default function OperasionalSekretarisPage() {
   const { user, loading } = useAuth();
@@ -48,6 +50,7 @@ export default function OperasionalSekretarisPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [historyText, setHistoryText] = useState('');
+  const [attendance, setAttendance] = useState<AttendanceItem[]>([]);
   const [speechListening, setSpeechListening] = useState(false);
   const speechRecognitionRef = useRef<null | { stop: () => void }>(null);
   const speechPressedRef = useRef(false);
@@ -63,15 +66,17 @@ export default function OperasionalSekretarisPage() {
     if (!canAccess) return;
     try {
       setError('');
-      const [rekapRes, noteRes, kopRes] = await Promise.all([
+      const [rekapRes, noteRes, kopRes, attRes] = await Promise.all([
         apiFetch<{ success: boolean; data: RekapItem[] }>(`/report/rekap-keuangan?month=${encodeURIComponent(month)}`),
         apiFetch<{ success: boolean; data: { notes?: string; meeting_date?: string; start_time?: string; agenda?: string } | null }>(
           `/management/meeting-note?month=${encodeURIComponent(month)}`
         ),
-        apiFetch<{ success: boolean; data: KoperasiSummary }>('/koperasi/summary')
+        apiFetch<{ success: boolean; data: KoperasiSummary }>('/koperasi/summary'),
+        apiFetch<{ success: boolean; data: AttendanceItem[] }>(`/management/meeting-attendance?month=${encodeURIComponent(month)}`)
       ]);
       setRekap(rekapRes.data || []);
       setKoperasi(kopRes.data || null);
+      setAttendance(attRes.data || []);
       setNotes(String(noteRes.data?.notes || ''));
       setMeetingDate(String(noteRes.data?.meeting_date || ''));
       setStartTime(String(noteRes.data?.start_time || '').slice(0, 5));
@@ -127,6 +132,23 @@ export default function OperasionalSekretarisPage() {
       setMessage('Notulen berhasil disimpan.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan notulen');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveAttendance() {
+    try {
+      setSaving(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/management/meeting-attendance', {
+        method: 'POST',
+        body: JSON.stringify({ month, attendance })
+      });
+      setMessage('Presensi kehadiran berhasil disimpan.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal menyimpan presensi');
     } finally {
       setSaving(false);
     }
@@ -315,6 +337,11 @@ export default function OperasionalSekretarisPage() {
               Kirim WA
             </Button>
           </div>
+        </Card>
+        <Card title="Presensi Kehadiran Warga" subtitle="Input presensi rapat bulanan dipisah seperti modul iuran">
+          <Link href="/operasional/sekretaris/presensi" className="btn-action-blue link-action px-3 py-1.5 text-xs">
+            Input Presensi
+          </Link>
         </Card>
         <Card title="Riwayat Notulen" subtitle="Arsip notulen per bulan">
           <div className="w-full max-w-[220px]">

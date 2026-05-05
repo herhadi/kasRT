@@ -3,10 +3,13 @@ import {
   buildInstallmentPlan,
   createKoperasiLoanDraft,
   getKoperasiMemberCandidates,
+  getKoperasiIuranSummary,
   getKoperasiSummary,
   KOP_MAX_INTEREST_MONTHLY,
+  registerKoperasiMember,
   recordKoperasiPayment,
-  setKoperasiMemberActive
+  setKoperasiMemberActive,
+  upsertKoperasiMonthlyFee
 } from '../models/koperasiModel.js';
 
 export async function koperasiMembersHandler(_req, res) {
@@ -75,5 +78,30 @@ export async function paymentLoanHandler(req, res) {
 
 export async function koperasiSummaryHandler(_req, res) {
   const data = await getKoperasiSummary();
+  return res.json({ success: true, data });
+}
+
+export async function koperasiRegisterMemberHandler(req, res) {
+  const wargaId = String(req.body.warga_id || '').trim();
+  const joinFee = Number(req.body.join_fee || 0);
+  if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
+  if (joinFee <= 0) return res.status(400).json({ success: false, message: 'join_fee wajib' });
+  const data = await registerKoperasiMember({ wargaId, joinFee, createdBy: String(req.user.user_id || '').trim() });
+  return res.json({ success: true, data });
+}
+
+export async function koperasiSetMonthlyFeeHandler(req, res) {
+  const month = String(req.body.effective_month || '').trim();
+  const amount = Number(req.body.amount || 0);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ success: false, message: 'effective_month invalid' });
+  if (amount <= 0) return res.status(400).json({ success: false, message: 'amount invalid' });
+  await upsertKoperasiMonthlyFee({ effectiveMonth: month, amount, updatedBy: String(req.user.user_id || '').trim() });
+  return res.json({ success: true });
+}
+
+export async function koperasiIuranSummaryHandler(req, res) {
+  const month = String(req.query.month || '').trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ success: false, message: 'month invalid' });
+  const data = await getKoperasiIuranSummary(month);
   return res.json({ success: true, data });
 }

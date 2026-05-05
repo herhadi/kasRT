@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export async function ensureNotulenTable() {
   await pool.query(`
@@ -19,6 +20,26 @@ export async function ensureNotulenTable() {
       ADD COLUMN IF NOT EXISTS start_time TIME,
       ADD COLUMN IF NOT EXISTS agenda TEXT
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monthly_meeting_attendance (
+      id BIGSERIAL PRIMARY KEY,
+      month CHAR(7) NOT NULL,
+      warga_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(20) NOT NULL DEFAULT 'TIDAK_HADIR' CHECK (status IN ('HADIR','IJIN','TIDAK_HADIR')),
+      updated_by UUID,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (month, warga_id)
+    )
+  `);
+  await pool.query(`
+    ALTER TABLE monthly_meeting_attendance
+      ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'TIDAK_HADIR'
+  `);
+  await pool.query(`
+    UPDATE monthly_meeting_attendance
+    SET status = CASE WHEN hadir = TRUE THEN 'HADIR' ELSE 'TIDAK_HADIR' END
+    WHERE status IS NULL
+  `).catch(() => {});
 }
 
 export async function listAssignableOrganizationRoles() {
@@ -195,4 +216,55 @@ export async function upsertMeetingNoteByMonth({ month, notes, meetingDate, star
        updated_at = NOW()`,
     [month, notes, meetingDate || null, startTime || null, agenda || null, actorId]
   );
+}
+
+export async function getMeetingAttendanceByMonth(month) {
+  await ensureNotulenTable();
+  const result = await pool.query(
+    `WITH peserta AS (
+       SELECT DISTINCT u.id, u.nama
+       FROM users u
+       JOIN user_roles ur ON ur.user_id = u.id
+       JOIN roles r ON r.id = ur.role_id
+       WHERE ${ELIGIBLE_USERS_CLAUSE}
+     )
+     SELECT
+       p.id AS warga_id,
+       p.nama,
+       COALESCE(a.status, 'TIDAK_HADIR') AS status
+     FROM peserta p
+     LEFT JOIN monthly_meeting_attendance a
+       ON a.warga_id = p.id
+      AND a.month = $1
+     ORDER BY p.nama ASC`,
+    [month]
+  );
+  return result.rows;
+}
+
+export async function upsertMeetingAttendanceByMonth({ month, attendance, actorId }) {
+  await ensureNotulenTable();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const item of attendance) {
+      const wargaId = String(item.warga_id || '').trim();
+      const status = String(item.status || 'TIDAK_HADIR').trim().toUpperCase();
+      if (!wargaId) continue;
+      if (!['HADIR', 'IJIN', 'TIDAK_HADIR'].includes(status)) continue;
+      await client.query(
+        `INSERT INTO monthly_meeting_attendance (month, warga_id, status, updated_by, updated_at)
+         VALUES ($1, $2::uuid, $3, $4::uuid, NOW())
+         ON CONFLICT (month, warga_id)
+         DO UPDATE SET status = EXCLUDED.status, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
+        [month, wargaId, status, actorId]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
