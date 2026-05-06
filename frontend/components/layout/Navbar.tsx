@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/useAuth';
 import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 
-export default function Navbar() {
+export default function Navbar({ sticky = true }: { sticky?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -112,7 +112,7 @@ export default function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--surface-strong)] shadow-sm backdrop-blur">
+    <header className={`${sticky ? 'sticky top-0 z-50' : 'relative z-30'} border-b border-[var(--line)] bg-[var(--surface-strong)] shadow-sm backdrop-blur`}>
       <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -148,6 +148,7 @@ export default function Navbar() {
               .map(menu => {
                 const active =
                   pathname === menu.href ||
+                  (menu.href === '/management' && pathname?.startsWith('/management')) ||
                   (menu.href === '/operasional' && pathname?.startsWith('/operasional'));
                 return (
                   <Link

@@ -23,6 +23,7 @@ export default function JimpitanPage() {
   const [error, setError] = useState('');
   const [setorLoading, setSetorLoading] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>('semua');
+  const [canOperateToday, setCanOperateToday] = useState(true);
 
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
   const [editTarget, setEditTarget] = useState<JimpitanListItem | null>(null);
@@ -76,8 +77,9 @@ export default function JimpitanPage() {
   const loadList = useCallback(async () => {
     try {
       setError('');
-      const result = await apiFetch<{ success: boolean; data: JimpitanListItem[] }>('/jimpitan/list');
+      const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean }>('/jimpitan/list');
       setItems(result.data || []);
+      setCanOperateToday(Boolean(result.can_operate_today ?? true));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
     }
@@ -120,9 +122,10 @@ export default function JimpitanPage() {
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          const result = await apiFetch<{ success: boolean; data: JimpitanListItem[] }>('/jimpitan/list');
+          const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean }>('/jimpitan/list');
           const rows = result.data || [];
           setItems(rows);
+          setCanOperateToday(Boolean(result.can_operate_today ?? true));
           await loadRouteOrder(rows);
         } catch (e) {
           setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
@@ -234,6 +237,72 @@ export default function JimpitanPage() {
       pushToast(e instanceof Error ? e.message : 'Setor gagal', 'error');
     } finally {
       setSetorLoading(false);
+    }
+  }
+
+  async function handleKirimRekapBulananWA() {
+    if (!isAdminJimpitan) {
+      pushToast('Fitur ini khusus Admin Jimpitan.', 'warning');
+      return;
+    }
+    const month = new Date().toISOString().slice(0, 7);
+    try {
+      const res = await apiFetch<{
+        success: boolean;
+        month: string;
+        data: {
+          days: Array<{ tanggal: string; total_nominal: number; total_rumah: number; total_petugas: number }>;
+        };
+      }>(`/jimpitan/daily-recap?month=${encodeURIComponent(month)}`);
+
+      const rows = res.data?.days || [];
+      if (rows.length === 0) {
+        pushToast(`Belum ada rekap harian untuk ${month}.`, 'warning');
+        return;
+      }
+
+      const [yearStr, monthStr] = month.split('-');
+      const yearNum = Number(yearStr);
+      const monthNum = Number(monthStr);
+      const monthLabel = new Date(yearNum, monthNum - 1, 1).toLocaleDateString('id-ID', {
+        month: 'long',
+        year: 'numeric'
+      });
+
+      const rawDayLines = rows.map((r) => {
+        const date = new Date(`${r.tanggal}T00:00:00`);
+        const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' });
+        const dayNum = date.getDate();
+        const nominalOnly = Number(r.total_nominal || 0).toLocaleString('id-ID');
+        return {
+          left: `• ${dayName}, ${dayNum}`,
+          right: nominalOnly
+        };
+      });
+      const maxLeft = rawDayLines.reduce((max, line) => Math.max(max, line.left.length), 0);
+      const maxRight = rawDayLines.reduce((max, line) => Math.max(max, line.right.length), 0);
+      const dayLines = rawDayLines.map((line) => `${line.left.padEnd(maxLeft, ' ')} : Rp ${line.right.padStart(maxRight, ' ')}`);
+
+      let pesan = `🗓️ *REKAP JIMPITAN ${monthLabel}*\n`;
+      pesan += '━━━━━━━━━━━━━━━\n';
+      let grandTotal = 0;
+      rows.forEach((r) => {
+        grandTotal += Number(r.total_nominal || 0);
+      });
+      pesan += '```\n';
+      pesan += `${dayLines.join('\n')}\n`;
+      pesan += '```\n';
+      pesan += '━━━━━━━━━━━━━━━\n';
+      pesan += `💰 *TOTAL BULANAN: ${formatRupiah(grandTotal)}*`;
+
+      if (navigator.share) {
+        navigator.share({ title: `Rekap Jimpitan ${month}`, text: pesan }).catch(() => {});
+        return;
+      }
+      const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
+      window.open(`https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(pesan)}`, '_blank');
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : 'Gagal menyiapkan rekap bulanan', 'error');
     }
   }
 
@@ -422,6 +491,10 @@ export default function JimpitanPage() {
       pushToast('JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00 untuk non-admin.', 'warning');
       return;
     }
+    if (!isRoot && !canOperateToday) {
+      pushToast('Bukan jadwal Anda hari ini.', 'warning');
+      return;
+    }
 
     setSelected(row);
   }
@@ -447,11 +520,11 @@ export default function JimpitanPage() {
         ))}
       </div>
 
-      <Navbar />
+      <Navbar sticky={false} />
 
       <div
         className="sticky z-40 border-b border-[var(--line)] bg-[var(--surface-strong)]/95 backdrop-blur-lg px-4 py-3 md:px-6"
-        style={{ top: 'var(--sticky-nav-offset)' }}
+        style={{ top: 0 }}
       >
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
@@ -515,6 +588,16 @@ export default function JimpitanPage() {
             <span className="mr-2">📤</span>
             Kirim Rekap WA
           </Button>
+          {isAdminJimpitan ? (
+            <Button
+              variant="ghost"
+              className="btn-action-blue min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md"
+              onClick={() => void handleKirimRekapBulananWA()}
+            >
+              <span className="mr-2">🗓️</span>
+              Kirim Rekap Bulanan WA
+            </Button>
+          ) : null}
           
           <Button
             variant="ghost"

@@ -19,6 +19,7 @@ import {
   isValidJimpitanShiftDay,
   listPetugasByShiftDay,
   listJimpitanByOperationalDate,
+  getJimpitanDailyRecapByMonth,
   listJimpitanWeeklySchedule,
   listWargaTotalsInBatch,
   lockDailyJimpitanReminder,
@@ -143,7 +144,7 @@ export async function inputJimpitan(req, res) {
   if (!access.canOperate) {
     return res.status(403).json({
       success: false,
-      message: `Akses input ditolak. Shift Anda hari ${access.shiftHari || '-'}, sedangkan hari operasional saat ini ${access.hariOperasional}.`
+      message: 'Bukan shift Anda hari ini.'
     });
   }
   
@@ -190,7 +191,7 @@ export async function setorJimpitan(req, res) {
   if (!access.canOperate) {
     return res.status(403).json({
       success: false,
-      message: `Akses setor ditolak. Shift Anda hari ${access.shiftHari || '-'}, sedangkan hari operasional saat ini ${access.hariOperasional}.`
+      message: 'Bukan shift Anda hari ini.'
     });
   }
   
@@ -318,6 +319,17 @@ export async function listJimpitan(req, res) {
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+export async function getDailyRecapJimpitan(req, res) {
+  const rawMonth = String(req.query.month || '').trim();
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth) ? rawMonth : new Date().toISOString().slice(0, 7);
+  try {
+    const data = await getJimpitanDailyRecapByMonth(month);
+    return res.json({ success: true, month, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 }
 

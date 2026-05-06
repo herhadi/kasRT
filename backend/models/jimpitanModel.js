@@ -643,3 +643,45 @@ export async function getDashboardAdminJimpitan() {
     rekap_bulan_lalu: Number(lastMonthResult.rows[0]?.total_bulan_lalu || 0)
   };
 }
+
+export async function getJimpitanDailyRecapByMonth(month) {
+  const result = await pool.query(
+    `SELECT
+       TO_CHAR(jd.tanggal::date, 'YYYY-MM-DD') AS tanggal,
+       COALESCE(SUM(jd.nominal), 0) AS total_nominal,
+       COUNT(DISTINCT jd.warga_id) AS total_rumah,
+       COUNT(DISTINCT jd.petugas_id) AS total_petugas
+     FROM jimpitan_details jd
+     WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
+     GROUP BY jd.tanggal::date
+     ORDER BY jd.tanggal::date ASC`,
+    [month]
+  );
+
+  const byPetugas = await pool.query(
+    `SELECT
+       TO_CHAR(jd.tanggal::date, 'YYYY-MM-DD') AS tanggal,
+       u.nama AS petugas_nama,
+       COALESCE(SUM(jd.nominal), 0) AS total_nominal
+     FROM jimpitan_details jd
+     LEFT JOIN users u ON u.id::text = jd.petugas_id::text
+     WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
+     GROUP BY jd.tanggal::date, u.nama
+     ORDER BY jd.tanggal::date ASC, u.nama ASC`,
+    [month]
+  );
+
+  return {
+    days: result.rows.map((r) => ({
+      tanggal: String(r.tanggal),
+      total_nominal: Number(r.total_nominal || 0),
+      total_rumah: Number(r.total_rumah || 0),
+      total_petugas: Number(r.total_petugas || 0)
+    })),
+    by_petugas: byPetugas.rows.map((r) => ({
+      tanggal: String(r.tanggal),
+      petugas_nama: String(r.petugas_nama || '-'),
+      total_nominal: Number(r.total_nominal || 0)
+    }))
+  };
+}

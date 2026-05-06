@@ -7,6 +7,7 @@ import {
   approveSetorJimpitanKeBendahara,
   editNominalJimpitan,
   getJimpitanSchedule,
+  getDailyRecapJimpitan,
   getMyJimpitanRouteOrder,
   getSetorHistoryJimpitanAdmin,
   healthCheck,
@@ -90,6 +91,7 @@ router.get(
 );
 
 router.get('/list', auth, asyncHandler(listJimpitan));
+router.get('/daily-recap', auth, allowRoles('Admin Jimpitan', 'root'), asyncHandler(getDailyRecapJimpitan));
 router.get('/route-order', auth, asyncHandler(getMyJimpitanRouteOrder));
 router.post('/route-order', auth, asyncHandler(saveMyJimpitanRouteOrder));
 

@@ -27,6 +27,7 @@ type KoperasiSummary = {
   loans: Array<{ sisa_piutang: number }>;
 };
 type AttendanceItem = { warga_id: string; nama: string; hadir: boolean };
+type ManagementUserLite = { id: string; nama: string; roles?: string[] };
 
 export default function OperasionalSekretarisPage() {
   const { user, loading } = useAuth();
@@ -40,6 +41,9 @@ export default function OperasionalSekretarisPage() {
   const [meetingDate, setMeetingDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [agenda, setAgenda] = useState('');
+  const [invitePlace, setInvitePlace] = useState('Balai RT02');
+  const [chairName, setChairName] = useState('Ketua');
+  const [inviteTime, setInviteTime] = useState('19:45');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -81,6 +85,13 @@ export default function OperasionalSekretarisPage() {
       setMeetingDate(String(noteRes.data?.meeting_date || ''));
       setStartTime(String(noteRes.data?.start_time || '').slice(0, 5));
       setAgenda(String(noteRes.data?.agenda || ''));
+
+      // Ambil nama Ketua dari struktur role agar TTD undangan selalu konsisten.
+      const mgmt = await apiFetch<{ success: boolean; data: { users: ManagementUserLite[] } }>('/management/users');
+      const ketua = (mgmt.data?.users || []).find((u) =>
+        (u.roles || []).some((r) => String(r).trim().toLowerCase() === 'ketua')
+      );
+      if (ketua?.nama) setChairName(String(ketua.nama));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat data sekretaris');
     }
@@ -223,6 +234,41 @@ export default function OperasionalSekretarisPage() {
     window.open(`https://api.whatsapp.com/send?phone=${nomor}&text=${encodeURIComponent(text)}`, '_blank');
   }
 
+  function kirimUndanganWA() {
+    const d = meetingDate ? new Date(`${meetingDate}T00:00:00`) : new Date();
+    const hari = d.toLocaleDateString('id-ID', { weekday: 'long' });
+    const tgl = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const waktu = (inviteTime || '19:45').replace('.', ':');
+    const left1 = 'Hari/Tgl';
+    const left2 = 'Waktu';
+    const left3 = 'Tempat';
+    const maxLeft = Math.max(left1.length, left2.length, left3.length);
+    const indent = '    ';
+    const line1 = `${left1.padEnd(maxLeft, ' ')} : ${hari}, ${tgl}`;
+    const line2 = `${left2.padEnd(maxLeft, ' ')} : ${waktu} WIB`;
+    const line3 = `${left3.padEnd(maxLeft, ' ')} : ${invitePlace || 'Balai RT02'}`;
+
+    let text = `_Assalamu'alaikum Warahmatullah..._\n\n`;
+    text += 'Dengan Hormat\n';
+    text += 'Kepada Bapak-bapak warga RT.02 RW.04 kami mengharap kehadirannya dalam rangka rapat bulanan RT02 pada:\n';
+    text += '```\n';
+    text += `${line1}\n${line2}\n${line3}\n`;
+    text += '```\n';
+    text += 'Demikian undangan disampaikan, atas kehadirannya kami ucapkan terima kasih.\n\n';
+    text += `_Wassalamu'alaikum Warahmatullah..._\n\n`;
+    text += 'Ketua RT 02\n';
+    text += 'TTD\n';
+    text += `${chairName || 'Ketua'}`;
+
+    const nomor = process.env.NEXT_PUBLIC_WA_ADMIN || '';
+    if (navigator.share) {
+      navigator.share({ title: 'Undangan Rapat RT', text }).catch(() => {});
+      return;
+    }
+    if (!nomor) return;
+    window.open(`https://api.whatsapp.com/send?phone=${nomor}&text=${encodeURIComponent(text)}`, '_blank');
+  }
+
   if (loading || !user) return <main className="min-h-screen" />;
   if (!canAccess) return <main className="min-h-screen"><Navbar /></main>;
 
@@ -335,6 +381,17 @@ export default function OperasionalSekretarisPage() {
             </div>
             <Button variant="ghost" className="btn-action-blue mt-2 w-full md:w-auto" onClick={kirimWA}>
               Kirim WA
+            </Button>
+          </div>
+        </Card>
+        <Card title="Undangan Rapat WA" subtitle="Template undangan warga">
+          <div className="grid gap-2 md:grid-cols-2">
+            <Input label="Tempat" value={invitePlace} onChange={(e) => setInvitePlace(e.target.value)} />
+            <Input label="Waktu Undangan" type="time" value={inviteTime} onChange={(e) => setInviteTime(e.target.value)} />
+          </div>
+          <div className="mt-3">
+            <Button variant="ghost" className="btn-action-green w-full md:w-auto" onClick={kirimUndanganWA}>
+              Kirim Undangan WA
             </Button>
           </div>
         </Card>
