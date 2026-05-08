@@ -26,7 +26,11 @@ export default function UserManagementPage() {
   const [newNama, setNewNama] = useState('');
   const [newNoHp, setNewNoHp] = useState('');
   const [newPin, setNewPin] = useState('');
+  const [editNama, setEditNama] = useState('');
+  const [editNoHp, setEditNoHp] = useState('');
+  const [editPin, setEditPin] = useState('');
   const [savingUser, setSavingUser] = useState(false);
+  const [savingEditUser, setSavingEditUser] = useState(false);
   const [savingRoles, setSavingRoles] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -82,6 +86,19 @@ export default function UserManagementPage() {
     setSelectedRoleId(mapped ? Number(mapped.id) : null);
   }, [selectedUserId, users, organizationRoles]);
 
+  useEffect(() => {
+    if (!selectedUserId) {
+      setEditNama('');
+      setEditNoHp('');
+      setEditPin('');
+      return;
+    }
+    const selectedUser = users.find((u) => String(u.id) === String(selectedUserId));
+    setEditNama(String(selectedUser?.nama || ''));
+    setEditNoHp(String(selectedUser?.no_hp || ''));
+    setEditPin('');
+  }, [selectedUserId, users]);
+
   async function handleAddWarga() {
     setError('');
     setMessage('');
@@ -135,6 +152,40 @@ export default function UserManagementPage() {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan role admin');
     } finally {
       setSavingRoles(false);
+    }
+  }
+
+  async function saveWargaEdit() {
+    setError('');
+    setMessage('');
+    if (!selectedUserId) {
+      setError('Pilih warga terlebih dahulu.');
+      return;
+    }
+    const nama = editNama.trim();
+    const no_hp = editNoHp.trim();
+    const pin = editPin.trim();
+    if (!nama || !no_hp) {
+      setError('Nama dan nomor HP wajib diisi.');
+      return;
+    }
+    if (pin && !isValidPin(pin)) {
+      setError('PIN harus 4 sampai 6 digit angka.');
+      return;
+    }
+    try {
+      setSavingEditUser(true);
+      await apiFetch(`/management/users/${encodeURIComponent(selectedUserId)}/edit`, {
+        method: 'POST',
+        body: JSON.stringify({ nama, no_hp, pin: pin || '' })
+      });
+      setMessage('Data warga berhasil diperbarui.');
+      await Promise.all([loadData(), loadWargaOptions()]);
+      setEditPin('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mengubah data warga');
+    } finally {
+      setSavingEditUser(false);
     }
   }
 
@@ -267,6 +318,41 @@ export default function UserManagementPage() {
               </tbody>
             </table>
           </div>
+        </Card>
+        <Card title="Edit Warga" subtitle="Perbarui nama, nomor HP, atau PIN warga terpilih">
+          <div className="grid gap-3 md:grid-cols-4">
+            <label className="space-y-2 text-sm font-semibold">
+              <span>Nama Warga</span>
+              <select
+                className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                value={selectedUserId}
+                onChange={(event) => setSelectedUserId(event.target.value)}
+              >
+                {wargaOptions.map((row) => (
+                  <option key={String(row.id)} value={String(row.id)}>
+                    {row.nama} ({row.no_hp || '-'})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Input label="Nomor HP" value={editNoHp} onChange={(e) => setEditNoHp(e.target.value)} />
+            <Input
+              label="PIN Baru (opsional)"
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={editPin}
+              onChange={(e) => setEditPin(normalizePinInput(e.target.value))}
+            />
+            <div className="flex items-end">
+              <Button className="w-full" onClick={saveWargaEdit} disabled={savingEditUser || !selectedUserId}>
+                {savingEditUser ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </Button>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-[var(--text-muted)]">
+            PIN bersifat opsional. Jika dikosongkan, PIN lama tidak diubah.
+          </p>
         </Card>
       </div>
     </main>

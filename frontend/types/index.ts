@@ -3,6 +3,8 @@ export type UserSession = {
   nama: string;
   roles: string[];
   telegram_connected?: boolean;
+  no_hp?: string;
+  must_change_pin?: boolean;
 };
 
 export type LoginResponse = {

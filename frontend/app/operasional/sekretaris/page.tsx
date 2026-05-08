@@ -7,9 +7,11 @@ import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import ToastStack from '@/components/ui/ToastStack';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah } from '@/lib/helpers';
+import useToast from '@/lib/hooks/useToast';
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
@@ -32,6 +34,7 @@ type ManagementUserLite = { id: string; nama: string; roles?: string[] };
 export default function OperasionalSekretarisPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { toasts, pushToast } = useToast();
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -175,7 +178,7 @@ export default function OperasionalSekretarisPage() {
       onerror: (() => void) | null; onend: (() => void) | null; start: () => void; stop: () => void;
     } }).webkitSpeechRecognition;
     if (!SR) {
-      setError('Speech-to-text belum didukung di browser ini.');
+      pushToast('Speech-to-text belum didukung di browser ini.', 'warning');
       return;
     }
     const rec = new SR();
@@ -238,7 +241,7 @@ export default function OperasionalSekretarisPage() {
   function kirimUndanganWA() {
     const selectedDate = (inviteDate || meetingDate || '').trim();
     if (!selectedDate) {
-      setError('Tanggal undangan wajib diisi.');
+      pushToast('Tanggal undangan wajib diisi.', 'warning');
       return;
     }
     const d = new Date(`${selectedDate}T00:00:00`);
@@ -280,6 +283,7 @@ export default function OperasionalSekretarisPage() {
 
   return (
     <main className="min-h-screen pb-10">
+      <ToastStack toasts={toasts} />
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card

@@ -2,7 +2,8 @@ import {
   createWargaUser,
   listAssignableOrganizationRoles,
   listUsersWithRoles,
-  setUserOrganizationRoles
+  setUserOrganizationRoles,
+  updateWargaUser
 } from '../models/managementModel.js';
 
 export async function getUserManagementData(_req, res) {
@@ -75,6 +76,30 @@ export async function updateUserAdminRoles(req, res) {
     }
 
     await setUserOrganizationRoles({ userId, roleIds });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function editWargaUser(req, res) {
+  const userId = String(req.params.id || '').trim();
+  const nama = String(req.body.nama || '').trim();
+  const noHp = String(req.body.no_hp || '').trim();
+  const pin = String(req.body.pin || '').trim();
+
+  if (!userId) {
+    return res.status(400).json({ success: false, message: 'user id tidak valid' });
+  }
+  if (!nama || !noHp) {
+    return res.status(400).json({ success: false, message: 'nama dan no_hp wajib diisi' });
+  }
+  if (pin && !/^\d{4,6}$/.test(pin)) {
+    return res.status(400).json({ success: false, message: 'PIN harus 4-6 digit angka' });
+  }
+
+  try {
+    await updateWargaUser({ userId, nama, noHp, pin: pin || null });
     return res.json({ success: true });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

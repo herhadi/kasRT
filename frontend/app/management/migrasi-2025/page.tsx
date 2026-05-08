@@ -18,6 +18,7 @@ type ModuleKey =
   | 'sosial-2025'
   | 'koperasi-iuran-2025'
   | 'koperasi-loans-2025';
+type WargaOption = { id: string; nama: string; no_hp?: string };
 
 const MODULES: Array<{ key: ModuleKey; label: string }> = [
   { key: 'iuran-2025', label: 'Iuran Wajib' },
@@ -116,6 +117,8 @@ export default function Migration2025Page() {
   const [moduleKey, setModuleKey] = useState<ModuleKey>('iuran-2025');
   const [summary, setSummary] = useState<unknown>(null);
   const [rowsJson, setRowsJson] = useState('[]');
+  const [wargaOptions, setWargaOptions] = useState<WargaOption[]>([]);
+  const [selectedWargaId, setSelectedWargaId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -150,6 +153,20 @@ export default function Migration2025Page() {
     if (!canAccess) return;
     void loadSummary();
   }, [moduleKey, canAccess]);
+
+  useEffect(() => {
+    if (!canAccess) return;
+    void (async () => {
+      try {
+        const res = await apiFetch<{ success: boolean; data: WargaOption[] }>('/auth/warga-options');
+        const rows = res.data || [];
+        setWargaOptions(rows);
+        setSelectedWargaId((prev) => prev || String(rows[0]?.id || ''));
+      } catch {
+        setWargaOptions([]);
+      }
+    })();
+  }, [canAccess]);
 
   async function saveRows() {
     try {
@@ -189,6 +206,10 @@ export default function Migration2025Page() {
   }
 
   const prettySummary = useMemo(() => JSON.stringify(summary, null, 2), [summary]);
+  const activeExample = useMemo(() => {
+    const chosen = selectedWargaId || 'UUID_WARGA';
+    return EXAMPLES[moduleKey].replaceAll('UUID_WARGA', chosen);
+  }, [moduleKey, selectedWargaId]);
 
   if (loading || !user) return <main className="min-h-screen" />;
 
@@ -244,12 +265,33 @@ export default function Migration2025Page() {
           </div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+              <div className="mb-2 grid gap-2 md:grid-cols-2">
+                <label className="space-y-1 text-xs font-semibold text-[var(--text-muted)]">
+                  <span>Pilih Warga</span>
+                  <select
+                    className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2 py-2 text-xs text-[var(--text-primary)]"
+                    value={selectedWargaId}
+                    onChange={(e) => setSelectedWargaId(e.target.value)}
+                  >
+                    {wargaOptions.map((w) => (
+                      <option key={String(w.id)} value={String(w.id)}>
+                        {w.nama} ({w.no_hp || '-'})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex items-end">
+                  <Button variant="ghost" className="btn-action-blue w-full" onClick={() => setRowsJson(activeExample)}>
+                    Isi Contoh
+                  </Button>
+                </div>
+              </div>
               <p className="mb-2 text-xs font-semibold text-[var(--text-muted)]">Rows JSON</p>
               <textarea
                 className="min-h-[260px] w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-primary)]"
                 value={rowsJson}
                 onChange={(e) => setRowsJson(e.target.value)}
-                placeholder={EXAMPLES[moduleKey]}
+                placeholder={activeExample}
               />
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button className="btn-action-green" onClick={saveRows} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Rows'}</Button>
@@ -292,7 +334,7 @@ export default function Migration2025Page() {
           <div className="mt-3">
             <p className="mb-2 text-xs font-semibold text-[var(--text-muted)]">Contoh JSON untuk modul aktif ({moduleKey})</p>
             <pre className="max-h-[280px] overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-[11px] text-[var(--text-primary)]">
-              {EXAMPLES[moduleKey]}
+              {activeExample}
             </pre>
           </div>
         </Card>

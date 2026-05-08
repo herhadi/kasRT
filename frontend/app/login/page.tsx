@@ -18,7 +18,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) router.replace('/dashboard');
+    if (user) {
+      if (user.must_change_pin) {
+        router.replace('/akun/ganti-pin');
+        return;
+      }
+      router.replace('/dashboard');
+    }
   }, [user, router]);
 
   function toggleTheme() {
@@ -51,6 +57,10 @@ export default function LoginPage() {
       });
 
       login({ token: result.token, user: result.user });
+      if (result.user.must_change_pin) {
+        router.push('/akun/ganti-pin');
+        return;
+      }
       router.push('/dashboard');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Login gagal');

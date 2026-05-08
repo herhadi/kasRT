@@ -4,22 +4,35 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import ToastStack from '@/components/ui/ToastStack';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah } from '@/lib/helpers';
+import { formatRupiah, isValidPin, normalizePinInput } from '@/lib/helpers';
+import useToast from '@/lib/hooks/useToast';
 import { useAuth } from '@/lib/useAuth';
-import { DashboardWargaData, JimpitanScheduleData } from '@/types';
+import { DashboardWargaData, JimpitanScheduleData, UserSession } from '@/types';
 
 type AdminPanelData = Record<string, number | string>;
 
 export default function DashboardPage() {
   const { user, loading, refreshUser } = useAuth();
   const router = useRouter();
+  const { toasts, pushToast } = useToast();
 
   const [wargaData, setWargaData] = useState<DashboardWargaData | null>(null);
   const [adminData, setAdminData] = useState<AdminPanelData | null>(null);
   const [scheduleData, setScheduleData] = useState<JimpitanScheduleData | null>(null);
   const [error, setError] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [profileNama, setProfileNama] = useState('');
+  const [profileNoHp, setProfileNoHp] = useState('');
+  const [pinLama, setPinLama] = useState('');
+  const [pinBaru, setPinBaru] = useState('');
+  const [pinBaru2, setPinBaru2] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPin, setSavingPin] = useState(false);
 
   const adminEndpoint = useMemo(() => {
     if (!user) return null;
@@ -49,13 +62,24 @@ export default function DashboardPage() {
   }, [loading, user, router]);
 
   useEffect(() => {
+    if (!loading && user?.must_change_pin) {
+      router.replace('/akun/ganti-pin');
+    }
+  }, [loading, user, router]);
+
+  useEffect(() => {
+    setProfileNama(String(user?.nama || ''));
+    setProfileNoHp(String(user?.no_hp || ''));
+  }, [user]);
+
+  useEffect(() => {
     async function loadDashboard() {
       if (!user) return;
       setError('');
 
       try {
         const [meResult, wargaResult, scheduleResult] = await Promise.all([
-          apiFetch<{ success: boolean; user: { id: number; nama: string; roles: string[]; telegram_connected?: boolean } }>('/auth/me'),
+          apiFetch<{ success: boolean; user: UserSession }>('/auth/me'),
           apiFetch<{ success: boolean; data: DashboardWargaData }>('/report/dashboard'),
           apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule')
         ]);
@@ -89,15 +113,77 @@ export default function DashboardPage() {
 
   if (loading || !user) return <main className="min-h-screen" />;
 
+  async function saveProfile() {
+    if (!profileNama.trim() || !profileNoHp.trim()) {
+      pushToast('Nama dan nomor HP wajib diisi.', 'warning');
+      return;
+    }
+    try {
+      setSavingProfile(true);
+      const res = await apiFetch<{ success: boolean; user: UserSession; message?: string }>('/auth/profile', {
+        method: 'POST',
+        body: JSON.stringify({ nama: profileNama.trim(), no_hp: profileNoHp.trim() })
+      });
+      refreshUser(res.user);
+      pushToast(res.message || 'Profil berhasil diperbarui.', 'success');
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : 'Gagal menyimpan profil', 'error');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function savePin() {
+    if (!pinLama || !pinBaru || !pinBaru2) {
+      pushToast('PIN lama dan PIN baru wajib diisi.', 'warning');
+      return;
+    }
+    if (!isValidPin(pinBaru)) {
+      pushToast('PIN baru harus 4 sampai 6 digit angka.', 'warning');
+      return;
+    }
+    if (pinBaru !== pinBaru2) {
+      pushToast('Ulangi PIN baru tidak sama.', 'warning');
+      return;
+    }
+    try {
+      setSavingPin(true);
+      await apiFetch('/auth/change-pin', {
+        method: 'POST',
+        body: JSON.stringify({ old_pin: pinLama, new_pin: pinBaru, repeat_new_pin: pinBaru2 })
+      });
+      setPinLama('');
+      setPinBaru('');
+      setPinBaru2('');
+      pushToast('PIN berhasil diperbarui.', 'success');
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : 'Gagal mengganti PIN', 'error');
+    } finally {
+      setSavingPin(false);
+    }
+  }
+
   return (
     <main className="min-h-screen pb-10">
+      <ToastStack toasts={toasts} />
       <Navbar />
 
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <section className="glass-card rounded-3xl p-6">
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-gray-500">Operasional</p>
-            <p className="text-xs text-gray-600">{operationalDate}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-xs text-gray-500">Operasional</p>
+              <p className="text-xs text-gray-600">{operationalDate}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-strong)]"
+              aria-label="Pengaturan akun"
+              title="Pengaturan akun"
+            >
+              ⚙
+            </button>
           </div>
           <h1 className="mt-3 font-[var(--font-space-grotesk)] text-3xl font-bold">Halo, {user.nama}</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">Role: {user.roles.join(', ') || 'Warga'}</p>
@@ -212,6 +298,60 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {showSettings ? (
+        <div className="fixed inset-0 z-[80] bg-black/35 p-4" onClick={() => setShowSettings(false)}>
+          <div
+            className="mx-auto mt-8 w-full max-w-xl rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Pengaturan Akun</h3>
+              <button type="button" className="text-sm text-[var(--text-muted)]" onClick={() => setShowSettings(false)}>Tutup</button>
+            </div>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Edit Profil</p>
+                <Input label="Nama" value={profileNama} onChange={(e) => setProfileNama(e.target.value)} />
+                <Input label="Nomor HP" value={profileNoHp} onChange={(e) => setProfileNoHp(e.target.value)} />
+                <Button className="w-full md:w-auto" onClick={saveProfile} disabled={savingProfile}>
+                  {savingProfile ? 'Menyimpan...' : 'Simpan Profil'}
+                </Button>
+              </div>
+              <div className="space-y-2 border-t border-[var(--line)] pt-4">
+                <p className="text-sm font-semibold">Ganti PIN</p>
+                <Input
+                  label="PIN Lama"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={pinLama}
+                  onChange={(e) => setPinLama(normalizePinInput(e.target.value))}
+                />
+                <Input
+                  label="PIN Baru"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={pinBaru}
+                  onChange={(e) => setPinBaru(normalizePinInput(e.target.value))}
+                />
+                <Input
+                  label="Ulangi PIN Baru"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={pinBaru2}
+                  onChange={(e) => setPinBaru2(normalizePinInput(e.target.value))}
+                />
+                <Button className="w-full md:w-auto" onClick={savePin} disabled={savingPin}>
+                  {savingPin ? 'Menyimpan...' : 'Simpan PIN'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

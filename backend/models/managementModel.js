@@ -134,6 +134,62 @@ export async function createWargaUser({ nama, noHp, pin }) {
   }
 }
 
+export async function updateWargaUser({ userId, nama, noHp, pin = null }) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const userCheck = await client.query(
+      `SELECT id
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [userId]
+    );
+    if (userCheck.rows.length === 0) {
+      throw new Error('User tidak ditemukan');
+    }
+
+    const duplicate = await client.query(
+      `SELECT 1
+       FROM users
+       WHERE no_hp = $1
+         AND id <> $2
+       LIMIT 1`,
+      [noHp, userId]
+    );
+    if (duplicate.rows.length > 0) {
+      throw new Error('Nomor HP sudah dipakai user lain');
+    }
+
+    if (pin && String(pin).trim() !== '') {
+      await client.query(
+        `UPDATE users
+         SET nama = $2,
+             no_hp = $3,
+             pin = $4
+         WHERE id = $1`,
+        [userId, nama, noHp, pin]
+      );
+    } else {
+      await client.query(
+        `UPDATE users
+         SET nama = $2,
+             no_hp = $3
+         WHERE id = $1`,
+        [userId, nama, noHp]
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function setUserOrganizationRoles({ userId, roleIds }) {
   const client = await pool.connect();
   try {

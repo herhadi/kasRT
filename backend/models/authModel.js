@@ -3,7 +3,7 @@ import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export async function findUserForLogin(noHp) {
   const result = await pool.query(
-    'SELECT id, nama, pin, telegram_chat_id FROM users WHERE no_hp = $1',
+    'SELECT id, nama, no_hp, pin, telegram_chat_id FROM users WHERE no_hp = $1',
     [noHp]
   );
   return result.rows[0] || null;
@@ -53,4 +53,43 @@ export async function listWargaDropdownOptions() {
   );
 
   return fallbackResult.rows;
+}
+
+export async function updateUserPinById(userId, pin) {
+  const result = await pool.query(
+    `UPDATE users
+     SET pin = $2
+     WHERE id = $1
+     RETURNING id`,
+    [userId, pin]
+  );
+  return result.rows[0] || null;
+}
+
+export async function updateUserProfileById(userId, payload) {
+  const fields = [];
+  const values = [userId];
+  let idx = 2;
+
+  if (typeof payload.nama === 'string' && payload.nama.trim()) {
+    fields.push(`nama = $${idx}`);
+    values.push(payload.nama.trim());
+    idx += 1;
+  }
+  if (typeof payload.no_hp === 'string' && payload.no_hp.trim()) {
+    fields.push(`no_hp = $${idx}`);
+    values.push(payload.no_hp.trim());
+    idx += 1;
+  }
+  if (fields.length === 0) return null;
+
+  const result = await pool.query(
+    `UPDATE users
+     SET ${fields.join(', ')}
+     WHERE id = $1
+     RETURNING id, nama, no_hp, telegram_chat_id`,
+    values
+  );
+
+  return result.rows[0] || null;
 }
