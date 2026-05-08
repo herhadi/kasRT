@@ -40,9 +40,15 @@ export default function FormJimpitan({
         <h3 className="mt-2 font-[var(--font-space-grotesk)] text-2xl font-bold">{selected.nama}</h3>
         <p className="mt-1 text-sm text-[var(--text-muted)]">Saran: {formatRupiah(selected.nominalSaran)}</p>
 
-        <div className="mt-5 grid grid-cols-4 gap-2">
-          {[0, 500, 1000, 2000].map((value) => (
-            <Button key={value} variant="ghost" onClick={() => submitNominal(value)} disabled={loading}>
+        <div className="quick-choice-grid-2 mt-5">
+          {[500, 1000, 2000, 0].map((value) => (
+            <Button
+              key={value}
+              variant="ghost"
+              className="quick-choice-btn btn-action-blue"
+              onClick={() => submitNominal(value)}
+              disabled={loading}
+            >
               {value === 0 ? 'Kosong' : `${value / 1000 >= 1 ? `${value / 1000}k` : value}`}
             </Button>
           ))}

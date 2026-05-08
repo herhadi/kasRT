@@ -92,8 +92,8 @@ export default function PresensiSekretarisPage() {
                 onClick={() => setFilter(f.key as typeof filter)}
                 className={
                   filter === f.key
-                    ? 'w-full rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-xs font-semibold text-[var(--accent)]'
-                    : 'w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]'
+                    ? 'quick-choice-btn quick-choice-btn-active min-h-[2.5rem] text-xs'
+                    : 'quick-choice-btn min-h-[2.5rem] text-xs'
                 }
               >
                 {f.label}
@@ -138,7 +138,7 @@ export default function PresensiSekretarisPage() {
             <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">Input Presensi</h3>
               <p className="mt-1 text-sm text-[var(--text-muted)]">{selected.nama}</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="quick-choice-grid-2 mt-3">
                 {[
                   { key: 'HADIR', label: 'Hadir' },
                   { key: 'IJIN', label: 'Izin' }
@@ -149,8 +149,8 @@ export default function PresensiSekretarisPage() {
                     onClick={() => applyStatus(s.key as AttendanceItem['status'])}
                     className={
                       selectedStatus === s.key
-                        ? 'w-full rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-3 text-sm font-semibold text-[var(--accent)]'
-                        : 'w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm font-semibold text-[var(--text-muted)]'
+                        ? 'quick-choice-btn quick-choice-btn-active'
+                        : 'quick-choice-btn'
                     }
                   >
                     {s.label}

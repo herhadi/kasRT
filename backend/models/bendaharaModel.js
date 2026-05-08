@@ -1,8 +1,67 @@
 import { pool } from '../db.js';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
+import { randomUUID } from 'crypto';
 
 const KAS_IURAN_WAJIB = 'Kas Iuran Wajib';
 const KAS_JIMPITAN = 'Kas Jimpitan';
+const DEFAULT_IURAN_WAJIB_FEE = 30000;
+
+async function ensureIuranTariffTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS iw_tariffs (
+      id UUID PRIMARY KEY,
+      effective_month VARCHAR(7) NOT NULL UNIQUE,
+      monthly_fee NUMERIC(18,2) NOT NULL CHECK (monthly_fee > 0),
+      created_by UUID NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  const seed = await pool.query(`SELECT 1 FROM iw_tariffs LIMIT 1`);
+  if (seed.rowCount === 0) {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    await pool.query(
+      `INSERT INTO iw_tariffs (id, effective_month, monthly_fee)
+       VALUES ($1, $2, $3)`,
+      [randomUUID(), month, DEFAULT_IURAN_WAJIB_FEE]
+    );
+  }
+}
+
+export async function listIuranWajibTariffs() {
+  await ensureIuranTariffTable();
+  const rs = await pool.query(`SELECT id::text, effective_month, monthly_fee FROM iw_tariffs ORDER BY effective_month DESC`);
+  return rs.rows.map((r) => ({ id: r.id, effective_month: String(r.effective_month), monthly_fee: Number(r.monthly_fee) }));
+}
+
+export async function upsertIuranWajibTariff({ effectiveMonth, monthlyFee, createdBy }) {
+  await ensureIuranTariffTable();
+  await pool.query(
+    `INSERT INTO iw_tariffs (id, effective_month, monthly_fee, created_by)
+     VALUES ($1, $2, $3, $4::uuid)
+     ON CONFLICT (effective_month)
+     DO UPDATE SET monthly_fee = EXCLUDED.monthly_fee, updated_at = NOW(), created_by = EXCLUDED.created_by`,
+    [randomUUID(), effectiveMonth, monthlyFee, createdBy || null]
+  );
+}
+
+export async function getActiveIuranWajibFeeByMonth(month) {
+  await ensureIuranTariffTable();
+  const targetMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))
+    ? String(month)
+    : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const rs = await pool.query(
+    `SELECT monthly_fee
+     FROM iw_tariffs
+     WHERE effective_month <= $1
+     ORDER BY effective_month DESC
+     LIMIT 1`,
+    [targetMonth]
+  );
+  if (!rs.rows.length) return DEFAULT_IURAN_WAJIB_FEE;
+  return Number(rs.rows[0].monthly_fee || DEFAULT_IURAN_WAJIB_FEE);
+}
 
 export async function listFinanceWallets() {
   const result = await pool.query(

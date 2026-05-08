@@ -3,9 +3,12 @@ import {
   inputIuranWajibSetoran,
   listOpeningArrearsByContribution,
   listFinanceWallets,
+  listIuranWajibTariffs,
+  getActiveIuranWajibFeeByMonth,
   listIuranWajibStatusByMonth,
   listPendapatanBulanan,
   listPengeluaranBulanan,
+  upsertIuranWajibTariff,
   upsertOpeningArrearsByContribution
 } from '../models/bendaharaModel.js';
 import {
@@ -29,6 +32,44 @@ export async function getBendaharaMasterData(req, res) {
     return res.json({ success: true, data: { wallets, pengeluaran, iuran_status: iuranStatus, pendapatan } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getIuranWajibTariffs(req, res) {
+  const month = String(req.query.month || '').trim();
+  const monthParam = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
+  try {
+    const [tariffs, activeFee] = await Promise.all([
+      listIuranWajibTariffs(),
+      getActiveIuranWajibFeeByMonth(monthParam || undefined)
+    ]);
+    return res.json({ success: true, data: { tariffs, active_fee: activeFee } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function postIuranWajibTariff(req, res) {
+  const effectiveMonth = String(req.body.effective_month || '').trim();
+  const monthlyFee = Number(req.body.monthly_fee || 0);
+  const actor = String(req.user.user_id || '').trim();
+
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(effectiveMonth)) {
+    return res.status(400).json({ success: false, message: 'effective_month invalid' });
+  }
+  if (!Number.isFinite(monthlyFee) || monthlyFee <= 0) {
+    return res.status(400).json({ success: false, message: 'monthly_fee harus > 0' });
+  }
+
+  try {
+    await upsertIuranWajibTariff({ effectiveMonth, monthlyFee, createdBy: actor });
+    const [tariffs, activeFee] = await Promise.all([
+      listIuranWajibTariffs(),
+      getActiveIuranWajibFeeByMonth(effectiveMonth)
+    ]);
+    return res.json({ success: true, data: { tariffs, active_fee: activeFee } });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
   }
 }
 

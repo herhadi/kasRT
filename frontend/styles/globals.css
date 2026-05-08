@@ -236,3 +236,34 @@ html.dark .btn-action-green:hover {
   border-color: color-mix(in srgb, #64748b 45%, var(--line));
   background: color-mix(in srgb, #64748b 11%, var(--surface-strong));
 }
+
+/* Global quick-choice buttons (mobile-first) */
+.quick-choice-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.quick-choice-btn {
+  width: 100%;
+  min-height: 3.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  transition: all 120ms ease;
+}
+
+.quick-choice-btn:hover {
+  background: var(--surface-strong);
+}
+
+.quick-choice-btn-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface-strong));
+  color: var(--accent);
+}

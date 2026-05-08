@@ -5,9 +5,11 @@ import {
   closeBookYear,
   getYearlyBook,
   getBendaharaMasterData,
+  getIuranWajibTariffs,
   getOpeningArrears,
   inputPengeluaranBulanan,
   openBookYear,
+  postIuranWajibTariff,
   saveOpeningArrears,
   setorIuranWajibWarga
 } from '../controllers/bendaharaController.js';
@@ -17,9 +19,11 @@ const router = express.Router();
 router.use(auth);
 
 router.get('/master', allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getBendaharaMasterData));
+router.get('/iuran-tariffs', allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getIuranWajibTariffs));
 router.get('/opening-arrears', allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getOpeningArrears));
 router.get('/yearly-book', allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getYearlyBook));
 router.post('/setor-iuran-wajib', allowRoles('Bendahara', 'root'), asyncHandler(setorIuranWajibWarga));
+router.post('/iuran-tariff', allowRoles('Bendahara', 'root'), asyncHandler(postIuranWajibTariff));
 router.post('/opening-arrears', allowRoles('Bendahara', 'root'), asyncHandler(saveOpeningArrears));
 router.post('/pengeluaran', allowRoles('Bendahara', 'root'), asyncHandler(inputPengeluaranBulanan));
 router.post('/yearly-book/close', allowRoles('Bendahara', 'root'), asyncHandler(closeBookYear));

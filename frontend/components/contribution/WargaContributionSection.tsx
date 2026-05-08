@@ -50,18 +50,18 @@ export default function WargaContributionSection({
             { key: 'sudah', label: `Sudah (${stats.sudah})` },
             { key: 'kosong', label: `Kosong (${stats.kosong})` }
           ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setFilter(item.key as 'semua' | 'belum' | 'sudah' | 'kosong')}
-              className={
-                filter === item.key
-                  ? 'w-full rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-xs font-semibold text-[var(--accent)]'
-                  : 'w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]'
-              }
-            >
-              {item.label}
-            </button>
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setFilter(item.key as 'semua' | 'belum' | 'sudah' | 'kosong')}
+                className={
+                  filter === item.key
+                  ? 'quick-choice-btn quick-choice-btn-active min-h-[2.5rem] text-xs'
+                  : 'quick-choice-btn min-h-[2.5rem] text-xs'
+                }
+              >
+                {item.label}
+              </button>
           ))}
         </div>
         <WargaContributionGrid rows={filteredRows} onInput={onOpen} />

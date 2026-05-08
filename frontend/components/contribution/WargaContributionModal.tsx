@@ -56,12 +56,12 @@ export default function WargaContributionModal({
           </p>
         ) : null}
 
-        <div className="mt-3 grid grid-cols-3 gap-2.5">
+        <div className="quick-choice-grid-2 mt-3">
           {presets.map((preset) => (
             <Button
               key={preset.amount}
               variant="ghost"
-              className="min-h-[46px] rounded-xl px-3 py-2.5 text-sm font-semibold"
+              className="quick-choice-btn btn-action-blue"
               onClick={() => void onSubmit(preset.amount)}
               disabled={loading}
             >

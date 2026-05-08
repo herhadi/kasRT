@@ -102,6 +102,7 @@ type RekapKeuanganItem = {
 };
 type PendapatanSummary = { iuran: number; jimpitan: number; total: number };
 type OpeningArrearsItem = { warga_id: string; opening_arrears: number };
+type IuranTariffItem = { id: string; effective_month: string; monthly_fee: number };
 
 export default function BendaharaPage() {
   const { user, loading } = useAuth();
@@ -158,6 +159,14 @@ export default function BendaharaPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
   const [pendingSosialReceiptCount, setPendingSosialReceiptCount] = useState(0);
+  const [iuranTariffs, setIuranTariffs] = useState<IuranTariffItem[]>([]);
+  const [iuranMonthlyFee, setIuranMonthlyFee] = useState(30000);
+  const [showIuranTariffSetting, setShowIuranTariffSetting] = useState(false);
+  const [iuranTariffMonth, setIuranTariffMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [iuranTariffValue, setIuranTariffValue] = useState('');
   const [expenseDate, setExpenseDate] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -298,6 +307,14 @@ export default function BendaharaPage() {
     setSelectedWarga((prev) => (prev && rows.some((r) => String(r.id) === String(prev)) ? prev : String(rows[0]?.id || '')));
   }, []);
 
+  const loadIuranTariffs = useCallback(async () => {
+    const result = await apiFetch<{ success: boolean; data: { tariffs: IuranTariffItem[]; active_fee: number } }>(
+      `/bendahara/iuran-tariffs?month=${encodeURIComponent(selectedMonth)}`
+    );
+    setIuranTariffs(result.data?.tariffs || []);
+    setIuranMonthlyFee(Number(result.data?.active_fee || 30000));
+  }, [selectedMonth]);
+
   const loadReport = useCallback(async () => {
     const result = await apiFetch<{ success: boolean; data: BendaharaReport }>('/report/dashboard-admin-bendahara');
     setReport(result.data || null);
@@ -365,16 +382,16 @@ export default function BendaharaPage() {
       }
       return;
     }
-    void Promise.all([loadMaster(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadPendingHandover(), loadOpeningArrears()]).catch((e) =>
+    void Promise.all([loadMaster(), loadIuranTariffs(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadPendingHandover(), loadOpeningArrears()]).catch((e) =>
       setError(e instanceof Error ? e.message : 'Gagal memuat menu bendahara')
     );
-  }, [loading, canSeeOps, isBendahara, isKetua, isAdminSosial, isSekretaris, router, loadMaster, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
+  }, [loading, canSeeOps, isBendahara, isKetua, isAdminSosial, isSekretaris, router, loadMaster, loadIuranTariffs, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
 
   useEffect(() => {
     if (loading || !canSeeOps) return;
     const interval = window.setInterval(() => {
       if (isBendahara || isKetua) {
-        void Promise.all([loadMaster(), loadReport(), loadPendingHandover(), loadOpeningArrears()]);
+        void Promise.all([loadMaster(), loadIuranTariffs(), loadReport(), loadPendingHandover(), loadOpeningArrears()]);
       } else {
         if (isAdminSosial) {
           void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
@@ -393,6 +410,7 @@ export default function BendaharaPage() {
     isAdminSosial,
     isSekretaris,
     loadMaster,
+    loadIuranTariffs,
     loadReport,
     loadPendingHandover,
     loadPendingSosialReceiptCount,
@@ -560,20 +578,24 @@ export default function BendaharaPage() {
         id: String(w.id),
         nama: w.nama,
         paidAmount: paidByWargaId.get(String(w.id)) || 0,
-        targetAmount: 30000,
-        canInput: hasAnyRole(user, ['root']) || (paidByWargaId.get(String(w.id)) || 0) < 30000,
+        targetAmount: iuranMonthlyFee,
+        canInput: hasAnyRole(user, ['root']) || (paidByWargaId.get(String(w.id)) || 0) < iuranMonthlyFee,
         suggestionText: (() => {
           const paid = paidByWargaId.get(String(w.id)) || 0;
           const opening = Number(openingArrears[String(w.id)] || 0);
-          const missingThisMonth = Math.max(0, 30000 - paid);
+          const missingThisMonth = Math.max(0, iuranMonthlyFee - paid);
           const totalNeed = opening + missingThisMonth;
           if (totalNeed <= 0) return 'Saran: lunas bulan ini';
-          const months = Math.max(1, Math.ceil(totalNeed / 30000));
+          const months = Math.max(1, Math.ceil(totalNeed / Math.max(1, iuranMonthlyFee)));
           return `Saran: ${formatRupiah(totalNeed)} (${months} bulan)`;
         })()
       }));
     },
-    [warga, iuranStatus, openingArrears]
+    [warga, iuranStatus, openingArrears, iuranMonthlyFee, user]
+  );
+  const iuranPresetAmounts = useMemo(
+    () => [1, 2, 3, 4, 5, 6].map((n) => ({ label: `${n}x`, amount: Number(iuranMonthlyFee || 30000) * n })),
+    [iuranMonthlyFee]
   );
   const totalPendapatanBulanIni = useMemo(
     () => iuranRows.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0),
@@ -645,6 +667,40 @@ export default function BendaharaPage() {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan setoran iuran wajib');
       setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal menyimpan setoran iuran wajib' });
       return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitIuranTariff() {
+    const monthlyFee = parseRupiahInput(iuranTariffValue);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(iuranTariffMonth)) {
+      setError('Periode tarif wajib format YYYY-MM.');
+      return;
+    }
+    if (!Number.isFinite(monthlyFee) || monthlyFee <= 0) {
+      setError('Nominal tarif iuran wajib harus lebih dari 0.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      const result = await apiFetch<{ success: boolean; data: { tariffs: IuranTariffItem[]; active_fee: number } }>(
+        '/bendahara/iuran-tariff',
+        {
+          method: 'POST',
+          body: JSON.stringify({ effective_month: iuranTariffMonth, monthly_fee: monthlyFee })
+        }
+      );
+      setIuranTariffs(result.data?.tariffs || []);
+      setIuranMonthlyFee(Number(result.data?.active_fee || iuranMonthlyFee));
+      setIuranTariffValue('');
+      setMessage('Tarif iuran wajib berhasil disimpan.');
+      setToast({ type: 'success', text: 'Tarif iuran wajib berhasil disimpan.' });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal menyimpan tarif iuran wajib');
+      setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal menyimpan tarif iuran wajib' });
     } finally {
       setBusy(false);
     }
@@ -844,6 +900,34 @@ export default function BendaharaPage() {
               </div>
             }
           >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">
+                Tarif aktif: <b>{formatRupiah(iuranMonthlyFee)}</b>
+                {iuranTariffs[0]?.effective_month ? (
+                  <span className="ml-1 text-[var(--text-muted)]">(mulai {iuranTariffs[0].effective_month})</span>
+                ) : null}
+              </div>
+              {isBendahara ? (
+                <Button variant="ghost" className="btn-action-blue" onClick={() => setShowIuranTariffSetting((v) => !v)}>
+                  ⚙️ Pengaturan Tarif
+                </Button>
+              ) : null}
+            </div>
+            {showIuranTariffSetting && isBendahara ? (
+              <div className="mb-4 grid gap-3 md:grid-cols-4">
+                <Input label="Tarif Berlaku Mulai" type="month" value={iuranTariffMonth} onChange={(e) => setIuranTariffMonth(e.target.value)} />
+                <Input
+                  label="Nominal Tarif Baru"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatRupiahInput(iuranTariffValue)}
+                  onChange={(e) => setIuranTariffValue(e.target.value)}
+                />
+                <div className="md:col-span-2 flex items-end">
+                  <Button className="w-full" onClick={submitIuranTariff} disabled={busy}>Simpan Tarif</Button>
+                </div>
+              </div>
+            ) : null}
             <SummaryTripleCard
               title="Pendapatan Bulan Ini"
               sticky
@@ -857,6 +941,7 @@ export default function BendaharaPage() {
               rows={iuranRows}
               selectedRow={selectedWargaCard}
               loading={busy}
+              presets={iuranPresetAmounts}
               onOpen={(row) => {
                 setSelectedWarga(String(row.id));
                 setSelectedWargaCard(row);
@@ -1185,20 +1270,51 @@ export default function BendaharaPage() {
                 </div>
               ) : null}
               {iuranPageMode ? (
-                <WargaContributionSection
-                  rows={iuranRows}
-                  selectedRow={selectedWargaCard}
-                  loading={busy}
-                  onOpen={(row) => {
-                    setSelectedWarga(String(row.id));
-                    setSelectedWargaCard(row);
-                  }}
-                  onClose={() => setSelectedWargaCard(null)}
-                  onSubmit={async (amount) => {
-                    const ok = await submitSetorIuran(amount);
-                    if (ok) setSelectedWargaCard(null);
-                  }}
-                />
+                <>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">
+                      Tarif aktif: <b>{formatRupiah(iuranMonthlyFee)}</b>
+                      {iuranTariffs[0]?.effective_month ? (
+                        <span className="ml-1 text-[var(--text-muted)]">(mulai {iuranTariffs[0].effective_month})</span>
+                      ) : null}
+                    </div>
+                    {isBendahara ? (
+                      <Button variant="ghost" className="btn-action-blue" onClick={() => setShowIuranTariffSetting((v) => !v)}>
+                        ⚙️ Pengaturan Tarif
+                      </Button>
+                    ) : null}
+                  </div>
+                  {showIuranTariffSetting && isBendahara ? (
+                    <div className="mb-4 grid gap-3 md:grid-cols-4">
+                      <Input label="Tarif Berlaku Mulai" type="month" value={iuranTariffMonth} onChange={(e) => setIuranTariffMonth(e.target.value)} />
+                      <Input
+                        label="Nominal Tarif Baru"
+                        type="text"
+                        inputMode="numeric"
+                        value={formatRupiahInput(iuranTariffValue)}
+                        onChange={(e) => setIuranTariffValue(e.target.value)}
+                      />
+                      <div className="md:col-span-2 flex items-end">
+                        <Button className="w-full" onClick={submitIuranTariff} disabled={busy}>Simpan Tarif</Button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <WargaContributionSection
+                    rows={iuranRows}
+                    selectedRow={selectedWargaCard}
+                    loading={busy}
+                    presets={iuranPresetAmounts}
+                    onOpen={(row) => {
+                      setSelectedWarga(String(row.id));
+                      setSelectedWargaCard(row);
+                    }}
+                    onClose={() => setSelectedWargaCard(null)}
+                    onSubmit={async (amount) => {
+                      const ok = await submitSetorIuran(amount);
+                      if (ok) setSelectedWargaCard(null);
+                    }}
+                  />
+                </>
               ) : null}
             </>
           ) : null}
