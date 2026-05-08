@@ -267,3 +267,46 @@ html.dark .btn-action-green:hover {
   background: color-mix(in srgb, var(--accent) 11%, var(--surface-strong));
   color: var(--accent);
 }
+
+/* Segmented toggle (for model/range selectors) */
+.segmented-toggle {
+  display: inline-flex;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  padding: 0.25rem;
+}
+
+.segmented-toggle-btn {
+  flex: 1;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 120ms ease;
+}
+
+.segmented-toggle-btn-active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.segmented-toggle-btn-inactive {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.segmented-toggle-btn-inactive:hover {
+  background: #cbd5e1;
+}
+
+html.dark .segmented-toggle-btn-inactive {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+html.dark .segmented-toggle-btn-inactive:hover {
+  background: #334155;
+}

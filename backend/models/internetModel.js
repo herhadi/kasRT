@@ -88,6 +88,35 @@ export async function ensureInternetMembersFromWarga() {
   `);
 }
 
+export async function listInternetMembers() {
+  await ensureInternetTables();
+  await ensureInternetMembersFromWarga();
+  const rs = await pool.query(
+    `WITH base AS (
+       SELECT u.id AS warga_id, u.nama
+       FROM users u
+       WHERE ${ELIGIBLE_USERS_CLAUSE}
+     )
+     SELECT b.warga_id::text AS warga_id, b.nama, COALESCE(im.is_active, FALSE) AS is_active
+     FROM base b
+     LEFT JOIN inet_members im ON im.warga_id = b.warga_id
+     ORDER BY b.nama`
+  );
+  return rs.rows;
+}
+
+export async function setInternetMemberActive({ wargaId, isActive }) {
+  await ensureInternetTables();
+  await pool.query(
+    `INSERT INTO inet_members (warga_id, is_active, updated_at)
+     VALUES ($1::uuid, $2::boolean, NOW())
+     ON CONFLICT (warga_id)
+     DO UPDATE SET is_active = EXCLUDED.is_active, updated_at = NOW()`,
+    [wargaId, isActive]
+  );
+  return { warga_id: wargaId, is_active: Boolean(isActive) };
+}
+
 export async function getInternetSummary(month) {
   const tariffRows = await pool.query(
     `SELECT effective_month, monthly_fee

@@ -19,6 +19,7 @@ import { WargaContributionRow } from '@/components/contribution/WargaContributio
 type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number };
 type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; rows: Row[] };
 type Yearly = { year: string; recap: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
+type LingkunganMember = { warga_id: string; nama: string; is_active?: boolean };
 
 export default function LingkunganPage() {
   const pathname = usePathname();
@@ -40,6 +41,8 @@ export default function LingkunganPage() {
   const [showTariffSetting, setShowTariffSetting] = useState(false);
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
+  const [members, setMembers] = useState<LingkunganMember[]>([]);
+  const [showMemberSection, setShowMemberSection] = useState(false);
   const iuranOnlyMode = pathname === '/operasional/lingkungan/iuran';
 
   const canAccess = hasAnyRole(user, ['Admin Lingkungan', 'Ketua', 'Sekretaris', 'root']);
@@ -47,12 +50,14 @@ export default function LingkunganPage() {
 
   const loadAll = useCallback(async () => {
     if (!canAccess) return;
-    const [s, y] = await Promise.all([
+    const [s, y, m] = await Promise.all([
       apiFetch<{ success: boolean; data: Summary }>(`/lingkungan/summary?month=${encodeURIComponent(month)}`),
-      apiFetch<{ success: boolean; data: Yearly }>(`/lingkungan/history?year=${encodeURIComponent(historyYear)}`)
+      apiFetch<{ success: boolean; data: Yearly }>(`/lingkungan/history?year=${encodeURIComponent(historyYear)}`),
+      apiFetch<{ success: boolean; data: LingkunganMember[] }>(`/lingkungan/members`)
     ]);
     setSummary(s.data || null);
     setYearly(y.data || null);
+    setMembers(m.data || []);
   }, [canAccess, month, historyYear]);
 
   useEffect(() => { void loadAll().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data lingkungan')); }, [loadAll]);
@@ -69,10 +74,14 @@ export default function LingkunganPage() {
     return rows;
   }, [summary, filter]);
   const pager = usePagination(filteredRows, 20);
+  const memberPager = usePagination(members, 10);
   const rowsForInput = useMemo<WargaContributionRow[]>(
     () => (summary?.rows || []).map((r) => ({ id: r.warga_id, nama: r.nama, paidAmount: r.paid_amount, targetAmount: Number(summary?.monthly_fee || 0), canInput: true, suggestionText: `Total tunggakan: ${formatRupiah(r.total_arrears)}` })),
     [summary]
   );
+  useEffect(() => {
+    memberPager.reset();
+  }, [members.length]);
 
   async function submitPayment(amount: number) {
     if (!selectedWargaId || amount <= 0) return setError('Pilih warga & nominal valid');
@@ -112,6 +121,21 @@ export default function LingkunganPage() {
       setError(e instanceof Error ? e.message : 'Gagal simpan tarif');
     } finally { setBusy(false); }
   }
+  async function setMemberActive(wid: string, next: boolean) {
+    try {
+      setBusy(true); setError(''); setMessage('');
+      await apiFetch('/lingkungan/members/set-active', {
+        method: 'POST',
+        body: JSON.stringify({ warga_id: wid, is_active: next })
+      });
+      setMessage(next ? 'Warga diaktifkan sebagai anggota lingkungan.' : 'Warga dinonaktifkan dari anggota lingkungan.');
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal update anggota lingkungan');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (loading || !user) return <main className="min-h-screen" />;
   if (iuranOnlyMode) {
@@ -148,6 +172,37 @@ export default function LingkunganPage() {
           </div>
         ) : null}
       </Card>
+      {canWrite ? (
+        <Card title="Keanggotaan Lingkungan" subtitle="Master warga global, aktifkan yang ikut iuran lingkungan">
+          <div className="mb-3">
+            <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
+              {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}
+            </button>
+          </div>
+          {showMemberSection ? (
+            <>
+              <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead>
+                <tbody>
+                  {memberPager.pagedItems.map((m) => (
+                    <tr key={m.warga_id}>
+                      <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td>
+                      <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td>
+                      <td className="border-t border-[var(--line)] px-3 py-2 text-right">
+                        <button type="button" className="btn-action-blue rounded-xl px-3 py-1.5 text-xs" onClick={() => void setMemberActive(m.warga_id, !Boolean(m.is_active))} disabled={busy}>
+                          {m.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!members.length ? <tr><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td></tr> : null}
+                </tbody>
+              </table></div>
+              <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
+            </>
+          ) : null}
+        </Card>
+      ) : null}
       {canWrite ? (
         <Card title="Pengeluaran Lingkungan" subtitle="Riwayat biaya lingkungan">
           <div className="grid gap-3 md:grid-cols-4">

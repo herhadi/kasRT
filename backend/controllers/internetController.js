@@ -4,8 +4,10 @@ import {
   addInternetPayment,
   ensureInternetMembersFromWarga,
   getInternetHistory,
+  listInternetMembers,
   getInternetMonthlyRecapByYear,
   getInternetSummary,
+  setInternetMemberActive,
   listInternetTariffs,
   setInternetTariff
 } from '../models/internetModel.js';
@@ -74,4 +76,17 @@ export async function postInternetTariffHandler(req, res) {
   }
   await setInternetTariff({ effectiveMonth, monthlyFee, createdBy: actor });
   return res.json({ success: true });
+}
+
+export async function getInternetMembersHandler(_req, res) {
+  const data = await listInternetMembers();
+  return res.json({ success: true, data });
+}
+
+export async function postInternetMemberSetActiveHandler(req, res) {
+  const wargaId = String(req.body.warga_id || '').trim();
+  const isActive = Boolean(req.body.is_active);
+  if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
+  const data = await setInternetMemberActive({ wargaId, isActive });
+  return res.json({ success: true, data });
 }

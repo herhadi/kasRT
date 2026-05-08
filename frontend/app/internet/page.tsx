@@ -41,6 +41,7 @@ type InternetYearlyHistory = {
   year: string;
   recap: Array<{ month: string; pemasukan: number; pengeluaran: number }>;
 };
+type InternetMember = { warga_id: string; nama: string; is_active?: boolean };
 
 export default function OperasionalInternetPage() {
   const pathname = usePathname();
@@ -65,6 +66,8 @@ export default function OperasionalInternetPage() {
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
   const [showTariffSetting, setShowTariffSetting] = useState(false);
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
+  const [members, setMembers] = useState<InternetMember[]>([]);
+  const [showMemberSection, setShowMemberSection] = useState(false);
 
   const canAccess = hasAnyRole(user, ['Admin Internet', 'Ketua', 'Sekretaris', 'root']);
   const canWrite = hasAnyRole(user, ['Admin Internet', 'root']);
@@ -73,12 +76,14 @@ export default function OperasionalInternetPage() {
   const loadAll = useCallback(async () => {
     if (!canAccess) return;
     setError('');
-    const [sumRes, histRes] = await Promise.all([
+    const [sumRes, histRes, memberRes] = await Promise.all([
       apiFetch<{ success: boolean; data: InternetSummary }>(`/internet/summary?month=${encodeURIComponent(month)}`),
-      apiFetch<{ success: boolean; data: InternetHistory }>(`/internet/history?month=${encodeURIComponent(month)}`)
+      apiFetch<{ success: boolean; data: InternetHistory }>(`/internet/history?month=${encodeURIComponent(month)}`),
+      apiFetch<{ success: boolean; data: InternetMember[] }>(`/internet/members`)
     ]);
     setSummary(sumRes.data || null);
     setHistory(histRes.data || null);
+    setMembers(memberRes.data || []);
     const yRes = await apiFetch<{ success: boolean; data: InternetYearlyHistory }>(`/internet/history?year=${encodeURIComponent(historyYear)}`);
     setYearlyHistory(yRes.data || null);
   }, [canAccess, month, historyYear]);
@@ -100,6 +105,7 @@ export default function OperasionalInternetPage() {
     return rows;
   }, [summary, filter]);
   const pager = usePagination(filteredRows, 20);
+  const memberPager = usePagination(members, 10);
   const contributionRows = useMemo<WargaContributionRow[]>(
     () =>
       (summary?.rows || []).map((r) => ({
@@ -112,6 +118,9 @@ export default function OperasionalInternetPage() {
       })),
     [summary]
   );
+  useEffect(() => {
+    memberPager.reset();
+  }, [members.length]);
 
   async function submitPayment(forcedAmount?: number) {
     const amount = Number.isFinite(forcedAmount as number) ? Number(forcedAmount) : parseRupiahInput(payAmount);
@@ -178,6 +187,24 @@ export default function OperasionalInternetPage() {
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan tarif internet');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setMemberActive(wid: string, next: boolean) {
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/internet/members/set-active', {
+        method: 'POST',
+        body: JSON.stringify({ warga_id: wid, is_active: next })
+      });
+      setMessage(next ? 'Warga diaktifkan sebagai anggota internet.' : 'Warga dinonaktifkan dari anggota internet.');
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal update anggota internet');
     } finally {
       setBusy(false);
     }
@@ -260,6 +287,57 @@ export default function OperasionalInternetPage() {
             </div>
           ) : null}
         </Card>
+
+        {canWrite && !iuranOnlyMode ? (
+          <Card title="Keanggotaan Internet" subtitle="Master warga global, aktifkan yang ikut internet">
+            <div className="mb-3">
+              <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
+                {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}
+              </button>
+            </div>
+            {showMemberSection ? (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                    <thead>
+                      <tr className="bg-[var(--surface-strong)]">
+                        <th className="px-3 py-2 text-left text-xs">Warga</th>
+                        <th className="px-3 py-2 text-left text-xs">Status</th>
+                        <th className="px-3 py-2 text-right text-xs">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {memberPager.pagedItems.map((m) => (
+                        <tr key={m.warga_id}>
+                          <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td>
+                          <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>
+                            {m.is_active ? 'Aktif' : 'Nonaktif'}
+                          </td>
+                          <td className="border-t border-[var(--line)] px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              className="btn-action-blue rounded-xl px-3 py-1.5 text-xs"
+                              onClick={() => void setMemberActive(m.warga_id, !Boolean(m.is_active))}
+                              disabled={busy}
+                            >
+                              {m.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!members.length ? (
+                        <tr>
+                          <td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+                <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
+              </>
+            ) : null}
+          </Card>
+        ) : null}
 
         {canWrite && !iuranOnlyMode ? (
           <Card title="Pengeluaran Internet" subtitle="Riwayat biaya internet RT">

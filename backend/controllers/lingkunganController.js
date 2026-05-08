@@ -4,7 +4,9 @@ import {
   addLingkunganPayment,
   ensureLingkunganMembersFromWarga,
   getLingkunganMonthlyRecapByYear,
+  listLingkunganMembers,
   getLingkunganSummary,
+  setLingkunganMemberActive,
   listLingkunganTariffs,
   setLingkunganTariff
 } from '../models/lingkunganModel.js';
@@ -64,4 +66,17 @@ export async function postLingkunganTariffHandler(req, res) {
   if (!Number.isFinite(monthlyFee) || monthlyFee <= 0) return res.status(400).json({ success: false, message: 'monthly_fee invalid' });
   await setLingkunganTariff({ effectiveMonth, monthlyFee, createdBy: actor });
   return res.json({ success: true });
+}
+
+export async function getLingkunganMembersHandler(_req, res) {
+  const data = await listLingkunganMembers();
+  return res.json({ success: true, data });
+}
+
+export async function postLingkunganMemberSetActiveHandler(req, res) {
+  const wargaId = String(req.body.warga_id || '').trim();
+  const isActive = Boolean(req.body.is_active);
+  if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
+  const data = await setLingkunganMemberActive({ wargaId, isActive });
+  return res.json({ success: true, data });
 }

@@ -212,7 +212,7 @@ export default function KoperasiPage() {
         {canWrite ? (
           <Card title="Keanggotaan Koperasi" subtitle="Master warga global, aktifkan yang ikut koperasi">
             <div className="mb-3">
-              <button type="button" className="btn-action-blue rounded-xl px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
+              <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
                 {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}
               </button>
             </div>
@@ -243,7 +243,33 @@ export default function KoperasiPage() {
               <Input label="Tenor (bulan)" type="number" min={1} value={tenor} onChange={(e) => setTenor(e.target.value)} />
               <Input label="Bunga / bulan (%)" type="number" step="0.1" min={0.1} max={2.5} value={rate} onChange={(e) => setRate(e.target.value)} />
               <Input label="Angsuran Mulai" type="month" value={firstDueMonth} onChange={(e) => setFirstDueMonth(e.target.value)} />
-              <div><label className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Model Bunga</label><div className="flex gap-2"><button type="button" className={`btn-action-blue px-3 py-1.5 text-xs ${model === 'DECLINING' ? '' : 'opacity-70'}`} onClick={() => setModel('DECLINING')}>Menurun</button><button type="button" className={`btn-action-blue px-3 py-1.5 text-xs ${model === 'FLAT' ? '' : 'opacity-70'}`} onClick={() => setModel('FLAT')}>Flat</button></div></div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Model Bunga</label>
+                <div className="segmented-toggle">
+                  <button
+                    type="button"
+                    className={`segmented-toggle-btn ${
+                      model === 'DECLINING'
+                        ? 'segmented-toggle-btn-active'
+                        : 'segmented-toggle-btn-inactive'
+                    }`}
+                    onClick={() => setModel('DECLINING')}
+                  >
+                    Menurun
+                  </button>
+                  <button
+                    type="button"
+                    className={`segmented-toggle-btn ${
+                      model === 'FLAT'
+                        ? 'segmented-toggle-btn-active'
+                        : 'segmented-toggle-btn-inactive'
+                    }`}
+                    onClick={() => setModel('FLAT')}
+                  >
+                    Flat
+                  </button>
+                </div>
+              </div>
               <Input label="Catatan" value={notes} onChange={(e) => setNotes(e.target.value)} />
               <div className="md:col-span-2 flex gap-2"><Button onClick={previewPlan} disabled={busy}>Preview</Button><Button className="btn-action-blue" variant="ghost" onClick={simpanDraft} disabled={busy}>Simpan & Aktifkan</Button></div>
             </div>
