@@ -44,6 +44,7 @@ export default function OperasionalSekretarisPage() {
   const [invitePlace, setInvitePlace] = useState('Balai RT02');
   const [chairName, setChairName] = useState('Ketua');
   const [inviteTime, setInviteTime] = useState('19:45');
+  const [inviteDate, setInviteDate] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -235,7 +236,12 @@ export default function OperasionalSekretarisPage() {
   }
 
   function kirimUndanganWA() {
-    const d = meetingDate ? new Date(`${meetingDate}T00:00:00`) : new Date();
+    const selectedDate = (inviteDate || meetingDate || '').trim();
+    if (!selectedDate) {
+      setError('Tanggal undangan wajib diisi.');
+      return;
+    }
+    const d = new Date(`${selectedDate}T00:00:00`);
     const hari = d.toLocaleDateString('id-ID', { weekday: 'long' });
     const tgl = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     const waktu = (inviteTime || '19:45').replace('.', ':');
@@ -254,7 +260,7 @@ export default function OperasionalSekretarisPage() {
     text += '```\n';
     text += `${line1}\n${line2}\n${line3}\n`;
     text += '```\n';
-    text += 'Demikian undangan disampaikan, atas kehadirannya kami ucapkan terima kasih.\n\n';
+    text += 'Demikian undangan disampaikan, atas perhatian dan kehadirannya kami ucapkan terima kasih.\n\n';
     text += `_Wassalamu'alaikum Warahmatullah..._\n\n`;
     text += 'Ketua RT 02\n';
     text += 'TTD\n';
@@ -386,6 +392,7 @@ export default function OperasionalSekretarisPage() {
         </Card>
         <Card title="Undangan Rapat WA" subtitle="Template undangan warga">
           <div className="grid gap-2 md:grid-cols-2">
+            <Input label="Tanggal Undangan" type="date" value={inviteDate} onChange={(e) => setInviteDate(e.target.value)} />
             <Input label="Tempat" value={invitePlace} onChange={(e) => setInvitePlace(e.target.value)} />
             <Input label="Waktu Undangan" type="time" value={inviteTime} onChange={(e) => setInviteTime(e.target.value)} />
           </div>

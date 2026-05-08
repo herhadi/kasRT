@@ -81,3 +81,42 @@ Deploy menggunakan `render.yaml` dengan 2 service:
 - Semua endpoint sensitif pakai JWT: `Authorization: Bearer <token>`.
 - Identitas actor diambil dari `req.user`.
 - Endpoint root backend (`/`) hanya untuk info status API.
+
+## Migrasi Data Manual ke KasRT (2025)
+
+Fitur migrasi tersedia khusus role `root` di:
+- Frontend: `/management/migrasi-2025`
+- Backend API: `/migration/*`
+
+### Modul yang Didukung
+
+- `iuran-2025`
+- `internet-2025`
+- `lingkungan-2025`
+- `jimpitan-2025`
+- `tabungan-2025`
+- `sosial-2025`
+- `koperasi-iuran-2025`
+- `koperasi-loans-2025`
+
+### Endpoint Utama
+
+- `GET /migration/{modul}/summary`
+- `POST /migration/{modul}`
+- khusus iuran wajib:
+  - `POST /migration/iuran-2025/apply-opening-2026`
+
+### Aturan Penggunaan
+
+- Periode migrasi dibatasi sampai `2025-12`.
+- `warga_id` wajib UUID valid.
+- Nominal tidak boleh negatif (kecuali skema yang memang mengizinkan nilai minus pada ledger tertentu).
+- `closing_arrears_2025` adalah hasil hitung sistem, bukan input manual.
+
+### Rumus Ringkas
+
+- `closing_arrears_2025 = total_target_2025 - total_paid_2025` (minimal 0).
+- Target tahunan default yang dipakai:
+  - Iuran Wajib: `30.000 x 12`
+  - Jimpitan: `15.000 x 12`
+- Internet/Lingkungan menggunakan tarif historis per bulan (`effective_month`) bila terjadi perubahan nominal.

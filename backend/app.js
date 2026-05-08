@@ -16,6 +16,7 @@ import internetRoutes from './routes/internet.js';
 import lingkunganRoutes from './routes/lingkungan.js';
 import koperasiRoutes from './routes/koperasi.js';
 import securityRoutes from './routes/security.js';
+import migrationRoutes from './routes/migration.js';
 import { ensureCoreMasterData } from './models/bootstrapModel.js';
 import { ensureInternetTables } from './models/internetModel.js';
 import { ensureLingkunganTables } from './models/lingkunganModel.js';
@@ -41,6 +42,7 @@ app.use('/internet', internetRoutes);
 app.use('/lingkungan', lingkunganRoutes);
 app.use('/koperasi', koperasiRoutes);
 app.use('/security', securityRoutes);
+app.use('/migration', migrationRoutes);
 
 app.get('/api/cron', (_req, res) => {
   return res.json({

@@ -534,21 +534,6 @@ export default function JimpitanPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-center">
-                <p className="text-[10px] font-medium text-[var(--text-muted)]">Belum</p>
-                <p className="text-lg font-bold text-red-600">{recapData.belum}</p>
-              </div>
-              <div className="h-8 w-px bg-[var(--line)]" />
-              <div className="text-center">
-                <p className="text-[10px] font-medium text-[var(--text-muted)]">Lunas</p>
-                <p className="text-lg font-bold text-emerald-600">{recapData.lunas}</p>
-              </div>
-              <div className="h-8 w-px bg-[var(--line)]" />
-              <div className="text-center">
-                <p className="text-[10px] font-medium text-[var(--text-muted)]">Kosong</p>
-                <p className="text-lg font-bold text-[var(--text-muted)]">{recapData.kosong}</p>
-              </div>
-              <div className="h-8 w-px bg-[var(--line)]" />
-              <div className="text-center">
                 <p className="text-[10px] font-medium text-[var(--text-muted)]">Pendapatan</p>
                 <p className="text-lg font-bold text-blue-600">{formatRupiah(recapData.totalSemuaTunai)}</p>
               </div>

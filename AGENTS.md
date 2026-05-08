@@ -69,6 +69,35 @@ Dokumen ini menjadi pedoman implementasi agent di codebase KasRT.
   - `kasrt_token`
   - `kasrt_user`
 
+## Migrasi Data Historis 2025 (Root Only)
+
+- Tersedia menu khusus root: `/management/migrasi-2025`.
+- Endpoint backend migrasi berada di prefix `/migration/*` dan wajib role `root`.
+- Scope migrasi saat ini:
+  - `iuran-2025`
+  - `internet-2025`
+  - `lingkungan-2025`
+  - `jimpitan-2025`
+  - `tabungan-2025`
+  - `sosial-2025`
+  - `koperasi-iuran-2025`
+  - `koperasi-loans-2025`
+- Aturan periode:
+  - data histori migrasi dibatasi sampai `2025-12`.
+  - data operasional 2026+ tetap diinput normal oleh admin terkait.
+- Untuk iuran wajib tersedia aksi:
+  - `POST /migration/iuran-2025/apply-opening-2026`
+  - fungsinya membentuk opening tunggakan 2026 dari closing 2025.
+
+### Prinsip Hitung Tunggakan
+
+- `closing_arrears_2025` adalah output sistem, bukan input manual user.
+- Rumus umum: `closing_arrears_2025 = total_target_2025 - total_paid_2025` (minimal 0).
+- Target tahunan yang ditetapkan:
+  - Iuran Wajib: `30.000 x 12`
+  - Jimpitan: `15.000 x 12`
+- Untuk Internet/Lingkungan, target dihitung dari tarif historis per bulan (effective month), bukan dirata-rata.
+
 ## Integrasi Telegram
 
 - Notifikasi approval dikirim berdasarkan role approver.

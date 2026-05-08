@@ -1,0 +1,304 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Navbar from '@/components/layout/Navbar';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import { apiFetch } from '@/lib/api';
+import { hasAnyRole } from '@/lib/auth';
+import { useAuth } from '@/lib/useAuth';
+
+type ModuleKey =
+  | 'iuran-2025'
+  | 'internet-2025'
+  | 'lingkungan-2025'
+  | 'jimpitan-2025'
+  | 'tabungan-2025'
+  | 'sosial-2025'
+  | 'koperasi-iuran-2025'
+  | 'koperasi-loans-2025';
+
+const MODULES: Array<{ key: ModuleKey; label: string }> = [
+  { key: 'iuran-2025', label: 'Iuran Wajib' },
+  { key: 'internet-2025', label: 'Internet' },
+  { key: 'lingkungan-2025', label: 'Lingkungan' },
+  { key: 'jimpitan-2025', label: 'Jimpitan' },
+  { key: 'tabungan-2025', label: 'Tabungan' },
+  { key: 'sosial-2025', label: 'Sosial' },
+  { key: 'koperasi-iuran-2025', label: 'Koperasi Iuran' },
+  { key: 'koperasi-loans-2025', label: 'Koperasi Loan' }
+];
+
+const EXAMPLES: Record<ModuleKey, string> = {
+  'iuran-2025': JSON.stringify(
+    [
+      { warga_id: 'UUID_WARGA', month: '2025-01', target_amount: 30000, paid_amount: 30000 },
+      { warga_id: 'UUID_WARGA', month: '2025-02', target_amount: 30000, paid_amount: 15000 }
+    ],
+    null,
+    2
+  ),
+  'internet-2025': JSON.stringify(
+    [
+      { warga_id: 'UUID_WARGA', month: '2025-01', amount: 60000 },
+      { warga_id: 'UUID_WARGA', month: '2025-02', amount: 60000 }
+    ],
+    null,
+    2
+  ),
+  'lingkungan-2025': JSON.stringify(
+    [
+      { warga_id: 'UUID_WARGA', month: '2025-01', amount: 20000 },
+      { warga_id: 'UUID_WARGA', month: '2025-02', amount: 20000 },
+      { warga_id: 'UUID_WARGA', month: '2025-03', amount: 20000 },
+      { warga_id: 'UUID_WARGA', month: '2025-04', amount: 20000 },
+      { warga_id: 'UUID_WARGA', month: '2025-05', amount: 20000 },
+      { warga_id: 'UUID_WARGA', month: '2025-06', amount: 20000 }
+    ],
+    null,
+    2
+  ),
+  'jimpitan-2025': JSON.stringify(
+    [
+      { warga_id: 'UUID_WARGA', month: '2025-01', amount: 15000 },
+      { warga_id: 'UUID_WARGA', month: '2025-02', amount: 10000 }
+    ],
+    null,
+    2
+  ),
+  'tabungan-2025': JSON.stringify(
+    [
+      { warga_id: 'UUID_WARGA', month: '2025-01', amount: 50000 },
+      { warga_id: 'UUID_WARGA', month: '2025-02', amount: -25000 }
+    ],
+    null,
+    2
+  ),
+  'sosial-2025': JSON.stringify(
+    [
+      { month: '2025-01', pemasukan: 500000, pengeluaran: 200000 },
+      { month: '2025-02', pemasukan: 300000, pengeluaran: 100000 }
+    ],
+    null,
+    2
+  ),
+  'koperasi-iuran-2025': JSON.stringify(
+    [
+      { warga_id: 'UUID_WARGA', month: '2025-01', amount: 50000 },
+      { warga_id: 'UUID_WARGA', month: '2025-02', amount: 50000 }
+    ],
+    null,
+    2
+  ),
+  'koperasi-loans-2025': JSON.stringify(
+    [
+      {
+        loan_key: 'KOP-ADHIKA-001',
+        warga_id: 'UUID_WARGA',
+        principal_amount: 2400000,
+        tenor_months: 12,
+        paid_installments: 4,
+        interest_model: 'FLAT',
+        interest_rate_monthly: 2.0,
+        first_due_month: '2025-01'
+      }
+    ],
+    null,
+    2
+  )
+};
+
+export default function Migration2025Page() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const canAccess = hasAnyRole(user, ['root']);
+  const [moduleKey, setModuleKey] = useState<ModuleKey>('iuran-2025');
+  const [summary, setSummary] = useState<unknown>(null);
+  const [rowsJson, setRowsJson] = useState('[]');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [toasts, setToasts] = useState<Array<{ id: number; text: string; kind: 'success' | 'error' | 'warning' }>>([]);
+
+  function pushToast(text: string, kind: 'success' | 'error' | 'warning' = 'success') {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((prev) => [...prev, { id, text, kind }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2800);
+  }
+
+  useEffect(() => {
+    if (!loading && !user) router.replace('/login');
+  }, [loading, user, router]);
+
+  async function loadSummary() {
+    try {
+      setError('');
+      setMessage('');
+      const res = await apiFetch<{ success: boolean; data: unknown }>(`/migration/${moduleKey}/summary`);
+      setSummary(res.data || null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Gagal memuat summary migrasi';
+      setError(msg);
+      pushToast(msg, 'error');
+    }
+  }
+
+  useEffect(() => {
+    if (!canAccess) return;
+    void loadSummary();
+  }, [moduleKey, canAccess]);
+
+  async function saveRows() {
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      const rows = JSON.parse(rowsJson);
+      if (!Array.isArray(rows)) throw new Error('Format JSON harus array');
+      await apiFetch(`/migration/${moduleKey}`, { method: 'POST', body: JSON.stringify({ rows }) });
+      setMessage('Data migrasi berhasil disimpan.');
+      pushToast('Data migrasi berhasil disimpan.', 'success');
+      await loadSummary();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Gagal simpan migrasi';
+      setError(msg);
+      pushToast(msg, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyOpening2026() {
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/migration/iuran-2025/apply-opening-2026', { method: 'POST', body: JSON.stringify({}) });
+      setMessage('Opening 2026 dari closing 2025 berhasil diproses.');
+      pushToast('Opening 2026 berhasil diproses.', 'success');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Gagal apply opening 2026';
+      setError(msg);
+      pushToast(msg, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const prettySummary = useMemo(() => JSON.stringify(summary, null, 2), [summary]);
+
+  if (loading || !user) return <main className="min-h-screen" />;
+
+  if (!canAccess) {
+    return (
+      <main className="min-h-screen pb-10">
+        <Navbar />
+        <div className="mx-auto mt-6 w-full max-w-4xl px-4 md:px-6">
+          <Card title="Tidak Ada Akses" subtitle="Khusus root">
+            <p className="text-sm text-[var(--text-muted)]">Menu migrasi 2025 hanya untuk root.</p>
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen pb-10">
+      <div className="pointer-events-none fixed left-1/2 top-4 z-[100] flex w-full max-w-md -translate-x-1/2 flex-col gap-2 px-4">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto rounded-2xl border px-4 py-3 text-sm font-semibold shadow-lg backdrop-blur ${
+              toast.kind === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : toast.kind === 'warning'
+                  ? 'border-amber-200 bg-amber-50 text-amber-700'
+                  : 'border-red-200 bg-red-50 text-red-800'
+            }`}
+          >
+            {toast.text}
+          </div>
+        ))}
+      </div>
+      <Navbar />
+      <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        <Card title="Migrasi 2025" subtitle="Input data historis s.d. Desember 2025 (root only)">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {MODULES.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => setModuleKey(m.key)}
+                className={
+                  moduleKey === m.key
+                    ? 'rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-xs font-semibold text-[var(--accent)]'
+                    : 'rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]'
+                }
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+              <p className="mb-2 text-xs font-semibold text-[var(--text-muted)]">Rows JSON</p>
+              <textarea
+                className="min-h-[260px] w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-primary)]"
+                value={rowsJson}
+                onChange={(e) => setRowsJson(e.target.value)}
+                placeholder={EXAMPLES[moduleKey]}
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button className="btn-action-green" onClick={saveRows} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Rows'}</Button>
+                {moduleKey === 'iuran-2025' ? (
+                  <Button variant="ghost" className="btn-action-blue" onClick={applyOpening2026} disabled={busy}>
+                    Apply Opening 2026
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold text-[var(--text-muted)]">Summary</p>
+                <Button variant="ghost" className="btn-action-blue" onClick={() => void loadSummary()} disabled={busy}>
+                  Refresh
+                </Button>
+              </div>
+              <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-[11px] text-[var(--text-primary)]">
+                {prettySummary || '-'}
+              </pre>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-[var(--text-muted)]">
+            Catatan: bulan wajib format `2025-01` s.d. `2025-12`. Untuk iuran/internet/lingkungan/koperasi gunakan field `amount`.
+            Untuk sosial gunakan `pemasukan` + `pengeluaran`. Untuk iuran wajib gunakan `target_amount` + `paid_amount`.
+            Untuk koperasi loan gunakan: `loan_key`, `warga_id`, `principal_amount`, `tenor_months`, `paid_installments`, `interest_model`, `interest_rate_monthly`, `first_due_month`.
+          </p>
+        </Card>
+        <Card title="Langkah Penggunaan" subtitle="Panduan cepat migrasi data manual ke KasRT">
+          <ol className="list-decimal space-y-2 pl-5 text-sm text-[var(--text-primary)]">
+            <li>Pilih modul migrasi yang ingin diinput.</li>
+            <li>Isi <b>Rows JSON</b> sesuai format modul, lalu klik <b>Simpan Rows</b>.</li>
+            <li>Klik <b>Refresh</b> untuk cek ringkasan hasil import.</li>
+            <li>Ulangi untuk semua modul sampai data Desember 2025 lengkap.</li>
+            <li>Khusus modul <b>Iuran Wajib</b>, klik <b>Apply Opening 2026</b> setelah data final.</li>
+          </ol>
+          <div className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-xs text-[var(--text-muted)]">
+            Format wajib: month = 2025-01 s.d. 2025-12, warga_id harus UUID valid, nominal tidak boleh negatif.
+          </div>
+          <div className="mt-3">
+            <p className="mb-2 text-xs font-semibold text-[var(--text-muted)]">Contoh JSON untuk modul aktif ({moduleKey})</p>
+            <pre className="max-h-[280px] overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-[11px] text-[var(--text-primary)]">
+              {EXAMPLES[moduleKey]}
+            </pre>
+          </div>
+        </Card>
+        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
+      </div>
+    </main>
+  );
+}
