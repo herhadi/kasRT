@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
+import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -45,7 +46,7 @@ export default function LingkunganPage() {
   const [showMemberSection, setShowMemberSection] = useState(false);
   const iuranOnlyMode = pathname === '/operasional/lingkungan/iuran';
 
-  const canAccess = hasAnyRole(user, ['Admin Lingkungan', 'Ketua', 'Sekretaris', 'root']);
+  const canAccess = hasAnyRole(user, ['Admin Lingkungan', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Lingkungan', 'root']);
 
   const loadAll = useCallback(async () => {
@@ -141,6 +142,7 @@ export default function LingkunganPage() {
   if (iuranOnlyMode) {
     return (
       <main className="min-h-screen pb-10"><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
         <Card title="Input Iuran Lingkungan" subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`} headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
           <WargaContributionSection rows={rowsForInput} selectedRow={selectedRow} loading={busy} presets={[{ label: '20rb', amount: 20000 }, { label: '40rb', amount: 40000 }, { label: '60rb', amount: 60000 }, { label: '80rb', amount: 80000 }, { label: '100rb', amount: 100000 }, { label: '120rb', amount: 120000 }]} onOpen={(r) => { setSelectedWargaId(String(r.id)); setSelectedRow(r); }} onClose={() => setSelectedRow(null)} onSubmit={async (a) => { await submitPayment(a); setSelectedRow(null); }} />
         </Card>

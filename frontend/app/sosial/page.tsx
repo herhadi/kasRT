@@ -41,8 +41,8 @@ export default function SosialPage() {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
 
-  const canAccess = hasAnyRole(user, ['Admin Sosial', 'Ketua', 'Sekretaris', 'root']);
-  const canSubmit = hasAnyRole(user, ['Admin Sosial', 'Ketua', 'root']);
+  const canAccess = hasAnyRole(user, ['Admin Sosial', 'Ketua']);
+  const canSubmit = hasAnyRole(user, ['Admin Sosial']);
   const expensesPager = usePagination(data?.expenses || [], 20);
 
   const load = useCallback(async () => {

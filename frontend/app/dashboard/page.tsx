@@ -178,11 +178,12 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setShowSettings(true)}
-              className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-strong)]"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--surface-strong)]"
               aria-label="Pengaturan akun"
               title="Pengaturan akun"
             >
-              ⚙
+              <span className="text-xl leading-none">&#9881;</span>
+              <span>Pengaturan Akun</span>
             </button>
           </div>
           <h1 className="mt-3 font-[var(--font-space-grotesk)] text-3xl font-bold">Halo, {user.nama}</h1>
@@ -373,3 +374,4 @@ function Line({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+

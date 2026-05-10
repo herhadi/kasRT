@@ -2,14 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
+import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import ToastStack from '@/components/ui/ToastStack';
 import { apiFetch } from '@/lib/api';
+import useToast from '@/lib/hooks/useToast';
 
 type AttendanceItem = { warga_id: string; nama: string; status: 'HADIR' | 'IJIN' | 'TIDAK_HADIR' };
 
 export default function PresensiSekretarisPage() {
+  const { toasts, pushToast } = useToast();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [attendance, setAttendance] = useState<AttendanceItem[]>([]);
   const [saving, setSaving] = useState(false);
@@ -64,10 +68,43 @@ export default function PresensiSekretarisPage() {
     setSelected(null);
   }
 
+  function kirimRekapHadirWA() {
+    const hadir = attendance.filter((a) => a.status === 'HADIR');
+    if (hadir.length === 0) {
+      pushToast('Belum ada warga yang hadir.', 'warning');
+      return;
+    }
+
+    const [year, monthStr] = month.split('-');
+    const d = new Date(`${year}-${monthStr}-01`);
+    const periodText = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(d);
+
+    let text = '📋 *REKAP PRESENSI RAPAT RT*\n';
+    text += `📅 *${periodText}*\n`;
+    text += `✅ *Total Hadir: ${hadir.length}*\n\n`;
+    text += '*Daftar Warga Hadir:*\n';
+    hadir.forEach((item, idx) => {
+      text += `${idx + 1}. ${item.nama}\n`;
+    });
+
+    const nomor = process.env.NEXT_PUBLIC_WA_ADMIN || '';
+    if (navigator.share) {
+      navigator.share({ title: 'Rekap Presensi Rapat RT', text }).catch(() => {});
+      return;
+    }
+    if (!nomor) {
+      pushToast('Nomor WA admin belum dikonfigurasi.', 'error');
+      return;
+    }
+    window.open(`https://api.whatsapp.com/send?phone=${nomor}&text=${encodeURIComponent(text)}`, '_blank');
+  }
+
   return (
     <main className="min-h-screen pb-10">
+      <ToastStack toasts={toasts} />
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        <OperationalSubmenuHeader backHref="/operasional/sekretaris" title="Kembali ke Operasional Sekretaris" />
         <Card
           title="Input Presensi Rapat Bulanan"
           subtitle={`Periode ${month}`}
@@ -127,9 +164,12 @@ export default function PresensiSekretarisPage() {
               </div>
             ))}
           </div>
-          <div className="mt-3">
+          <div className="mt-3 grid w-full grid-cols-1 gap-2 md:grid-cols-2">
             <Button className="btn-action-green" onClick={saveAttendance} disabled={saving}>
               {saving ? 'Menyimpan...' : 'Simpan Presensi'}
+            </Button>
+            <Button variant="ghost" className="btn-action-blue" onClick={kirimRekapHadirWA}>
+              Kirim Rekap Hadir WA
             </Button>
           </div>
         </Card>

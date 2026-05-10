@@ -86,12 +86,12 @@ router.post(
 router.get(
   '/setor-history',
   auth,
-  allowRoles('Admin Jimpitan', 'root'),
+  allowRoles('Admin Jimpitan', 'Ketua'),
   asyncHandler(getSetorHistoryJimpitanAdmin)
 );
 
 router.get('/list', auth, asyncHandler(listJimpitan));
-router.get('/daily-recap', auth, allowRoles('Admin Jimpitan', 'root'), asyncHandler(getDailyRecapJimpitan));
+router.get('/daily-recap', auth, allowRoles('Admin Jimpitan', 'Ketua'), asyncHandler(getDailyRecapJimpitan));
 router.get('/route-order', auth, asyncHandler(getMyJimpitanRouteOrder));
 router.post('/route-order', auth, asyncHandler(saveMyJimpitanRouteOrder));
 

@@ -15,13 +15,13 @@ import {
 const router = express.Router();
 router.use(auth);
 
-router.get('/summary', allowRoles('Admin Internet', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getInternetSummaryHandler));
-router.get('/history', allowRoles('Admin Internet', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getInternetHistoryHandler));
-router.get('/tariffs', allowRoles('Admin Internet', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getInternetTariffsHandler));
-router.get('/members', allowRoles('Admin Internet', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getInternetMembersHandler));
-router.post('/payment', allowRoles('Admin Internet', 'root'), asyncHandler(postInternetPaymentHandler));
-router.post('/expense', allowRoles('Admin Internet', 'root'), asyncHandler(postInternetExpenseHandler));
-router.post('/tariff', allowRoles('Admin Internet', 'root'), asyncHandler(postInternetTariffHandler));
-router.post('/members/set-active', allowRoles('Admin Internet', 'root'), asyncHandler(postInternetMemberSetActiveHandler));
+router.get('/summary', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetSummaryHandler));
+router.get('/history', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetHistoryHandler));
+router.get('/tariffs', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetTariffsHandler));
+router.get('/members', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetMembersHandler));
+router.post('/payment', allowRoles('Admin Internet'), asyncHandler(postInternetPaymentHandler));
+router.post('/expense', allowRoles('Admin Internet'), asyncHandler(postInternetExpenseHandler));
+router.post('/tariff', allowRoles('Admin Internet'), asyncHandler(postInternetTariffHandler));
+router.post('/members/set-active', allowRoles('Admin Internet'), asyncHandler(postInternetMemberSetActiveHandler));
 
 export default router;

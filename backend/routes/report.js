@@ -32,56 +32,56 @@ router.get(
 router.get(
   '/dashboard-admin-jimpitan',
   auth,
-  allowRoles('Admin Jimpitan', 'root'),
+  allowRoles('Admin Jimpitan', 'Ketua'),
   asyncHandler(dashboardAdminJimpitan)
 );
 
 router.get(
   '/dashboard-admin-pembangunan',
   auth,
-  allowRoles('Admin Pembangunan', 'root'),
+  allowRoles('Admin Pembangunan', 'Ketua'),
   asyncHandler(dashboardAdminPembangunan)
 );
 
 router.get(
   '/dashboard-admin-internet',
   auth,
-  allowRoles('Admin Internet', 'root'),
+  allowRoles('Admin Internet', 'Ketua'),
   asyncHandler(dashboardAdminInternet)
 );
 
 router.get(
   '/dashboard-admin-koperasi',
   auth,
-  allowRoles('Admin Koperasi', 'root'),
+  allowRoles('Admin Koperasi', 'Ketua'),
   asyncHandler(dashboardAdminKoperasi)
 );
 
 router.get(
   '/dashboard-admin-bendahara',
   auth,
-  allowRoles('Bendahara', 'Ketua', 'Sekretaris', 'root'),
+  allowRoles('Bendahara', 'Ketua'),
   asyncHandler(dashboardAdminBendahara)
 );
 
 router.get(
   '/dashboard-admin-lingkungan',
   auth,
-  allowRoles('Admin Lingkungan', 'root'),
+  allowRoles('Admin Lingkungan', 'Ketua'),
   asyncHandler(dashboardAdminLingkungan)
 );
 
 router.get(
   '/dashboard-admin-sosial',
   auth,
-  allowRoles('Admin Sosial', 'Ketua', 'Sekretaris', 'root'),
+  allowRoles('Admin Sosial', 'Ketua'),
   asyncHandler(dashboardAdminSosial)
 );
 
 router.get(
   '/rekap-keuangan',
   auth,
-  allowRoles('Ketua', 'Sekretaris', 'root'),
+  allowRoles('Ketua'),
   asyncHandler(rekapKeuanganBulanan)
 );
 

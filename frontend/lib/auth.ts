@@ -41,5 +41,6 @@ export function clearSession() {
 export function hasAnyRole(user: UserSession | null, allowedRoles: string[]) {
   if (!user) return false;
   const owned = user.roles.map((role) => String(role).toLowerCase());
+  if (owned.includes('root')) return true;
   return allowedRoles.some((role) => owned.includes(role.toLowerCase()));
 }

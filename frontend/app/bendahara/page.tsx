@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
+import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -880,6 +881,7 @@ export default function BendaharaPage() {
         ) : null}
         <Navbar />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <OperationalSubmenuHeader backHref="/operasional/bendahara" title="Kembali ke Operasional Bendahara" />
           <Card
             title="Input Iuran Wajib"
             headerRight={

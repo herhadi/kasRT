@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
 import Navbar from '@/components/layout/Navbar';
+import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import WargaContributionModal from '@/components/contribution/WargaContributionModal';
@@ -202,6 +203,7 @@ export default function TabunganPage() {
     <main className="min-h-screen pb-10">
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        {inputPageMode ? <OperationalSubmenuHeader backHref="/operasional/tabungan" title="Kembali ke Operasional Pembangunan" /> : null}
         <Card
           title="Tabungan Pembangunan"
           subtitle="Setoran sukarela warga (minimal Rp 5.000)"

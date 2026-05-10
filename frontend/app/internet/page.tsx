@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
+import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -69,7 +70,7 @@ export default function OperasionalInternetPage() {
   const [members, setMembers] = useState<InternetMember[]>([]);
   const [showMemberSection, setShowMemberSection] = useState(false);
 
-  const canAccess = hasAnyRole(user, ['Admin Internet', 'Ketua', 'Sekretaris', 'root']);
+  const canAccess = hasAnyRole(user, ['Admin Internet', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Internet', 'root']);
   const iuranOnlyMode = pathname === '/operasional/internet/iuran';
 
@@ -217,6 +218,7 @@ export default function OperasionalInternetPage() {
       <main className="min-h-screen pb-10">
         <Navbar />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <OperationalSubmenuHeader backHref="/operasional/internet" title="Kembali ke Operasional Internet" />
           <Card
             title="Input Iuran Internet"
             subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`}

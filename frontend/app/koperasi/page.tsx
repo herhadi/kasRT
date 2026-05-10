@@ -20,7 +20,7 @@ type Summary = { kas_saldo: number; total_angsuran_masuk: number; loans: LoanRow
 
 export default function KoperasiPage() {
   const { user, loading } = useAuth();
-  const canAccess = hasAnyRole(user, ['Admin Koperasi', 'Ketua', 'Sekretaris', 'root']);
+  const canAccess = hasAnyRole(user, ['Admin Koperasi', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Koperasi', 'root']);
   const [members, setMembers] = useState<Member[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);

@@ -6,8 +6,8 @@ import { securityReportCreateHandler, securityReportListHandler, securityReportS
 const router = express.Router();
 router.use(auth);
 
-router.get('/reports', allowRoles('Admin Keamanan', 'Ketua', 'Sekretaris', 'root'), asyncHandler(securityReportListHandler));
-router.post('/reports', allowRoles('Admin Keamanan', 'root'), asyncHandler(securityReportCreateHandler));
-router.post('/reports/status', allowRoles('Admin Keamanan', 'Ketua', 'Sekretaris', 'root'), asyncHandler(securityReportStatusHandler));
+router.get('/reports', allowRoles('Admin Keamanan', 'Ketua'), asyncHandler(securityReportListHandler));
+router.post('/reports', allowRoles('Admin Keamanan'), asyncHandler(securityReportCreateHandler));
+router.post('/reports/status', allowRoles('Admin Keamanan'), asyncHandler(securityReportStatusHandler));
 
 export default router;

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
+import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -50,6 +51,7 @@ export default function KoperasiIuranPage() {
     <main className="min-h-screen pb-10">
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        <OperationalSubmenuHeader backHref="/operasional/koperasi" title="Kembali ke Operasional Koperasi" />
         <Card title="Input Iuran Wajib Koperasi" subtitle="Untuk anggota koperasi aktif" headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
           <div className="mb-4 grid gap-3 md:grid-cols-3">
             <Input label="Nominal Iuran Wajib/Bulan" type="text" inputMode="numeric" value={formatRupiahInput(fee)} onChange={(e) => setFee(e.target.value)} />

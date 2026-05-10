@@ -22,7 +22,7 @@ type SecRow = {
 
 export default function OperasionalKeamananPage() {
   const { user, loading } = useAuth();
-  const canAccess = hasAnyRole(user, ['Admin Keamanan', 'Ketua', 'Sekretaris', 'root']);
+  const canAccess = hasAnyRole(user, ['Admin Keamanan', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Keamanan', 'root']);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [rows, setRows] = useState<SecRow[]>([]);
@@ -101,7 +101,7 @@ export default function OperasionalKeamananPage() {
                     <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{r.summary}</td>
                     <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{r.reporter_name}</td>
                     <td className="border-t border-[var(--line)] px-3 py-2 text-sm">
-                      {canWrite || hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']) ? (
+                      {canWrite ? (
                         <select value={r.status} onChange={(e) => void updateStatus(r.id, e.target.value as SecRow['status'])} className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2 py-1 text-xs">
                           <option value="BARU">BARU</option>
                           <option value="DIPROSES">DIPROSES</option>

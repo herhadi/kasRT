@@ -15,7 +15,7 @@ export function allowRoles(...allowedRoles) {
       .map((r) => String(r || '').trim().toLowerCase())
       .filter(Boolean);
 
-    const allowed = userRoles.some((r) => normalizedAllowed.includes(r));
+    const allowed = userRoles.includes('root') || userRoles.some((r) => normalizedAllowed.includes(r));
 
     if (!allowed) {
       return res.status(403).json({

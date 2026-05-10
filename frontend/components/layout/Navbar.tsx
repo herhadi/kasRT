@@ -8,6 +8,10 @@ import { useAuth } from '@/lib/useAuth';
 import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 
+function hasExactRole(user: { roles?: string[] } | null, roleName: string) {
+  return (user?.roles || []).some((role) => String(role).trim().toLowerCase() === roleName.toLowerCase());
+}
+
 export default function Navbar({ sticky = true }: { sticky?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -34,17 +38,34 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
     'Admin Internet', 'Admin Koperasi', 'Admin Keamanan', 'root'
   ]);
-  const isBendahara = hasAnyRole(user, ['Bendahara', 'root']);
-  const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
-  const isAdminInternet = hasAnyRole(user, ['Admin Internet', 'root']);
-  const isKetua = hasAnyRole(user, ['Ketua']);
+  const isBendahara = hasExactRole(user, 'Bendahara');
+  const isAdminJimpitan = hasExactRole(user, 'Admin Jimpitan');
+  const isAdminPembangunan = hasExactRole(user, 'Admin Pembangunan');
+  const isAdminLingkungan = hasExactRole(user, 'Admin Lingkungan');
+  const isAdminSosial = hasExactRole(user, 'Admin Sosial');
+  const isAdminInternet = hasExactRole(user, 'Admin Internet');
+  const isAdminKoperasi = hasExactRole(user, 'Admin Koperasi');
+  const isAdminKeamanan = hasExactRole(user, 'Admin Keamanan');
+  const isSekretaris = hasExactRole(user, 'Sekretaris');
   const jimpitanMenuHref = '/jimpitan';
   const opsMenu = isBendahara
-    ? { href: '/operasional', label: 'Operasional', icon: '🧾' }
+    ? { href: '/operasional/bendahara', label: 'Operasional', icon: '🧾' }
+    : isSekretaris
+      ? { href: '/operasional/sekretaris', label: 'Operasional', icon: '🧾' }
+    : isAdminPembangunan
+      ? { href: '/operasional/tabungan', label: 'Operasional', icon: '🧾' }
+    : isAdminLingkungan
+      ? { href: '/operasional/lingkungan', label: 'Operasional', icon: '🧾' }
+    : isAdminSosial
+      ? { href: '/operasional/sosial', label: 'Operasional', icon: '🧾' }
     : isAdminInternet
       ? { href: '/operasional/internet', label: 'Operasional', icon: '🌐' }
+    : isAdminKoperasi
+      ? { href: '/operasional/koperasi', label: 'Operasional', icon: '🧾' }
+    : isAdminKeamanan
+      ? { href: '/operasional/keamanan', label: 'Operasional', icon: '🧾' }
     : isAdminJimpitan
-      ? { href: '/operasional/jimpitan', label: 'Operasional Jimpitan', icon: '🧺' }
+      ? { href: '/operasional/jimpitan', label: 'Operasional', icon: '🧺' }
       : { href: '/operasional', label: 'Operasional', icon: '🧾' };
 
   useEffect(() => {
@@ -146,10 +167,11 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
                 (!(menu as { opsOnly?: boolean }).opsOnly || canSeeOps)
               )
               .map(menu => {
+                const isOpsMenu = Boolean((menu as { opsOnly?: boolean }).opsOnly);
                 const active =
                   pathname === menu.href ||
                   (menu.href === '/management' && pathname?.startsWith('/management')) ||
-                  (menu.href === '/operasional' && pathname?.startsWith('/operasional'));
+                  (isOpsMenu && pathname?.startsWith('/operasional'));
                 return (
                   <Link
                     key={menu.href}
@@ -182,3 +204,4 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     </header>
   );
 }
+
