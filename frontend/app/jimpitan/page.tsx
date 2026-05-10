@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import FeedbackToast from '@/components/ui/FeedbackToast';
 import FormJimpitan from './FormJimpitan';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -503,6 +504,7 @@ export default function JimpitanPage() {
 
   return (
     <main className="min-h-screen pb-20 md:pb-10">
+      <FeedbackToast error={error} />
       <div className="pointer-events-none fixed left-1/2 top-4 z-[100] flex w-full max-w-md -translate-x-1/2 flex-col gap-2 px-4">
         {toasts.map((toast) => (
           <div
@@ -628,8 +630,6 @@ export default function JimpitanPage() {
       </div>
 
       <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-
         <div>
           <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
             Daftar Warga ({orderedItems.length})

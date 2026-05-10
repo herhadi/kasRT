@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { isValidPin, normalizePinInput } from '@/lib/helpers';
@@ -219,6 +220,7 @@ export default function UserManagementPage() {
 
   return (
     <main className="min-h-screen pb-10">
+      <FeedbackToast error={error} message={message} />
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card title="Manajemen Warga" subtitle="Tambah warga baru dan tunjuk role admin sesuai kebutuhan">
@@ -241,9 +243,6 @@ export default function UserManagementPage() {
           </div>
           <p className="mt-3 text-xs text-[var(--text-muted)]">Default role user baru otomatis `Warga` (id 11) pada tabel `user_roles`.</p>
         </Card>
-
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-        {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div> : null}
 
         <Card title="Penunjukan Struktur" subtitle="Pilih warga dan tetapkan jabatan organisasi RT">
           <div className="grid gap-3 md:grid-cols-3">

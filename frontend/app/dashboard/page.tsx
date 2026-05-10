@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import FeedbackToast from '@/components/ui/FeedbackToast';
 import ToastStack from '@/components/ui/ToastStack';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -165,6 +166,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen pb-10">
+      <FeedbackToast error={error} />
       <ToastStack toasts={toasts} />
       <Navbar />
 
@@ -189,8 +191,6 @@ export default function DashboardPage() {
           <h1 className="mt-3 font-[var(--font-space-grotesk)] text-3xl font-bold">Halo, {user.nama}</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">Role: {user.roles.join(', ') || 'Warga'}</p>
         </section>
-
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         {wargaData ? (
           <>

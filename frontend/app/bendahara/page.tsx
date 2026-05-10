@@ -8,6 +8,7 @@ import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHead
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import FeedbackToast from '@/components/ui/FeedbackToast';
 import SummaryTripleCard from '@/components/ui/SummaryTripleCard';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
@@ -859,8 +860,9 @@ export default function BendaharaPage() {
 
   if (!canSeeOps) {
     return (
-      <main className="min-h-screen pb-10">
-        <Navbar />
+    <main className="min-h-screen pb-10">
+      <FeedbackToast error={error} message={message} />
+      <Navbar />
       </main>
     );
   }
@@ -868,6 +870,7 @@ export default function BendaharaPage() {
   if (iuranPageMode && (isBendahara || isKetua)) {
     return (
       <main className="min-h-screen pb-10">
+        <FeedbackToast error={error} message={message} />
         {toast ? (
           <div
             className={
@@ -962,6 +965,7 @@ export default function BendaharaPage() {
 
   return (
     <main className="min-h-screen pb-10">
+      <FeedbackToast error={error} message={message} />
       {toast ? (
         <div
           className={
@@ -1672,8 +1676,6 @@ export default function BendaharaPage() {
           </>
         ) : null}
 
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-        {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
       </div>
     </main>
   );

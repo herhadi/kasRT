@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
@@ -122,6 +123,7 @@ export default function SosialPage() {
 
   return (
     <main className="min-h-screen pb-10">
+      <FeedbackToast error={error} message={message} />
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card
@@ -185,8 +187,6 @@ export default function SosialPage() {
             />
           </div>
         </Card>
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-        {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
       </div>
     </main>
   );

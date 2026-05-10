@@ -8,6 +8,7 @@ import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHead
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
@@ -141,19 +142,17 @@ export default function LingkunganPage() {
   if (loading || !user) return <main className="min-h-screen" />;
   if (iuranOnlyMode) {
     return (
-      <main className="min-h-screen pb-10"><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+      <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
         <Card title="Input Iuran Lingkungan" subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`} headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
           <WargaContributionSection rows={rowsForInput} selectedRow={selectedRow} loading={busy} presets={[{ label: '20rb', amount: 20000 }, { label: '40rb', amount: 40000 }, { label: '60rb', amount: 60000 }, { label: '80rb', amount: 80000 }, { label: '100rb', amount: 100000 }, { label: '120rb', amount: 120000 }]} onOpen={(r) => { setSelectedWargaId(String(r.id)); setSelectedRow(r); }} onClose={() => setSelectedRow(null)} onSubmit={async (a) => { await submitPayment(a); setSelectedRow(null); }} />
         </Card>
-        {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-        {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
       </div></main>
     );
   }
 
   return (
-    <main className="min-h-screen pb-10"><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+    <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
       <Card title="Operasional Lingkungan" subtitle="Iuran lingkungan bulanan, tunggakan, dan pengeluaran" headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
         <div className="grid gap-2 md:grid-cols-3">
           <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
@@ -276,8 +275,6 @@ export default function LingkunganPage() {
           ))}</tbody>
         </table></div>
       </Card>
-      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-      {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
     </div></main>
   );
 }
