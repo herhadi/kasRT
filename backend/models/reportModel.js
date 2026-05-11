@@ -70,10 +70,9 @@ export async function isInternetMember(userId) {
   const result = await pool.query(
     `SELECT EXISTS (
        SELECT 1
-       FROM iuran_transactions it
-       JOIN contribution_types ct ON ct.id = it.contribution_type_id
-       WHERE it.warga_id = $1
-         AND ct.name = 'Internet'
+       FROM inet_members im
+       WHERE im.warga_id = $1::uuid
+         AND im.is_active = TRUE
      ) AS is_member`,
     [userId]
   );
@@ -84,10 +83,22 @@ export async function isLingkunganMember(userId) {
   const result = await pool.query(
     `SELECT EXISTS (
        SELECT 1
-       FROM iuran_transactions it
-       JOIN contribution_types ct ON ct.id = it.contribution_type_id
-       WHERE it.warga_id = $1
-         AND ct.name IN ('Lingkungan', 'Sampah', 'Iuran Sampah')
+       FROM lh_members lm
+       WHERE lm.warga_id = $1::uuid
+         AND lm.is_active = TRUE
+     ) AS is_member`,
+    [userId]
+  );
+  return Boolean(result.rows[0]?.is_member);
+}
+
+export async function isKoperasiMember(userId) {
+  const result = await pool.query(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM kop_members km
+       WHERE km.warga_id = $1::uuid
+         AND km.is_active = TRUE
      ) AS is_member`,
     [userId]
   );

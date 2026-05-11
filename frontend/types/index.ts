@@ -36,6 +36,7 @@ export type DashboardWargaData = {
   lingkungan_target_bulanan: number;
   lingkungan_is_member: boolean;
   lingkungan_status: 'MENUNGGAK' | 'PAS' | 'LEBIH' | 'NON_MEMBER';
+  koperasi_is_member: boolean;
   koperasi_has_loan: boolean;
   koperasi_loan_monthly_installment: number;
   koperasi_loan_paid_installments: number;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const [pinBaru2, setPinBaru2] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
+  const [activatingTelegram, setActivatingTelegram] = useState(false);
 
   const adminEndpoint = useMemo(() => {
     if (!user) return null;
@@ -112,6 +114,36 @@ export default function DashboardPage() {
     }));
   }, [scheduleData]);
 
+  const serviceRows = useMemo(() => {
+    if (!wargaData) return [];
+    return [
+      wargaData.internet_is_member
+        ? {
+            label: 'Internet',
+            value: formatRupiah(wargaData.internet_bulan_ini),
+            status: wargaData.internet_status
+          }
+        : null,
+      wargaData.lingkungan_is_member
+        ? {
+            label: 'Lingkungan',
+            value: formatRupiah(wargaData.lingkungan_bulan_ini),
+            status: wargaData.lingkungan_status
+          }
+        : null,
+      {
+        label: 'Koperasi',
+        value: '-',
+        status: wargaData.koperasi_is_member ? 'ACTIVE_MEMBER' : 'NON_MEMBER'
+      }
+    ].filter(Boolean) as Array<{ label: string; value: string; status: string }>;
+  }, [wargaData]);
+
+  const optionalRows = useMemo(
+    () => (wargaData?.optional_contributions || []).filter((item) => item.is_mandatory === false && Number(item.amount || 0) > 0),
+    [wargaData]
+  );
+
   if (loading || !user) return <main className="min-h-screen" />;
 
   async function saveProfile() {
@@ -164,6 +196,36 @@ export default function DashboardPage() {
     }
   }
 
+  async function activateTelegram() {
+    try {
+      setActivatingTelegram(true);
+      const res = await apiFetch<{ success: boolean; activation_link: string; expires_in_minutes?: number }>(
+        '/auth/telegram-activation-link',
+        { method: 'POST', body: JSON.stringify({}) }
+      );
+      if (!res.activation_link) {
+        pushToast('Link aktivasi Telegram tidak tersedia.', 'error');
+        return;
+      }
+      window.open(res.activation_link, '_blank', 'noopener,noreferrer');
+      pushToast(`Link aktivasi Telegram dibuka. Berlaku ${res.expires_in_minutes || 15} menit.`, 'success');
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : 'Gagal membuat link aktivasi Telegram', 'error');
+    } finally {
+      setActivatingTelegram(false);
+    }
+  }
+
+  async function refreshTelegramStatus() {
+    try {
+      const meResult = await apiFetch<{ success: boolean; user: UserSession }>('/auth/me');
+      refreshUser(meResult.user);
+      pushToast(meResult.user.telegram_connected ? 'Telegram sudah terhubung.' : 'Telegram belum terhubung.', meResult.user.telegram_connected ? 'success' : 'warning');
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : 'Gagal memperbarui status Telegram', 'error');
+    }
+  }
+
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={error} />
@@ -194,32 +256,35 @@ export default function DashboardPage() {
 
         {wargaData ? (
           <>
-            <section className="grid gap-4 grid-cols-2 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
               <Metric title="Iuran Wajib" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
-              <Metric title="Opsional" value={formatRupiah(wargaData.total_optional_bulan_ini)} />
-              <Metric title="Total Kontribusi" value={formatRupiah(wargaData.total_kontribusi_bulan_ini)} />
+              {wargaData.total_optional_bulan_ini > 0 ? <Metric title="Opsional" value={formatRupiah(wargaData.total_optional_bulan_ini)} /> : null}
+              <Metric title="Total" value={formatRupiah(wargaData.total_kontribusi_bulan_ini)} />
             </section>
 
-            <section className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-              <Card title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
+            <section className={`grid gap-3 ${serviceRows.length ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+              <CompactPanel title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
                 <div className="space-y-2 text-sm">
                   <Line label="Target Jimpitan" value={formatRupiah(wargaData.target_jimpitan_bulanan)} />
                   <Line label="Target Iuran Wajib" value={formatRupiah(wargaData.target_iuran_wajib)} />
                   <Line label="Target Dasar" value={formatRupiah(wargaData.target_kontribusi_dasar)} />
                 </div>
-              </Card>
+              </CompactPanel>
 
-              <Card title="Status Internet & Lingkungan" subtitle="Monitoring iuran layanan bulanan">
-                <div className="space-y-2 text-sm">
-                  <Line label="Internet" value={`${formatRupiah(wargaData.internet_bulan_ini)} (${wargaData.internet_status})`} />
-                  <Line label="Lingkungan" value={`${formatRupiah(wargaData.lingkungan_bulan_ini)} (${wargaData.lingkungan_status})`} />
-                </div>
-              </Card>
+              {serviceRows.length ? (
+                <CompactPanel title="Layanan Aktif" subtitle="Internet dan lingkungan">
+                  <div className="grid gap-2 text-sm">
+                    {serviceRows.map((row) => (
+                      <Line key={row.label} label={row.label} value={`${row.value} (${formatStatus(row.status)})`} />
+                    ))}
+                  </div>
+                </CompactPanel>
+              ) : null}
             </section>
 
             {wargaData.koperasi_has_loan ? (
-              <Card title="Pinjaman Koperasi" subtitle="Informasi angsuran pinjaman aktif">
+              <CompactPanel title="Pinjaman Koperasi" subtitle="Angsuran pinjaman aktif">
                 <div className="space-y-2 text-sm">
                   <Line label="Angsuran / Bulan" value={formatRupiah(Number(wargaData.koperasi_loan_monthly_installment || 0))} />
                   <Line
@@ -227,25 +292,21 @@ export default function DashboardPage() {
                     value={`Angsuran ke-${Math.min(Number(wargaData.koperasi_loan_current_installment_no || 1), Number(wargaData.koperasi_loan_tenor_months || 0))}/${Number(wargaData.koperasi_loan_tenor_months || 0)}`}
                   />
                 </div>
-              </Card>
+              </CompactPanel>
             ) : null}
 
-            <Card title="Iuran Opsional" subtitle="Kontribusi di luar iuran dasar">
-              <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-                {wargaData.optional_contributions.filter((item) => item.is_mandatory === false).length === 0 ? (
-                  <p className="text-sm text-[var(--text-muted)]">Belum ada kontribusi opsional bulan ini.</p>
-                ) : (
-                  wargaData.optional_contributions
-                    .filter((item) => item.is_mandatory === false)
-                    .map((item) => (
-                      <div key={item.name} className="surface-muted rounded-2xl border border-[var(--line)] p-4">
-                        <p className="text-sm font-semibold">{item.name}</p>
-                        <p className="metric-value mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
-                      </div>
-                    ))
-                )}
-              </div>
-            </Card>
+            {optionalRows.length ? (
+              <CompactPanel title="Iuran Opsional" subtitle="Kontribusi di luar iuran dasar">
+                <div className="grid gap-2 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+                  {optionalRows.map((item) => (
+                    <div key={item.name} className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">
+                      <p className="text-sm font-semibold">{item.name}</p>
+                      <p className="metric-value mt-1 text-lg font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
+                    </div>
+                  ))}
+                </div>
+              </CompactPanel>
+            ) : null}
 
             <Card title="Jadwal Petugas Jimpitan" subtitle="Akses bersama untuk seluruh warga (Ahad - Sabtu)">
               <div className="overflow-x-auto">
@@ -320,6 +381,33 @@ export default function DashboardPage() {
                 </Button>
               </div>
               <div className="space-y-2 border-t border-[var(--line)] pt-4">
+                <p className="text-sm font-semibold">Telegram</p>
+                <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        {user.telegram_connected ? 'Telegram Terhubung' : 'Telegram Belum Terhubung'}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--text-muted)]">
+                        {user.telegram_connected
+                          ? 'Akun ini bisa menerima notifikasi approval.'
+                          : 'Aktifkan agar notifikasi approval masuk ke Telegram Anda.'}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      {!user.telegram_connected ? (
+                        <Button className="w-full sm:w-auto" onClick={activateTelegram} disabled={activatingTelegram}>
+                          {activatingTelegram ? 'Membuat Link...' : 'Aktifkan Telegram'}
+                        </Button>
+                      ) : null}
+                      <Button variant="ghost" className="w-full sm:w-auto" onClick={refreshTelegramStatus}>
+                        Refresh Status
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2 border-t border-[var(--line)] pt-4">
                 <p className="text-sm font-semibold">Ganti PIN</p>
                 <Input
                   label="PIN Lama"
@@ -359,19 +447,40 @@ export default function DashboardPage() {
 
 function Metric({ title, value }: { title: string; value: string }) {
   return (
-    <article className="glass-card rounded-3xl p-5">
-      <p className="text-sm text-[var(--text-muted)]">{title}</p>
-      <p className="metric-value mt-2 text-2xl font-bold text-[var(--accent)]">{value}</p>
+    <article className="glass-card rounded-2xl p-4">
+      <p className="text-xs font-semibold text-[var(--text-muted)]">{title}</p>
+      <p className="metric-value mt-1 text-xl font-bold text-[var(--accent)]">{value}</p>
     </article>
+  );
+}
+
+function CompactPanel({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
+      <div className="mb-3">
+        <h2 className="text-base font-bold text-[var(--text-primary)]">{title}</h2>
+        {subtitle ? <p className="mt-1 text-xs text-[var(--text-muted)]">{subtitle}</p> : null}
+      </div>
+      {children}
+    </section>
   );
 }
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
-    <div className="surface-muted flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] px-3 py-2">
-      <span className="text-[var(--text-muted)]">{label}</span>
-      <strong className="text-right">{value}</strong>
+    <div className="surface-muted flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] px-3 py-2">
+      <span className="text-xs text-[var(--text-muted)]">{label}</span>
+      <strong className="text-right text-sm">{value}</strong>
     </div>
   );
+}
+
+function formatStatus(status: string) {
+  if (status === 'ACTIVE_MEMBER') return 'Aktif';
+  if (status === 'NON_MEMBER') return 'Tidak ikut';
+  if (status === 'MENUNGGAK') return 'Menunggak';
+  if (status === 'PAS') return 'Lunas';
+  if (status === 'LEBIH') return 'Lebih';
+  return status;
 }
 

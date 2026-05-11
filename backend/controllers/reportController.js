@@ -14,7 +14,8 @@ import {
   getJimpitanHarianByWarga,
   getLaporanBulananByMonth,
   isInternetMember,
-  isLingkunganMember
+  isLingkunganMember,
+  isKoperasiMember
 } from '../models/reportModel.js';
 import { getDashboardAdminJimpitan } from '../models/jimpitanModel.js';
 
@@ -39,6 +40,10 @@ export async function dashboardWarga(req, res) {
     let total_optional_bulan_ini = 0;
     const optional_contributions = [];
 
+    const internetMember = await isInternetMember(user_id);
+    const lingkunganMember = await isLingkunganMember(user_id);
+    const koperasiMember = await isKoperasiMember(user_id);
+
     iuranRows.forEach((row) => {
       const name = row.name;
       const amount = Number(row.total || 0);
@@ -61,21 +66,27 @@ export async function dashboardWarga(req, res) {
         lingkungan_bulan_ini = amount;
       }
 
-      if (!isMandatory) {
-        total_optional_bulan_ini += amount;
-      }
+      const isInternetContribution = name === 'Internet';
+      const isLingkunganContribution = ['Lingkungan', 'Sampah', 'Iuran Sampah'].includes(name);
+      const isKoperasiContribution = name === 'Koperasi';
+      const isActiveOptionalMember =
+        (!isInternetContribution || internetMember) &&
+        (!isLingkunganContribution || lingkunganMember) &&
+        (!isKoperasiContribution || koperasiMember);
 
-      optional_contributions.push({
-        name,
-        is_mandatory: Boolean(isMandatory),
-        amount
-      });
+      if (!isMandatory && isActiveOptionalMember) {
+        total_optional_bulan_ini += amount;
+        optional_contributions.push({
+          name,
+          is_mandatory: Boolean(isMandatory),
+          amount
+        });
+      }
     });
 
     const total_kontribusi_bulan_ini =
       jimpitan_bulan_ini + iuran_wajib_bulan_ini + total_optional_bulan_ini;
 
-    const internetMember = await isInternetMember(user_id);
     let internet_status = 'NON_MEMBER';
     if (internetMember) {
       if (internet_bulan_ini < INTERNET_TARGET_BULANAN) internet_status = 'MENUNGGAK';
@@ -83,7 +94,6 @@ export async function dashboardWarga(req, res) {
       else internet_status = 'LEBIH';
     }
 
-    const lingkunganMember = await isLingkunganMember(user_id);
     let lingkungan_status = 'NON_MEMBER';
     if (lingkunganMember) {
       if (lingkungan_bulan_ini < LINGKUNGAN_TARGET_BULANAN) lingkungan_status = 'MENUNGGAK';
@@ -111,6 +121,7 @@ export async function dashboardWarga(req, res) {
         lingkungan_target_bulanan: LINGKUNGAN_TARGET_BULANAN,
         lingkungan_is_member: lingkunganMember,
         lingkungan_status,
+        koperasi_is_member: koperasiMember,
         koperasi_has_loan: Boolean(loanProgress),
         koperasi_loan_monthly_installment: loanProgress
           ? Math.round((Number(loanProgress.total_due_all || 0) / Math.max(Number(loanProgress.tenor_months || 1), 1)) * 100) / 100
