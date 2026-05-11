@@ -11,6 +11,8 @@ import {
   listInternetTariffs,
   setInternetTariff
 } from '../models/internetModel.js';
+import { notifyUser } from '../services/approvalNotifier.js';
+import { formatRupiah } from '../services/telegramService.js';
 
 export async function getInternetSummaryHandler(req, res) {
   const month = String(req.query.month || '').trim();
@@ -32,6 +34,12 @@ export async function postInternetPaymentHandler(req, res) {
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'amount invalid' });
   if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(paidAt)) return res.status(400).json({ success: false, message: 'paid_at invalid' });
   await addInternetPayment({ wargaId, month, amount, paidAt, note, createdBy: actor });
+  await notifyUser(
+    wargaId,
+    `✅ <b>Iuran Internet Tercatat</b>\n` +
+      `Periode: <b>${month}</b>\n` +
+      `Nominal: <b>${formatRupiah(amount)}</b>`
+  );
   return res.json({ success: true });
 }
 

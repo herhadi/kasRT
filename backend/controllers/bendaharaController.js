@@ -16,7 +16,7 @@ import {
   getYearlyBookSummary,
   openYearlyBook
 } from '../models/yearlyBookModel.js';
-import { notifyRoles } from '../services/approvalNotifier.js';
+import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah } from '../services/telegramService.js';
 
 export async function getBendaharaMasterData(req, res) {
@@ -115,6 +115,12 @@ export async function setorIuranWajibWarga(req, res) {
 
   try {
     await inputIuranWajibSetoran({ wargaId, amount, createdBy: actor, tanggal });
+    await notifyUser(
+      wargaId,
+      `✅ <b>Iuran Wajib Tercatat</b>\n` +
+        `Nominal: <b>${formatRupiah(amount)}</b>\n` +
+        `Tanggal: <b>${tanggal || new Date().toISOString().slice(0, 10)}</b>`
+    );
     return res.json({ success: true });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

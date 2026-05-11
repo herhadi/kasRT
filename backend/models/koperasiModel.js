@@ -381,6 +381,17 @@ export async function recordKoperasiPayment({ loanId, amount, paidDate, descript
   }
 }
 
+export async function findKoperasiLoanOwner(loanId) {
+  const result = await pool.query(
+    `SELECT warga_id::text AS warga_id
+     FROM kop_loans
+     WHERE id = $1::uuid
+     LIMIT 1`,
+    [loanId]
+  );
+  return result.rows[0] || null;
+}
+
 export async function getKoperasiSummary() {
   const [agg, loans] = await Promise.all([
     pool.query(

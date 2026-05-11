@@ -2,6 +2,7 @@ import {
   activateKoperasiLoan,
   buildInstallmentPlan,
   createKoperasiLoanDraft,
+  findKoperasiLoanOwner,
   getKoperasiMemberCandidates,
   getKoperasiIuranSummary,
   getKoperasiSummary,
@@ -11,6 +12,8 @@ import {
   setKoperasiMemberActive,
   upsertKoperasiMonthlyFee
 } from '../models/koperasiModel.js';
+import { notifyUser } from '../services/approvalNotifier.js';
+import { formatRupiah } from '../services/telegramService.js';
 
 export async function koperasiMembersHandler(_req, res) {
   const data = await getKoperasiMemberCandidates();
@@ -72,7 +75,14 @@ export async function paymentLoanHandler(req, res) {
   if (!loanId) return res.status(400).json({ success: false, message: 'loan_id wajib' });
   if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'amount invalid' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) return res.status(400).json({ success: false, message: 'paid_date invalid' });
+  const owner = await findKoperasiLoanOwner(loanId);
   const data = await recordKoperasiPayment({ loanId, amount, paidDate, description, createdBy: String(req.user.user_id || '').trim() });
+  if (owner?.warga_id) {
+    await notifyUser(
+      owner.warga_id,
+      `Pembayaran angsuran koperasi tercatat.\nPinjaman: ${loanId}\nTanggal: ${paidDate}\nNominal: ${formatRupiah(amount)}`
+    );
+  }
   return res.json({ success: true, data });
 }
 
