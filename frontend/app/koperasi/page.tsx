@@ -212,7 +212,7 @@ export default function KoperasiPage() {
         </Card>
 
         {canWrite ? (
-          <Card title="Keanggotaan Koperasi" subtitle="Master warga global, aktifkan yang ikut koperasi">
+          <Card title="Keanggotaan Koperasi" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk anggota koperasi.">
             <div className="mb-3">
               <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
                 {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}

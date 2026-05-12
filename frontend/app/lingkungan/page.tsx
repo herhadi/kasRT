@@ -174,7 +174,7 @@ export default function LingkunganPage() {
         ) : null}
       </Card>
       {canWrite ? (
-        <Card title="Keanggotaan Lingkungan" subtitle="Master warga global, aktifkan yang ikut iuran lingkungan">
+        <Card title="Keanggotaan Lingkungan" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran lingkungan.">
           <div className="mb-3">
             <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
               {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}

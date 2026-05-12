@@ -209,10 +209,9 @@ export async function getDashboardAdminPembangunanAggregate() {
 export async function getDashboardAdminInternetAggregate(internetTargetBulanan) {
   const result = await pool.query(
     `WITH anggota AS (
-       SELECT DISTINCT it.warga_id
-       FROM iuran_transactions it
-       JOIN contribution_types ct ON ct.id = it.contribution_type_id
-       WHERE ct.name = 'Internet'
+       SELECT im.warga_id
+       FROM inet_members im
+       WHERE im.is_active = TRUE
      ),
      iuran_bulan_ini AS (
        SELECT
@@ -239,13 +238,18 @@ export async function getDashboardAdminInternetAggregate(internetTargetBulanan) 
 
 export async function getDashboardAdminKoperasiAggregate() {
   const result = await pool.query(
-    `SELECT
+    `WITH anggota AS (
+       SELECT km.warga_id
+       FROM kop_members km
+       WHERE km.is_active = TRUE
+     )
+     SELECT
        COALESCE(SUM(CASE
          WHEN DATE_TRUNC('month', it.tanggal) = DATE_TRUNC('month', CURRENT_DATE) THEN it.amount
          ELSE 0
        END), 0) AS total_bulan_ini,
        COALESCE(SUM(it.amount), 0) AS total_semua_waktu,
-       COUNT(DISTINCT it.warga_id) AS total_anggota
+       (SELECT COUNT(*) FROM anggota) AS total_anggota
      FROM iuran_transactions it
      JOIN contribution_types ct ON ct.id = it.contribution_type_id
      WHERE ct.name = 'Koperasi'`
@@ -256,10 +260,9 @@ export async function getDashboardAdminKoperasiAggregate() {
 export async function getDashboardAdminLingkunganAggregate(lingkunganTargetBulanan) {
   const result = await pool.query(
     `WITH anggota AS (
-       SELECT DISTINCT it.warga_id
-       FROM iuran_transactions it
-       JOIN contribution_types ct ON ct.id = it.contribution_type_id
-       WHERE ct.name IN ('Lingkungan', 'Sampah', 'Iuran Sampah')
+       SELECT lm.warga_id
+       FROM lh_members lm
+       WHERE lm.is_active = TRUE
      ),
      iuran_bulan_ini AS (
        SELECT
