@@ -18,6 +18,16 @@ export async function apiFetch<T = unknown>(endpoint: string, options: ApiFetchO
   if (auth && token) {
     (headers as Record<string, string>).Authorization = `Bearer ${token}`;
   }
+  if (auth && !token) {
+    clearSession();
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname || '';
+      if (currentPath !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    throw new Error('Token tidak ditemukan. Silakan login ulang.');
+  }
   if (typeof window !== 'undefined' && endpoint.startsWith('/tabungan')) {
     const authHeader =
       (headers as Record<string, string>).Authorization ||

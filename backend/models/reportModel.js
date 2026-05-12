@@ -1,5 +1,22 @@
 import { pool } from '../db.js';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
+import { ensureInternetTables } from './internetModel.js';
+import { ensureLingkunganTables } from './lingkunganModel.js';
+import { ensureKoperasiTables } from './koperasiModel.js';
+import { ensureTabunganTables } from './tabunganModel.js';
+
+let reportTablesEnsured = false;
+
+async function ensureReportTables() {
+  if (reportTablesEnsured) return;
+  await Promise.all([
+    ensureInternetTables(),
+    ensureLingkunganTables(),
+    ensureKoperasiTables(),
+    ensureTabunganTables()
+  ]);
+  reportTablesEnsured = true;
+}
 
 export async function getJimpitanHarianByWarga(userId) {
   const result = await pool.query(
@@ -67,6 +84,7 @@ export async function getActiveLoanProgressByWarga(userId) {
 }
 
 export async function isInternetMember(userId) {
+  await ensureReportTables();
   const result = await pool.query(
     `SELECT EXISTS (
        SELECT 1
@@ -80,6 +98,7 @@ export async function isInternetMember(userId) {
 }
 
 export async function isLingkunganMember(userId) {
+  await ensureReportTables();
   const result = await pool.query(
     `SELECT EXISTS (
        SELECT 1
@@ -93,6 +112,7 @@ export async function isLingkunganMember(userId) {
 }
 
 export async function isKoperasiMember(userId) {
+  await ensureReportTables();
   const result = await pool.query(
     `SELECT EXISTS (
        SELECT 1
@@ -106,6 +126,7 @@ export async function isKoperasiMember(userId) {
 }
 
 export async function getWargaFinancialSnapshot(userId) {
+  await ensureReportTables();
   const result = await pool.query(
     `WITH iuran_target AS (
        SELECT 30000::numeric AS target
@@ -207,6 +228,7 @@ export async function getDashboardAdminPembangunanAggregate() {
 }
 
 export async function getDashboardAdminInternetAggregate(internetTargetBulanan) {
+  await ensureReportTables();
   const result = await pool.query(
     `WITH anggota AS (
        SELECT im.warga_id
@@ -237,6 +259,7 @@ export async function getDashboardAdminInternetAggregate(internetTargetBulanan) 
 }
 
 export async function getDashboardAdminKoperasiAggregate() {
+  await ensureReportTables();
   const result = await pool.query(
     `WITH anggota AS (
        SELECT km.warga_id
@@ -258,6 +281,7 @@ export async function getDashboardAdminKoperasiAggregate() {
 }
 
 export async function getDashboardAdminLingkunganAggregate(lingkunganTargetBulanan) {
+  await ensureReportTables();
   const result = await pool.query(
     `WITH anggota AS (
        SELECT lm.warga_id
