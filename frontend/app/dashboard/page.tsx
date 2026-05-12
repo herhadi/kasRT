@@ -362,16 +362,16 @@ export default function DashboardPage() {
       </div>
 
       {showSettings ? (
-        <div className="fixed inset-0 z-[80] bg-black/35 p-4" onClick={() => setShowSettings(false)}>
+        <div className="fixed inset-0 z-[80] overflow-y-auto bg-black/35 p-4" onClick={() => setShowSettings(false)}>
           <div
-            className="mx-auto mt-8 w-full max-w-xl rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4"
+            className="mx-auto mt-4 mb-4 w-full max-w-xl rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 md:mt-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Pengaturan Akun</h3>
               <button type="button" className="text-sm text-[var(--text-muted)]" onClick={() => setShowSettings(false)}>Tutup</button>
             </div>
-            <div className="space-y-5">
+            <div className="max-h-[calc(100vh-8rem)] space-y-5 overflow-y-auto pr-1">
               <div className="space-y-2">
                 <p className="text-sm font-semibold">Edit Profil</p>
                 <Input label="Nama" value={profileNama} onChange={(e) => setProfileNama(e.target.value)} />
@@ -483,4 +483,3 @@ function formatStatus(status: string) {
   if (status === 'LEBIH') return 'Lebih';
   return status;
 }
-
