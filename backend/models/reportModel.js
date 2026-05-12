@@ -140,9 +140,9 @@ export async function getWargaFinancialSnapshot(userId) {
          AND DATE_TRUNC('month', it.tanggal) = DATE_TRUNC('month', CURRENT_DATE)
      ),
      tabungan AS (
-       SELECT COALESCE(SUM(CASE WHEN te.kind = 'IN' THEN te.amount ELSE -te.amount END), 0) AS saldo
-       FROM tab_events te
-       WHERE te.warga_id = $1::uuid
+       SELECT COALESCE(sa.total_balance, 0) AS saldo
+       FROM tab_savings_accounts sa
+       WHERE sa.warga_id = $1::uuid
      ),
      internet_arrears AS (
        SELECT COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
@@ -198,7 +198,7 @@ export async function getWargaFinancialSnapshot(userId) {
      )
      SELECT
        GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) AS iuran_tunggakan_bulan_ini,
-       (SELECT saldo FROM tabungan) AS tabungan_saldo,
+       COALESCE((SELECT saldo FROM tabungan LIMIT 1), 0) AS tabungan_saldo,
        (SELECT total_arrears FROM internet_arrears) AS internet_tunggakan_total,
        (SELECT total_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_total`,
     [userId]
