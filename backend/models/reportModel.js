@@ -105,6 +105,86 @@ export async function isKoperasiMember(userId) {
   return Boolean(result.rows[0]?.is_member);
 }
 
+export async function getWargaFinancialSnapshot(userId) {
+  const result = await pool.query(
+    `WITH iuran_target AS (
+       SELECT 30000::numeric AS target
+     ),
+     iuran_paid AS (
+       SELECT COALESCE(SUM(it.amount), 0) AS paid
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'iuran wajib'
+         AND it.warga_id = $1::uuid
+         AND DATE_TRUNC('month', it.tanggal) = DATE_TRUNC('month', CURRENT_DATE)
+     ),
+     tabungan AS (
+       SELECT COALESCE(SUM(CASE WHEN te.kind = 'IN' THEN te.amount ELSE -te.amount END), 0) AS saldo
+       FROM tab_events te
+       WHERE te.warga_id = $1::uuid
+     ),
+     internet_arrears AS (
+       SELECT COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
+       FROM (
+         SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
+         FROM generate_series(
+           TO_DATE((SELECT COALESCE(MIN(effective_month), TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM inet_tariffs), 'YYYY-MM'),
+           DATE_TRUNC('month', CURRENT_DATE)::date,
+           interval '1 month'
+         ) m
+       ) mo
+       CROSS JOIN LATERAL (
+         SELECT COALESCE((
+           SELECT t.monthly_fee
+           FROM inet_tariffs t
+           WHERE t.effective_month <= mo.month_key
+           ORDER BY t.effective_month DESC
+           LIMIT 1
+         ), 60000::numeric) AS target
+       ) mt
+       LEFT JOIN (
+         SELECT month_key, SUM(amount) AS paid
+         FROM inet_payments
+         WHERE warga_id = $1::uuid
+         GROUP BY month_key
+       ) p ON p.month_key = mo.month_key
+     ),
+     lingkungan_arrears AS (
+       SELECT COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
+       FROM (
+         SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
+         FROM generate_series(
+           TO_DATE((SELECT COALESCE(MIN(effective_month), TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM lh_tariffs), 'YYYY-MM'),
+           DATE_TRUNC('month', CURRENT_DATE)::date,
+           interval '1 month'
+         ) m
+       ) mo
+       CROSS JOIN LATERAL (
+         SELECT COALESCE((
+           SELECT t.monthly_fee
+           FROM lh_tariffs t
+           WHERE t.effective_month <= mo.month_key
+           ORDER BY t.effective_month DESC
+           LIMIT 1
+         ), 20000::numeric) AS target
+       ) mt
+       LEFT JOIN (
+         SELECT month_key, SUM(amount) AS paid
+         FROM lh_payments
+         WHERE warga_id = $1::uuid
+         GROUP BY month_key
+       ) p ON p.month_key = mo.month_key
+     )
+     SELECT
+       GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) AS iuran_tunggakan_bulan_ini,
+       (SELECT saldo FROM tabungan) AS tabungan_saldo,
+       (SELECT total_arrears FROM internet_arrears) AS internet_tunggakan_total,
+       (SELECT total_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_total`,
+    [userId]
+  );
+  return result.rows[0] || {};
+}
+
 export async function getDashboardAdminPembangunanAggregate() {
   const result = await pool.query(
     `SELECT

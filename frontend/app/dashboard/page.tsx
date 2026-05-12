@@ -263,6 +263,29 @@ export default function DashboardPage() {
               <Metric title="Total" value={formatRupiah(wargaData.total_kontribusi_bulan_ini)} />
             </section>
 
+            <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+              <Metric
+                title="Tunggakan Iuran"
+                value={formatRupiah(wargaData.iuran_tunggakan_bulan_ini)}
+                tone={Number(wargaData.iuran_tunggakan_bulan_ini || 0) > 0 ? 'danger' : 'success'}
+              />
+              <Metric
+                title="Tunggakan Internet"
+                value={formatRupiah(wargaData.internet_tunggakan_total)}
+                tone={Number(wargaData.internet_tunggakan_total || 0) > 0 ? 'danger' : 'success'}
+              />
+              <Metric
+                title="Tunggakan Lingkungan"
+                value={formatRupiah(wargaData.lingkungan_tunggakan_total)}
+                tone={Number(wargaData.lingkungan_tunggakan_total || 0) > 0 ? 'danger' : 'success'}
+              />
+              <Metric
+                title="Saldo Tabungan"
+                value={formatRupiah(wargaData.tabungan_saldo)}
+                tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'}
+              />
+            </section>
+
             <section className={`grid gap-3 ${serviceRows.length ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
               <CompactPanel title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
                 <div className="space-y-2 text-sm">
@@ -445,11 +468,18 @@ export default function DashboardPage() {
   );
 }
 
-function Metric({ title, value }: { title: string; value: string }) {
+function Metric({ title, value, tone = 'accent' }: { title: string; value: string; tone?: 'accent' | 'success' | 'danger' }) {
+  const toneClass =
+    tone === 'danger'
+      ? 'text-red-600 dark:text-red-400'
+      : tone === 'success'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-[var(--accent)]';
+
   return (
     <article className="glass-card rounded-2xl p-4">
       <p className="text-xs font-semibold text-[var(--text-muted)]">{title}</p>
-      <p className="metric-value mt-1 text-xl font-bold text-[var(--accent)]">{value}</p>
+      <p className={`metric-value mt-1 text-xl font-bold ${toneClass}`}>{value}</p>
     </article>
   );
 }
