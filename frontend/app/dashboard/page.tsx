@@ -385,7 +385,7 @@ export default function DashboardPage() {
       </div>
 
       {showSettings ? (
-        <div className="fixed inset-0 z-[80] overflow-y-auto bg-black/35 p-4" onClick={() => setShowSettings(false)}>
+        <div className="fixed inset-0 z-[80] overflow-y-auto bg-black/75 p-4" onClick={() => setShowSettings(false)}>
           <div
             className="mx-auto mt-4 mb-4 w-full max-w-xl rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 md:mt-8"
             onClick={(e) => e.stopPropagation()}
