@@ -66,6 +66,8 @@ export default function OperasionalSekretarisPage() {
   const speechBaseTextRef = useRef('');
 
   const canAccess = hasAnyRole(user, ['Sekretaris', 'Ketua', 'root']);
+  const canReadFinancialSummary = hasAnyRole(user, ['Ketua', 'root']);
+  const canReadKoperasiSummary = hasAnyRole(user, ['Admin Koperasi', 'Ketua', 'root']);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -75,16 +77,13 @@ export default function OperasionalSekretarisPage() {
     if (!canAccess) return;
     try {
       setError('');
-      const [rekapRes, noteRes, kopRes, attRes] = await Promise.all([
-        apiFetch<{ success: boolean; data: RekapItem[] }>(`/report/rekap-keuangan?month=${encodeURIComponent(month)}`),
+      const [noteRes, attRes, mgmt] = await Promise.all([
         apiFetch<{ success: boolean; data: { notes?: string; meeting_date?: string; start_time?: string; agenda?: string } | null }>(
           `/management/meeting-note?month=${encodeURIComponent(month)}`
         ),
-        apiFetch<{ success: boolean; data: KoperasiSummary }>('/koperasi/summary'),
-        apiFetch<{ success: boolean; data: AttendanceItem[] }>(`/management/meeting-attendance?month=${encodeURIComponent(month)}`)
+        apiFetch<{ success: boolean; data: AttendanceItem[] }>(`/management/meeting-attendance?month=${encodeURIComponent(month)}`),
+        apiFetch<{ success: boolean; data: { users: ManagementUserLite[] } }>('/management/users')
       ]);
-      setRekap(rekapRes.data || []);
-      setKoperasi(kopRes.data || null);
       setAttendance(attRes.data || []);
       setNotes(String(noteRes.data?.notes || ''));
       setMeetingDate(normalizeDateInputValue(noteRes.data?.meeting_date));
@@ -92,15 +91,30 @@ export default function OperasionalSekretarisPage() {
       setAgenda(String(noteRes.data?.agenda || ''));
 
       // Ambil nama Ketua dari struktur role agar TTD undangan selalu konsisten.
-      const mgmt = await apiFetch<{ success: boolean; data: { users: ManagementUserLite[] } }>('/management/users');
       const ketua = (mgmt.data?.users || []).find((u) =>
         (u.roles || []).some((r) => String(r).trim().toLowerCase() === 'ketua')
       );
       if (ketua?.nama) setChairName(String(ketua.nama));
+
+      if (canReadFinancialSummary) {
+        const rekapRes = await apiFetch<{ success: boolean; data: RekapItem[] }>(
+          `/report/rekap-keuangan?month=${encodeURIComponent(month)}`
+        );
+        setRekap(rekapRes.data || []);
+      } else {
+        setRekap([]);
+      }
+
+      if (canReadKoperasiSummary) {
+        const kopRes = await apiFetch<{ success: boolean; data: KoperasiSummary }>('/koperasi/summary');
+        setKoperasi(kopRes.data || null);
+      } else {
+        setKoperasi(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat data sekretaris');
     }
-  }, [canAccess, month]);
+  }, [canAccess, canReadFinancialSummary, canReadKoperasiSummary, month]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -294,6 +308,7 @@ export default function OperasionalSekretarisPage() {
       <ToastStack toasts={toasts} />
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        {canReadFinancialSummary ? (
         <Card
           title="Operasional Sekretaris"
           subtitle="Rekap keuangan bulanan dan notulen rapat"
@@ -355,6 +370,8 @@ export default function OperasionalSekretarisPage() {
             />
           </div>
         </Card>
+        ) : null}
+        {canReadKoperasiSummary ? (
         <Card title="Ringkasan Koperasi" subtitle="Monitoring sekretaris: kas koperasi dan piutang berjalan">
           <div className="grid gap-2 md:grid-cols-3">
             <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">
@@ -368,6 +385,7 @@ export default function OperasionalSekretarisPage() {
             </div>
           </div>
         </Card>
+        ) : null}
 
         <Card title="Notulen Rapat" subtitle={`Periode ${month}`}>
           <div className="grid gap-2 md:grid-cols-3">
