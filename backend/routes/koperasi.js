@@ -26,6 +26,6 @@ router.post('/members/set-active', allowRoles('Admin Koperasi'), asyncHandler(ko
 router.post('/members/register', allowRoles('Admin Koperasi'), asyncHandler(koperasiRegisterMemberHandler));
 router.post('/iuran/monthly-fee', allowRoles('Admin Koperasi'), asyncHandler(koperasiSetMonthlyFeeHandler));
 router.get('/iuran/summary', allowRoles('Admin Koperasi', 'Ketua'), asyncHandler(koperasiIuranSummaryHandler));
-router.get('/summary', allowRoles('Admin Koperasi', 'Ketua'), asyncHandler(koperasiSummaryHandler));
+router.get('/summary', allowRoles('Admin Koperasi', 'Ketua', 'Sekretaris'), asyncHandler(koperasiSummaryHandler));
 
 export default router;

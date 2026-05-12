@@ -81,7 +81,7 @@ router.get(
 router.get(
   '/rekap-keuangan',
   auth,
-  allowRoles('Ketua'),
+  allowRoles('Ketua', 'Sekretaris'),
   asyncHandler(rekapKeuanganBulanan)
 );
 

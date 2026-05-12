@@ -23,6 +23,15 @@ export function formatTanggalIndonesia(dateValue: Date | string) {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(date);
 }
 
+export function normalizeDateInputValue(value: unknown, type = 'date') {
+  if (value === null || value === undefined) return '';
+  const raw = String(value);
+  if (!raw) return '';
+  if (type === 'month') return raw.slice(0, 7);
+  if (type === 'time') return raw.slice(0, 5);
+  return raw.slice(0, 10);
+}
+
 export function safeNumber(value: unknown) {
   return Number(value || 0);
 }

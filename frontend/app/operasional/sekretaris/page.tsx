@@ -11,7 +11,7 @@ import FeedbackToast from '@/components/ui/FeedbackToast';
 import ToastStack from '@/components/ui/ToastStack';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah } from '@/lib/helpers';
+import { formatRupiah, normalizeDateInputValue } from '@/lib/helpers';
 import useToast from '@/lib/hooks/useToast';
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
@@ -87,7 +87,7 @@ export default function OperasionalSekretarisPage() {
       setKoperasi(kopRes.data || null);
       setAttendance(attRes.data || []);
       setNotes(String(noteRes.data?.notes || ''));
-      setMeetingDate(String(noteRes.data?.meeting_date || ''));
+      setMeetingDate(normalizeDateInputValue(noteRes.data?.meeting_date));
       setStartTime(String(noteRes.data?.start_time || '').slice(0, 5));
       setAgenda(String(noteRes.data?.agenda || ''));
 
@@ -143,7 +143,13 @@ export default function OperasionalSekretarisPage() {
       setMessage('');
       await apiFetch('/management/meeting-note', {
         method: 'POST',
-        body: JSON.stringify({ month, notes, meeting_date: meetingDate || null, start_time: startTime || null, agenda: agenda || null })
+        body: JSON.stringify({
+          month,
+          notes,
+          meeting_date: normalizeDateInputValue(meetingDate) || null,
+          start_time: startTime || null,
+          agenda: agenda || null
+        })
       });
       setMessage('Notulen berhasil disimpan.');
     } catch (e) {
