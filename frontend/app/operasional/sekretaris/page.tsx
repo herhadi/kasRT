@@ -66,8 +66,8 @@ export default function OperasionalSekretarisPage() {
   const speechBaseTextRef = useRef('');
 
   const canAccess = hasAnyRole(user, ['Sekretaris', 'Ketua', 'root']);
-  const canReadFinancialSummary = hasAnyRole(user, ['Ketua', 'root']);
-  const canReadKoperasiSummary = hasAnyRole(user, ['Admin Koperasi', 'Ketua', 'root']);
+  const canReadFinancialSummary = hasAnyRole(user, ['Sekretaris', 'Ketua', 'root']);
+  const canReadKoperasiSummary = hasAnyRole(user, ['Admin Koperasi', 'Sekretaris', 'Ketua', 'root']);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -97,17 +97,22 @@ export default function OperasionalSekretarisPage() {
       if (ketua?.nama) setChairName(String(ketua.nama));
 
       if (canReadFinancialSummary) {
-        const rekapRes = await apiFetch<{ success: boolean; data: RekapItem[] }>(
+        await apiFetch<{ success: boolean; data: RekapItem[] }>(
           `/report/rekap-keuangan?month=${encodeURIComponent(month)}`
-        );
-        setRekap(rekapRes.data || []);
+        )
+          .then((rekapRes) => setRekap(rekapRes.data || []))
+          .catch((e) => {
+            setRekap([]);
+            setError(e instanceof Error ? e.message : 'Gagal memuat rekap keuangan');
+          });
       } else {
         setRekap([]);
       }
 
       if (canReadKoperasiSummary) {
-        const kopRes = await apiFetch<{ success: boolean; data: KoperasiSummary }>('/koperasi/summary');
-        setKoperasi(kopRes.data || null);
+        await apiFetch<{ success: boolean; data: KoperasiSummary }>('/koperasi/summary')
+          .then((kopRes) => setKoperasi(kopRes.data || null))
+          .catch(() => setKoperasi(null));
       } else {
         setKoperasi(null);
       }
