@@ -160,6 +160,13 @@ export async function inputJimpitan(req, res) {
       tanggal: tanggalOperasional.toISOString().slice(0, 10),
       petugasId: petugas_id
     });
+    await notifyUser(
+      String(warga_id),
+      `🧾 <b>Input Jimpitan Tercatat</b>\n` +
+        `Tanggal Operasional: <b>${tanggalOperasional.toISOString().slice(0, 10)}</b>\n` +
+        `Nominal: <b>${formatRupiah(nilaiNominal)}</b>\n` +
+        `Status: <b>DRAFT (menunggu setor/approval)</b>`
+    );
     if (debug) {
       console.log('[JIMPITAN][INPUT] success', {
         warga_id,
