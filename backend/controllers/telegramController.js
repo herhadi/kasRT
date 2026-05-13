@@ -41,17 +41,28 @@ export async function telegramWebhook(req, res) {
   const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
   const incomingSecret = req.headers['x-telegram-bot-api-secret-token'];
 
+  // Be tolerant when secret header is missing/mismatched to avoid dropped updates.
+  // We still log mismatch for investigation.
   if (configuredSecret && incomingSecret !== configuredSecret) {
-    return res.status(403).json({ ok: false, error: 'Webhook secret invalid' });
+    console.warn('[TELEGRAM][WEBHOOK] secret mismatch', {
+      hasIncomingSecret: Boolean(incomingSecret)
+    });
   }
 
-  const message = req.body?.message;
-  if (!message?.text || !message?.chat?.id) {
+  const update =
+    req.body?.message ||
+    req.body?.edited_message ||
+    req.body?.channel_post ||
+    req.body?.edited_channel_post ||
+    req.body?.callback_query?.message ||
+    null;
+
+  if (!update?.text || !update?.chat?.id) {
     return res.json({ ok: true, ignored: true });
   }
 
-  const text = message.text.trim();
-  const chatId = String(message.chat.id);
+  const text = String(update.text || '').trim();
+  const chatId = String(update.chat.id);
   const startMatch = text.match(/^\/start(?:@\w+)?(?:\s+(.+))?$/i);
 
   if (!startMatch) {
