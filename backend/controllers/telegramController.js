@@ -129,3 +129,70 @@ export async function generateTelegramActivationLink(req, res) {
     expires_in_minutes: 15
   });
 }
+
+export async function getTelegramWebhookInfo(_req, res) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'TELEGRAM_BOT_TOKEN belum diset' });
+  }
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    return res.status(400).json({ success: false, message: payload?.description || 'Gagal mengambil webhook info' });
+  }
+
+  return res.json({ success: true, data: payload?.result || {} });
+}
+
+export async function setTelegramWebhook(_req, res) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const backendUrl = String(process.env.BACKEND_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+  const webhookSecret = String(process.env.TELEGRAM_WEBHOOK_SECRET || '').trim();
+
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'TELEGRAM_BOT_TOKEN belum diset' });
+  }
+  if (!backendUrl) {
+    return res.status(400).json({ success: false, message: 'BACKEND_PUBLIC_URL belum diset' });
+  }
+
+  const webhookUrl = `${backendUrl}/telegram/webhook`;
+  const body = new URLSearchParams();
+  body.set('url', webhookUrl);
+  if (webhookSecret) body.set('secret_token', webhookSecret);
+  body.set('drop_pending_updates', 'false');
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    return res.status(400).json({ success: false, message: payload?.description || 'Gagal set webhook' });
+  }
+
+  return res.json({ success: true, message: 'Webhook Telegram berhasil diset', data: { url: webhookUrl } });
+}
+
+export async function deleteTelegramWebhook(_req, res) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'TELEGRAM_BOT_TOKEN belum diset' });
+  }
+
+  const body = new URLSearchParams();
+  body.set('drop_pending_updates', 'false');
+  const response = await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    return res.status(400).json({ success: false, message: payload?.description || 'Gagal hapus webhook' });
+  }
+
+  return res.json({ success: true, message: 'Webhook Telegram berhasil dihapus' });
+}

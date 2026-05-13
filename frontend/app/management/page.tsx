@@ -55,6 +55,15 @@ export default function ManagementHomePage() {
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Input data historis sampai Desember 2025 (root only).</p>
               </Link>
             ) : null}
+            {hasAnyRole(user, ['root']) ? (
+              <Link
+                href="/management/telegram"
+                className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-4 transition hover:bg-[var(--surface-strong)]"
+              >
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Telegram Webhook</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Cek status, set, dan hapus webhook bot Telegram.</p>
+              </Link>
+            ) : null}
           </div>
         </Card>
       </div>
