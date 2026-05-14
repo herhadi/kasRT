@@ -19,7 +19,7 @@ import WargaContributionSection from '@/components/contribution/WargaContributio
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 
 type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number };
-type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[] };
+type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
 type Yearly = { year: string; recap: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
 type LingkunganMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string; updated_by?: string };
 
@@ -65,6 +65,8 @@ export default function LingkunganPage() {
       apiFetch<{ success: boolean; data: Yearly }>(`/lingkungan/history?year=${encodeURIComponent(yearForQuery)}`),
       apiFetch<{ success: boolean; data: LingkunganMember[] }>(`/lingkungan/members`)
     ]);
+    // Debug sementara: cek payload riwayat pengeluaran dari backend.
+    console.log('[lingkungan][frontend] summary month=%s expenses_count=%d sample=%o', month, (s.data?.expenses || []).length, (s.data?.expenses || [])[0] || null);
     setSummary(s.data || null);
     setYearly(y.data || null);
     setMembers(m.data || []);
@@ -96,6 +98,7 @@ export default function LingkunganPage() {
   const saldoBulan = Number(summary?.pemasukan || 0) - Number(summary?.pengeluaran || 0);
   const pager = usePagination(filteredRows, 10);
   const memberPager = usePagination(members, 10);
+  const expensePager = usePagination(summary?.expenses || [], 10);
   const rowsForInput = useMemo<WargaContributionRow[]>(
     () => (summary?.rows || []).map((r) => ({ id: r.warga_id, nama: r.nama, paidAmount: r.paid_amount, targetAmount: Number(summary?.monthly_fee || 0), canInput: true, suggestionText: `Total tunggakan: ${formatRupiah(r.total_arrears)}` })),
     [summary]
@@ -165,11 +168,10 @@ export default function LingkunganPage() {
         <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
         <Card title="Input Iuran Lingkungan" subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`} headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
           <div
-            className="sticky z-40 mb-4 grid gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur md:grid-cols-3"
+            className="sticky z-40 mb-4 grid gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur md:grid-cols-2"
             style={{ top: 'var(--sticky-nav-offset)' }}
           >
             <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">Pendapatan periode ini: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
-            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">Tarif aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
             <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">Total kas: <b>{formatRupiah(Number(summary?.total_kas || 0))}</b></div>
           </div>
           <WargaContributionSection rows={rowsForInput} selectedRow={selectedRow} loading={busy} presets={[{ label: '20rb', amount: 20000 }, { label: '40rb', amount: 40000 }, { label: '60rb', amount: 60000 }, { label: '80rb', amount: 80000 }, { label: '100rb', amount: 100000 }, { label: '120rb', amount: 120000 }]} onOpen={(r) => { setSelectedWargaId(String(r.id)); setSelectedRow(r); }} onClose={() => setSelectedRow(null)} onSubmit={async (a) => { await submitPayment(a); setSelectedRow(null); }} />
@@ -230,13 +232,6 @@ export default function LingkunganPage() {
   return (
     <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
       <Card title="Operasional Lingkungan" subtitle="Iuran lingkungan bulanan, tunggakan, dan pengeluaran" headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
-        <div className="grid gap-2 md:grid-cols-4">
-          <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
-          <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pemasukan Bulan: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
-          <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pengeluaran Bulan: <b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
-          <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Total Saldo: <b>{formatRupiah(saldoBulan)}</b></div>
-          <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 md:col-span-4">Total Kas: <b>{formatRupiah(Number(summary?.total_kas || 0))}</b> <span className="text-xs text-[var(--text-muted)]">(semua pendapatan dikurangi pengeluaran sampai saat ini)</span></div>
-        </div>
         {canWrite ? (
           <div className="mt-4 flex items-center justify-between gap-2">
             <Link href="/operasional/lingkungan/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
@@ -244,6 +239,16 @@ export default function LingkunganPage() {
           </div>
         ) : null}
       </Card>
+      <div
+        className="sticky z-40 grid gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur md:grid-cols-4"
+        style={{ top: 'var(--sticky-nav-offset)' }}
+      >
+        <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+        <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pemasukan Bulan: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
+        <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pengeluaran Bulan: <b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
+        <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Total Saldo: <b>{formatRupiah(saldoBulan)}</b></div>
+        <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 md:col-span-4">Total Kas: <b>{formatRupiah(Number(summary?.total_kas || 0))}</b> <span className="text-xs text-[var(--text-muted)]">(semua pendapatan dikurangi pengeluaran sampai saat ini)</span></div>
+      </div>
       {canWrite ? (
         <Card title="Pengeluaran Lingkungan" subtitle="Riwayat biaya lingkungan">
           <div className="grid gap-3 md:grid-cols-4">
@@ -252,6 +257,34 @@ export default function LingkunganPage() {
             <Input label="Keterangan" value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} />
             <div className="flex items-end"><Button className="w-full" onClick={submitExpense} disabled={busy}>Catat Pengeluaran</Button></div>
           </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+              <thead>
+                <tr className="bg-[var(--surface-strong)]">
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expensePager.pagedItems.map((row) => (
+                  <tr key={row.id} className="bg-[var(--surface)]">
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.expense_date}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.expense_month}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(row.amount)}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.description}</td>
+                  </tr>
+                ))}
+                {!(summary?.expenses || []).length ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat pengeluaran.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
         </Card>
       ) : null}
       <Card title="Status Iuran Warga" subtitle="Hitungan tunggakan mengikuti tarif efektif per bulan">

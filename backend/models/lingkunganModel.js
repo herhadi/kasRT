@@ -187,6 +187,18 @@ export async function getLingkunganSummary(month) {
         (SELECT COALESCE(SUM(amount),0) FROM lh_expenses) AS total_kas`,
     [month]
   );
+  const expenseRows = await pool.query(
+    `SELECT
+       id::text AS id,
+       expense_date::text AS expense_date,
+       amount,
+       description,
+       TO_CHAR(expense_date, 'YYYY-MM') AS expense_month,
+       created_at
+     FROM lh_expenses
+     ORDER BY created_at DESC
+     LIMIT 200`
+  );
   return {
     rows: members.rows.map((r) => ({
       warga_id: String(r.warga_id),
@@ -201,7 +213,14 @@ export async function getLingkunganSummary(month) {
     pemasukan: Number(totals.rows[0]?.pemasukan || 0),
     pengeluaran: Number(totals.rows[0]?.pengeluaran || 0),
     total_saldo: Number(totals.rows[0]?.total_saldo || 0),
-    total_kas: Number(totals.rows[0]?.total_kas || 0)
+    total_kas: Number(totals.rows[0]?.total_kas || 0),
+    expenses: expenseRows.rows.map((r) => ({
+      id: String(r.id),
+      expense_date: String(r.expense_date || ''),
+      expense_month: String(r.expense_month || ''),
+      amount: Number(r.amount || 0),
+      description: String(r.description || '')
+    }))
   };
 }
 
