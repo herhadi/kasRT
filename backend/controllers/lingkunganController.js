@@ -84,7 +84,12 @@ export async function getLingkunganMembersHandler(_req, res) {
 export async function postLingkunganMemberSetActiveHandler(req, res) {
   const wargaId = String(req.body.warga_id || '').trim();
   const isActive = Boolean(req.body.is_active);
+  const activeFromMonth = String(req.body.active_from_month || '').trim();
+  const actor = String(req.user.user_id || '').trim();
   if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
-  const data = await setLingkunganMemberActive({ wargaId, isActive });
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(activeFromMonth)) {
+    return res.status(400).json({ success: false, message: 'active_from_month invalid' });
+  }
+  const data = await setLingkunganMemberActive({ wargaId, isActive, activeFromMonth, updatedBy: actor });
   return res.json({ success: true, data });
 }

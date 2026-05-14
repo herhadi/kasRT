@@ -18,10 +18,21 @@ export async function ensureLingkunganTables() {
     CREATE TABLE IF NOT EXISTS lh_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      active_from_month VARCHAR(7) NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY-MM'),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by UUID REFERENCES users(id)
     )
   `);
+  await pool.query(`ALTER TABLE lh_members ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id)`);
+  await pool.query(`ALTER TABLE lh_members ADD COLUMN IF NOT EXISTS active_from_month VARCHAR(7)`);
+  await pool.query(
+    `UPDATE lh_members
+     SET active_from_month = (SELECT COALESCE(MIN(effective_month), TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM lh_tariffs)
+     WHERE active_from_month IS NULL`
+  );
+  await pool.query(`ALTER TABLE lh_members ALTER COLUMN active_from_month SET DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY-MM')`);
+  await pool.query(`ALTER TABLE lh_members ALTER COLUMN active_from_month SET NOT NULL`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lh_payments (
       id UUID PRIMARY KEY,
@@ -74,8 +85,8 @@ export async function ensureLingkunganMembersFromWarga() {
       SELECT id FROM eligible_all
       WHERE NOT EXISTS (SELECT 1 FROM warga_role)
     )
-    INSERT INTO lh_members (warga_id, is_active)
-    SELECT id, TRUE FROM warga_final
+    INSERT INTO lh_members (warga_id, is_active, active_from_month)
+    SELECT id, TRUE, TO_CHAR(CURRENT_DATE, 'YYYY-MM') FROM warga_final
     ON CONFLICT (warga_id) DO NOTHING
   `);
 }
@@ -89,7 +100,12 @@ export async function listLingkunganMembers() {
        FROM users u
        WHERE ${ELIGIBLE_USERS_CLAUSE}
      )
-     SELECT b.warga_id::text AS warga_id, b.nama, COALESCE(lm.is_active, FALSE) AS is_active
+     SELECT
+       b.warga_id::text AS warga_id,
+       b.nama,
+       COALESCE(lm.is_active, FALSE) AS is_active,
+       COALESCE(lm.active_from_month, TO_CHAR(lm.created_at, 'YYYY-MM')) AS active_from_month,
+       lm.updated_by::text AS updated_by
      FROM base b
      LEFT JOIN lh_members lm ON lm.warga_id = b.warga_id
      ORDER BY b.nama`
@@ -97,16 +113,20 @@ export async function listLingkunganMembers() {
   return rs.rows;
 }
 
-export async function setLingkunganMemberActive({ wargaId, isActive }) {
+export async function setLingkunganMemberActive({ wargaId, isActive, activeFromMonth, updatedBy }) {
   await ensureLingkunganTables();
   await pool.query(
-    `INSERT INTO lh_members (warga_id, is_active, updated_at)
-     VALUES ($1::uuid, $2::boolean, NOW())
+    `INSERT INTO lh_members (warga_id, is_active, active_from_month, updated_at, updated_by)
+     VALUES ($1::uuid, $2::boolean, $3, NOW(), $4::uuid)
      ON CONFLICT (warga_id)
-     DO UPDATE SET is_active = EXCLUDED.is_active, updated_at = NOW()`,
-    [wargaId, isActive]
+     DO UPDATE SET
+       is_active = EXCLUDED.is_active,
+       active_from_month = EXCLUDED.active_from_month,
+       updated_at = NOW(),
+       updated_by = EXCLUDED.updated_by`,
+    [wargaId, isActive, activeFromMonth, updatedBy]
   );
-  return { warga_id: wargaId, is_active: Boolean(isActive) };
+  return { warga_id: wargaId, is_active: Boolean(isActive), active_from_month: activeFromMonth, updated_by: updatedBy };
 }
 
 export async function getLingkunganSummary(month) {
@@ -117,7 +137,7 @@ export async function getLingkunganSummary(month) {
     `WITH m AS (
        SELECT lm.warga_id, u.nama
        FROM lh_members lm JOIN users u ON u.id = lm.warga_id
-       WHERE lm.is_active = TRUE
+       WHERE lm.is_active = TRUE AND lm.active_from_month <= $1
      ),
      p AS (
        SELECT warga_id, COALESCE(SUM(amount),0) AS amount
@@ -129,23 +149,29 @@ export async function getLingkunganSummary(month) {
     [month]
   );
   const arrearsRows = await pool.query(
-    `WITH members AS (SELECT warga_id FROM lh_members WHERE is_active = TRUE),
+    `WITH members AS (
+       SELECT warga_id, active_from_month
+       FROM lh_members
+       WHERE is_active = TRUE AND active_from_month <= $1
+     ),
      months AS (
-       SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
-       FROM generate_series(
-         TO_DATE((SELECT COALESCE(MIN(effective_month), $1) FROM lh_tariffs), 'YYYY-MM'),
+       SELECT m.warga_id, TO_CHAR(g.month_date, 'YYYY-MM') AS month_key
+       FROM members m
+       CROSS JOIN LATERAL generate_series(
+         TO_DATE(m.active_from_month, 'YYYY-MM'),
          TO_DATE($1, 'YYYY-MM'),
          interval '1 month'
-       ) m
+       ) g(month_date)
      ),
      month_target AS (
-       SELECT mo.month_key,
+       SELECT mo.warga_id, mo.month_key,
        COALESCE((SELECT t.monthly_fee FROM lh_tariffs t WHERE t.effective_month <= mo.month_key ORDER BY t.effective_month DESC LIMIT 1), $2::numeric) AS target
        FROM months mo
      ),
      paid AS (SELECT warga_id, month_key, SUM(amount) AS paid FROM lh_payments GROUP BY warga_id, month_key)
      SELECT m.warga_id::text AS warga_id, COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0),0)),0) AS total_arrears
-     FROM members m CROSS JOIN month_target mt
+     FROM members m
+     JOIN month_target mt ON mt.warga_id = m.warga_id
      LEFT JOIN paid p ON p.warga_id = m.warga_id AND p.month_key = mt.month_key
      GROUP BY m.warga_id`,
     [month, LINGKUNGAN_MONTHLY_FEE]
@@ -154,7 +180,11 @@ export async function getLingkunganSummary(month) {
   const totals = await pool.query(
     `SELECT
       (SELECT COALESCE(SUM(amount),0) FROM lh_payments WHERE month_key = $1) AS pemasukan,
-      (SELECT COALESCE(SUM(amount),0) FROM lh_expenses WHERE TO_CHAR(expense_date,'YYYY-MM') = $1) AS pengeluaran`,
+      (SELECT COALESCE(SUM(amount),0) FROM lh_expenses WHERE TO_CHAR(expense_date,'YYYY-MM') = $1) AS pengeluaran,
+      (SELECT COALESCE(SUM(amount),0) FROM lh_payments WHERE month_key = $1) -
+        (SELECT COALESCE(SUM(amount),0) FROM lh_expenses WHERE TO_CHAR(expense_date,'YYYY-MM') = $1) AS total_saldo,
+      (SELECT COALESCE(SUM(amount),0) FROM lh_payments) -
+        (SELECT COALESCE(SUM(amount),0) FROM lh_expenses) AS total_kas`,
     [month]
   );
   return {
@@ -169,7 +199,9 @@ export async function getLingkunganSummary(month) {
     active_fee: activeFee,
     tariffs,
     pemasukan: Number(totals.rows[0]?.pemasukan || 0),
-    pengeluaran: Number(totals.rows[0]?.pengeluaran || 0)
+    pengeluaran: Number(totals.rows[0]?.pengeluaran || 0),
+    total_saldo: Number(totals.rows[0]?.total_saldo || 0),
+    total_kas: Number(totals.rows[0]?.total_kas || 0)
   };
 }
 
