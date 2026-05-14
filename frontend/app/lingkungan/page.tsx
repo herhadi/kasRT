@@ -37,7 +37,6 @@ export default function LingkunganPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [yearly, setYearly] = useState<Yearly | null>(null);
   const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
-  const [historyYearMonth, setHistoryYearMonth] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,22 +46,23 @@ export default function LingkunganPage() {
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [tariffValue, setTariffValue] = useState('');
-  const [showTariffSetting, setShowTariffSetting] = useState(false);
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
   const [members, setMembers] = useState<LingkunganMember[]>([]);
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
-  const [showMemberSection, setShowMemberSection] = useState(false);
+  const [historyYearMonth, setHistoryYearMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const iuranOnlyMode = pathname === '/operasional/lingkungan/iuran';
+  const settingMode = pathname === '/operasional/lingkungan/setting';
 
   const canAccess = hasAnyRole(user, ['Admin Lingkungan', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Lingkungan', 'root']);
 
   const loadAll = useCallback(async () => {
     if (!canAccess) return;
+    const yearForQuery = /^\d{4}$/.test(historyYear) ? historyYear : String(new Date().getFullYear());
     const [s, y, m] = await Promise.all([
       apiFetch<{ success: boolean; data: Summary }>(`/lingkungan/summary?month=${encodeURIComponent(month)}`),
-      apiFetch<{ success: boolean; data: Yearly }>(`/lingkungan/history?year=${encodeURIComponent(historyYear)}`),
+      apiFetch<{ success: boolean; data: Yearly }>(`/lingkungan/history?year=${encodeURIComponent(yearForQuery)}`),
       apiFetch<{ success: boolean; data: LingkunganMember[] }>(`/lingkungan/members`)
     ]);
     setSummary(s.data || null);
@@ -80,12 +80,21 @@ export default function LingkunganPage() {
 
   const filteredRows = useMemo(() => {
     const rows = summary?.rows || [];
-    if (filter === 'belum') return rows.filter((r) => Number(r.arrears || 0) > 0);
-    if (filter === 'sudah') return rows.filter((r) => Number(r.arrears || 0) <= 0);
-    return rows;
+    const selected = filter === 'belum'
+      ? rows.filter((r) => Number(r.arrears || 0) > 0)
+      : filter === 'sudah'
+        ? rows.filter((r) => Number(r.arrears || 0) <= 0)
+        : rows;
+    return [...selected].sort((a, b) => Number(b.total_arrears || 0) - Number(a.total_arrears || 0));
   }, [summary, filter]);
+  const historyRows = useMemo(() => {
+    const rows = yearly?.recap || [];
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const maxMonth = historyYear === currentMonth.slice(0, 4) ? currentMonth : `${historyYear}-12`;
+    return rows.filter((row) => String(row.month) <= maxMonth);
+  }, [yearly, historyYear]);
   const saldoBulan = Number(summary?.pemasukan || 0) - Number(summary?.pengeluaran || 0);
-  const pager = usePagination(filteredRows, 20);
+  const pager = usePagination(filteredRows, 10);
   const memberPager = usePagination(members, 10);
   const rowsForInput = useMemo<WargaContributionRow[]>(
     () => (summary?.rows || []).map((r) => ({ id: r.warga_id, nama: r.nama, paidAmount: r.paid_amount, targetAmount: Number(summary?.monthly_fee || 0), canInput: true, suggestionText: `Total tunggakan: ${formatRupiah(r.total_arrears)}` })),
@@ -155,7 +164,64 @@ export default function LingkunganPage() {
       <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
         <Card title="Input Iuran Lingkungan" subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`} headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
+          <div
+            className="sticky z-40 mb-4 grid gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur md:grid-cols-3"
+            style={{ top: 'var(--sticky-nav-offset)' }}
+          >
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">Pendapatan periode ini: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">Tarif aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">Total kas: <b>{formatRupiah(Number(summary?.total_kas || 0))}</b></div>
+          </div>
           <WargaContributionSection rows={rowsForInput} selectedRow={selectedRow} loading={busy} presets={[{ label: '20rb', amount: 20000 }, { label: '40rb', amount: 40000 }, { label: '60rb', amount: 60000 }, { label: '80rb', amount: 80000 }, { label: '100rb', amount: 100000 }, { label: '120rb', amount: 120000 }]} onOpen={(r) => { setSelectedWargaId(String(r.id)); setSelectedRow(r); }} onClose={() => setSelectedRow(null)} onSubmit={async (a) => { await submitPayment(a); setSelectedRow(null); }} />
+        </Card>
+      </div></main>
+    );
+  }
+  if (settingMode) {
+    return (
+      <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
+        <Card title="Pengaturan Lingkungan" subtitle="Tarif, keanggotaan, dan pengaturan operasional lingkungan">
+          <div className="grid gap-3 md:grid-cols-4">
+            <Input label="Tarif Berlaku Mulai" type="month" value={tariffMonth} onChange={(e) => setTariffMonth(e.target.value)} />
+            <Input label="Nominal Tarif Baru" type="text" inputMode="numeric" value={formatRupiahInput(tariffValue)} onChange={(e) => setTariffValue(e.target.value)} />
+            <div className="md:col-span-2 flex items-end"><Button className="w-full" onClick={submitTariff} disabled={busy}>Simpan Tarif</Button></div>
+          </div>
+        </Card>
+        <Card title="Keanggotaan Lingkungan" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran lingkungan.">
+          <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+            <thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Iuran</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead>
+            <tbody>
+              {memberPager.pagedItems.map((m) => (
+                <tr key={m.warga_id}>
+                  <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td>
+                  <td className="border-t border-[var(--line)] px-3 py-2 text-sm">
+                    <input
+                      type="month"
+                      lang="id-ID"
+                      className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={memberMonthDrafts[m.warga_id] || m.active_from_month || month}
+                      onChange={(e) => {
+                        const nextMonth = e.target.value;
+                        setMemberMonthDrafts((prev) => ({ ...prev, [m.warga_id]: nextMonth }));
+                      }}
+                    />
+                  </td>
+                  <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td>
+                  <td className="border-t border-[var(--line)] px-3 py-2 text-right">
+                    <button type="button" className="btn-action-blue rounded-xl px-3 py-1.5 text-xs" onClick={() => void setMemberActive(m.warga_id, Boolean(m.is_active))} disabled={busy}>
+                      Simpan Mulai
+                    </button>
+                    <button type="button" className="btn-action-blue ml-2 rounded-xl px-3 py-1.5 text-xs" onClick={() => void setMemberActive(m.warga_id, !Boolean(m.is_active))} disabled={busy}>
+                      {m.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!members.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td></tr> : null}
+            </tbody>
+          </table></div>
+          <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
         </Card>
       </div></main>
     );
@@ -174,63 +240,10 @@ export default function LingkunganPage() {
         {canWrite ? (
           <div className="mt-4 flex items-center justify-between gap-2">
             <Link href="/operasional/lingkungan/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
-            <Button variant="ghost" className="btn-action-blue" onClick={() => setShowTariffSetting((v) => !v)}>⚙️ Pengaturan Tarif</Button>
-          </div>
-        ) : null}
-        {canWrite && showTariffSetting ? (
-          <div className="mt-3 grid gap-3 md:grid-cols-4">
-            <Input label="Tarif Berlaku Mulai" type="month" value={tariffMonth} onChange={(e) => setTariffMonth(e.target.value)} />
-            <Input label="Nominal Tarif Baru" type="text" inputMode="numeric" value={formatRupiahInput(tariffValue)} onChange={(e) => setTariffValue(e.target.value)} />
-            <div className="md:col-span-2 flex items-end"><Button className="w-full" onClick={submitTariff} disabled={busy}>Simpan Tarif</Button></div>
+            <Link href="/operasional/lingkungan/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">Pengaturan</Link>
           </div>
         ) : null}
       </Card>
-      {canWrite ? (
-        <Card title="Keanggotaan Lingkungan" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran lingkungan.">
-          <div className="mb-3">
-            <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
-              {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}
-            </button>
-          </div>
-          {showMemberSection ? (
-            <>
-              <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-                <thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Iuran</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead>
-                <tbody>
-                  {memberPager.pagedItems.map((m) => (
-                    <tr key={m.warga_id}>
-                      <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td>
-                      <td className="border-t border-[var(--line)] px-3 py-2 text-sm">
-                        <input
-                          type="month"
-                          lang="id-ID"
-                          className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                          value={memberMonthDrafts[m.warga_id] || m.active_from_month || month}
-                          onChange={(e) => {
-                            const nextMonth = e.target.value;
-                            setMemberMonthDrafts((prev) => ({ ...prev, [m.warga_id]: nextMonth }));
-                          }}
-                        />
-                      </td>
-                      <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td>
-                      <td className="border-t border-[var(--line)] px-3 py-2 text-right">
-                        <button type="button" className="btn-action-blue rounded-xl px-3 py-1.5 text-xs" onClick={() => void setMemberActive(m.warga_id, Boolean(m.is_active))} disabled={busy}>
-                          Simpan Mulai
-                        </button>
-                        <button type="button" className="btn-action-blue ml-2 rounded-xl px-3 py-1.5 text-xs" onClick={() => void setMemberActive(m.warga_id, !Boolean(m.is_active))} disabled={busy}>
-                          {m.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {!members.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td></tr> : null}
-                </tbody>
-              </table></div>
-              <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
-            </>
-          ) : null}
-        </Card>
-      ) : null}
       {canWrite ? (
         <Card title="Pengeluaran Lingkungan" subtitle="Riwayat biaya lingkungan">
           <div className="grid gap-3 md:grid-cols-4">
@@ -293,7 +306,7 @@ export default function LingkunganPage() {
             <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pemasukan</th>
             <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pengeluaran</th>
           </tr></thead>
-          <tbody>{(yearly?.recap || []).map((row) => (
+          <tbody>{historyRows.map((row) => (
             <tr key={row.month} className="bg-[var(--surface)]">
               <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.month}</td>
               <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">{formatRupiah(row.pemasukan)}</td>
@@ -305,3 +318,4 @@ export default function LingkunganPage() {
     </div></main>
   );
 }
+
