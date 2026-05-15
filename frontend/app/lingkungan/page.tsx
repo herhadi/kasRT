@@ -65,8 +65,7 @@ export default function LingkunganPage() {
       apiFetch<{ success: boolean; data: Yearly }>(`/lingkungan/history?year=${encodeURIComponent(yearForQuery)}`),
       apiFetch<{ success: boolean; data: LingkunganMember[] }>(`/lingkungan/members`)
     ]);
-    // Debug sementara: cek payload riwayat pengeluaran dari backend.
-    console.log('[lingkungan][frontend] summary month=%s expenses_count=%d sample=%o', month, (s.data?.expenses || []).length, (s.data?.expenses || [])[0] || null);
+
     setSummary(s.data || null);
     setYearly(y.data || null);
     setMembers(m.data || []);
