@@ -3,6 +3,8 @@
 :root {
   color-scheme: light;
   --sticky-nav-offset: 133px;
+  --font-manrope: "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-space-grotesk: "Trebuchet MS", "Avenir Next", "Century Gothic", "Segoe UI", sans-serif;
 
   --bg-base: #f2f6ff;
   --bg-grad-1: #dbeafe;
