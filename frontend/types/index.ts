@@ -46,6 +46,7 @@ export type DashboardWargaData = {
   internet_tunggakan_total: number;
   lingkungan_tunggakan_total: number;
   tabungan_saldo: number;
+  total_kas_semua_terkini: number;
 };
 
 export type JimpitanListItem = {

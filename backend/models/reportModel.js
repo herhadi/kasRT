@@ -677,3 +677,50 @@ export async function getFinanceRecapByMonth(month) {
 
   return rows.rows;
 }
+
+export async function getTotalKasSemuaTerkini() {
+  const result = await pool.query(
+    `SELECT
+       COALESCE(SUM(
+         COALESCE(
+           CASE
+             WHEN y.wallet_id IS NULL THEN 0
+             WHEN UPPER(COALESCE(ap.status, 'OPEN')) = 'CLOSED' THEN COALESCE(y.closing_balance, 0)
+             ELSE COALESCE(y.opening_balance, 0)
+           END,
+           0
+         ) + COALESCE(mutasi_after_baseline.total_mutasi, 0)
+       ), 0) AS total_kas_semua
+     FROM wallets w
+     LEFT JOIN LATERAL (
+       SELECT yy.wallet_id, yy.year, yy.opening_balance, yy.closing_balance
+       FROM yearly_wallet_balances yy
+       WHERE yy.wallet_id = w.id
+       ORDER BY yy.year DESC
+       LIMIT 1
+     ) y ON TRUE
+     LEFT JOIN accounting_periods ap ON ap.year = y.year
+     LEFT JOIN LATERAL (
+       SELECT SUM(
+         CASE
+           WHEN t.status = 'APPROVED' AND t.target_wallet_id = w.id AND t.type IN ('IN', 'TRANSFER') THEN t.amount
+           WHEN t.status = 'APPROVED' AND t.source_wallet_id = w.id AND t.type IN ('OUT', 'TRANSFER') THEN -t.amount
+           ELSE 0
+         END
+       ) AS total_mutasi
+       FROM transactions t
+       WHERE (t.target_wallet_id = w.id OR t.source_wallet_id = w.id)
+         AND t.created_at >= MAKE_DATE(
+           CASE
+             WHEN y.wallet_id IS NULL THEN EXTRACT(YEAR FROM CURRENT_DATE)::int
+             WHEN UPPER(COALESCE(ap.status, 'OPEN')) = 'CLOSED' THEN y.year + 1
+             ELSE y.year
+           END,
+           1,
+           1
+         )
+     ) mutasi_after_baseline ON TRUE`,
+  );
+
+  return Number(result.rows[0]?.total_kas_semua || 0);
+}

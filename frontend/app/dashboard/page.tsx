@@ -265,6 +265,11 @@ export default function DashboardPage() {
 
             <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               <Metric
+                title="Saldo Kas Semua"
+                value={formatRupiah(wargaData.total_kas_semua_terkini)}
+                tone={Number(wargaData.total_kas_semua_terkini || 0) < 0 ? 'danger' : 'accent'}
+              />
+              <Metric
                 title="Tunggakan Iuran"
                 value={formatRupiah(wargaData.iuran_tunggakan_bulan_ini)}
                 tone={Number(wargaData.iuran_tunggakan_bulan_ini || 0) > 0 ? 'danger' : 'success'}

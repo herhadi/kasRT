@@ -6,6 +6,7 @@ import {
   getDashboardBendaharaIuranWajibAggregate,
   getDashboardAdminSosialByMonth,
   getFinanceRecapByMonth,
+  getTotalKasSemuaTerkini,
   getTop10PenunggakIuranWajib,
   getTrenIuranWajib6Bulan,
   getIuranBulananByWarga,
@@ -35,6 +36,7 @@ export async function dashboardWarga(req, res) {
     const iuranRows = await getIuranBulananByWarga(user_id);
     const loanProgress = await getActiveLoanProgressByWarga(user_id);
     const snapshot = await getWargaFinancialSnapshot(user_id);
+    const totalKasSemuaTerkini = await getTotalKasSemuaTerkini();
 
     let iuran_wajib_bulan_ini = 0;
     let internet_bulan_ini = 0;
@@ -134,7 +136,8 @@ export async function dashboardWarga(req, res) {
         iuran_tunggakan_bulan_ini: Number(snapshot?.iuran_tunggakan_bulan_ini || 0),
         internet_tunggakan_total: Number(snapshot?.internet_tunggakan_total || 0),
         lingkungan_tunggakan_total: Number(snapshot?.lingkungan_tunggakan_total || 0),
-        tabungan_saldo: Number(snapshot?.tabungan_saldo || 0)
+        tabungan_saldo: Number(snapshot?.tabungan_saldo || 0),
+        total_kas_semua_terkini: Number(totalKasSemuaTerkini || 0)
       }
     });
   } catch (err) {
