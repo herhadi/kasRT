@@ -1,10 +1,13 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  /* config options here */
-  // Use a local directory for Next.js build output to avoid slow network filesystem issues.
-  // This directory will be created inside the frontend directory (relative to next.config.ts location).
-  distDir: ".next_local",
-};
+const isVercel = process.env.VERCEL === "1";
+
+const nextConfig: NextConfig = isVercel
+  ? {}
+  : {
+      // Use a local directory for Next.js build output in local/dev environments.
+      // Keep Vercel on default ".next" so deployment output is detected correctly.
+      distDir: ".next_local",
+    };
 
 export default nextConfig;
