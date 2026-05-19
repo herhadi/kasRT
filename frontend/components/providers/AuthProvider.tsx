@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { clearSession, getStoredUser, getToken, setSession } from '@/lib/auth';
 import { UserSession } from '@/types';
 
@@ -36,28 +36,32 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     return () => window.clearTimeout(timer);
   }, []);
 
-  const login = ({ token: nextToken, user: nextUser }: { token: string; user: UserSession }) => {
+  const login = useCallback(({ token: nextToken, user: nextUser }: { token: string; user: UserSession }) => {
     setSession(nextToken, nextUser);
     setToken(nextToken);
     setUser(nextUser);
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearSession();
     setUser(null);
     setToken(null);
-  };
+  }, []);
 
-  const refreshUser = (nextUser: UserSession) => {
+  const refreshUser = useCallback((nextUser: UserSession) => {
     const currentToken = getToken();
     if (!currentToken) return;
     setSession(currentToken, nextUser);
-    setUser(nextUser);
-  };
+    setUser((prev) => {
+      if (!prev) return nextUser;
+      if (JSON.stringify(prev) === JSON.stringify(nextUser)) return prev;
+      return nextUser;
+    });
+  }, []);
 
   const value = useMemo(
     () => ({ user, token, loading, login, logout, refreshUser }),
-    [user, token, loading]
+    [user, token, loading, login, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

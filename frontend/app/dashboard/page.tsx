@@ -103,7 +103,7 @@ export default function DashboardPage() {
     }
 
     loadDashboard();
-  }, [user, adminEndpoint, refreshUser]);
+  }, [user?.id, adminEndpoint, refreshUser]);
 
   const weeklyGroups = useMemo(() => {
     const days = scheduleData?.shift_days || [];
