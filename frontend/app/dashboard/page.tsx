@@ -263,33 +263,22 @@ export default function DashboardPage() {
               <Metric title="Total" value={formatRupiah(wargaData.total_kontribusi_bulan_ini)} />
             </section>
 
-            <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-              <Metric
-                title="Saldo Kas Semua"
-                value={formatRupiah(wargaData.total_kas_semua_terkini)}
-                tone={Number(wargaData.total_kas_semua_terkini || 0) < 0 ? 'danger' : 'accent'}
-              />
-              <Metric
-                title="Tunggakan Iuran"
-                value={formatRupiah(wargaData.iuran_tunggakan_bulan_ini)}
-                tone={Number(wargaData.iuran_tunggakan_bulan_ini || 0) > 0 ? 'danger' : 'success'}
-              />
-              <Metric
-                title="Tunggakan Internet"
-                value={formatRupiah(wargaData.internet_tunggakan_total)}
-                tone={Number(wargaData.internet_tunggakan_total || 0) > 0 ? 'danger' : 'success'}
-              />
-              <Metric
-                title="Tunggakan Lingkungan"
-                value={formatRupiah(wargaData.lingkungan_tunggakan_total)}
-                tone={Number(wargaData.lingkungan_tunggakan_total || 0) > 0 ? 'danger' : 'success'}
-              />
-              <Metric
-                title="Saldo Tabungan"
-                value={formatRupiah(wargaData.tabungan_saldo)}
-                tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'}
-              />
+            <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+              <Metric title="Kas Bendahara" value={formatRupiah(wargaData.kas_umum.kas_bendahara)} tone={wargaData.kas_umum.kas_bendahara < 0 ? 'danger' : 'accent'} />
+              <Metric title="Kas Sosial" value={formatRupiah(wargaData.kas_umum.kas_sosial)} tone={wargaData.kas_umum.kas_sosial < 0 ? 'danger' : 'accent'} />
+              <Metric title="Kas Tabungan Pembangunan" value={formatRupiah(wargaData.kas_umum.kas_tabungan_pembangunan)} tone={wargaData.kas_umum.kas_tabungan_pembangunan < 0 ? 'danger' : 'accent'} />
+              <Metric title="Kas Lingkungan" value={formatRupiah(wargaData.kas_umum.kas_lingkungan)} tone={wargaData.kas_umum.kas_lingkungan < 0 ? 'danger' : 'accent'} />
+              <Metric title="Kas Internet" value={formatRupiah(wargaData.kas_umum.kas_internet)} tone={wargaData.kas_umum.kas_internet < 0 ? 'danger' : 'accent'} />
+              <Metric title="Kas Koperasi" value={formatRupiah(wargaData.kas_umum.kas_koperasi)} tone={wargaData.kas_umum.kas_koperasi < 0 ? 'danger' : 'accent'} />
             </section>
+
+            <CompactPanel title="Tunggakan Anda" subtitle="Jumlah bulan dan nominal per kas">
+              <div className="space-y-2 text-sm">
+                <Line label="Iuran Wajib" value={`${wargaData.iuran_tunggakan_bulan_count} bulan • ${formatRupiah(wargaData.iuran_tunggakan_bulan_ini)}`} />
+                <Line label="Internet" value={`${wargaData.internet_tunggakan_bulan_count} bulan • ${formatRupiah(wargaData.internet_tunggakan_total)}`} />
+                <Line label="Lingkungan" value={`${wargaData.lingkungan_tunggakan_bulan_count} bulan • ${formatRupiah(wargaData.lingkungan_tunggakan_total)}`} />
+              </div>
+            </CompactPanel>
 
             <section className={`grid gap-3 ${serviceRows.length ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
               <CompactPanel title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">

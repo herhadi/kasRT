@@ -7,6 +7,7 @@ import {
   getDashboardAdminSosialByMonth,
   getFinanceRecapByMonth,
   getTotalKasSemuaTerkini,
+  getKasUmumSnapshot,
   getTop10PenunggakIuranWajib,
   getTrenIuranWajib6Bulan,
   getIuranBulananByWarga,
@@ -37,6 +38,7 @@ export async function dashboardWarga(req, res) {
     const loanProgress = await getActiveLoanProgressByWarga(user_id);
     const snapshot = await getWargaFinancialSnapshot(user_id);
     const totalKasSemuaTerkini = await getTotalKasSemuaTerkini();
+    const kasUmum = await getKasUmumSnapshot();
 
     let iuran_wajib_bulan_ini = 0;
     let internet_bulan_ini = 0;
@@ -134,10 +136,21 @@ export async function dashboardWarga(req, res) {
         koperasi_loan_tenor_months: Number(loanProgress?.tenor_months || 0),
         koperasi_loan_current_installment_no: Number(loanProgress?.current_installment_no || 0),
         iuran_tunggakan_bulan_ini: Number(snapshot?.iuran_tunggakan_bulan_ini || 0),
+        iuran_tunggakan_bulan_count: Number(snapshot?.iuran_tunggakan_bulan_count || 0),
         internet_tunggakan_total: Number(snapshot?.internet_tunggakan_total || 0),
+        internet_tunggakan_bulan_count: Number(snapshot?.internet_tunggakan_bulan_count || 0),
         lingkungan_tunggakan_total: Number(snapshot?.lingkungan_tunggakan_total || 0),
+        lingkungan_tunggakan_bulan_count: Number(snapshot?.lingkungan_tunggakan_bulan_count || 0),
         tabungan_saldo: Number(snapshot?.tabungan_saldo || 0),
-        total_kas_semua_terkini: Number(totalKasSemuaTerkini || 0)
+        total_kas_semua_terkini: Number(totalKasSemuaTerkini || 0),
+        kas_umum: {
+          kas_bendahara: Number(kasUmum.kas_bendahara || 0),
+          kas_sosial: Number(kasUmum.kas_sosial || 0),
+          kas_tabungan_pembangunan: Number(kasUmum.kas_tabungan_pembangunan || 0),
+          kas_lingkungan: Number(kasUmum.kas_lingkungan || 0),
+          kas_internet: Number(kasUmum.kas_internet || 0),
+          kas_koperasi: Number(kasUmum.kas_koperasi || 0)
+        }
       }
     });
   } catch (err) {

@@ -146,6 +146,7 @@ export async function getWargaFinancialSnapshot(userId) {
      ),
      internet_arrears AS (
        SELECT COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
+            , COALESCE(SUM(CASE WHEN GREATEST(mt.target - COALESCE(p.paid,0), 0) > 0 THEN 1 ELSE 0 END), 0) AS months_arrears
        FROM (
          SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
          FROM generate_series(
@@ -172,6 +173,7 @@ export async function getWargaFinancialSnapshot(userId) {
      ),
      lingkungan_arrears AS (
        SELECT COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
+            , COALESCE(SUM(CASE WHEN GREATEST(mt.target - COALESCE(p.paid,0), 0) > 0 THEN 1 ELSE 0 END), 0) AS months_arrears
        FROM (
          SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
          FROM generate_series(
@@ -198,12 +200,52 @@ export async function getWargaFinancialSnapshot(userId) {
      )
      SELECT
        GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) AS iuran_tunggakan_bulan_ini,
+       CASE WHEN GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) > 0 THEN 1 ELSE 0 END AS iuran_tunggakan_bulan_count,
        COALESCE((SELECT saldo FROM tabungan LIMIT 1), 0) AS tabungan_saldo,
        (SELECT total_arrears FROM internet_arrears) AS internet_tunggakan_total,
-       (SELECT total_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_total`,
+       (SELECT months_arrears FROM internet_arrears) AS internet_tunggakan_bulan_count,
+       (SELECT total_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_total,
+       (SELECT months_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_bulan_count`,
     [userId]
   );
   return result.rows[0] || {};
+}
+
+export async function getKasUmumSnapshot() {
+  const rows = await getFinanceRecapByMonth(new Date().toISOString().slice(0, 7));
+  const normalizeWalletName = (value) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ');
+
+  const pick = (aliases) => {
+    const aliasSet = new Set(aliases.map((alias) => normalizeWalletName(alias)));
+    const found = rows.find((r) => aliasSet.has(normalizeWalletName(r.wallet_name)));
+    return Number(found?.saldo_akhir || 0);
+  };
+
+  return {
+    kas_bendahara: pick([
+      'kas bendahara',
+      'bendahara',
+      'kas utama',
+      'kas rt utama',
+      'kas iuran wajib jimpitan',
+      'kas iuran wajib + jimpitan'
+    ]),
+    kas_sosial: pick(['kas sosial', 'kas social', 'sosial']),
+    kas_tabungan_pembangunan: pick([
+      'kas tabungan pembangunan',
+      'tabungan pembangunan',
+      'kas pembangunan',
+      'pembangunan'
+    ]),
+    kas_lingkungan: pick(['kas lingkungan', 'lingkungan', 'kas sampah', 'sampah']),
+    kas_internet: pick(['kas internet', 'internet']),
+    kas_koperasi: pick(['kas koperasi', 'koperasi'])
+  };
 }
 
 export async function getDashboardAdminPembangunanAggregate() {

@@ -43,10 +43,21 @@ export type DashboardWargaData = {
   koperasi_loan_tenor_months: number;
   koperasi_loan_current_installment_no: number;
   iuran_tunggakan_bulan_ini: number;
+  iuran_tunggakan_bulan_count: number;
   internet_tunggakan_total: number;
+  internet_tunggakan_bulan_count: number;
   lingkungan_tunggakan_total: number;
+  lingkungan_tunggakan_bulan_count: number;
   tabungan_saldo: number;
   total_kas_semua_terkini: number;
+  kas_umum: {
+    kas_bendahara: number;
+    kas_sosial: number;
+    kas_tabungan_pembangunan: number;
+    kas_lingkungan: number;
+    kas_internet: number;
+    kas_koperasi: number;
+  };
 };
 
 export type JimpitanListItem = {
