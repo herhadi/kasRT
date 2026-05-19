@@ -4,6 +4,7 @@ import { ensureInternetTables } from './internetModel.js';
 import { ensureLingkunganTables } from './lingkunganModel.js';
 import { ensureKoperasiTables } from './koperasiModel.js';
 import { ensureTabunganTables } from './tabunganModel.js';
+import { listFinanceWallets } from './bendaharaModel.js';
 
 let reportTablesEnsured = false;
 
@@ -212,39 +213,50 @@ export async function getWargaFinancialSnapshot(userId) {
 }
 
 export async function getKasUmumSnapshot() {
-  const rows = await getFinanceRecapByMonth(new Date().toISOString().slice(0, 7));
-  const normalizeWalletName = (value) =>
-    String(value || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim()
-      .replace(/\s+/g, ' ');
+  const [rows, bendaharaWallets] = await Promise.all([
+    getFinanceRecapByMonth(new Date().toISOString().slice(0, 7)),
+    listFinanceWallets()
+  ]);
+  const walletMap = new Map(rows.map((r) => [String(r.wallet_name || '').toLowerCase(), Number(r.saldo_akhir || 0)]));
+  const kasSosial = Number(walletMap.get('kas sosial') || 0);
+  const kasBendahara = (bendaharaWallets || []).reduce((sum, row) => sum + Number(row.balance || 0), 0);
 
-  const pick = (aliases) => {
-    const aliasSet = new Set(aliases.map((alias) => normalizeWalletName(alias)));
-    const found = rows.find((r) => aliasSet.has(normalizeWalletName(r.wallet_name)));
-    return Number(found?.saldo_akhir || 0);
-  };
+  const [pembangunanRes, internetRes, lingkunganRes, koperasiRes] = await Promise.all([
+    pool.query(
+      `SELECT COALESCE(SUM(it.amount), 0) AS total
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'pembangunan'`
+    ),
+    pool.query(
+      `SELECT
+         COALESCE((SELECT SUM(amount) FROM inet_payments), 0)
+         - COALESCE((SELECT SUM(amount) FROM inet_expenses), 0) AS total`
+    ),
+    pool.query(
+      `SELECT
+         COALESCE((SELECT SUM(amount) FROM lh_payments), 0)
+         - COALESCE((SELECT SUM(amount) FROM lh_expenses), 0) AS total`
+    ),
+    pool.query(
+      `SELECT COALESCE(SUM(
+         CASE
+           WHEN direction = 'CREDIT' THEN amount
+           WHEN direction = 'DEBIT' THEN -amount
+           ELSE 0
+         END
+       ), 0) AS total
+       FROM kop_ledger`
+    )
+  ]);
 
   return {
-    kas_bendahara: pick([
-      'kas bendahara',
-      'bendahara',
-      'kas utama',
-      'kas rt utama',
-      'kas iuran wajib jimpitan',
-      'kas iuran wajib + jimpitan'
-    ]),
-    kas_sosial: pick(['kas sosial', 'kas social', 'sosial']),
-    kas_tabungan_pembangunan: pick([
-      'kas tabungan pembangunan',
-      'tabungan pembangunan',
-      'kas pembangunan',
-      'pembangunan'
-    ]),
-    kas_lingkungan: pick(['kas lingkungan', 'lingkungan', 'kas sampah', 'sampah']),
-    kas_internet: pick(['kas internet', 'internet']),
-    kas_koperasi: pick(['kas koperasi', 'koperasi'])
+    kas_bendahara: Number(kasBendahara || 0),
+    kas_sosial: kasSosial,
+    kas_tabungan_pembangunan: Number(pembangunanRes.rows[0]?.total || 0),
+    kas_lingkungan: Number(lingkunganRes.rows[0]?.total || 0),
+    kas_internet: Number(internetRes.rows[0]?.total || 0),
+    kas_koperasi: Number(koperasiRes.rows[0]?.total || 0)
   };
 }
 
