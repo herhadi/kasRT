@@ -26,23 +26,23 @@ services:
       - key: CRON_SECRET
         sync: false
 
-  - type: web
-    name: kasrt02
-    runtime: node
-    region: singapore
-    rootDir: frontend
-    plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    autoDeploy: true
-    envVars:
-      - key: NODE_VERSION
-        value: 25
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
-      - key: NEXT_PUBLIC_WA_ADMIN
-        sync: false
-      - key: API_URL
-        sync: false
-      - key: CRON_SECRET
-        sync: false
+  # - type: web
+  #   name: kasrt02
+  #   runtime: node
+  #   region: singapore
+  #   rootDir: frontend
+  #   plan: free
+  #   buildCommand: npm install && npm run build
+  #   startCommand: npm start
+  #   autoDeploy: true
+  #   envVars:
+  #     - key: NODE_VERSION
+  #       value: 25
+  #     - key: NEXT_PUBLIC_API_URL
+  #       sync: false
+  #     - key: NEXT_PUBLIC_WA_ADMIN
+  #       sync: false
+  #     - key: API_URL
+  #       sync: false
+  #     - key: CRON_SECRET
+  #       sync: false
