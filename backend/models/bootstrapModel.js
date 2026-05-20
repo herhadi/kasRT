@@ -25,7 +25,8 @@ async function ensureRoles() {
         (9, 'Admin Koperasi'),
         (10, 'Admin Keamanan'),
         (11, 'Warga'),
-        (12, 'root')
+        (12, 'root'),
+        (13, 'Plt Ketua')
     )
     UPDATE roles r
     SET name = d.name
@@ -54,7 +55,8 @@ async function ensureRoles() {
         (9, 'Admin Koperasi'),
         (10, 'Admin Keamanan'),
         (11, 'Warga'),
-        (12, 'root')
+        (12, 'root'),
+        (13, 'Plt Ketua')
     )
     INSERT INTO roles (id, name)
     SELECT d.id, d.name

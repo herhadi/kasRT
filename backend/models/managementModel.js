@@ -220,6 +220,24 @@ export async function setUserOrganizationRoles({ userId, roleIds }) {
       throw new Error('Ada role admin yang tidak valid');
     }
 
+    const ketuaRole = await client.query(
+      `SELECT id FROM roles WHERE LOWER(TRIM(name)) = 'ketua' LIMIT 1`
+    );
+    const ketuaRoleId = Number(ketuaRole.rows[0]?.id || 0);
+    if (ketuaRoleId && normalized.includes(ketuaRoleId)) {
+      const existing = await client.query(
+        `SELECT ur.user_id
+         FROM user_roles ur
+         WHERE ur.role_id = $1
+           AND ur.user_id <> $2::uuid
+         LIMIT 1`,
+        [ketuaRoleId, userId]
+      );
+      if (existing.rows.length > 0) {
+        throw new Error('Role Ketua hanya boleh 1 orang. Gunakan role Plt Ketua untuk petugas backup.');
+      }
+    }
+
     await client.query(
       `DELETE FROM user_roles
        WHERE user_id = $1

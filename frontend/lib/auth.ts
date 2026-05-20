@@ -40,7 +40,15 @@ export function clearSession() {
 
 export function hasAnyRole(user: UserSession | null, allowedRoles: string[]) {
   if (!user) return false;
+  const roleAliases: Record<string, string[]> = {
+    ketua: ['plt ketua']
+  };
   const owned = user.roles.map((role) => String(role).toLowerCase());
+  const expandedAllowed = new Set(allowedRoles.map((role) => String(role).toLowerCase()));
+  for (const role of expandedAllowed) {
+    const aliases = roleAliases[role] || [];
+    aliases.forEach((alias) => expandedAllowed.add(alias));
+  }
   if (owned.includes('root')) return true;
-  return allowedRoles.some((role) => owned.includes(role.toLowerCase()));
+  return owned.some((role) => expandedAllowed.has(role));
 }
