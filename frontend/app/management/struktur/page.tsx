@@ -29,9 +29,9 @@ export default function UserManagementPage() {
   const [newPin, setNewPin] = useState('');
   const [editNama, setEditNama] = useState('');
   const [editNoHp, setEditNoHp] = useState('');
-  const [editPin, setEditPin] = useState('');
   const [savingUser, setSavingUser] = useState(false);
   const [savingEditUser, setSavingEditUser] = useState(false);
+  const [resettingPin, setResettingPin] = useState(false);
   const [savingRoles, setSavingRoles] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -91,13 +91,11 @@ export default function UserManagementPage() {
     if (!selectedUserId) {
       setEditNama('');
       setEditNoHp('');
-      setEditPin('');
       return;
     }
     const selectedUser = users.find((u) => String(u.id) === String(selectedUserId));
     setEditNama(String(selectedUser?.nama || ''));
     setEditNoHp(String(selectedUser?.no_hp || ''));
-    setEditPin('');
   }, [selectedUserId, users]);
 
   async function handleAddWarga() {
@@ -165,24 +163,18 @@ export default function UserManagementPage() {
     }
     const nama = editNama.trim();
     const no_hp = editNoHp.trim();
-    const pin = editPin.trim();
     if (!nama || !no_hp) {
       setError('Nama dan nomor HP wajib diisi.');
       return;
     }
-    if (pin && !isValidPin(pin)) {
-      setError('PIN harus 4 sampai 6 digit angka.');
-      return;
-    }
     try {
       setSavingEditUser(true);
-      await apiFetch(`/management/users/${encodeURIComponent(selectedUserId)}/edit`, {
+      const res = await apiFetch<{ success: boolean; message?: string }>(`/management/users/${encodeURIComponent(selectedUserId)}/edit`, {
         method: 'POST',
-        body: JSON.stringify({ nama, no_hp, pin: pin || '' })
+        body: JSON.stringify({ nama, no_hp })
       });
-      setMessage('Data warga berhasil diperbarui.');
+      setMessage(res.message || 'Data warga berhasil diperbarui.');
       await Promise.all([loadData(), loadWargaOptions()]);
-      setEditPin('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mengubah data warga');
     } finally {
@@ -190,9 +182,32 @@ export default function UserManagementPage() {
     }
   }
 
+  async function resetPinDefault() {
+    setError('');
+    setMessage('');
+    if (!selectedUserId) {
+      setError('Pilih warga terlebih dahulu.');
+      return;
+    }
+    try {
+      setResettingPin(true);
+      const res = await apiFetch<{ success: boolean; message?: string }>(`/management/users/${encodeURIComponent(selectedUserId)}/edit`, {
+        method: 'POST',
+        body: JSON.stringify({ nama: editNama.trim(), no_hp: editNoHp.trim(), reset_pin: true })
+      });
+      setMessage(res.message || 'PIN berhasil di-reset ke default.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal reset PIN');
+    } finally {
+      setResettingPin(false);
+    }
+  }
+
   if (loading || !user) return <main className="min-h-screen" />;
 
-  const organizationTableRows = organizationRoles.map((role) => {
+  const organizationTableRows = organizationRoles
+    .filter((role) => String(role.name).trim().toLowerCase() !== 'plt ketua')
+    .map((role) => {
     const members = users.filter((row) =>
       (row.roles || []).some((ownedRole) => String(ownedRole).toLowerCase() === String(role.name).toLowerCase())
     );
@@ -318,8 +333,8 @@ export default function UserManagementPage() {
             </table>
           </div>
         </Card>
-        <Card title="Edit Warga" subtitle="Perbarui nama, nomor HP, atau PIN warga terpilih">
-          <div className="grid gap-3 md:grid-cols-4">
+        <Card title="Edit Warga" subtitle="Perbarui data warga, dan reset PIN ke default bila diperlukan">
+          <div className="grid gap-3 md:grid-cols-3">
             <label className="space-y-2 text-sm font-semibold">
               <span>Nama Warga</span>
               <select
@@ -335,22 +350,19 @@ export default function UserManagementPage() {
               </select>
             </label>
             <Input label="Nomor HP" value={editNoHp} onChange={(e) => setEditNoHp(e.target.value)} />
-            <Input
-              label="PIN Baru (opsional)"
-              type="password"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={editPin}
-              onChange={(e) => setEditPin(normalizePinInput(e.target.value))}
-            />
             <div className="flex items-end">
               <Button className="w-full" onClick={saveWargaEdit} disabled={savingEditUser || !selectedUserId}>
                 {savingEditUser ? 'Menyimpan...' : 'Simpan Perubahan'}
               </Button>
             </div>
           </div>
+          <div className="mt-3 flex justify-end">
+            <Button variant="ghost" className="w-full md:w-auto" onClick={resetPinDefault} disabled={resettingPin || !selectedUserId}>
+              {resettingPin ? 'Reset PIN...' : 'Reset PIN ke Default'}
+            </Button>
+          </div>
           <p className="mt-3 text-xs text-[var(--text-muted)]">
-            PIN bersifat opsional. Jika dikosongkan, PIN lama tidak diubah.
+            Reset PIN akan mengatur PIN ke default `1234` dan user wajib ganti PIN saat login berikutnya.
           </p>
         </Card>
       </div>

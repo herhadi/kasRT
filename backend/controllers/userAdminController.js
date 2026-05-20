@@ -86,7 +86,7 @@ export async function editWargaUser(req, res) {
   const userId = String(req.params.id || '').trim();
   const nama = String(req.body.nama || '').trim();
   const noHp = String(req.body.no_hp || '').trim();
-  const pin = String(req.body.pin || '').trim();
+  const resetPin = Boolean(req.body.reset_pin === true);
 
   if (!userId) {
     return res.status(400).json({ success: false, message: 'user id tidak valid' });
@@ -94,13 +94,14 @@ export async function editWargaUser(req, res) {
   if (!nama || !noHp) {
     return res.status(400).json({ success: false, message: 'nama dan no_hp wajib diisi' });
   }
-  if (pin && !/^\d{4,6}$/.test(pin)) {
-    return res.status(400).json({ success: false, message: 'PIN harus 4-6 digit angka' });
-  }
-
   try {
-    await updateWargaUser({ userId, nama, noHp, pin: pin || null });
-    return res.json({ success: true });
+    await updateWargaUser({ userId, nama, noHp, resetPin, defaultPin: '1234' });
+    return res.json({
+      success: true,
+      message: resetPin
+        ? 'Data warga diperbarui dan PIN di-reset ke default. User wajib ganti PIN saat login.'
+        : 'Data warga berhasil diperbarui.'
+    });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

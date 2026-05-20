@@ -134,7 +134,7 @@ export async function createWargaUser({ nama, noHp, pin }) {
   }
 }
 
-export async function updateWargaUser({ userId, nama, noHp, pin = null }) {
+export async function updateWargaUser({ userId, nama, noHp, resetPin = false, defaultPin = '1234' }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -162,22 +162,21 @@ export async function updateWargaUser({ userId, nama, noHp, pin = null }) {
       throw new Error('Nomor HP sudah dipakai user lain');
     }
 
-    if (pin && String(pin).trim() !== '') {
+    await client.query(
+      `UPDATE users
+       SET nama = $2,
+           no_hp = $3
+       WHERE id = $1`,
+      [userId, nama, noHp]
+    );
+
+    if (resetPin) {
       await client.query(
         `UPDATE users
-         SET nama = $2,
-             no_hp = $3,
-             pin = $4
+         SET pin = $2,
+             must_change_pin = TRUE
          WHERE id = $1`,
-        [userId, nama, noHp, pin]
-      );
-    } else {
-      await client.query(
-        `UPDATE users
-         SET nama = $2,
-             no_hp = $3
-         WHERE id = $1`,
-        [userId, nama, noHp]
+        [userId, defaultPin]
       );
     }
 
