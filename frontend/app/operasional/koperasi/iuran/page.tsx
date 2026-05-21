@@ -88,18 +88,28 @@ export default function KoperasiIuranPage() {
             onSubmit={async (amount) => {
               const row = rows.find((r) => String(r.warga_id) === String(selected?.id));
               if (!row) throw new Error('Data warga tidak ditemukan.');
-              if (!row.loan_id) throw new Error('Warga ini belum memiliki pinjaman aktif sehingga belum bisa input iuran koperasi.');
               const dueNow = Math.max(0, Number(row.target_amount || 0) - Number(row.paid_amount || 0));
               if (dueNow <= 0) throw new Error('Iuran bulan ini sudah lunas.');
-              await apiFetch('/koperasi/loan/payment', {
-                method: 'POST',
-                body: JSON.stringify({
-                  loan_id: String(row.loan_id),
-                  amount: dueNow,
-                  paid_date: `${month}-01`,
-                  description: `Iuran wajib koperasi ${month}`
-                })
-              });
+              if (row.loan_id) {
+                await apiFetch('/koperasi/loan/payment', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    loan_id: String(row.loan_id),
+                    amount: dueNow,
+                    paid_date: `${month}-01`,
+                    description: `Iuran wajib koperasi ${month}`
+                  })
+                });
+              } else {
+                await apiFetch('/koperasi/iuran/payment', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    warga_id: String(row.warga_id),
+                    amount: dueNow,
+                    paid_date: `${month}-01`
+                  })
+                });
+              }
               setSelected(null);
               await load();
             }}

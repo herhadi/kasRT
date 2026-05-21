@@ -15,6 +15,7 @@ import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
 
 type Member = { warga_id: string; nama: string; is_active?: boolean };
+type WargaOption = { id: string; nama: string; no_hp?: string };
 type PlanRow = { installment_no: number; due_month: string; principal_due: number; interest_due: number; total_due: number };
 type LoanRow = { id: string; nama: string; status: string; principal_amount: number; total_tagihan: number; total_bayar: number; sisa_piutang: number };
 type Summary = { kas_saldo: number; total_angsuran_masuk: number; loans: LoanRow[] };
@@ -24,6 +25,7 @@ export default function KoperasiPage() {
   const canAccess = hasAnyRole(user, ['Admin Koperasi', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Koperasi', 'root']);
   const [members, setMembers] = useState<Member[]>([]);
+  const [wargaOptions, setWargaOptions] = useState<WargaOption[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [wargaId, setWargaId] = useState('');
   const [principal, setPrincipal] = useState('');
@@ -48,19 +50,25 @@ export default function KoperasiPage() {
 
   async function loadAll() {
     if (!canAccess) return;
-    const [mRes, sRes] = await Promise.all([
+    const [mRes, sRes, wRes] = await Promise.all([
       apiFetch<{ success: boolean; data: Member[] }>('/koperasi/members'),
-      apiFetch<{ success: boolean; data: Summary }>('/koperasi/summary')
+      apiFetch<{ success: boolean; data: Summary }>('/koperasi/summary'),
+      apiFetch<{ success: boolean; data: WargaOption[] }>('/auth/warga-options')
     ]);
     const m = mRes.data || [];
+    const w = wRes.data || [];
     setMembers(m);
+    setWargaOptions(w);
     setSummary(sRes.data || null);
-    if (m[0] && !wargaId) setWargaId(m[0].warga_id);
+    if (w[0] && !wargaId) setWargaId(String(w[0].id));
     if (sRes.data?.loans?.[0] && !payLoanId) setPayLoanId(sRes.data.loans[0].id);
   }
 
   useEffect(() => { void loadAll().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data')); }, [canAccess]);
-  const selectedName = useMemo(() => members.find((m) => m.warga_id === wargaId)?.nama || '-', [members, wargaId]);
+  const selectedName = useMemo(
+    () => wargaOptions.find((w) => String(w.id) === String(wargaId))?.nama || members.find((m) => m.warga_id === wargaId)?.nama || '-',
+    [wargaOptions, members, wargaId]
+  );
   const activeMembers = useMemo(() => members.filter((m) => Boolean(m.is_active)), [members]);
   const previewGrandTotal = useMemo(
     () => plan.reduce((acc, row) => acc + Number(row.total_due || 0), 0),
@@ -68,9 +76,9 @@ export default function KoperasiPage() {
   );
 
   useEffect(() => {
-    if (!members.length) return;
-    if (!members.some((m) => m.warga_id === wargaId)) setWargaId(members[0].warga_id);
-  }, [members, wargaId]);
+    if (!wargaOptions.length) return;
+    if (!wargaOptions.some((w) => String(w.id) === String(wargaId))) setWargaId(String(wargaOptions[0].id));
+  }, [wargaOptions, wargaId]);
   useEffect(() => {
     memberPager.reset();
   }, [members.length]);
@@ -239,7 +247,7 @@ export default function KoperasiPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <div className="block space-y-2">
                 <span className="text-sm font-semibold text-[var(--text-primary)]">Warga</span>
-                <select value={wargaId} onChange={(e) => setWargaId(e.target.value)} className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm">{members.map((m) => <option key={m.warga_id} value={m.warga_id}>{m.nama}</option>)}</select>
+                <select value={wargaId} onChange={(e) => setWargaId(e.target.value)} className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm">{wargaOptions.map((w) => <option key={String(w.id)} value={String(w.id)}>{w.nama}</option>)}</select>
               </div>
               <Input label="Pokok Pinjaman" type="text" inputMode="numeric" value={formatRupiahInput(principal)} onChange={(e) => setPrincipal(e.target.value)} />
               <Input label="Tenor (bulan)" type="number" min={1} value={tenor} onChange={(e) => setTenor(e.target.value)} />

@@ -9,6 +9,7 @@ import {
   KOP_MAX_INTEREST_MONTHLY,
   registerKoperasiMember,
   recordKoperasiPayment,
+  recordKoperasiIuranPayment,
   setKoperasiMemberActive,
   upsertKoperasiMonthlyFee
 } from '../models/koperasiModel.js';
@@ -113,5 +114,20 @@ export async function koperasiIuranSummaryHandler(req, res) {
   const month = String(req.query.month || '').trim();
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ success: false, message: 'month invalid' });
   const data = await getKoperasiIuranSummary(month);
+  return res.json({ success: true, data });
+}
+
+export async function koperasiIuranPaymentHandler(req, res) {
+  const wargaId = String(req.body.warga_id || '').trim();
+  const amount = Number(req.body.amount || 0);
+  const paidDate = String(req.body.paid_date || '').trim();
+  if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
+  if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'amount invalid' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) return res.status(400).json({ success: false, message: 'paid_date invalid' });
+  const data = await recordKoperasiIuranPayment({ wargaId, amount, paidDate });
+  await notifyUser(
+    wargaId,
+    `Iuran koperasi tercatat.\nTanggal: ${paidDate}\nNominal: ${formatRupiah(amount)}`
+  );
   return res.json({ success: true, data });
 }

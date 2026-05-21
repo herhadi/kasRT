@@ -5,6 +5,7 @@ import {
   activateLoanHandler,
   createLoanDraftHandler,
   koperasiIuranSummaryHandler,
+  koperasiIuranPaymentHandler,
   koperasiMemberSetActiveHandler,
   koperasiMembersHandler,
   koperasiRegisterMemberHandler,
@@ -25,6 +26,7 @@ router.get('/members', allowRoles('Admin Koperasi', 'Ketua'), asyncHandler(koper
 router.post('/members/set-active', allowRoles('Admin Koperasi'), asyncHandler(koperasiMemberSetActiveHandler));
 router.post('/members/register', allowRoles('Admin Koperasi'), asyncHandler(koperasiRegisterMemberHandler));
 router.post('/iuran/monthly-fee', allowRoles('Admin Koperasi'), asyncHandler(koperasiSetMonthlyFeeHandler));
+router.post('/iuran/payment', allowRoles('Admin Koperasi'), asyncHandler(koperasiIuranPaymentHandler));
 router.get('/iuran/summary', allowRoles('Admin Koperasi', 'Ketua'), asyncHandler(koperasiIuranSummaryHandler));
 router.get('/summary', allowRoles('Admin Koperasi', 'Ketua', 'Sekretaris'), asyncHandler(koperasiSummaryHandler));
 

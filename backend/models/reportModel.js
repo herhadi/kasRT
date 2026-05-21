@@ -80,6 +80,35 @@ export async function getLingkunganBulananByWargaByMonthKey(userId, month = null
   return Number(result.rows[0]?.total || 0);
 }
 
+export async function getKoperasiBulananByWarga(userId, month = null) {
+  await ensureReportTables();
+  const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))
+    ? String(month)
+    : new Date().toISOString().slice(0, 7);
+  const result = await pool.query(
+    `WITH from_iuran AS (
+       SELECT COALESCE(SUM(it.amount), 0) AS total
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'koperasi'
+         AND it.warga_id = $1::uuid
+         AND TO_CHAR(it.tanggal, 'YYYY-MM') = $2
+     ),
+     from_loan_payment AS (
+       SELECT COALESCE(SUM(p.amount), 0) AS total
+       FROM kop_payments p
+       JOIN kop_loans l ON l.id = p.loan_id
+       WHERE l.warga_id = $1::uuid
+         AND TO_CHAR(p.paid_date, 'YYYY-MM') = $2
+     )
+     SELECT
+       COALESCE((SELECT total FROM from_iuran), 0) +
+       COALESCE((SELECT total FROM from_loan_payment), 0) AS total`,
+    [userId, monthKey]
+  );
+  return Number(result.rows[0]?.total || 0);
+}
+
 export async function getActiveLoanProgressByWarga(userId) {
   const result = await pool.query(
     `SELECT
