@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
   const [activatingTelegram, setActivatingTelegram] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   const adminEndpoint = useMemo(() => {
     if (!user) return null;
@@ -83,7 +84,7 @@ export default function DashboardPage() {
       try {
         const [meResult, wargaResult, scheduleResult] = await Promise.all([
           apiFetch<{ success: boolean; user: UserSession }>('/auth/me'),
-          apiFetch<{ success: boolean; data: DashboardWargaData }>('/report/dashboard'),
+          apiFetch<{ success: boolean; data: DashboardWargaData }>(`/report/dashboard?month=${encodeURIComponent(selectedMonth)}`),
           apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule')
         ]);
 
@@ -103,7 +104,7 @@ export default function DashboardPage() {
     }
 
     loadDashboard();
-  }, [user?.id, adminEndpoint, refreshUser]);
+  }, [user?.id, adminEndpoint, refreshUser, selectedMonth]);
 
   const weeklyGroups = useMemo(() => {
     const days = scheduleData?.shift_days || [];
@@ -113,31 +114,6 @@ export default function DashboardPage() {
       members: petugas.filter((person) => person.jimpitan_shift_hari === day.id)
     }));
   }, [scheduleData]);
-
-  const serviceRows = useMemo(() => {
-    if (!wargaData) return [];
-    return [
-      wargaData.internet_is_member
-        ? {
-            label: 'Internet',
-            value: formatRupiah(wargaData.internet_bulan_ini),
-            status: wargaData.internet_status
-          }
-        : null,
-      wargaData.lingkungan_is_member
-        ? {
-            label: 'Lingkungan',
-            value: formatRupiah(wargaData.lingkungan_bulan_ini),
-            status: wargaData.lingkungan_status
-          }
-        : null,
-      {
-        label: 'Koperasi',
-        value: '-',
-        status: wargaData.koperasi_is_member ? 'ACTIVE_MEMBER' : 'NON_MEMBER'
-      }
-    ].filter(Boolean) as Array<{ label: string; value: string; status: string }>;
-  }, [wargaData]);
 
   const optionalRows = useMemo(
     () => (wargaData?.optional_contributions || []).filter((item) => item.is_mandatory === false && Number(item.amount || 0) > 0),
@@ -256,21 +232,31 @@ export default function DashboardPage() {
 
         {wargaData ? (
           <>
-            <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-              <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
-              <Metric title="Iuran Wajib" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
-              {wargaData.total_optional_bulan_ini > 0 ? <Metric title="Opsional" value={formatRupiah(wargaData.total_optional_bulan_ini)} /> : null}
-              <Metric title="Total" value={formatRupiah(wargaData.total_kontribusi_bulan_ini)} />
-            </section>
+            <Card title="Informasi Pribadi" subtitle="Ringkasan iuran dan saldo pribadi">
+              <div className="mb-3 flex justify-end">
+                <div className="w-full max-w-[220px]">
+                  <Input label="Filter Bulan-Tahun" type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
+                </div>
+              </div>
+              <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+                <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
+                <Metric title="Iuran Wajib Bulan Ini" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
+                <Metric title="Saldo Tabungan Pribadi" value={formatRupiah(wargaData.tabungan_saldo)} tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'} />
+                {wargaData.lingkungan_is_member ? <Metric title="Iuran Lingkungan Bulan Ini" value={formatRupiah(wargaData.lingkungan_bulan_ini)} /> : null}
+                {wargaData.koperasi_is_member ? <Metric title="Iuran Koperasi Bulan Ini" value={formatRupiah(wargaData.koperasi_bulan_ini)} /> : null}
+              </section>
+            </Card>
 
-            <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
-              <Metric title="Kas Bendahara" value={formatRupiah(wargaData.kas_umum.kas_bendahara)} tone={wargaData.kas_umum.kas_bendahara < 0 ? 'danger' : 'accent'} />
-              <Metric title="Kas Sosial" value={formatRupiah(wargaData.kas_umum.kas_sosial)} tone={wargaData.kas_umum.kas_sosial < 0 ? 'danger' : 'accent'} />
-              <Metric title="Kas Tabungan Pembangunan" value={formatRupiah(wargaData.kas_umum.kas_tabungan_pembangunan)} tone={wargaData.kas_umum.kas_tabungan_pembangunan < 0 ? 'danger' : 'accent'} />
-              <Metric title="Kas Lingkungan" value={formatRupiah(wargaData.kas_umum.kas_lingkungan)} tone={wargaData.kas_umum.kas_lingkungan < 0 ? 'danger' : 'accent'} />
-              <Metric title="Kas Internet" value={formatRupiah(wargaData.kas_umum.kas_internet)} tone={wargaData.kas_umum.kas_internet < 0 ? 'danger' : 'accent'} />
-              <Metric title="Kas Koperasi" value={formatRupiah(wargaData.kas_umum.kas_koperasi)} tone={wargaData.kas_umum.kas_koperasi < 0 ? 'danger' : 'accent'} />
-            </section>
+            <Card title="Kas Umum" subtitle="Ringkasan kas bersama lintas modul">
+              <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+                <Metric title="Kas Bendahara" value={formatRupiah(wargaData.kas_umum.kas_bendahara)} tone={wargaData.kas_umum.kas_bendahara < 0 ? 'danger' : 'accent'} />
+                <Metric title="Kas Sosial" value={formatRupiah(wargaData.kas_umum.kas_sosial)} tone={wargaData.kas_umum.kas_sosial < 0 ? 'danger' : 'accent'} />
+                <Metric title="Kas Tabungan Pembangunan" value={formatRupiah(wargaData.kas_umum.kas_tabungan_pembangunan)} tone={wargaData.kas_umum.kas_tabungan_pembangunan < 0 ? 'danger' : 'accent'} />
+                <Metric title="Kas Lingkungan" value={formatRupiah(wargaData.kas_umum.kas_lingkungan)} tone={wargaData.kas_umum.kas_lingkungan < 0 ? 'danger' : 'accent'} />
+                <Metric title="Kas Internet" value={formatRupiah(wargaData.kas_umum.kas_internet)} tone={wargaData.kas_umum.kas_internet < 0 ? 'danger' : 'accent'} />
+                <Metric title="Kas Koperasi" value={formatRupiah(wargaData.kas_umum.kas_koperasi)} tone={wargaData.kas_umum.kas_koperasi < 0 ? 'danger' : 'accent'} />
+              </section>
+            </Card>
 
             <CompactPanel title="Tunggakan Anda" subtitle="Jumlah bulan dan nominal per kas">
               <div className="space-y-2 text-sm">
@@ -280,7 +266,7 @@ export default function DashboardPage() {
               </div>
             </CompactPanel>
 
-            <section className={`grid gap-3 ${serviceRows.length ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+            <section className="grid gap-3 lg:grid-cols-1">
               <CompactPanel title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
                 <div className="space-y-2 text-sm">
                   <Line label="Target Jimpitan" value={formatRupiah(wargaData.target_jimpitan_bulanan)} />
@@ -288,16 +274,6 @@ export default function DashboardPage() {
                   <Line label="Target Dasar" value={formatRupiah(wargaData.target_kontribusi_dasar)} />
                 </div>
               </CompactPanel>
-
-              {serviceRows.length ? (
-                <CompactPanel title="Layanan Aktif" subtitle="Internet dan lingkungan">
-                  <div className="grid gap-2 text-sm">
-                    {serviceRows.map((row) => (
-                      <Line key={row.label} label={row.label} value={`${row.value} (${formatStatus(row.status)})`} />
-                    ))}
-                  </div>
-                </CompactPanel>
-              ) : null}
             </section>
 
             {wargaData.koperasi_has_loan ? (

@@ -31,28 +31,13 @@ export async function findUserRoles(userId) {
 }
 
 export async function listWargaDropdownOptions() {
-  const wargaResult = await pool.query(
-    `SELECT DISTINCT u.id, u.nama, u.no_hp
-     FROM users u
-     JOIN user_roles ur ON ur.user_id = u.id
-     JOIN roles r ON r.id = ur.role_id
-     WHERE LOWER(TRIM(r.name)) = 'warga'
-       AND ${ELIGIBLE_USERS_CLAUSE}
-     ORDER BY u.nama ASC`
-  );
-
-  if (wargaResult.rows.length > 0) {
-    return wargaResult.rows;
-  }
-
-  const fallbackResult = await pool.query(
+  const result = await pool.query(
     `SELECT u.id, u.nama, u.no_hp
      FROM users u
      WHERE ${ELIGIBLE_USERS_CLAUSE}
      ORDER BY u.nama ASC`
   );
-
-  return fallbackResult.rows;
+  return result.rows;
 }
 
 export async function updateUserPinById(userId, pin) {

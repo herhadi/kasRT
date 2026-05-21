@@ -30,18 +30,24 @@ export async function getJimpitanHarianByWarga(userId) {
   return Number(result.rows[0]?.total || 0);
 }
 
-export async function getJimpitanBulananByWarga(userId) {
+export async function getJimpitanBulananByWarga(userId, month = null) {
+  const monthDate = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))
+    ? `${month}-01`
+    : null;
   const result = await pool.query(
     `SELECT COALESCE(SUM(nominal), 0) AS total
      FROM jimpitan_details
      WHERE warga_id = $1
-     AND DATE_TRUNC('month', tanggal) = DATE_TRUNC('month', CURRENT_DATE)`,
-    [userId]
+     AND DATE_TRUNC('month', tanggal) = DATE_TRUNC('month', COALESCE($2::date, CURRENT_DATE))`,
+    [userId, monthDate]
   );
   return Number(result.rows[0]?.total || 0);
 }
 
-export async function getIuranBulananByWarga(userId) {
+export async function getIuranBulananByWarga(userId, month = null) {
+  const monthDate = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))
+    ? `${month}-01`
+    : null;
   const result = await pool.query(
     `SELECT
        ct.name,
@@ -51,10 +57,10 @@ export async function getIuranBulananByWarga(userId) {
      LEFT JOIN iuran_transactions it
        ON it.contribution_type_id = ct.id
        AND it.warga_id = $1
-       AND DATE_TRUNC('month', it.tanggal) = DATE_TRUNC('month', CURRENT_DATE)
+       AND DATE_TRUNC('month', it.tanggal) = DATE_TRUNC('month', COALESCE($2::date, CURRENT_DATE))
      GROUP BY ct.id, ct.name, ct.is_mandatory
      ORDER BY ct.is_mandatory DESC, ct.name ASC`,
-    [userId]
+    [userId, monthDate]
   );
   return result.rows;
 }
@@ -207,6 +213,38 @@ export async function getWargaFinancialSnapshot(userId) {
        (SELECT months_arrears FROM internet_arrears) AS internet_tunggakan_bulan_count,
        (SELECT total_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_total,
        (SELECT months_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_bulan_count`,
+    [userId]
+  );
+  return result.rows[0] || {};
+}
+
+export async function getWargaYearlyProgress(userId) {
+  await ensureReportTables();
+  const result = await pool.query(
+    `WITH iuran_ytd AS (
+       SELECT COALESCE(SUM(it.amount), 0) AS total
+       FROM iuran_transactions it
+       JOIN contribution_types ct ON ct.id = it.contribution_type_id
+       WHERE LOWER(TRIM(ct.name)) = 'iuran wajib'
+         AND it.warga_id = $1::uuid
+         AND DATE_TRUNC('year', it.tanggal) = DATE_TRUNC('year', CURRENT_DATE)
+     ),
+     internet_ytd AS (
+       SELECT COALESCE(SUM(amount), 0) AS total
+       FROM inet_payments
+       WHERE warga_id = $1::uuid
+         AND DATE_TRUNC('year', TO_DATE(month_key || '-01', 'YYYY-MM-DD')) = DATE_TRUNC('year', CURRENT_DATE)
+     ),
+     lingkungan_ytd AS (
+       SELECT COALESCE(SUM(amount), 0) AS total
+       FROM lh_payments
+       WHERE warga_id = $1::uuid
+         AND DATE_TRUNC('year', TO_DATE(month_key || '-01', 'YYYY-MM-DD')) = DATE_TRUNC('year', CURRENT_DATE)
+     )
+     SELECT
+       COALESCE((SELECT total FROM iuran_ytd), 0) AS iuran_ytd,
+       COALESCE((SELECT total FROM internet_ytd), 0) AS internet_ytd,
+       COALESCE((SELECT total FROM lingkungan_ytd), 0) AS lingkungan_ytd`,
     [userId]
   );
   return result.rows[0] || {};

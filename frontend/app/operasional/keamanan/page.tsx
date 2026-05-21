@@ -25,6 +25,19 @@ type SecRow = {
 
 type WargaOption = { id: string; nama: string; no_hp?: string };
 
+function formatTanggalWib(input: string) {
+  const value = String(input || '').trim();
+  if (!value) return '-';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(parsed);
+}
+
 export default function OperasionalKeamananPage() {
   const { user, loading } = useAuth();
   const canAccess = hasAnyRole(user, ['Admin Keamanan', 'Ketua']);
@@ -52,21 +65,21 @@ export default function OperasionalKeamananPage() {
     setRows(res.data || []);
   }
 
-  const loadWargaOptions = useCallback(async () => {
-    const result = await apiFetch<{ success: boolean; data: WargaOption[] }>('/auth/warga-options');
-    const rows = result.data || [];
-    setWargaOptions(rows);
-    setSelectedPetugasId((previous) => {
-      if (previous && rows.some((row) => String(row.id) === String(previous))) return previous;
-      return rows[0]?.id ? String(rows[0].id) : '';
-    });
-  }, []);
-
   const loadSchedule = useCallback(async () => {
     setScheduleLoading(true);
     try {
       const result = await apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule');
-      setScheduleData(result.data);
+      const data = result.data;
+      setScheduleData(data);
+      const options = (data?.petugas || []).map((p) => ({
+        id: String(p.id),
+        nama: String(p.nama || '')
+      }));
+      setWargaOptions(options);
+      setSelectedPetugasId((previous) => {
+        if (previous && options.some((row) => String(row.id) === String(previous))) return previous;
+        return options[0]?.id ? String(options[0].id) : '';
+      });
     } finally {
       setScheduleLoading(false);
     }
@@ -76,10 +89,10 @@ export default function OperasionalKeamananPage() {
 
   useEffect(() => {
     if (!canManageShifts) return;
-    void Promise.all([loadWargaOptions(), loadSchedule()]).catch((e) => {
+    void loadSchedule().catch((e) => {
       setError(e instanceof Error ? e.message : 'Gagal memuat data shift');
     });
-  }, [canManageShifts, loadWargaOptions, loadSchedule]);
+  }, [canManageShifts, loadSchedule]);
 
   async function submitReport() {
     try {
@@ -184,7 +197,10 @@ export default function OperasionalKeamananPage() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{r.report_date}{r.report_time ? ` ${String(r.report_time).slice(0, 5)}` : ''}</td>
+                    <td className="border-t border-[var(--line)] px-3 py-2 text-sm">
+                      {formatTanggalWib(r.report_date)}
+                      {r.report_time ? ` ${String(r.report_time).slice(0, 5)} WIB` : ''}
+                    </td>
                     <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{r.category}</td>
                     <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{r.location}</td>
                     <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{r.summary}</td>

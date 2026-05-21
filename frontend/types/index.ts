@@ -33,6 +33,7 @@ export type DashboardWargaData = {
   internet_is_member: boolean;
   internet_status: 'MENUNGGAK' | 'PAS' | 'LEBIH' | 'NON_MEMBER';
   lingkungan_bulan_ini: number;
+  koperasi_bulan_ini: number;
   lingkungan_target_bulanan: number;
   lingkungan_is_member: boolean;
   lingkungan_status: 'MENUNGGAK' | 'PAS' | 'LEBIH' | 'NON_MEMBER';

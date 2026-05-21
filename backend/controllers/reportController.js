@@ -30,11 +30,13 @@ const PEMBANGUNAN_MINIMAL_BULANAN = 5000;
 
 export async function dashboardWarga(req, res) {
   const user_id = req.user.user_id;
+  const month = String(req.query.month || '').trim();
+  const monthFilter = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
 
   try {
     const jimpitan_hari_ini = await getJimpitanHarianByWarga(user_id);
-    const jimpitan_bulan_ini = await getJimpitanBulananByWarga(user_id);
-    const iuranRows = await getIuranBulananByWarga(user_id);
+    const jimpitan_bulan_ini = await getJimpitanBulananByWarga(user_id, monthFilter);
+    const iuranRows = await getIuranBulananByWarga(user_id, monthFilter);
     const loanProgress = await getActiveLoanProgressByWarga(user_id);
     const snapshot = await getWargaFinancialSnapshot(user_id);
     const totalKasSemuaTerkini = await getTotalKasSemuaTerkini();
@@ -43,6 +45,7 @@ export async function dashboardWarga(req, res) {
     let iuran_wajib_bulan_ini = 0;
     let internet_bulan_ini = 0;
     let lingkungan_bulan_ini = 0;
+    let koperasi_bulan_ini = 0;
     let total_optional_bulan_ini = 0;
     const optional_contributions = [];
 
@@ -70,6 +73,9 @@ export async function dashboardWarga(req, res) {
 
       if (['Lingkungan', 'Sampah', 'Iuran Sampah'].includes(name)) {
         lingkungan_bulan_ini = amount;
+      }
+      if (name === 'Koperasi') {
+        koperasi_bulan_ini = amount;
       }
 
       const isInternetContribution = name === 'Internet';
@@ -124,6 +130,7 @@ export async function dashboardWarga(req, res) {
         internet_is_member: internetMember,
         internet_status,
         lingkungan_bulan_ini,
+        koperasi_bulan_ini,
         lingkungan_target_bulanan: LINGKUNGAN_TARGET_BULANAN,
         lingkungan_is_member: lingkunganMember,
         lingkungan_status,
