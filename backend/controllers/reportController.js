@@ -11,6 +11,7 @@ import {
   getTop10PenunggakIuranWajib,
   getTrenIuranWajib6Bulan,
   getIuranBulananByWarga,
+  getLingkunganBulananByWargaByMonthKey,
   getActiveLoanProgressByWarga,
   getJimpitanBulananByWarga,
   getJimpitanHarianByWarga,
@@ -37,6 +38,7 @@ export async function dashboardWarga(req, res) {
     const jimpitan_hari_ini = await getJimpitanHarianByWarga(user_id);
     const jimpitan_bulan_ini = await getJimpitanBulananByWarga(user_id, monthFilter);
     const iuranRows = await getIuranBulananByWarga(user_id, monthFilter);
+    const lingkunganByMonthKey = await getLingkunganBulananByWargaByMonthKey(user_id, monthFilter);
     const loanProgress = await getActiveLoanProgressByWarga(user_id);
     const snapshot = await getWargaFinancialSnapshot(user_id);
     const totalKasSemuaTerkini = await getTotalKasSemuaTerkini();
@@ -98,6 +100,8 @@ export async function dashboardWarga(req, res) {
 
     const total_kontribusi_bulan_ini =
       jimpitan_bulan_ini + iuran_wajib_bulan_ini + total_optional_bulan_ini;
+    // Lingkungan operasional mengacu ke month_key pada lh_payments.
+    lingkungan_bulan_ini = Number(lingkunganByMonthKey || 0);
 
     let internet_status = 'NON_MEMBER';
     if (internetMember) {

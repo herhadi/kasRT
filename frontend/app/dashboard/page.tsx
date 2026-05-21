@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [savingPin, setSavingPin] = useState(false);
   const [activatingTelegram, setActivatingTelegram] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [lingkunganPrevMonthAmount, setLingkunganPrevMonthAmount] = useState(0);
 
   const adminEndpoint = useMemo(() => {
     if (!user) return null;
@@ -80,17 +81,22 @@ export default function DashboardPage() {
     async function loadDashboard() {
       if (!user) return;
       setError('');
+      const [y, m] = selectedMonth.split('-').map(Number);
+      const prevDate = new Date(y, (m || 1) - 2, 1);
+      const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
 
       try {
-        const [meResult, wargaResult, scheduleResult] = await Promise.all([
+        const [meResult, wargaResult, scheduleResult, prevMonthResult] = await Promise.all([
           apiFetch<{ success: boolean; user: UserSession }>('/auth/me'),
           apiFetch<{ success: boolean; data: DashboardWargaData }>(`/report/dashboard?month=${encodeURIComponent(selectedMonth)}`),
-          apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule')
+          apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule'),
+          apiFetch<{ success: boolean; data: DashboardWargaData }>(`/report/dashboard?month=${encodeURIComponent(prevMonth)}`)
         ]);
 
         refreshUser(meResult.user);
         setWargaData(wargaResult.data);
         setScheduleData(scheduleResult.data);
+        setLingkunganPrevMonthAmount(Number(prevMonthResult?.data?.lingkungan_bulan_ini || 0));
 
         if (adminEndpoint) {
           const adminResult = await apiFetch<{ success: boolean; data: AdminPanelData }>(adminEndpoint);
@@ -114,6 +120,12 @@ export default function DashboardPage() {
       members: petugas.filter((person) => person.jimpitan_shift_hari === day.id)
     }));
   }, [scheduleData]);
+
+  const lingkunganPrevPeriod = useMemo(() => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const prevDate = new Date(y, (m || 1) - 2, 1);
+    return `${prevDate.getFullYear()}${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+  }, [selectedMonth]);
 
   const optionalRows = useMemo(
     () => (wargaData?.optional_contributions || []).filter((item) => item.is_mandatory === false && Number(item.amount || 0) > 0),
@@ -232,17 +244,20 @@ export default function DashboardPage() {
 
         {wargaData ? (
           <>
-            <Card title="Informasi Pribadi" subtitle="Ringkasan iuran dan saldo pribadi">
-              <div className="mb-3 flex justify-end">
+            <Card
+              title="Informasi Pribadi"
+              subtitle="Ringkasan iuran dan saldo pribadi"
+              headerRight={
                 <div className="w-full max-w-[220px]">
                   <Input label="Filter Bulan-Tahun" type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
                 </div>
-              </div>
+              }
+            >
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
                 <Metric title="Iuran Wajib Bulan Ini" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
                 <Metric title="Saldo Tabungan Pribadi" value={formatRupiah(wargaData.tabungan_saldo)} tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'} />
-                {wargaData.lingkungan_is_member ? <Metric title="Iuran Lingkungan Bulan Ini" value={formatRupiah(wargaData.lingkungan_bulan_ini)} /> : null}
+                {wargaData.lingkungan_is_member ? <Metric title={`Iuran Lingkungan Periode ${lingkunganPrevPeriod}`} value={formatRupiah(lingkunganPrevMonthAmount)} /> : null}
                 {wargaData.koperasi_is_member ? <Metric title="Iuran Koperasi Bulan Ini" value={formatRupiah(wargaData.koperasi_bulan_ini)} /> : null}
               </section>
             </Card>
