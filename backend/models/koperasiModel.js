@@ -242,22 +242,50 @@ export async function upsertKoperasiMonthlyFee({ effectiveMonth, amount, updated
 }
 
 export async function getKoperasiIuranSummary(month) {
-  const [feeRes, memberRes, paidRes] = await Promise.all([
+  const [feeRes, memberRes, paidRes, installmentRes] = await Promise.all([
     pool.query(`SELECT value_json FROM kop_settings WHERE key_name='monthly_fee' LIMIT 1`),
     pool.query(`SELECT u.id AS warga_id, u.nama FROM kop_members km JOIN users u ON u.id = km.warga_id WHERE km.is_active = TRUE ORDER BY u.nama`),
     pool.query(
-      `SELECT loan_id AS warga_id, COALESCE(SUM(amount),0) AS paid
+      `SELECT l.warga_id::text AS warga_id, COALESCE(SUM(p.amount),0) AS paid
        FROM kop_payments
+       JOIN kop_loans l ON l.id = kop_payments.loan_id
        WHERE TO_CHAR(paid_date, 'YYYY-MM') = $1
-       GROUP BY loan_id`,
+       GROUP BY l.warga_id::text`,
+      [month]
+    ),
+    pool.query(
+      `SELECT
+         l.warga_id::text AS warga_id,
+         l.id::text AS loan_id,
+         COALESCE(SUM(i.total_due - (i.paid_principal + i.paid_interest + i.paid_penalty)), 0) AS installment_due
+       FROM kop_loans l
+       LEFT JOIN kop_installments i
+         ON i.loan_id = l.id
+        AND i.due_month = $1
+       WHERE l.status = 'ACTIVE'
+       GROUP BY l.warga_id::text, l.id::text`,
       [month]
     )
   ]);
   const fee = Number(feeRes.rows[0]?.value_json?.amount || 0);
   const paidMap = new Map(paidRes.rows.map((r) => [String(r.warga_id), Number(r.paid || 0)]));
+  const installmentMap = new Map(installmentRes.rows.map((r) => [String(r.warga_id), {
+    loan_id: String(r.loan_id || ''),
+    installment_due: Number(r.installment_due || 0)
+  }]));
   const rows = memberRes.rows.map((m) => {
+    const loanData = installmentMap.get(String(m.warga_id)) || { loan_id: '', installment_due: 0 };
     const paid = Number(paidMap.get(String(m.warga_id)) || 0);
-    return { warga_id: m.warga_id, nama: m.nama, paid_amount: paid, target_amount: fee, arrears: Math.max(0, fee - paid) };
+    const targetAmount = fee + Number(loanData.installment_due || 0);
+    return {
+      warga_id: m.warga_id,
+      nama: m.nama,
+      loan_id: loanData.loan_id || null,
+      installment_due: Number(loanData.installment_due || 0),
+      paid_amount: paid,
+      target_amount: targetAmount,
+      arrears: Math.max(0, targetAmount - paid)
+    };
   });
   return { month, monthly_fee: fee, rows };
 }

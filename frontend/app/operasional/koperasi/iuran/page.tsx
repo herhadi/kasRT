@@ -12,7 +12,15 @@ import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 
-type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number };
+type Row = {
+  warga_id: string;
+  nama: string;
+  loan_id?: string | null;
+  installment_due?: number;
+  paid_amount: number;
+  target_amount: number;
+  arrears: number;
+};
 
 export default function KoperasiIuranPage() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -31,8 +39,18 @@ export default function KoperasiIuranPage() {
   useEffect(() => { void load().catch((e) => setError(e instanceof Error ? e.message : 'Gagal load iuran')); }, [month]);
 
   const sectionRows = useMemo<WargaContributionRow[]>(() => rows.map((r) => ({
-    id: r.warga_id, nama: r.nama, paidAmount: Number(r.paid_amount || 0), targetAmount: Number(r.target_amount || 0), canInput: true
-  })), [rows]);
+    id: r.warga_id,
+    nama: r.nama,
+    paidAmount: Number(r.paid_amount || 0),
+    targetAmount: Number(r.target_amount || 0),
+    suggestionText: `Wajib: ${formatRupiah(Number(r.target_amount || 0))} (Tarif ${formatRupiah(Number(fee || 0))}${Number(r.installment_due || 0) > 0 ? ` + Angsuran ${formatRupiah(Number(r.installment_due || 0))}` : ''})`,
+    canInput: Number(r.target_amount || 0) > Number(r.paid_amount || 0)
+  })), [rows, fee]);
+
+  const selectedDetail = useMemo(
+    () => rows.find((r) => String(r.warga_id) === String(selected?.id)),
+    [rows, selected]
+  );
 
   async function saveFee() {
     try {
@@ -63,10 +81,25 @@ export default function KoperasiIuranPage() {
             rows={sectionRows}
             selectedRow={selected}
             loading={busy}
+            showManual={false}
+            presets={selectedDetail ? [{ label: `Simpan ${formatRupiah(Math.max(0, Number(selectedDetail.target_amount || 0) - Number(selectedDetail.paid_amount || 0)))}`, amount: Math.max(0, Number(selectedDetail.target_amount || 0) - Number(selectedDetail.paid_amount || 0)) }] : []}
             onOpen={setSelected}
             onClose={() => setSelected(null)}
             onSubmit={async (amount) => {
-              await apiFetch('/koperasi/loan/payment', { method: 'POST', body: JSON.stringify({ loan_id: String(selected?.id || ''), amount, paid_date: `${month}-01`, description: 'Iuran wajib koperasi' }) });
+              const row = rows.find((r) => String(r.warga_id) === String(selected?.id));
+              if (!row) throw new Error('Data warga tidak ditemukan.');
+              if (!row.loan_id) throw new Error('Warga ini belum memiliki pinjaman aktif sehingga belum bisa input iuran koperasi.');
+              const dueNow = Math.max(0, Number(row.target_amount || 0) - Number(row.paid_amount || 0));
+              if (dueNow <= 0) throw new Error('Iuran bulan ini sudah lunas.');
+              await apiFetch('/koperasi/loan/payment', {
+                method: 'POST',
+                body: JSON.stringify({
+                  loan_id: String(row.loan_id),
+                  amount: dueNow,
+                  paid_date: `${month}-01`,
+                  description: `Iuran wajib koperasi ${month}`
+                })
+              });
               setSelected(null);
               await load();
             }}

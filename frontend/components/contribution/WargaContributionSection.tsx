@@ -7,6 +7,7 @@ type Props = {
   selectedRow: WargaContributionRow | null;
   loading?: boolean;
   presets?: Array<{ label: string; amount: number }>;
+  showManual?: boolean;
   onOpen: (row: WargaContributionRow) => void;
   onClose: () => void;
   onSubmit: (amount: number) => Promise<void>;
@@ -17,6 +18,7 @@ export default function WargaContributionSection({
   selectedRow,
   loading = false,
   presets,
+  showManual = true,
   onOpen,
   onClose,
   onSubmit
@@ -80,6 +82,7 @@ export default function WargaContributionSection({
           ]
         }
         loading={loading}
+        showManual={showManual}
         onClose={onClose}
         onSubmit={onSubmit}
       />
