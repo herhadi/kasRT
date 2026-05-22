@@ -241,6 +241,26 @@ export default function DashboardPage() {
           <h1 className="mt-3 font-[var(--font-space-grotesk)] text-3xl font-bold">Halo, {user.nama}</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">Role: {user.roles.join(', ') || 'Warga'}</p>
         </section>
+        {!user.telegram_connected ? (
+          <section className="rounded-2xl border border-amber-300 bg-amber-50/80 p-4 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-bold text-amber-900">Aktifkan Telegram untuk Notifikasi</p>
+                <p className="mt-1 text-xs text-amber-800">
+                  Supaya pengingat dan info approval langsung masuk ke Telegram Anda.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button className="w-full sm:w-auto" onClick={activateTelegram} disabled={activatingTelegram}>
+                  {activatingTelegram ? 'Membuat Link...' : 'Aktifkan Telegram'}
+                </Button>
+                <Button variant="ghost" className="w-full sm:w-auto" onClick={refreshTelegramStatus}>
+                  Cek Status
+                </Button>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {wargaData ? (
           <>
@@ -250,7 +270,7 @@ export default function DashboardPage() {
               headerRight={
                 <div className="w-[150px] sm:w-[170px] md:w-[190px]">
                   <Input
-                    label="Filter Bulan-Tahun"
+                    label="Periode"
                     type="month"
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}

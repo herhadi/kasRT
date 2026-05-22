@@ -65,3 +65,14 @@ export async function linkTelegramChatWithCode({ code, chatId }) {
     client.release();
   }
 }
+
+export async function clearTelegramChatByUserId(userId) {
+  const result = await pool.query(
+    `UPDATE users
+     SET telegram_chat_id = NULL
+     WHERE id::text = $1::text
+     RETURNING id`,
+    [userId]
+  );
+  return result.rowCount > 0;
+}
