@@ -248,8 +248,14 @@ export default function DashboardPage() {
               title="Informasi Pribadi"
               subtitle="Ringkasan iuran dan saldo pribadi"
               headerRight={
-                <div className="w-full max-w-[220px]">
-                  <Input label="Filter Bulan-Tahun" type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
+                <div className="w-[150px] sm:w-[170px] md:w-[190px]">
+                  <Input
+                    label="Filter Bulan-Tahun"
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="px-2.5 py-2"
+                  />
                 </div>
               }
             >
