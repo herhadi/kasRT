@@ -462,8 +462,8 @@ export async function sendJimpitanShiftReminder(req, res) {
     const text =
       `⏰ <b>Pengingat Jimpitan</b>\n` +
       `Hari operasional: <b>${targetLabel}</b>\n` +
-      `Penarikan dimulai pukul <b>21:00 WIB</b>.\n` +
-      `Mohon siapkan proses jimpitan sesuai jadwal shift Anda.`;
+      `Pengambilan jimpitan dimulai pukul <b>21:00 WIB</b>.\n` +
+      `Selamat bekerja...`;
 
     await Promise.all(
       recipients.map((row) => sendTelegramMessage(row.telegram_chat_id, text))

@@ -105,7 +105,11 @@ export async function saveOpeningArrears(req, res) {
 export async function setorIuranWajibWarga(req, res) {
   const wargaId = String(req.body.warga_id || '').trim();
   const amount = Number(req.body.amount || 0);
-  const tanggal = req.body.tanggal ? String(req.body.tanggal) : null;
+  const rawTanggal = req.body.tanggal ? String(req.body.tanggal).trim() : '';
+  const tanggal = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(rawTanggal)
+    ? rawTanggal
+    : null;
+  const tanggalNotif = tanggal || new Date().toISOString().slice(0, 10);
   const actor = String(req.user.user_id || '').trim();
 
   if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id tidak valid' });
@@ -119,7 +123,7 @@ export async function setorIuranWajibWarga(req, res) {
       wargaId,
       `✅ <b>Iuran Wajib Tercatat</b>\n` +
         `Nominal: <b>${formatRupiah(amount)}</b>\n` +
-        `Tanggal: <b>${tanggal || new Date().toISOString().slice(0, 10)}</b>`
+        `Tanggal: <b>${tanggalNotif}</b>`
     );
     return res.json({ success: true });
   } catch (error) {
