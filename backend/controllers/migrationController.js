@@ -17,6 +17,8 @@ import {
   getInternetMigrationTariffDefaults2025,
   getLingkunganMigrationTariffDefaults2025,
   getJimpitanMigrationTariffDefaults2025,
+  listInternetMigrationMembers2025,
+  listLingkunganMigrationMembers2025,
   applyOpeningArrears2026FromMigrationIuran,
   listMigrationIuran2025Summary,
   upsertInternetMigrationRows,
@@ -109,6 +111,15 @@ export async function getMigration2025InternetTariffs(_req, res) {
   }
 }
 
+export async function getMigration2025InternetMembers(_req, res) {
+  try {
+    const data = await listInternetMigrationMembers2025();
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 export async function getMigration2025InternetWargaDetail(req, res) {
   const wargaId = readWargaId(req, res);
   if (!wargaId) return;
@@ -145,6 +156,15 @@ export async function getMigration2025LingkunganSummary(_req, res) {
 export async function getMigration2025LingkunganTariffs(_req, res) {
   try {
     const data = await getLingkunganMigrationTariffDefaults2025();
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getMigration2025LingkunganMembers(_req, res) {
+  try {
+    const data = await listLingkunganMigrationMembers2025();
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

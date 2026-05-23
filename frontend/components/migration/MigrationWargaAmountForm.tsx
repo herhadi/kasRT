@@ -8,6 +8,7 @@ import {
   emptyMigrationMonthState,
   migrationMonthStateFromApi,
   MODULE_HAS_TARIFF_DEFAULTS,
+  MODULE_MEMBER_ONLY,
   MIGRATION_MONTH_KEYS_2025,
   parseMigrationAmountInput,
   tariffMapFromApi,
@@ -74,9 +75,48 @@ export default function MigrationWargaAmountForm({
   onSuccess
 }: Props) {
   const meta = MODULE_META[moduleKey];
+  const memberOnly = Boolean(MODULE_MEMBER_ONLY[moduleKey]);
+  const [wargaList, setWargaList] = useState<WargaOption[]>(wargaOptions);
   const [monthState, setMonthState] = useState<MigrationMonthState>(emptyMigrationMonthState);
   const [defaultAmountByMonth, setDefaultAmountByMonth] = useState<Record<string, number>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
+  const loadMemberWarga = useCallback(async () => {
+    if (!memberOnly) return;
+    try {
+      setLoadingMembers(true);
+      const res = await apiFetch<{
+        success: boolean;
+        data: Array<WargaOption & { warga_id?: string }>;
+      }>(`/migration/${moduleKey}/members`);
+      const rows = (res.data || []).map((w) => ({
+        id: String(w.id || w.warga_id || ''),
+        nama: String(w.nama || ''),
+        no_hp: w.no_hp
+      }));
+      setWargaList(rows);
+    } catch (e) {
+      setWargaList([]);
+      onError(e instanceof Error ? e.message : 'Gagal memuat member aktif');
+    } finally {
+      setLoadingMembers(false);
+    }
+  }, [memberOnly, moduleKey, onError]);
+
+  useEffect(() => {
+    if (!memberOnly) {
+      setWargaList(wargaOptions);
+      return;
+    }
+    void loadMemberWarga();
+  }, [memberOnly, moduleKey, wargaOptions, loadMemberWarga]);
+
+  useEffect(() => {
+    if (!memberOnly || loadingMembers) return;
+    if (selectedWargaId && wargaList.some((r) => String(r.id) === String(selectedWargaId))) return;
+    onWargaChange(String(wargaList[0]?.id || ''));
+  }, [memberOnly, loadingMembers, wargaList, selectedWargaId, onWargaChange]);
 
   const loadTariffs = useCallback(async () => {
     if (!MODULE_HAS_TARIFF_DEFAULTS[moduleKey]) {
@@ -122,12 +162,12 @@ export default function MigrationWargaAmountForm({
     void loadWargaDetail();
   }, [loadWargaDetail]);
 
-  const wargaIndex = wargaOptions.findIndex((w) => String(w.id) === String(selectedWargaId));
+  const wargaIndex = wargaList.findIndex((w) => String(w.id) === String(selectedWargaId));
 
   function goWarga(delta: number) {
-    if (!wargaOptions.length) return;
-    const next = wargaIndex < 0 ? 0 : (wargaIndex + delta + wargaOptions.length) % wargaOptions.length;
-    onWargaChange(String(wargaOptions[next]?.id || ''));
+    if (!wargaList.length) return;
+    const next = wargaIndex < 0 ? 0 : (wargaIndex + delta + wargaList.length) % wargaList.length;
+    onWargaChange(String(wargaList[next]?.id || ''));
   }
 
   function fillFromTariff() {
@@ -195,9 +235,9 @@ export default function MigrationWargaAmountForm({
             className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2 py-2 text-xs text-[var(--text-primary)]"
             value={selectedWargaId}
             onChange={(e) => onWargaChange(e.target.value)}
-            disabled={busy || loadingDetail}
+            disabled={busy || loadingDetail || loadingMembers}
           >
-            {wargaOptions.map((w) => (
+            {wargaList.map((w) => (
               <option key={String(w.id)} value={String(w.id)}>
                 {w.nama} ({w.no_hp || '-'})
               </option>
@@ -209,7 +249,7 @@ export default function MigrationWargaAmountForm({
             variant="ghost"
             className="btn-action-blue w-full whitespace-nowrap"
             onClick={() => goWarga(-1)}
-            disabled={busy || loadingDetail || wargaOptions.length < 2}
+            disabled={busy || loadingDetail || loadingMembers || wargaList.length < 2}
           >
             ← Sebelumnya
           </Button>
@@ -217,21 +257,29 @@ export default function MigrationWargaAmountForm({
             variant="ghost"
             className="btn-action-blue w-full whitespace-nowrap"
             onClick={() => goWarga(1)}
-            disabled={busy || loadingDetail || wargaOptions.length < 2}
+            disabled={busy || loadingDetail || loadingMembers || wargaList.length < 2}
           >
             Berikutnya →
           </Button>
         </div>
       </div>
 
+      {memberOnly ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          Menampilkan <b>{wargaList.length}</b> member aktif (sama dengan daftar status Aktif di operasional).
+        </p>
+      ) : null}
+
       {showTariffFill ? (
-        <Button variant="ghost" className="btn-action-blue text-xs" onClick={fillFromTariff} disabled={busy || loadingDetail}>
+        <Button variant="ghost" className="btn-action-blue text-xs" onClick={fillFromTariff} disabled={busy || loadingDetail || loadingMembers}>
           {meta.fillFromTariffLabel}
         </Button>
       ) : null}
 
-      {loadingDetail ? (
-        <p className="text-sm text-[var(--text-muted)]">Memuat data warga...</p>
+      {loadingMembers || loadingDetail ? (
+        <p className="text-sm text-[var(--text-muted)]">{loadingMembers ? 'Memuat member aktif...' : 'Memuat data warga...'}</p>
+      ) : wargaList.length === 0 && memberOnly ? (
+        <p className="text-sm text-amber-700">Belum ada member {meta.label} aktif. Aktifkan dulu di menu operasional.</p>
       ) : (
         <MigrationMonthAmountGrid
           state={monthState}
@@ -243,7 +291,7 @@ export default function MigrationWargaAmountForm({
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button className="btn-action-green" onClick={() => void saveForm()} disabled={busy || loadingDetail}>
+        <Button className="btn-action-green" onClick={() => void saveForm()} disabled={busy || loadingDetail || loadingMembers || !wargaList.length}>
           {busy ? 'Menyimpan...' : 'Simpan Warga Ini'}
         </Button>
         <Button variant="ghost" className="btn-action-blue" onClick={() => void loadWargaDetail()} disabled={busy || loadingDetail}>

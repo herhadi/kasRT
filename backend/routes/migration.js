@@ -5,6 +5,7 @@ import {
   applyMigration2025Opening2026,
   getMigration2025InternetSummary,
   getMigration2025InternetTariffs,
+  getMigration2025InternetMembers,
   getMigration2025InternetWargaDetail,
   getMigration2025IuranSummary,
   getMigration2025IuranTariffs,
@@ -17,6 +18,7 @@ import {
   getMigration2025KoperasiLoansSummary,
   getMigration2025LingkunganSummary,
   getMigration2025LingkunganTariffs,
+  getMigration2025LingkunganMembers,
   getMigration2025LingkunganWargaDetail,
   getMigration2025SosialDetail,
   getMigration2025SosialSummary,
@@ -44,11 +46,13 @@ router.post('/iuran-2025/apply-opening-2026', asyncHandler(applyMigration2025Ope
 
 router.get('/internet-2025/summary', asyncHandler(getMigration2025InternetSummary));
 router.get('/internet-2025/tariffs', asyncHandler(getMigration2025InternetTariffs));
+router.get('/internet-2025/members', asyncHandler(getMigration2025InternetMembers));
 router.get('/internet-2025/warga', asyncHandler(getMigration2025InternetWargaDetail));
 router.post('/internet-2025', asyncHandler(saveMigration2025Internet));
 
 router.get('/lingkungan-2025/summary', asyncHandler(getMigration2025LingkunganSummary));
 router.get('/lingkungan-2025/tariffs', asyncHandler(getMigration2025LingkunganTariffs));
+router.get('/lingkungan-2025/members', asyncHandler(getMigration2025LingkunganMembers));
 router.get('/lingkungan-2025/warga', asyncHandler(getMigration2025LingkunganWargaDetail));
 router.post('/lingkungan-2025', asyncHandler(saveMigration2025Lingkungan));
 

@@ -2,6 +2,8 @@ import { pool } from '../db.js';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 import { buildInstallmentPlan, ensureKoperasiTables } from './koperasiModel.js';
 import { ensureIuranTariffTable } from './bendaharaModel.js';
+import { listInternetMembers } from './internetModel.js';
+import { listLingkunganMembers } from './lingkunganModel.js';
 import { randomUUID } from 'crypto';
 
 const IURAN_WAJIB_TARGET_BULANAN = 30000;
@@ -128,6 +130,8 @@ export async function getInternetMigrationWargaDetail2025(wargaId) {
   await ensureMigration2025Tables();
   const id = String(wargaId || '').trim();
   if (!id) throw new Error('warga_id tidak valid');
+  const activeIds = await activeInternetMemberIdSet();
+  if (!activeIds.has(id)) throw new Error('Warga bukan member internet aktif');
   const rs = await pool.query(
     `SELECT month_key, amount
      FROM mig_inet_payments_2025
@@ -142,6 +146,8 @@ export async function getLingkunganMigrationWargaDetail2025(wargaId) {
   await ensureMigration2025Tables();
   const id = String(wargaId || '').trim();
   if (!id) throw new Error('warga_id tidak valid');
+  const activeIds = await activeLingkunganMemberIdSet();
+  if (!activeIds.has(id)) throw new Error('Warga bukan member lingkungan aktif');
   const rs = await pool.query(
     `SELECT month_key, amount
      FROM mig_lh_payments_2025
@@ -406,11 +412,13 @@ function feeForMonth(tariffs, month, defaultFee) {
 
 export async function upsertInternetMigrationRows({ rows, actorId }) {
   await ensureMigration2025Tables();
+  const activeIds = await activeInternetMemberIdSet();
   for (const row of rows) {
     const wargaId = String(row.warga_id || '').trim();
     const month = String(row.month || '').trim();
     const amount = Number(row.amount || 0);
-    if (!wargaId || !/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount) || amount < 0) continue;
+    if (!wargaId || !activeIds.has(wargaId)) continue;
+    if (!/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount) || amount < 0) continue;
     await pool.query(
       `INSERT INTO mig_inet_payments_2025 (warga_id, month_key, amount, created_by, updated_at)
        VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
@@ -423,11 +431,13 @@ export async function upsertInternetMigrationRows({ rows, actorId }) {
 
 export async function upsertLingkunganMigrationRows({ rows, actorId }) {
   await ensureMigration2025Tables();
+  const activeIds = await activeLingkunganMemberIdSet();
   for (const row of rows) {
     const wargaId = String(row.warga_id || '').trim();
     const month = String(row.month || '').trim();
     const amount = Number(row.amount || 0);
-    if (!wargaId || !/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount) || amount < 0) continue;
+    if (!wargaId || !activeIds.has(wargaId)) continue;
+    if (!/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount) || amount < 0) continue;
     await pool.query(
       `INSERT INTO mig_lh_payments_2025 (warga_id, month_key, amount, created_by, updated_at)
        VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
@@ -438,39 +448,102 @@ export async function upsertLingkunganMigrationRows({ rows, actorId }) {
   }
 }
 
+export async function listInternetMigrationMembers2025() {
+  await ensureMigration2025Tables();
+  const rows = await listInternetMembers();
+  return rows
+    .filter((r) => Boolean(r.is_active))
+    .map((r) => ({
+      id: String(r.warga_id),
+      warga_id: String(r.warga_id),
+      nama: String(r.nama || '')
+    }));
+}
+
+export async function listLingkunganMigrationMembers2025() {
+  await ensureMigration2025Tables();
+  const rows = await listLingkunganMembers();
+  return rows
+    .filter((r) => Boolean(r.is_active))
+    .map((r) => ({
+      id: String(r.warga_id),
+      warga_id: String(r.warga_id),
+      nama: String(r.nama || ''),
+      active_from_month: String(r.active_from_month || '2025-01')
+    }));
+}
+
+async function activeInternetMemberIdSet() {
+  const members = await listInternetMigrationMembers2025();
+  return new Set(members.map((m) => String(m.warga_id || m.id)));
+}
+
+async function activeLingkunganMemberIdSet() {
+  const members = await listLingkunganMigrationMembers2025();
+  return new Set(members.map((m) => String(m.warga_id || m.id)));
+}
+
+function targetAmountForMemberMonths2025({ activeFromMonth, tariffs, defaultFee }) {
+  const startMonth = String(activeFromMonth || '2025-01').slice(0, 7);
+  let target = 0;
+  for (const month of MIGRATION_MONTH_KEYS_2025) {
+    if (month >= startMonth) target += feeForMonth(tariffs, month, defaultFee);
+  }
+  return target;
+}
+
 export async function getInternetMigrationSummary2025() {
   await ensureMigration2025Tables();
   const tariffs = await getTariffByMonth('inet_tariffs', 60000);
-  const months = Array.from({ length: 12 }, (_, i) => `2025-${String(i + 1).padStart(2, '0')}`);
-  const users = await pool.query(`SELECT u.id::text AS warga_id, u.nama FROM users u WHERE ${ELIGIBLE_USERS_CLAUSE} ORDER BY u.nama`);
+  const months = MIGRATION_MONTH_KEYS_2025;
+  const members = await listInternetMigrationMembers2025();
   const paidRows = await pool.query(`SELECT warga_id::text AS warga_id, month_key, amount FROM mig_inet_payments_2025`);
   const paidMap = new Map(paidRows.rows.map((r) => [`${r.warga_id}#${r.month_key}`, Number(r.amount || 0)]));
-  return users.rows.map((u) => {
-    let target = 0;
+  const annualTarget = months.reduce((sum, m) => sum + feeForMonth(tariffs, m, 60000), 0);
+  return members.map((u) => {
+    const wargaId = String(u.warga_id || u.id);
     let paid = 0;
     months.forEach((m) => {
-      target += feeForMonth(tariffs, m, 60000);
-      paid += Number(paidMap.get(`${u.warga_id}#${m}`) || 0);
+      paid += Number(paidMap.get(`${wargaId}#${m}`) || 0);
     });
-    return { warga_id: String(u.warga_id), nama: String(u.nama || ''), total_target_2025: target, total_paid_2025: paid, closing_arrears_2025: Math.max(target - paid, 0) };
+    return {
+      warga_id: wargaId,
+      nama: String(u.nama || ''),
+      total_target_2025: annualTarget,
+      total_paid_2025: paid,
+      closing_arrears_2025: Math.max(annualTarget - paid, 0)
+    };
   });
 }
 
 export async function getLingkunganMigrationSummary2025() {
   await ensureMigration2025Tables();
   const tariffs = await getTariffByMonth('lh_tariffs', 20000);
-  const months = Array.from({ length: 12 }, (_, i) => `2025-${String(i + 1).padStart(2, '0')}`);
-  const users = await pool.query(`SELECT u.id::text AS warga_id, u.nama FROM users u WHERE ${ELIGIBLE_USERS_CLAUSE} ORDER BY u.nama`);
+  const months = MIGRATION_MONTH_KEYS_2025;
+  const members = await listLingkunganMigrationMembers2025();
   const paidRows = await pool.query(`SELECT warga_id::text AS warga_id, month_key, amount FROM mig_lh_payments_2025`);
   const paidMap = new Map(paidRows.rows.map((r) => [`${r.warga_id}#${r.month_key}`, Number(r.amount || 0)]));
-  return users.rows.map((u) => {
-    let target = 0;
+  return members.map((u) => {
+    const wargaId = String(u.warga_id || u.id);
+    const activeFromMonth = String(u.active_from_month || '2025-01');
+    const target = targetAmountForMemberMonths2025({
+      activeFromMonth,
+      tariffs,
+      defaultFee: 20000
+    });
     let paid = 0;
     months.forEach((m) => {
-      target += feeForMonth(tariffs, m, 20000);
-      paid += Number(paidMap.get(`${u.warga_id}#${m}`) || 0);
+      if (m >= activeFromMonth.slice(0, 7)) {
+        paid += Number(paidMap.get(`${wargaId}#${m}`) || 0);
+      }
     });
-    return { warga_id: String(u.warga_id), nama: String(u.nama || ''), total_target_2025: target, total_paid_2025: paid, closing_arrears_2025: Math.max(target - paid, 0) };
+    return {
+      warga_id: wargaId,
+      nama: String(u.nama || ''),
+      total_target_2025: target,
+      total_paid_2025: paid,
+      closing_arrears_2025: Math.max(target - paid, 0)
+    };
   });
 }
 

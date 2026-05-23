@@ -208,3 +208,14 @@ export const MODULE_HAS_TARIFF_DEFAULTS: Partial<Record<FormAmountMigrationModul
   'lingkungan-2025': true,
   'jimpitan-2025': true
 };
+
+export const MODULE_MEMBER_ONLY: Partial<Record<MigrationFormModule, boolean>> = {
+  'internet-2025': true,
+  'lingkungan-2025': true
+};
+
+export function migrationWargaOptionsPath(moduleKey: string) {
+  if (moduleKey === 'internet-2025') return '/migration/internet-2025/members';
+  if (moduleKey === 'lingkungan-2025') return '/migration/lingkungan-2025/members';
+  return '/auth/warga-options';
+}

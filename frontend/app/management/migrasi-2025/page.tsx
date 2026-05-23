@@ -10,7 +10,7 @@ import MigrationSummaryPanel from '@/components/migration/MigrationSummaryPanel'
 import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { isFormMigrationModule } from '@/lib/migration2025';
+import { isFormMigrationModule, migrationWargaOptionsPath, MODULE_MEMBER_ONLY } from '@/lib/migration2025';
 import { useAuth } from '@/lib/useAuth';
 
 type ModuleKey =
@@ -167,15 +167,26 @@ export default function Migration2025Page() {
     if (!canAccess) return;
     void (async () => {
       try {
-        const res = await apiFetch<{ success: boolean; data: WargaOption[] }>('/auth/warga-options');
-        const rows = res.data || [];
+        const res = await apiFetch<{
+          success: boolean;
+          data: Array<WargaOption & { warga_id?: string }>;
+        }>(migrationWargaOptionsPath(moduleKey));
+        const rows = (res.data || []).map((w) => ({
+          id: String(w.id || w.warga_id || ''),
+          nama: String(w.nama || ''),
+          no_hp: w.no_hp
+        }));
         setWargaOptions(rows);
-        setSelectedWargaId((prev) => prev || String(rows[0]?.id || ''));
+        setSelectedWargaId((prev) => {
+          if (prev && rows.some((r) => String(r.id) === String(prev))) return prev;
+          return String(rows[0]?.id || '');
+        });
       } catch {
         setWargaOptions([]);
+        setSelectedWargaId('');
       }
     })();
-  }, [canAccess]);
+  }, [canAccess, moduleKey]);
 
   async function saveRows() {
     try {
@@ -393,6 +404,12 @@ export default function Migration2025Page() {
               )}
             </div>
           </div>
+          {MODULE_MEMBER_ONLY[moduleKey] ? (
+            <p className="mt-3 text-xs text-amber-700">
+              Modul <b>{moduleKey === 'internet-2025' ? 'Internet' : 'Lingkungan'}</b> hanya menampilkan warga yang terdaftar sebagai{' '}
+              <b>member aktif</b> di pengaturan modul terkait.
+            </p>
+          ) : null}
           <p className="mt-3 text-xs text-[var(--text-muted)]">
             Catatan: bulan wajib format `2025-01` s.d. `2025-12`. Untuk iuran/internet/lingkungan/koperasi gunakan field `amount`.
             Untuk sosial gunakan `pemasukan` + `pengeluaran`. Untuk iuran wajib gunakan `target_amount` + `paid_amount`.
