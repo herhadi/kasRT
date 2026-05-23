@@ -1,12 +1,192 @@
 import { pool } from '../db.js';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 import { buildInstallmentPlan, ensureKoperasiTables } from './koperasiModel.js';
+import { ensureIuranTariffTable } from './bendaharaModel.js';
 import { randomUUID } from 'crypto';
 
 const IURAN_WAJIB_TARGET_BULANAN = 30000;
 const JIMPITAN_TARGET_BULANAN = 15000;
 const TARGET_TAHUNAN_12_BULAN_IURAN = IURAN_WAJIB_TARGET_BULANAN * 12;
 const TARGET_TAHUNAN_12_BULAN_JIMPITAN = JIMPITAN_TARGET_BULANAN * 12;
+
+export const MIGRATION_MONTH_KEYS_2025 = Array.from({ length: 12 }, (_, i) =>
+  `2025-${String(i + 1).padStart(2, '0')}`
+);
+
+function mapMigrationAmountRows(rows) {
+  const map = new Map(
+    rows.map((r) => [String(r.month_key), Number(r.amount || 0)])
+  );
+  return MIGRATION_MONTH_KEYS_2025.map((month) => ({
+    month,
+    amount: Number(map.get(month) ?? 0)
+  }));
+}
+
+export async function getJimpitanMigrationWargaDetail2025(wargaId) {
+  await ensureMigration2025Tables();
+  const id = String(wargaId || '').trim();
+  if (!id) throw new Error('warga_id tidak valid');
+  const rs = await pool.query(
+    `SELECT month_key, amount
+     FROM mig_jimpitan_payments_2025
+     WHERE warga_id = $1::uuid
+     ORDER BY month_key ASC`,
+    [id]
+  );
+  return { warga_id: id, months: mapMigrationAmountRows(rs.rows) };
+}
+
+export async function getTabunganMigrationWargaDetail2025(wargaId) {
+  await ensureMigration2025Tables();
+  const id = String(wargaId || '').trim();
+  if (!id) throw new Error('warga_id tidak valid');
+  const rs = await pool.query(
+    `SELECT month_key, amount
+     FROM mig_tabungan_ledger_2025
+     WHERE warga_id = $1::uuid
+     ORDER BY month_key ASC`,
+    [id]
+  );
+  return { warga_id: id, months: mapMigrationAmountRows(rs.rows) };
+}
+
+function mapMigrationIuranRows(rows, tariffDefaults) {
+  const map = new Map(
+    rows.map((r) => [
+      String(r.month),
+      {
+        target_amount: Number(r.target_amount || 0),
+        paid_amount: Number(r.paid_amount || 0)
+      }
+    ])
+  );
+  return MIGRATION_MONTH_KEYS_2025.map((month) => {
+    const saved = map.get(month);
+    const defaultTarget = Number(tariffDefaults[month] ?? IURAN_WAJIB_TARGET_BULANAN);
+    return {
+      month,
+      target_amount: saved ? saved.target_amount : defaultTarget,
+      paid_amount: saved ? saved.paid_amount : 0,
+      has_saved: Boolean(saved)
+    };
+  });
+}
+
+export function buildMigrationTariffDefaults2025(tariffTable, defaultFee) {
+  return getTariffByMonth(tariffTable, defaultFee).then((tariffs) => {
+    const months = {};
+    for (const month of MIGRATION_MONTH_KEYS_2025) {
+      months[month] = feeForMonth(tariffs, month, defaultFee);
+    }
+    return months;
+  });
+}
+
+export async function getIuranMigrationTariffDefaults2025() {
+  await ensureIuranTariffTable();
+  const months = await buildMigrationTariffDefaults2025('iw_tariffs', IURAN_WAJIB_TARGET_BULANAN);
+  return { months: MIGRATION_MONTH_KEYS_2025.map((month) => ({ month, amount: months[month] })) };
+}
+
+export async function getInternetMigrationTariffDefaults2025() {
+  const months = await buildMigrationTariffDefaults2025('inet_tariffs', 60000);
+  return { months: MIGRATION_MONTH_KEYS_2025.map((month) => ({ month, amount: months[month] })) };
+}
+
+export async function getLingkunganMigrationTariffDefaults2025() {
+  const months = await buildMigrationTariffDefaults2025('lh_tariffs', 20000);
+  return { months: MIGRATION_MONTH_KEYS_2025.map((month) => ({ month, amount: months[month] })) };
+}
+
+export async function getJimpitanMigrationTariffDefaults2025() {
+  return {
+    months: MIGRATION_MONTH_KEYS_2025.map((month) => ({
+      month,
+      amount: JIMPITAN_TARGET_BULANAN
+    }))
+  };
+}
+
+export async function getIuranMigrationWargaDetail2025(wargaId) {
+  await ensureMigration2025Tables();
+  await ensureIuranTariffTable();
+  const id = String(wargaId || '').trim();
+  if (!id) throw new Error('warga_id tidak valid');
+  const tariffMap = await buildMigrationTariffDefaults2025('iw_tariffs', IURAN_WAJIB_TARGET_BULANAN);
+  const rs = await pool.query(
+    `SELECT month, target_amount, paid_amount
+     FROM mig_iuran_wajib_2025
+     WHERE warga_id = $1::uuid
+     ORDER BY month ASC`,
+    [id]
+  );
+  return { warga_id: id, months: mapMigrationIuranRows(rs.rows, tariffMap) };
+}
+
+export async function getInternetMigrationWargaDetail2025(wargaId) {
+  await ensureMigration2025Tables();
+  const id = String(wargaId || '').trim();
+  if (!id) throw new Error('warga_id tidak valid');
+  const rs = await pool.query(
+    `SELECT month_key, amount
+     FROM mig_inet_payments_2025
+     WHERE warga_id = $1::uuid
+     ORDER BY month_key ASC`,
+    [id]
+  );
+  return { warga_id: id, months: mapMigrationAmountRows(rs.rows) };
+}
+
+export async function getLingkunganMigrationWargaDetail2025(wargaId) {
+  await ensureMigration2025Tables();
+  const id = String(wargaId || '').trim();
+  if (!id) throw new Error('warga_id tidak valid');
+  const rs = await pool.query(
+    `SELECT month_key, amount
+     FROM mig_lh_payments_2025
+     WHERE warga_id = $1::uuid
+     ORDER BY month_key ASC`,
+    [id]
+  );
+  return { warga_id: id, months: mapMigrationAmountRows(rs.rows) };
+}
+
+export async function getKoperasiIuranMigrationWargaDetail2025(wargaId) {
+  await ensureMigration2025Tables();
+  const id = String(wargaId || '').trim();
+  if (!id) throw new Error('warga_id tidak valid');
+  const rs = await pool.query(
+    `SELECT month_key, amount
+     FROM mig_kop_iuran_2025
+     WHERE warga_id = $1::uuid
+     ORDER BY month_key ASC`,
+    [id]
+  );
+  return { warga_id: id, months: mapMigrationAmountRows(rs.rows) };
+}
+
+export async function getSosialMigrationDetail2025() {
+  await ensureMigration2025Tables();
+  const rs = await pool.query(
+    `SELECT month_key, pemasukan, pengeluaran
+     FROM mig_sosial_wallet_2025
+     ORDER BY month_key ASC`
+  );
+  const map = new Map(
+    rs.rows.map((r) => [
+      String(r.month_key),
+      { pemasukan: Number(r.pemasukan || 0), pengeluaran: Number(r.pengeluaran || 0) }
+    ])
+  );
+  return {
+    months: MIGRATION_MONTH_KEYS_2025.map((month) => ({
+      month,
+      pemasukan: Number(map.get(month)?.pemasukan ?? 0),
+      pengeluaran: Number(map.get(month)?.pengeluaran ?? 0)
+    }))
+  };
+}
 
 export async function ensureMigration2025Tables() {
   await pool.query(`

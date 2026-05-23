@@ -4,10 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import FeedbackToast from '@/components/ui/FeedbackToast';
+import MigrationFormPanel from '@/components/migration/MigrationFormPanel';
+import MigrationSummaryPanel from '@/components/migration/MigrationSummaryPanel';
+import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
+import { isFormMigrationModule } from '@/lib/migration2025';
 import { useAuth } from '@/lib/useAuth';
 
 type ModuleKey =
@@ -116,6 +119,7 @@ export default function Migration2025Page() {
   const router = useRouter();
   const canAccess = hasAnyRole(user, ['root']);
   const [moduleKey, setModuleKey] = useState<ModuleKey>('iuran-2025');
+  const [inputMode, setInputMode] = useState<'form' | 'json'>('json');
   const [summary, setSummary] = useState<unknown>(null);
   const [rowsJson, setRowsJson] = useState('[]');
   const [wargaOptions, setWargaOptions] = useState<WargaOption[]>([]);
@@ -154,6 +158,10 @@ export default function Migration2025Page() {
     if (!canAccess) return;
     void loadSummary();
   }, [moduleKey, canAccess]);
+
+  useEffect(() => {
+    setInputMode(isFormAmountMigrationModule(moduleKey) ? 'form' : 'json');
+  }, [moduleKey]);
 
   useEffect(() => {
     if (!canAccess) return;
@@ -207,6 +215,7 @@ export default function Migration2025Page() {
   }
 
   const prettySummary = useMemo(() => JSON.stringify(summary, null, 2), [summary]);
+  const showFormMode = isFormMigrationModule(moduleKey);
   const activeExample = useMemo(() => {
     const chosen = selectedWargaId || 'UUID_WARGA';
     return EXAMPLES[moduleKey].replaceAll('UUID_WARGA', chosen);
@@ -265,44 +274,103 @@ export default function Migration2025Page() {
               </button>
             ))}
           </div>
+          {showFormMode ? (
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setInputMode('form')}
+                className={
+                  inputMode === 'form'
+                    ? 'rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-xs font-semibold text-[var(--accent)]'
+                    : 'rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]'
+                }
+              >
+                Form
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('json')}
+                className={
+                  inputMode === 'json'
+                    ? 'rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-xs font-semibold text-[var(--accent)]'
+                    : 'rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]'
+                }
+              >
+                JSON (lanjutan)
+              </button>
+            </div>
+          ) : null}
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
-              <div className="mb-2 grid gap-2 md:grid-cols-2">
-                <label className="space-y-1 text-xs font-semibold text-[var(--text-muted)]">
-                  <span>Pilih Warga</span>
-                  <select
-                    className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2 py-2 text-xs text-[var(--text-primary)]"
-                    value={selectedWargaId}
-                    onChange={(e) => setSelectedWargaId(e.target.value)}
-                  >
-                    {wargaOptions.map((w) => (
-                      <option key={String(w.id)} value={String(w.id)}>
-                        {w.nama} ({w.no_hp || '-'})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="flex items-end">
-                  <Button variant="ghost" className="btn-action-blue w-full" onClick={() => setRowsJson(activeExample)}>
-                    Isi Contoh
-                  </Button>
-                </div>
-              </div>
-              <p className="mb-2 text-xs font-semibold text-[var(--text-muted)]">Rows JSON</p>
-              <textarea
-                className="min-h-[260px] w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-primary)]"
-                value={rowsJson}
-                onChange={(e) => setRowsJson(e.target.value)}
-                placeholder={activeExample}
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button className="btn-action-green" onClick={saveRows} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Rows'}</Button>
-                {moduleKey === 'iuran-2025' ? (
-                  <Button variant="ghost" className="btn-action-blue" onClick={applyOpening2026} disabled={busy}>
-                    Apply Opening 2026
-                  </Button>
-                ) : null}
-              </div>
+              {showFormMode && inputMode === 'form' ? (
+                <>
+                  <MigrationFormPanel
+                    moduleKey={moduleKey}
+                    wargaOptions={wargaOptions}
+                    selectedWargaId={selectedWargaId}
+                    onWargaChange={setSelectedWargaId}
+                    busy={busy}
+                    onBusyChange={setBusy}
+                    onSaved={loadSummary}
+                    onError={(msg) => {
+                      setError(msg);
+                      pushToast(msg, 'error');
+                    }}
+                    onSuccess={(msg) => {
+                      setMessage(msg);
+                      pushToast(msg, 'success');
+                    }}
+                  />
+                  {moduleKey === 'iuran-2025' ? (
+                    <div className="mt-3 border-t border-[var(--line)] pt-3">
+                      <Button variant="ghost" className="btn-action-blue" onClick={applyOpening2026} disabled={busy}>
+                        Apply Opening 2026
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <div className="mb-2 grid gap-2 md:grid-cols-2">
+                    <label className="space-y-1 text-xs font-semibold text-[var(--text-muted)]">
+                      <span>Pilih Warga (contoh JSON)</span>
+                      <select
+                        className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2 py-2 text-xs text-[var(--text-primary)]"
+                        value={selectedWargaId}
+                        onChange={(e) => setSelectedWargaId(e.target.value)}
+                      >
+                        {wargaOptions.map((w) => (
+                          <option key={String(w.id)} value={String(w.id)}>
+                            {w.nama} ({w.no_hp || '-'})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="flex items-end">
+                      <Button variant="ghost" className="btn-action-blue w-full" onClick={() => setRowsJson(activeExample)}>
+                        Isi Contoh
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="mb-2 text-xs font-semibold text-[var(--text-muted)]">Rows JSON</p>
+                  <textarea
+                    className="min-h-[260px] w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-primary)]"
+                    value={rowsJson}
+                    onChange={(e) => setRowsJson(e.target.value)}
+                    placeholder={activeExample}
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button className="btn-action-green" onClick={saveRows} disabled={busy}>
+                      {busy ? 'Menyimpan...' : 'Simpan Rows'}
+                    </Button>
+                    {moduleKey === 'iuran-2025' ? (
+                      <Button variant="ghost" className="btn-action-blue" onClick={applyOpening2026} disabled={busy}>
+                        Apply Opening 2026
+                      </Button>
+                    ) : null}
+                  </div>
+                </>
+              )}
             </div>
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
               <div className="mb-2 flex items-center justify-between">
@@ -311,9 +379,18 @@ export default function Migration2025Page() {
                   Refresh
                 </Button>
               </div>
-              <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-[11px] text-[var(--text-primary)]">
-                {prettySummary || '-'}
-              </pre>
+              {showFormMode && inputMode === 'form' ? (
+                <MigrationSummaryPanel
+                  moduleKey={moduleKey}
+                  summary={summary}
+                  selectedWargaId={selectedWargaId}
+                  onSelectWarga={setSelectedWargaId}
+                />
+              ) : (
+                <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-[11px] text-[var(--text-primary)]">
+                  {prettySummary || '-'}
+                </pre>
+              )}
             </div>
           </div>
           <p className="mt-3 text-xs text-[var(--text-muted)]">
@@ -325,7 +402,11 @@ export default function Migration2025Page() {
         <Card title="Langkah Penggunaan" subtitle="Panduan cepat migrasi data manual ke KasRT">
           <ol className="list-decimal space-y-2 pl-5 text-sm text-[var(--text-primary)]">
             <li>Pilih modul migrasi yang ingin diinput.</li>
-            <li>Isi <b>Rows JSON</b> sesuai format modul, lalu klik <b>Simpan Rows</b>.</li>
+            <li>
+              Semua modul kecuali <b>Koperasi Loan</b> punya tab <b>Form</b> (grid 12 bulan). Iuran/Internet/Lingkungan memakai
+              default tarif dari pengaturan sistem.
+            </li>
+            <li>Isi data sesuai modul, lalu klik <b>Simpan</b> (form per warga atau simpan rows JSON).</li>
             <li>Klik <b>Refresh</b> untuk cek ringkasan hasil import.</li>
             <li>Ulangi untuk semua modul sampai data Desember 2025 lengkap.</li>
             <li>Khusus modul <b>Iuran Wajib</b>, klik <b>Apply Opening 2026</b> setelah data final.</li>

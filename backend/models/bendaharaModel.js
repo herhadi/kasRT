@@ -6,7 +6,7 @@ const KAS_IURAN_WAJIB = 'Kas Iuran Wajib';
 const KAS_JIMPITAN = 'Kas Jimpitan';
 const DEFAULT_IURAN_WAJIB_FEE = 30000;
 
-async function ensureIuranTariffTable() {
+export async function ensureIuranTariffTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS iw_tariffs (
       id UUID PRIMARY KEY,
