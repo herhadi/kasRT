@@ -214,6 +214,12 @@ export const MODULE_MEMBER_ONLY: Partial<Record<MigrationFormModule, boolean>> =
   'lingkungan-2025': true
 };
 
+export type MemberOnlyMigrationModule = 'internet-2025' | 'lingkungan-2025';
+
+export function isMemberOnlyMigrationModule(key: string): key is MemberOnlyMigrationModule {
+  return key === 'internet-2025' || key === 'lingkungan-2025';
+}
+
 export function migrationWargaOptionsPath(moduleKey: string) {
   if (moduleKey === 'internet-2025') return '/migration/internet-2025/members';
   if (moduleKey === 'lingkungan-2025') return '/migration/lingkungan-2025/members';

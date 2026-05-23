@@ -8,7 +8,7 @@ import {
   emptyMigrationMonthState,
   migrationMonthStateFromApi,
   MODULE_HAS_TARIFF_DEFAULTS,
-  MODULE_MEMBER_ONLY,
+  isMemberOnlyMigrationModule,
   MIGRATION_MONTH_KEYS_2025,
   parseMigrationAmountInput,
   tariffMapFromApi,
@@ -75,7 +75,7 @@ export default function MigrationWargaAmountForm({
   onSuccess
 }: Props) {
   const meta = MODULE_META[moduleKey];
-  const memberOnly = Boolean(MODULE_MEMBER_ONLY[moduleKey]);
+  const memberOnly = isMemberOnlyMigrationModule(moduleKey);
   const [wargaList, setWargaList] = useState<WargaOption[]>(wargaOptions);
   const [monthState, setMonthState] = useState<MigrationMonthState>(emptyMigrationMonthState);
   const [defaultAmountByMonth, setDefaultAmountByMonth] = useState<Record<string, number>>({});

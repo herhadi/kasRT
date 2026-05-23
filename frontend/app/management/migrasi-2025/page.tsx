@@ -10,7 +10,7 @@ import MigrationSummaryPanel from '@/components/migration/MigrationSummaryPanel'
 import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { isFormMigrationModule, migrationWargaOptionsPath, MODULE_MEMBER_ONLY } from '@/lib/migration2025';
+import { isFormMigrationModule, isMemberOnlyMigrationModule, migrationWargaOptionsPath } from '@/lib/migration2025';
 import { useAuth } from '@/lib/useAuth';
 
 type ModuleKey =
@@ -404,7 +404,7 @@ export default function Migration2025Page() {
               )}
             </div>
           </div>
-          {MODULE_MEMBER_ONLY[moduleKey] ? (
+          {isMemberOnlyMigrationModule(moduleKey) ? (
             <p className="mt-3 text-xs text-amber-700">
               Modul <b>{moduleKey === 'internet-2025' ? 'Internet' : 'Lingkungan'}</b> hanya menampilkan warga yang terdaftar sebagai{' '}
               <b>member aktif</b> di pengaturan modul terkait.
