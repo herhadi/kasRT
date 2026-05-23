@@ -352,7 +352,7 @@ export default function Migration2025Page() {
                       >
                         {wargaOptions.map((w) => (
                           <option key={String(w.id)} value={String(w.id)}>
-                            {w.nama} ({w.no_hp || '-'})
+                            {w.nama}
                           </option>
                         ))}
                       </select>
