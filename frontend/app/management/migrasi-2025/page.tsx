@@ -160,7 +160,7 @@ export default function Migration2025Page() {
   }, [moduleKey, canAccess]);
 
   useEffect(() => {
-    setInputMode(isFormAmountMigrationModule(moduleKey) ? 'form' : 'json');
+    setInputMode(isFormMigrationModule(moduleKey) ? 'form' : 'json');
   }, [moduleKey]);
 
   useEffect(() => {
