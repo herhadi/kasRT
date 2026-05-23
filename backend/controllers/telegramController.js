@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { sendTelegramMessage } from '../services/telegramService.js';
 import {
+  clearTelegramChatByUserId,
   createTelegramActivationToken,
   findUserByTelegramChatId,
   linkTelegramChatWithCode
@@ -138,6 +139,23 @@ export async function generateTelegramActivationLink(req, res) {
     success: true,
     activation_link: activationLink,
     expires_in_minutes: 15
+  });
+}
+
+export async function disconnectMyTelegram(req, res) {
+  const userId = String(req.user?.user_id || '').trim();
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'User tidak valid' });
+  }
+
+  const updated = await clearTelegramChatByUserId(userId);
+  if (!updated) {
+    return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Akun Telegram berhasil dilepas. Silakan aktivasi ulang untuk mengganti akun Telegram.'
   });
 }
 

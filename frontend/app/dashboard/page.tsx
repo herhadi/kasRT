@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
   const [activatingTelegram, setActivatingTelegram] = useState(false);
+  const [switchingTelegram, setSwitchingTelegram] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [lingkunganPrevMonthAmount, setLingkunganPrevMonthAmount] = useState(0);
 
@@ -211,6 +212,24 @@ export default function DashboardPage() {
       pushToast(meResult.user.telegram_connected ? 'Telegram sudah terhubung.' : 'Telegram belum terhubung.', meResult.user.telegram_connected ? 'success' : 'warning');
     } catch (e) {
       pushToast(e instanceof Error ? e.message : 'Gagal memperbarui status Telegram', 'error');
+    }
+  }
+
+  async function switchTelegramAccount() {
+    try {
+      setSwitchingTelegram(true);
+      await apiFetch<{ success: boolean; message?: string }>('/auth/telegram-disconnect', {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+      await activateTelegram();
+      const meResult = await apiFetch<{ success: boolean; user: UserSession }>('/auth/me');
+      refreshUser(meResult.user);
+      pushToast('Akun Telegram lama dilepas. Lanjutkan aktivasi akun Telegram baru.', 'success');
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : 'Gagal mengganti akun Telegram', 'error');
+    } finally {
+      setSwitchingTelegram(false);
     }
   }
 
@@ -433,7 +452,15 @@ export default function DashboardPage() {
                         <Button className="w-full sm:w-auto" onClick={activateTelegram} disabled={activatingTelegram}>
                           {activatingTelegram ? 'Membuat Link...' : 'Aktifkan Telegram'}
                         </Button>
-                      ) : null}
+                      ) : (
+                        <Button
+                          className="w-full sm:w-auto"
+                          onClick={switchTelegramAccount}
+                          disabled={switchingTelegram || activatingTelegram}
+                        >
+                          {switchingTelegram ? 'Memproses...' : 'Ganti Akun Telegram'}
+                        </Button>
+                      )}
                       <Button variant="ghost" className="w-full sm:w-auto" onClick={refreshTelegramStatus}>
                         Refresh Status
                       </Button>
