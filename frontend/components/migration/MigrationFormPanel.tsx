@@ -12,6 +12,7 @@ type WargaOption = { id: string; nama: string; no_hp?: string };
 
 type Props = {
   moduleKey: MigrationFormModule;
+  year?: number;
   wargaOptions: WargaOption[];
   selectedWargaId: string;
   onWargaChange: (wargaId: string) => void;
@@ -24,6 +25,7 @@ type Props = {
 
 export default function MigrationFormPanel({
   moduleKey,
+  year = 2025,
   wargaOptions,
   selectedWargaId,
   onWargaChange,
@@ -36,6 +38,7 @@ export default function MigrationFormPanel({
   if (moduleKey === 'iuran-2025') {
     return (
       <MigrationIuranWargaForm
+        year={year}
         wargaOptions={wargaOptions}
         selectedWargaId={selectedWargaId}
         onWargaChange={onWargaChange}
@@ -51,6 +54,9 @@ export default function MigrationFormPanel({
   if (moduleKey === 'sosial-2025') {
     return (
       <MigrationSosialForm
+        // sosial is global (no warga) but needs year for month grid
+        // @ts-ignore pass year
+        year={year}
         busy={busy}
         onBusyChange={onBusyChange}
         onSaved={onSaved}
@@ -63,6 +69,7 @@ export default function MigrationFormPanel({
   if (isFormAmountMigrationModule(moduleKey)) {
     return (
       <MigrationWargaAmountForm
+        year={year}
         moduleKey={moduleKey}
         wargaOptions={wargaOptions}
         selectedWargaId={selectedWargaId}

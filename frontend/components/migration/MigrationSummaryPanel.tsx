@@ -2,13 +2,14 @@
 
 import MigrationAmountSummaryTable from '@/components/migration/MigrationAmountSummaryTable';
 import { formatRupiah } from '@/lib/helpers';
-import { MIGRATION_MONTH_LABELS, type MigrationFormModule } from '@/lib/migration2025';
+import { MIGRATION_MONTH_LABELS_FOR_YEAR, type MigrationFormModule } from '@/lib/migration2025';
 
 type Props = {
   moduleKey: MigrationFormModule | string;
   summary: unknown;
   selectedWargaId: string;
   onSelectWarga: (wargaId: string) => void;
+  year?: number;
 };
 
 type SosialSummary = {
@@ -20,7 +21,8 @@ export default function MigrationSummaryPanel({
   moduleKey,
   summary,
   selectedWargaId,
-  onSelectWarga
+  onSelectWarga,
+  year = 2025
 }: Props) {
   if (moduleKey === 'sosial-2025') {
     const data = summary as SosialSummary | null;
@@ -30,7 +32,7 @@ export default function MigrationSummaryPanel({
     return (
       <div className="space-y-2">
         <p className="text-xs font-semibold text-[var(--text-muted)]">
-          Saldo akhir 2025: <span className="text-[var(--accent)]">{formatRupiah(Number(data.saldo_akhir_2025 || 0))}</span>
+          Saldo akhir {year}: <span className="text-[var(--accent)]">{formatRupiah(Number(data.saldo_akhir_2025 || 0))}</span>
         </p>
         <div className="max-h-[320px] overflow-auto rounded-xl border border-[var(--line)]">
           <table className="min-w-full border-separate border-spacing-0 text-sm">
@@ -54,7 +56,7 @@ export default function MigrationSummaryPanel({
               {data.rows.map((row) => (
                 <tr key={row.month} className="bg-[var(--surface)]">
                   <td className="border-b border-[var(--line)] px-3 py-2">
-                    {MIGRATION_MONTH_LABELS[row.month] || row.month}
+                    {MIGRATION_MONTH_LABELS_FOR_YEAR(year)[row.month] || row.month}
                   </td>
                   <td className="border-b border-[var(--line)] px-3 py-2 text-right text-emerald-700">
                     {formatRupiah(row.pemasukan)}
@@ -92,6 +94,7 @@ export default function MigrationSummaryPanel({
         rows={rows}
         selectedWargaId={selectedWargaId}
         onSelectWarga={onSelectWarga}
+          year={year}
       />
     );
   }
@@ -103,6 +106,7 @@ export default function MigrationSummaryPanel({
         rows={rows}
         selectedWargaId={selectedWargaId}
         onSelectWarga={onSelectWarga}
+        year={year}
       />
     );
   }

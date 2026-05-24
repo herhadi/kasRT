@@ -15,14 +15,19 @@ export const MIGRATION_MONTH_KEYS_2025 = Array.from({ length: 12 }, (_, i) =>
   `2025-${String(i + 1).padStart(2, '0')}`
 );
 
-function mapMigrationAmountRows(rows) {
-  const map = new Map(
-    rows.map((r) => [String(r.month_key), Number(r.amount || 0)])
-  );
-  return MIGRATION_MONTH_KEYS_2025.map((month) => ({
-    month,
-    amount: Number(map.get(month) ?? 0)
-  }));
+export function MIGRATION_MONTH_KEYS_FOR_YEAR(year) {
+  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+}
+
+export function isValidMigrationMonthForYear(month, year) {
+  if (!month || !year) return false;
+  const re = new RegExp(`^${String(year)}-(0[1-9]|1[0-2])$`);
+  return re.test(String(month));
+}
+
+function mapMigrationAmountRows(rows, year = 2025) {
+  const map = new Map(rows.map((r) => [String(r.month_key), Number(r.amount || 0)]));
+  return MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => ({ month, amount: Number(map.get(month) ?? 0) }));
 }
 
 export async function getJimpitanMigrationWargaDetail2025(wargaId) {
@@ -53,7 +58,7 @@ export async function getTabunganMigrationWargaDetail2025(wargaId) {
   return { warga_id: id, months: mapMigrationAmountRows(rs.rows) };
 }
 
-function mapMigrationIuranRows(rows, tariffDefaults) {
+function mapMigrationIuranRows(rows, tariffDefaults, year = 2025) {
   const map = new Map(
     rows.map((r) => [
       String(r.month),
@@ -63,7 +68,7 @@ function mapMigrationIuranRows(rows, tariffDefaults) {
       }
     ])
   );
-  return MIGRATION_MONTH_KEYS_2025.map((month) => {
+  return MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => {
     const saved = map.get(month);
     const defaultTarget = Number(tariffDefaults[month] ?? IURAN_WAJIB_TARGET_BULANAN);
     return {
@@ -194,9 +199,10 @@ export async function getSosialMigrationDetail2025() {
   };
 }
 
-export async function ensureMigration2025Tables() {
+export async function ensureMigrationTablesForYear(year = 2025) {
+  const suffix = String(year);
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS mig_iuran_wajib_2025 (
+    CREATE TABLE IF NOT EXISTS mig_iuran_wajib_${suffix} (
       id BIGSERIAL PRIMARY KEY,
       warga_id UUID NOT NULL,
       month VARCHAR(7) NOT NULL,
@@ -210,7 +216,7 @@ export async function ensureMigration2025Tables() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS mig_inet_payments_2025 (
+    CREATE TABLE IF NOT EXISTS mig_inet_payments_${suffix} (
       id BIGSERIAL PRIMARY KEY,
       warga_id UUID NOT NULL,
       month_key VARCHAR(7) NOT NULL,
@@ -223,7 +229,7 @@ export async function ensureMigration2025Tables() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS mig_lh_payments_2025 (
+    CREATE TABLE IF NOT EXISTS mig_lh_payments_${suffix} (
       id BIGSERIAL PRIMARY KEY,
       warga_id UUID NOT NULL,
       month_key VARCHAR(7) NOT NULL,
@@ -236,7 +242,7 @@ export async function ensureMigration2025Tables() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS mig_jimpitan_payments_2025 (
+    CREATE TABLE IF NOT EXISTS mig_jimpitan_payments_${suffix} (
       id BIGSERIAL PRIMARY KEY,
       warga_id UUID NOT NULL,
       month_key VARCHAR(7) NOT NULL,
@@ -249,7 +255,7 @@ export async function ensureMigration2025Tables() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS mig_tabungan_ledger_2025 (
+    CREATE TABLE IF NOT EXISTS mig_tabungan_ledger_${suffix} (
       id BIGSERIAL PRIMARY KEY,
       warga_id UUID NOT NULL,
       month_key VARCHAR(7) NOT NULL,
@@ -262,7 +268,7 @@ export async function ensureMigration2025Tables() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS mig_sosial_wallet_2025 (
+    CREATE TABLE IF NOT EXISTS mig_sosial_wallet_${suffix} (
       id BIGSERIAL PRIMARY KEY,
       month_key VARCHAR(7) NOT NULL UNIQUE,
       pemasukan NUMERIC(18,2) NOT NULL DEFAULT 0,
@@ -274,7 +280,7 @@ export async function ensureMigration2025Tables() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS mig_kop_iuran_2025 (
+    CREATE TABLE IF NOT EXISTS mig_kop_iuran_${suffix} (
       id BIGSERIAL PRIMARY KEY,
       warga_id UUID NOT NULL,
       month_key VARCHAR(7) NOT NULL,
@@ -287,8 +293,12 @@ export async function ensureMigration2025Tables() {
   `);
 }
 
-export async function upsertIuranWajib2025Rows({ rows, actorId }) {
-  await ensureMigration2025Tables();
+export async function ensureMigration2025Tables(year = 2025) {
+  return ensureMigrationTablesForYear(year);
+}
+
+export async function upsertIuranWajib2025Rows({ rows, actorId, year = 2025 }) {
+  await ensureMigration2025Tables(year);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -298,11 +308,11 @@ export async function upsertIuranWajib2025Rows({ rows, actorId }) {
       const targetAmount = Number(row.target_amount || 0);
       const paidAmount = Number(row.paid_amount || 0);
       if (!wargaId) continue;
-      if (!/^(2025)-(0[1-9]|1[0-2])$/.test(month)) continue;
+      if (!isValidMigrationMonthForYear(month, year)) continue;
       if (!Number.isFinite(targetAmount) || targetAmount < 0) continue;
       if (!Number.isFinite(paidAmount) || paidAmount < 0) continue;
       await client.query(
-        `INSERT INTO mig_iuran_wajib_2025
+        `INSERT INTO mig_iuran_wajib_${year}
          (warga_id, month, target_amount, paid_amount, created_by, updated_at)
          VALUES ($1::uuid, $2, $3, $4, $5::uuid, NOW())
          ON CONFLICT (warga_id, month)
@@ -410,17 +420,17 @@ function feeForMonth(tariffs, month, defaultFee) {
   return fee;
 }
 
-export async function upsertInternetMigrationRows({ rows, actorId }) {
-  await ensureMigration2025Tables();
+export async function upsertInternetMigrationRows({ rows, actorId, year = 2025 }) {
+  await ensureMigration2025Tables(year);
   const activeIds = await activeInternetMemberIdSet();
   for (const row of rows) {
     const wargaId = String(row.warga_id || '').trim();
     const month = String(row.month || '').trim();
     const amount = Number(row.amount || 0);
     if (!wargaId || !activeIds.has(wargaId)) continue;
-    if (!/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount) || amount < 0) continue;
+    if (!isValidMigrationMonthForYear(month, year) || !Number.isFinite(amount) || amount < 0) continue;
     await pool.query(
-      `INSERT INTO mig_inet_payments_2025 (warga_id, month_key, amount, created_by, updated_at)
+      `INSERT INTO mig_inet_payments_${year} (warga_id, month_key, amount, created_by, updated_at)
        VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
        ON CONFLICT (warga_id, month_key)
        DO UPDATE SET amount = EXCLUDED.amount, created_by = EXCLUDED.created_by, updated_at = NOW()`,
@@ -429,17 +439,17 @@ export async function upsertInternetMigrationRows({ rows, actorId }) {
   }
 }
 
-export async function upsertLingkunganMigrationRows({ rows, actorId }) {
-  await ensureMigration2025Tables();
+export async function upsertLingkunganMigrationRows({ rows, actorId, year = 2025 }) {
+  await ensureMigration2025Tables(year);
   const activeIds = await activeLingkunganMemberIdSet();
   for (const row of rows) {
     const wargaId = String(row.warga_id || '').trim();
     const month = String(row.month || '').trim();
     const amount = Number(row.amount || 0);
     if (!wargaId || !activeIds.has(wargaId)) continue;
-    if (!/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount) || amount < 0) continue;
+    if (!isValidMigrationMonthForYear(month, year) || !Number.isFinite(amount) || amount < 0) continue;
     await pool.query(
-      `INSERT INTO mig_lh_payments_2025 (warga_id, month_key, amount, created_by, updated_at)
+      `INSERT INTO mig_lh_payments_${year} (warga_id, month_key, amount, created_by, updated_at)
        VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
        ON CONFLICT (warga_id, month_key)
        DO UPDATE SET amount = EXCLUDED.amount, created_by = EXCLUDED.created_by, updated_at = NOW()`,
@@ -547,15 +557,15 @@ export async function getLingkunganMigrationSummary2025() {
   });
 }
 
-export async function upsertJimpitanMigrationRows({ rows, actorId }) {
-  await ensureMigration2025Tables();
+export async function upsertJimpitanMigrationRows({ rows, actorId, year = 2025 }) {
+  await ensureMigration2025Tables(year);
   for (const row of rows) {
     const wargaId = String(row.warga_id || '').trim();
     const month = String(row.month || '').trim();
     const amount = Number(row.amount || 0);
-    if (!wargaId || !/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount) || amount < 0) continue;
+    if (!wargaId || !isValidMigrationMonthForYear(month, year) || !Number.isFinite(amount) || amount < 0) continue;
     await pool.query(
-      `INSERT INTO mig_jimpitan_payments_2025 (warga_id, month_key, amount, created_by, updated_at)
+      `INSERT INTO mig_jimpitan_payments_${year} (warga_id, month_key, amount, created_by, updated_at)
        VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
        ON CONFLICT (warga_id, month_key)
        DO UPDATE SET amount = EXCLUDED.amount, created_by = EXCLUDED.created_by, updated_at = NOW()`,
@@ -578,15 +588,15 @@ export async function getJimpitanMigrationSummary2025() {
   }));
 }
 
-export async function upsertTabunganMigrationRows({ rows, actorId }) {
-  await ensureMigration2025Tables();
+export async function upsertTabunganMigrationRows({ rows, actorId, year = 2025 }) {
+  await ensureMigration2025Tables(year);
   for (const row of rows) {
     const wargaId = String(row.warga_id || '').trim();
     const month = String(row.month || '').trim();
     const amount = Number(row.amount || 0);
-    if (!wargaId || !/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount)) continue;
+    if (!wargaId || !isValidMigrationMonthForYear(month, year) || !Number.isFinite(amount)) continue;
     await pool.query(
-      `INSERT INTO mig_tabungan_ledger_2025 (warga_id, month_key, amount, created_by, updated_at)
+      `INSERT INTO mig_tabungan_ledger_${year} (warga_id, month_key, amount, created_by, updated_at)
        VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
        ON CONFLICT (warga_id, month_key)
        DO UPDATE SET amount = EXCLUDED.amount, created_by = EXCLUDED.created_by, updated_at = NOW()`,
@@ -607,16 +617,16 @@ export async function getTabunganMigrationSummary2025() {
   }));
 }
 
-export async function upsertSosialMigrationRows({ rows, actorId }) {
-  await ensureMigration2025Tables();
+export async function upsertSosialMigrationRows({ rows, actorId, year = 2025 }) {
+  await ensureMigration2025Tables(year);
   for (const row of rows) {
     const month = String(row.month || '').trim();
     const pemasukan = Number(row.pemasukan || 0);
     const pengeluaran = Number(row.pengeluaran || 0);
-    if (!/^(2025)-(0[1-9]|1[0-2])$/.test(month)) continue;
+    if (!isValidMigrationMonthForYear(month, year)) continue;
     if (!Number.isFinite(pemasukan) || pemasukan < 0 || !Number.isFinite(pengeluaran) || pengeluaran < 0) continue;
     await pool.query(
-      `INSERT INTO mig_sosial_wallet_2025 (month_key, pemasukan, pengeluaran, created_by, updated_at)
+      `INSERT INTO mig_sosial_wallet_${year} (month_key, pemasukan, pengeluaran, created_by, updated_at)
        VALUES ($1, $2, $3, $4::uuid, NOW())
        ON CONFLICT (month_key)
        DO UPDATE SET pemasukan = EXCLUDED.pemasukan, pengeluaran = EXCLUDED.pengeluaran, created_by = EXCLUDED.created_by, updated_at = NOW()`,
@@ -644,15 +654,15 @@ export async function getSosialMigrationSummary2025() {
   };
 }
 
-export async function upsertKoperasiIuranMigrationRows({ rows, actorId }) {
-  await ensureMigration2025Tables();
+export async function upsertKoperasiIuranMigrationRows({ rows, actorId, year = 2025 }) {
+  await ensureMigration2025Tables(year);
   for (const row of rows) {
     const wargaId = String(row.warga_id || '').trim();
     const month = String(row.month || '').trim();
     const amount = Number(row.amount || 0);
-    if (!wargaId || !/^(2025)-(0[1-9]|1[0-2])$/.test(month) || !Number.isFinite(amount) || amount < 0) continue;
+    if (!wargaId || !isValidMigrationMonthForYear(month, year) || !Number.isFinite(amount) || amount < 0) continue;
     await pool.query(
-      `INSERT INTO mig_kop_iuran_2025 (warga_id, month_key, amount, created_by, updated_at)
+      `INSERT INTO mig_kop_iuran_${year} (warga_id, month_key, amount, created_by, updated_at)
        VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
        ON CONFLICT (warga_id, month_key)
        DO UPDATE SET amount = EXCLUDED.amount, created_by = EXCLUDED.created_by, updated_at = NOW()`,

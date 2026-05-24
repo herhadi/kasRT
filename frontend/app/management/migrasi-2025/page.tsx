@@ -119,6 +119,7 @@ export default function Migration2025Page() {
   const router = useRouter();
   const canAccess = hasAnyRole(user, ['root']);
   const [moduleKey, setModuleKey] = useState<ModuleKey>('iuran-2025');
+  const [year, setYear] = useState<number>(2025);
   const [inputMode, setInputMode] = useState<'form' | 'json'>('json');
   const [summary, setSummary] = useState<unknown>(null);
   const [rowsJson, setRowsJson] = useState('[]');
@@ -145,7 +146,8 @@ export default function Migration2025Page() {
     try {
       setError('');
       setMessage('');
-      const res = await apiFetch<{ success: boolean; data: unknown }>(`/migration/${moduleKey}/summary`);
+      const moduleBase = String(moduleKey).split('-')[0];
+      const res = await apiFetch<{ success: boolean; data: unknown }>(`/migration/${moduleBase}-${year}/summary`);
       setSummary(res.data || null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Gagal memuat summary migrasi';
@@ -167,10 +169,11 @@ export default function Migration2025Page() {
     if (!canAccess) return;
     void (async () => {
       try {
+        const moduleBase = String(moduleKey).split('-')[0];
         const res = await apiFetch<{
           success: boolean;
           data: Array<WargaOption & { warga_id?: string }>;
-        }>(migrationWargaOptionsPath(moduleKey));
+        }>(migrationWargaOptionsPath(moduleKey, year));
         const rows = (res.data || []).map((w) => ({
           id: String(w.id || w.warga_id || ''),
           nama: String(w.nama || ''),
@@ -195,7 +198,8 @@ export default function Migration2025Page() {
       setMessage('');
       const rows = JSON.parse(rowsJson);
       if (!Array.isArray(rows)) throw new Error('Format JSON harus array');
-      await apiFetch(`/migration/${moduleKey}`, { method: 'POST', body: JSON.stringify({ rows }) });
+      const moduleBase = String(moduleKey).split('-')[0];
+      await apiFetch(`/migration/${moduleBase}-${year}`, { method: 'POST', body: JSON.stringify({ rows }) });
       setMessage('Data migrasi berhasil disimpan.');
       pushToast('Data migrasi berhasil disimpan.', 'success');
       await loadSummary();
@@ -213,9 +217,10 @@ export default function Migration2025Page() {
       setBusy(true);
       setError('');
       setMessage('');
-      await apiFetch('/migration/iuran-2025/apply-opening-2026', { method: 'POST', body: JSON.stringify({}) });
-      setMessage('Opening 2026 dari closing 2025 berhasil diproses.');
-      pushToast('Opening 2026 berhasil diproses.', 'success');
+      // apply opening for next year based on selected year
+      await apiFetch(`/migration/iuran-${year}/apply-opening-${year + 1}`, { method: 'POST', body: JSON.stringify({}) });
+      setMessage(`Opening ${year + 1} dari closing ${year} berhasil diproses.`);
+      pushToast(`Opening ${year + 1} berhasil diproses.`, 'success');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Gagal apply opening 2026';
       setError(msg);
@@ -229,7 +234,7 @@ export default function Migration2025Page() {
   const showFormMode = isFormMigrationModule(moduleKey);
   const activeExample = useMemo(() => {
     const chosen = selectedWargaId || 'UUID_WARGA';
-    return EXAMPLES[moduleKey].replaceAll('UUID_WARGA', chosen);
+    return EXAMPLES[moduleKey].replaceAll('UUID_WARGA', chosen).replaceAll('2025', String(year));
   }, [moduleKey, selectedWargaId]);
 
   if (loading || !user) return <main className="min-h-screen" />;
@@ -270,6 +275,19 @@ export default function Migration2025Page() {
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card title="Migrasi 2025" subtitle="Input data historis s.d. Desember 2025 (root only)">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <div className="col-span-2 md:col-span-4">
+              <label className="space-y-1 text-xs font-semibold text-[var(--text-muted)]">
+                <span>Tahun</span>
+                <input
+                  type="number"
+                  min={2000}
+                  max={2100}
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value || 2025))}
+                  className="w-28 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2 py-1 text-xs"
+                />
+              </label>
+            </div>
             {MODULES.map((m) => (
               <button
                 key={m.key}
@@ -317,6 +335,7 @@ export default function Migration2025Page() {
                 <>
                   <MigrationFormPanel
                     moduleKey={moduleKey}
+                    year={year}
                     wargaOptions={wargaOptions}
                     selectedWargaId={selectedWargaId}
                     onWargaChange={setSelectedWargaId}

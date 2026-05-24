@@ -7,8 +7,8 @@ import {
   buildMigrationSosialRows,
   emptyMigrationSosialMonthState,
   migrationSosialMonthStateFromApi,
-  MIGRATION_MONTH_KEYS_2025,
-  MIGRATION_MONTH_LABELS,
+  MIGRATION_MONTH_KEYS_FOR_YEAR,
+  MIGRATION_MONTH_LABELS_FOR_YEAR,
   parseMigrationAmountInput,
   type MigrationSosialMonthState
 } from '@/lib/migration2025';
@@ -20,10 +20,11 @@ type Props = {
   onSaved: () => void | Promise<void>;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
+  year?: number;
 };
 
-export default function MigrationSosialForm({ busy, onBusyChange, onSaved, onError, onSuccess }: Props) {
-  const [monthState, setMonthState] = useState(emptyMigrationSosialMonthState);
+export default function MigrationSosialForm({ busy, onBusyChange, onSaved, onError, onSuccess, year = 2025 }: Props) {
+  const [monthState, setMonthState] = useState(() => emptyMigrationSosialMonthState(year));
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const loadDetail = useCallback(async () => {
@@ -32,10 +33,10 @@ export default function MigrationSosialForm({ busy, onBusyChange, onSaved, onErr
       const res = await apiFetch<{
         success: boolean;
         data: { months: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
-      }>('/migration/sosial-2025/detail');
-      setMonthState(migrationSosialMonthStateFromApi(res.data?.months || []));
+      }>(`/migration/sosial-${year}/detail`);
+      setMonthState(migrationSosialMonthStateFromApi(res.data?.months || [], year));
     } catch (e) {
-      setMonthState(emptyMigrationSosialMonthState());
+      setMonthState(emptyMigrationSosialMonthState(year));
       onError(e instanceof Error ? e.message : 'Gagal memuat data sosial');
     } finally {
       setLoadingDetail(false);
@@ -50,7 +51,7 @@ export default function MigrationSosialForm({ busy, onBusyChange, onSaved, onErr
     setMonthState((prev) => ({ ...prev, [month]: { ...prev[month], ...patch } }));
   }
 
-  const saldoTotal = MIGRATION_MONTH_KEYS_2025.reduce((sum, month) => {
+  const saldoTotal = MIGRATION_MONTH_KEYS_FOR_YEAR(year).reduce((sum, month) => {
     const entry = monthState[month];
     if (!entry?.active) return sum;
     return (
@@ -59,7 +60,7 @@ export default function MigrationSosialForm({ busy, onBusyChange, onSaved, onErr
   }, 0);
 
   async function saveForm() {
-    const hasActive = MIGRATION_MONTH_KEYS_2025.some((month) => monthState[month]?.active);
+    const hasActive = MIGRATION_MONTH_KEYS_FOR_YEAR(year).some((month) => monthState[month]?.active);
     if (!hasActive) {
       onError('Centang minimal satu bulan');
       return;
@@ -67,12 +68,12 @@ export default function MigrationSosialForm({ busy, onBusyChange, onSaved, onErr
 
     try {
       onBusyChange(true);
-      const rows = buildMigrationSosialRows(monthState);
-      await apiFetch('/migration/sosial-2025', {
+      const rows = buildMigrationSosialRows(monthState, year);
+      await apiFetch(`/migration/sosial-${year}`, {
         method: 'POST',
         body: JSON.stringify({ rows })
       });
-      onSuccess('Data sosial 2025 berhasil disimpan.');
+      onSuccess(`Data sosial ${year} berhasil disimpan.`);
       await onSaved();
       await loadDetail();
     } catch (e) {
@@ -106,7 +107,7 @@ export default function MigrationSosialForm({ busy, onBusyChange, onSaved, onErr
               </tr>
             </thead>
             <tbody>
-              {MIGRATION_MONTH_KEYS_2025.map((month) => {
+              {MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => {
                 const entry = monthState[month];
                 const active = Boolean(entry?.active);
                 return (
@@ -121,7 +122,7 @@ export default function MigrationSosialForm({ busy, onBusyChange, onSaved, onErr
                       />
                     </td>
                     <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
-                      {MIGRATION_MONTH_LABELS[month]}
+                      {MIGRATION_MONTH_LABELS_FOR_YEAR(year)[month]}
                     </td>
                     <td className="border-b border-[var(--line)] px-3 py-2">
                       <input

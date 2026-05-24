@@ -9,7 +9,7 @@ import {
   migrationMonthStateFromApi,
   MODULE_HAS_TARIFF_DEFAULTS,
   isMemberOnlyMigrationModule,
-  MIGRATION_MONTH_KEYS_2025,
+  MIGRATION_MONTH_KEYS_FOR_YEAR,
   parseMigrationAmountInput,
   tariffMapFromApi,
   type FormAmountMigrationModule,
@@ -21,6 +21,7 @@ type WargaOption = { id: string; nama: string; no_hp?: string };
 
 type Props = {
   moduleKey: FormAmountMigrationModule;
+  year?: number;
   wargaOptions: WargaOption[];
   selectedWargaId: string;
   onWargaChange: (wargaId: string) => void;
@@ -64,6 +65,7 @@ const MODULE_META: Record<
 };
 
 export default function MigrationWargaAmountForm({
+  year = 2025,
   moduleKey,
   wargaOptions,
   selectedWargaId,
@@ -76,6 +78,7 @@ export default function MigrationWargaAmountForm({
 }: Props) {
   const meta = MODULE_META[moduleKey];
   const memberOnly = isMemberOnlyMigrationModule(moduleKey);
+  const moduleWithYear = moduleKey.replace('-2025', `-${year}`);
   const [wargaList, setWargaList] = useState<WargaOption[]>(wargaOptions);
   const [monthState, setMonthState] = useState<MigrationMonthState>(emptyMigrationMonthState);
   const [defaultAmountByMonth, setDefaultAmountByMonth] = useState<Record<string, number>>({});
@@ -89,7 +92,7 @@ export default function MigrationWargaAmountForm({
       const res = await apiFetch<{
         success: boolean;
         data: Array<WargaOption & { warga_id?: string }>;
-      }>(`/migration/${moduleKey}/members`);
+      }>(`/migration/${moduleWithYear}/members`);
       const rows = (res.data || []).map((w) => ({
         id: String(w.id || w.warga_id || ''),
         nama: String(w.nama || ''),
@@ -127,7 +130,7 @@ export default function MigrationWargaAmountForm({
       const res = await apiFetch<{
         success: boolean;
         data: { months: Array<{ month: string; amount: number }> };
-      }>(`/migration/${moduleKey}/tariffs`);
+      }>(`/migration/${moduleWithYear}/tariffs`);
       setDefaultAmountByMonth(tariffMapFromApi(res.data?.months || []));
     } catch {
       setDefaultAmountByMonth({});
@@ -136,7 +139,7 @@ export default function MigrationWargaAmountForm({
 
   const loadWargaDetail = useCallback(async () => {
     if (!selectedWargaId) {
-      setMonthState(emptyMigrationMonthState());
+      setMonthState(emptyMigrationMonthState(year));
       return;
     }
     try {
@@ -144,10 +147,10 @@ export default function MigrationWargaAmountForm({
       const res = await apiFetch<{
         success: boolean;
         data: { warga_id: string; months: Array<{ month: string; amount: number }> };
-      }>(`/migration/${moduleKey}/warga?warga_id=${encodeURIComponent(selectedWargaId)}`);
-      setMonthState(migrationMonthStateFromApi(res.data?.months || []));
+      }>(`/migration/${moduleWithYear}/warga?warga_id=${encodeURIComponent(selectedWargaId)}`);
+      setMonthState(migrationMonthStateFromApi(res.data?.months || [], year));
     } catch (e) {
-      setMonthState(emptyMigrationMonthState());
+      setMonthState(emptyMigrationMonthState(year));
       onError(e instanceof Error ? e.message : 'Gagal memuat data warga');
     } finally {
       setLoadingDetail(false);
@@ -171,8 +174,8 @@ export default function MigrationWargaAmountForm({
   }
 
   function fillFromTariff() {
-    const next = emptyMigrationMonthState();
-    for (const month of MIGRATION_MONTH_KEYS_2025) {
+    const next = emptyMigrationMonthState(year);
+    for (const month of MIGRATION_MONTH_KEYS_FOR_YEAR(year)) {
       const amount = defaultAmountByMonth[month] ?? meta.fillUniformAmount;
       if (!amount) continue;
       next[month] = { active: true, amount: String(amount) };
@@ -186,7 +189,8 @@ export default function MigrationWargaAmountForm({
       return;
     }
     const rows = buildMigrationAmountRows(selectedWargaId, monthState);
-    const hasActive = rows.some((r) => {
+    const rowsWithYear = buildMigrationAmountRows(selectedWargaId, monthState, year);
+    const hasActive = rowsWithYear.some((r) => {
       const entry = monthState[r.month];
       return entry?.active && Number.isFinite(parseMigrationAmountInput(entry.amount));
     });
@@ -210,7 +214,7 @@ export default function MigrationWargaAmountForm({
 
     try {
       onBusyChange(true);
-      await apiFetch(`/migration/${moduleKey}`, {
+      await apiFetch(`/migration/${moduleKey.replace('-2025', `-${year}`)}`, {
         method: 'POST',
         body: JSON.stringify({ rows })
       });

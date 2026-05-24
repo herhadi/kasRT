@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  MIGRATION_MONTH_KEYS_2025,
-  MIGRATION_MONTH_LABELS,
+  MIGRATION_MONTH_KEYS_FOR_YEAR,
+  MIGRATION_MONTH_LABELS_FOR_YEAR,
   parseMigrationAmountInput,
   type MigrationIuranMonthState
 } from '@/lib/migration2025';
@@ -13,6 +13,7 @@ type Props = {
   onChange: (next: MigrationIuranMonthState) => void;
   defaultTargetByMonth: Record<string, number>;
   disabled?: boolean;
+  year?: number;
 };
 
 export default function MigrationIuranMonthGrid({
@@ -20,18 +21,19 @@ export default function MigrationIuranMonthGrid({
   onChange,
   defaultTargetByMonth,
   disabled = false
+  , year = 2025
 }: Props) {
   function patchMonth(month: string, patch: Partial<MigrationIuranMonthState[string]>) {
     onChange({ ...state, [month]: { ...state[month], ...patch } });
   }
 
-  const totalTarget = MIGRATION_MONTH_KEYS_2025.reduce((sum, month) => {
+  const totalTarget = MIGRATION_MONTH_KEYS_FOR_YEAR(year).reduce((sum, month) => {
     const entry = state[month];
     if (!entry?.active) return sum;
     return sum + parseMigrationAmountInput(entry.target);
   }, 0);
 
-  const totalPaid = MIGRATION_MONTH_KEYS_2025.reduce((sum, month) => {
+  const totalPaid = MIGRATION_MONTH_KEYS_FOR_YEAR(year).reduce((sum, month) => {
     const entry = state[month];
     if (!entry?.active) return sum;
     return sum + parseMigrationAmountInput(entry.paid);
@@ -60,7 +62,7 @@ export default function MigrationIuranMonthGrid({
             </tr>
           </thead>
           <tbody>
-            {MIGRATION_MONTH_KEYS_2025.map((month) => {
+            {MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => {
               const entry = state[month];
               const active = Boolean(entry?.active);
               const defaultTarget = defaultTargetByMonth[month];
@@ -85,7 +87,7 @@ export default function MigrationIuranMonthGrid({
                     />
                   </td>
                   <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]">
-                    {MIGRATION_MONTH_LABELS[month]}
+                    {MIGRATION_MONTH_LABELS_FOR_YEAR(year)[month]}
                     {defaultTarget ? (
                       <span className="mt-0.5 block text-[10px] text-[var(--text-muted)]">
                         Tarif: {formatRupiah(defaultTarget)}

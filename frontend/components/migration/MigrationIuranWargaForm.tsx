@@ -7,7 +7,7 @@ import {
   buildMigrationIuranRows,
   emptyMigrationIuranMonthState,
   migrationIuranMonthStateFromApi,
-  MIGRATION_MONTH_KEYS_2025,
+  MIGRATION_MONTH_KEYS_FOR_YEAR,
   parseMigrationAmountInput,
   tariffMapFromApi
 } from '@/lib/migration2025';
@@ -16,6 +16,7 @@ import MigrationIuranMonthGrid from '@/components/migration/MigrationIuranMonthG
 type WargaOption = { id: string; nama: string; no_hp?: string };
 
 type Props = {
+  year?: number;
   wargaOptions: WargaOption[];
   selectedWargaId: string;
   onWargaChange: (wargaId: string) => void;
@@ -27,6 +28,7 @@ type Props = {
 };
 
 export default function MigrationIuranWargaForm({
+  year = 2025,
   wargaOptions,
   selectedWargaId,
   onWargaChange,
@@ -36,7 +38,7 @@ export default function MigrationIuranWargaForm({
   onError,
   onSuccess
 }: Props) {
-  const [monthState, setMonthState] = useState(emptyMigrationIuranMonthState);
+  const [monthState, setMonthState] = useState(() => emptyMigrationIuranMonthState(year));
   const [defaultTargetByMonth, setDefaultTargetByMonth] = useState<Record<string, number>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
 
@@ -45,7 +47,7 @@ export default function MigrationIuranWargaForm({
       const res = await apiFetch<{
         success: boolean;
         data: { months: Array<{ month: string; amount: number }> };
-      }>('/migration/iuran-2025/tariffs');
+      }>(`/migration/iuran-${year}/tariffs`);
       setDefaultTargetByMonth(tariffMapFromApi(res.data?.months || []));
     } catch {
       setDefaultTargetByMonth({});
@@ -54,7 +56,7 @@ export default function MigrationIuranWargaForm({
 
   const loadWargaDetail = useCallback(async () => {
     if (!selectedWargaId) {
-      setMonthState(emptyMigrationIuranMonthState());
+      setMonthState(emptyMigrationIuranMonthState(year));
       return;
     }
     try {
@@ -69,10 +71,10 @@ export default function MigrationIuranWargaForm({
             has_saved?: boolean;
           }>;
         };
-      }>(`/migration/iuran-2025/warga?warga_id=${encodeURIComponent(selectedWargaId)}`);
-      setMonthState(migrationIuranMonthStateFromApi(res.data?.months || []));
+      }>(`/migration/iuran-${year}/warga?warga_id=${encodeURIComponent(selectedWargaId)}`);
+      setMonthState(migrationIuranMonthStateFromApi(res.data?.months || [], year));
     } catch (e) {
-      setMonthState(emptyMigrationIuranMonthState());
+      setMonthState(emptyMigrationIuranMonthState(year));
       onError(e instanceof Error ? e.message : 'Gagal memuat data warga');
     } finally {
       setLoadingDetail(false);
@@ -96,8 +98,8 @@ export default function MigrationIuranWargaForm({
   }
 
   function fillTargetFromTariff() {
-    const next = emptyMigrationIuranMonthState();
-    for (const month of MIGRATION_MONTH_KEYS_2025) {
+    const next = emptyMigrationIuranMonthState(year);
+    for (const month of MIGRATION_MONTH_KEYS_FOR_YEAR(year)) {
       const target = defaultTargetByMonth[month];
       if (!target) continue;
       next[month] = { active: true, target: String(target), paid: '' };
@@ -110,12 +112,12 @@ export default function MigrationIuranWargaForm({
       onError('Pilih warga terlebih dahulu');
       return;
     }
-    const hasActive = MIGRATION_MONTH_KEYS_2025.some((month) => monthState[month]?.active);
+    const hasActive = MIGRATION_MONTH_KEYS_FOR_YEAR(year).some((month) => monthState[month]?.active);
     if (!hasActive) {
       onError('Centang minimal satu bulan');
       return;
     }
-    for (const month of MIGRATION_MONTH_KEYS_2025) {
+    for (const month of MIGRATION_MONTH_KEYS_FOR_YEAR(year)) {
       const entry = monthState[month];
       if (!entry?.active) continue;
       const target = parseMigrationAmountInput(entry.target);
@@ -128,8 +130,8 @@ export default function MigrationIuranWargaForm({
 
     try {
       onBusyChange(true);
-      const rows = buildMigrationIuranRows(selectedWargaId, monthState);
-      await apiFetch('/migration/iuran-2025', {
+      const rows = buildMigrationIuranRows(selectedWargaId, monthState, year);
+      await apiFetch(`/migration/iuran-${year}`, {
         method: 'POST',
         body: JSON.stringify({ rows })
       });
@@ -198,6 +200,7 @@ export default function MigrationIuranWargaForm({
           onChange={setMonthState}
           defaultTargetByMonth={defaultTargetByMonth}
           disabled={busy}
+          year={year}
         />
       )}
 

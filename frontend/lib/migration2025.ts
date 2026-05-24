@@ -1,23 +1,20 @@
 import { parseRupiahInput } from '@/lib/helpers';
 
-export const MIGRATION_MONTH_KEYS_2025 = Array.from({ length: 12 }, (_, i) =>
-  `2025-${String(i + 1).padStart(2, '0')}`
-);
+export function MIGRATION_MONTH_KEYS_FOR_YEAR(year: number) {
+  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+}
 
-export const MIGRATION_MONTH_LABELS: Record<string, string> = {
-  '2025-01': 'Januari',
-  '2025-02': 'Februari',
-  '2025-03': 'Maret',
-  '2025-04': 'April',
-  '2025-05': 'Mei',
-  '2025-06': 'Juni',
-  '2025-07': 'Juli',
-  '2025-08': 'Agustus',
-  '2025-09': 'September',
-  '2025-10': 'Oktober',
-  '2025-11': 'November',
-  '2025-12': 'Desember'
-};
+export function MIGRATION_MONTH_LABELS_FOR_YEAR(year: number): Record<string, string> {
+  return MIGRATION_MONTH_KEYS_FOR_YEAR(year).reduce((acc, monthKey, i) => {
+    const labels = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    acc[monthKey] = labels[i];
+    return acc;
+  }, {} as Record<string, string>);
+}
+
+export const MIGRATION_MONTH_KEYS_2025 = MIGRATION_MONTH_KEYS_FOR_YEAR(2025);
+
+export const MIGRATION_MONTH_LABELS: Record<string, string> = MIGRATION_MONTH_LABELS_FOR_YEAR(2025);
 
 export type MigrationFormModule =
   | 'iuran-2025'
@@ -71,21 +68,21 @@ export type MigrationSosialMonthEntry = {
 
 export type MigrationSosialMonthState = Record<string, MigrationSosialMonthEntry>;
 
-export function emptyMigrationMonthState(): MigrationMonthState {
+export function emptyMigrationMonthState(year = 2025): MigrationMonthState {
   return Object.fromEntries(
-    MIGRATION_MONTH_KEYS_2025.map((month) => [month, { active: false, amount: '' }])
+    MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => [month, { active: false, amount: '' }])
   ) as MigrationMonthState;
 }
 
-export function emptyMigrationIuranMonthState(): MigrationIuranMonthState {
+export function emptyMigrationIuranMonthState(year = 2025): MigrationIuranMonthState {
   return Object.fromEntries(
-    MIGRATION_MONTH_KEYS_2025.map((month) => [month, { active: false, target: '', paid: '' }])
+    MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => [month, { active: false, target: '', paid: '' }])
   ) as MigrationIuranMonthState;
 }
 
-export function emptyMigrationSosialMonthState(): MigrationSosialMonthState {
+export function emptyMigrationSosialMonthState(year = 2025): MigrationSosialMonthState {
   return Object.fromEntries(
-    MIGRATION_MONTH_KEYS_2025.map((month) => [month, { active: false, pemasukan: '', pengeluaran: '' }])
+    MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => [month, { active: false, pemasukan: '', pengeluaran: '' }])
   ) as MigrationSosialMonthState;
 }
 
@@ -98,12 +95,14 @@ export function tariffMapFromApi(months: Array<{ month: string; amount: number }
 }
 
 export function migrationMonthStateFromApi(
-  months: Array<{ month: string; amount: number }>
+  months: Array<{ month: string; amount: number }>,
+  year = 2025
 ): MigrationMonthState {
-  const state = emptyMigrationMonthState();
+  const state = emptyMigrationMonthState(year);
+  const allowed = new Set(MIGRATION_MONTH_KEYS_FOR_YEAR(year));
   for (const row of months) {
     const month = String(row.month || '');
-    if (!MIGRATION_MONTH_KEYS_2025.includes(month)) continue;
+    if (!allowed.has(month)) continue;
     const amount = Number(row.amount || 0);
     state[month] = {
       active: amount !== 0,
@@ -119,12 +118,14 @@ export function migrationMonthStateFromApi(
 }
 
 export function migrationIuranMonthStateFromApi(
-  months: Array<{ month: string; target_amount: number; paid_amount: number; has_saved?: boolean }>
+  months: Array<{ month: string; target_amount: number; paid_amount: number; has_saved?: boolean }>,
+  year = 2025
 ): MigrationIuranMonthState {
-  const state = emptyMigrationIuranMonthState();
+  const state = emptyMigrationIuranMonthState(year);
+  const allowed = new Set(MIGRATION_MONTH_KEYS_FOR_YEAR(year));
   for (const row of months) {
     const month = String(row.month || '');
-    if (!MIGRATION_MONTH_KEYS_2025.includes(month)) continue;
+    if (!allowed.has(month)) continue;
     const paid = Number(row.paid_amount || 0);
     const target = Number(row.target_amount || 0);
     const active = Boolean(row.has_saved) || paid > 0;
@@ -138,12 +139,14 @@ export function migrationIuranMonthStateFromApi(
 }
 
 export function migrationSosialMonthStateFromApi(
-  months: Array<{ month: string; pemasukan: number; pengeluaran: number }>
+  months: Array<{ month: string; pemasukan: number; pengeluaran: number }>,
+  year = 2025
 ): MigrationSosialMonthState {
-  const state = emptyMigrationSosialMonthState();
+  const state = emptyMigrationSosialMonthState(year);
+  const allowed = new Set(MIGRATION_MONTH_KEYS_FOR_YEAR(year));
   for (const row of months) {
     const month = String(row.month || '');
-    if (!MIGRATION_MONTH_KEYS_2025.includes(month)) continue;
+    if (!allowed.has(month)) continue;
     const pemasukan = Number(row.pemasukan || 0);
     const pengeluaran = Number(row.pengeluaran || 0);
     const active = pemasukan !== 0 || pengeluaran !== 0;
@@ -166,16 +169,16 @@ export function parseMigrationAmountInput(value: string) {
   return parseRupiahInput(raw);
 }
 
-export function buildMigrationAmountRows(wargaId: string, state: MigrationMonthState) {
-  return MIGRATION_MONTH_KEYS_2025.map((month) => {
+export function buildMigrationAmountRows(wargaId: string, state: MigrationMonthState, year = 2025) {
+  return MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => {
     const entry = state[month];
     const amount = entry?.active ? parseMigrationAmountInput(entry.amount) : 0;
     return { warga_id: wargaId, month, amount };
   });
 }
 
-export function buildMigrationIuranRows(wargaId: string, state: MigrationIuranMonthState) {
-  return MIGRATION_MONTH_KEYS_2025.map((month) => {
+export function buildMigrationIuranRows(wargaId: string, state: MigrationIuranMonthState, year = 2025) {
+  return MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => {
     const entry = state[month];
     if (!entry?.active) {
       return { warga_id: wargaId, month, target_amount: 0, paid_amount: 0 };
@@ -189,8 +192,8 @@ export function buildMigrationIuranRows(wargaId: string, state: MigrationIuranMo
   });
 }
 
-export function buildMigrationSosialRows(state: MigrationSosialMonthState) {
-  return MIGRATION_MONTH_KEYS_2025.map((month) => {
+export function buildMigrationSosialRows(state: MigrationSosialMonthState, year = 2025) {
+  return MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => {
     const entry = state[month];
     if (!entry?.active) {
       return { month, pemasukan: 0, pengeluaran: 0 };
@@ -220,8 +223,9 @@ export function isMemberOnlyMigrationModule(key: string): key is MemberOnlyMigra
   return key === 'internet-2025' || key === 'lingkungan-2025';
 }
 
-export function migrationWargaOptionsPath(moduleKey: string) {
-  if (moduleKey === 'internet-2025') return '/migration/internet-2025/members';
-  if (moduleKey === 'lingkungan-2025') return '/migration/lingkungan-2025/members';
+export function migrationWargaOptionsPath(moduleKey: string, year = 2025) {
+  const base = String(moduleKey || '').split('-')[0];
+  if (base === 'internet') return `/migration/internet-${year}/members`;
+  if (base === 'lingkungan') return `/migration/lingkungan-${year}/members`;
   return '/auth/warga-options';
 }

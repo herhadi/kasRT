@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  MIGRATION_MONTH_KEYS_2025,
-  MIGRATION_MONTH_LABELS,
+  MIGRATION_MONTH_KEYS_FOR_YEAR,
+  MIGRATION_MONTH_LABELS_FOR_YEAR,
   type MigrationMonthState
 } from '@/lib/migration2025';
 import { formatRupiah, formatRupiahInput } from '@/lib/helpers';
@@ -14,6 +14,7 @@ type Props = {
   allowNegative?: boolean;
   disabled?: boolean;
   defaultAmountByMonth?: Record<string, number>;
+  year?: number;
 };
 
 export default function MigrationMonthAmountGrid({
@@ -21,7 +22,8 @@ export default function MigrationMonthAmountGrid({
   onChange,
   allowNegative = false,
   disabled = false,
-  defaultAmountByMonth = {}
+  defaultAmountByMonth = {},
+  year = 2025
 }: Props) {
   function patchMonth(month: string, patch: Partial<MigrationMonthState[string]>) {
     onChange({
@@ -30,7 +32,7 @@ export default function MigrationMonthAmountGrid({
     });
   }
 
-  const totalActive = MIGRATION_MONTH_KEYS_2025.reduce((sum, month) => {
+  const totalActive = MIGRATION_MONTH_KEYS_FOR_YEAR(year).reduce((sum, month) => {
     const entry = state[month];
     if (!entry?.active) return sum;
     return sum + parseMigrationAmountInput(entry.amount);
@@ -54,7 +56,7 @@ export default function MigrationMonthAmountGrid({
             </tr>
           </thead>
           <tbody>
-            {MIGRATION_MONTH_KEYS_2025.map((month) => {
+            {MIGRATION_MONTH_KEYS_FOR_YEAR(year).map((month) => {
               const entry = state[month];
               const active = Boolean(entry?.active);
               return (
@@ -77,8 +79,8 @@ export default function MigrationMonthAmountGrid({
                       }}
                     />
                   </td>
-                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]">
-                    {MIGRATION_MONTH_LABELS[month] || month}
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]">
+                    {MIGRATION_MONTH_LABELS_FOR_YEAR(year)[month] || month}
                     <span className="ml-1 text-[10px] text-[var(--text-muted)]">({month})</span>
                     {defaultAmountByMonth[month] ? (
                       <span className="mt-0.5 block text-[10px] text-[var(--text-muted)]">
