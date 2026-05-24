@@ -99,6 +99,26 @@ export async function getMigration2025IuranTariffs(_req, res) {
   }
 }
 
+export async function getMigration2025IuranWargaDetail(req, res) {
+  const wargaId = readWargaId(req, res);
+  if (!wargaId) return;
+  try {
+    const year = parseYearParam(req);
+    await ensureMigrationTablesForYear(year);
+    const rs = await pool.query(
+      `SELECT month, target_amount, paid_amount
+       FROM mig_iuran_wajib_${year}
+       WHERE warga_id = $1::uuid
+       ORDER BY month ASC`,
+      [wargaId]
+    );
+    const rows = rs.rows.map((r) => ({ month: String(r.month), target_amount: Number(r.target_amount || 0), paid_amount: Number(r.paid_amount || 0) }));
+    return res.json({ success: true, data: { warga_id: wargaId, months: rows } });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
 export async function saveMigration2025Iuran(req, res) {
   const actorId = String(req.user?.user_id || '').trim();
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
