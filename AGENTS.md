@@ -1,12 +1,12 @@
 # AGENTS.md — KasRT
 
-Dokumen ini menjadi pedoman implementasi agent di codebase KasRT.
+Dokumen ini adalah pedoman implementasi agent untuk alur terbaru KasRT.
 
-## Konvensi ID (Penting)
+## Konvensi Data
 
-- Semua identifier utama di sistem menggunakan `UUID`.
-- Jangan mengasumsikan ID bertipe integer pada frontend maupun backend.
-- Validasi `user_id`, `warga_id`, `created_by`, `approved_by`, dan relasi lain harus kompatibel UUID (string), kecuali field yang memang numerik secara eksplisit.
+- Semua ID utama menggunakan `UUID`.
+- Jangan asumsikan integer untuk `user_id`, `warga_id`, `created_by`, `approved_by`.
+- Actor finansial selalu dari `req.user`, bukan body request.
 
 ## Peran Sistem
 
@@ -21,59 +21,75 @@ Dokumen ini menjadi pedoman implementasi agent di codebase KasRT.
 - `Bendahara`
 - `Ketua`
 - `Sekretaris`
+- `Plt Ketua` (akses setara Ketua untuk approval)
 - `root`
 
-## Alur Inti
+## Alur Finansial Wajib
 
-### Jimpitan
+1. Jimpitan:
+- input petugas -> setor batch (`PENDING`) -> approve admin jimpitan -> kas masuk (`APPROVED`).
 
-1. Petugas input jimpitan warga.
-2. Petugas melakukan setor batch -> status `PENDING`.
-3. Approver `Admin Jimpitan` (atau role setara yang diizinkan) melakukan approval.
-4. Sistem membentuk transaksi kas masuk dengan status final `APPROVED`.
+2. Transfer kas:
+- dibuat Bendahara (`PENDING`) -> approve Ketua/Sekretaris/Plt Ketua.
 
-### Transfer Kas
+3. Pengeluaran:
+- dibuat Bendahara (`PENDING`) -> approve Ketua/Sekretaris/Plt Ketua.
 
-1. Dibuat oleh `Bendahara` -> `PENDING`.
-2. Disetujui oleh `Ketua` atau `Sekretaris`.
+Larangan:
+- Tidak boleh update saldo langsung tanpa transaksi.
+- Tidak boleh bypass state `PENDING -> APPROVED`.
 
-### Pengeluaran
+## Auth, Audit, Session
 
-1. Dibuat oleh `Bendahara` -> `PENDING`.
-2. Disetujui oleh `Ketua` atau `Sekretaris`.
-
-## Aturan Approval (Wajib)
-
-- Semua transaksi finansial wajib lewat state machine `PENDING -> APPROVED`.
-- Approval valid hanya jika:
-  - Approver punya role yang sesuai hirarki.
-  - Endpoint approve sesuai jenis transaksi.
-  - Status data masih `PENDING` saat dieksekusi.
-- Dilarang mengubah saldo tanpa transaksi tercatat.
-
-## Auth, Ownership, Audit
-
-- Endpoint sensitif wajib JWT (`Authorization: Bearer <token>`).
-- Pelaku (`created_by`) dan approver (`approved_by`) harus bersumber dari `req.user`, bukan request body.
-- Audit minimum yang wajib ada:
+- Endpoint sensitif wajib JWT.
+- Audit minimal:
   - `created_by`
   - `approved_by`
   - `approved_at`
-
-## Arsitektur Frontend-Backend
-
-- Frontend berjalan sebagai aplikasi Next.js pada folder `frontend`.
-- Backend berjalan sebagai service API Node.js pada folder `backend`.
-- Frontend memakai env `NEXT_PUBLIC_API_URL` untuk mengakses backend.
-- Session frontend disimpan dengan key:
+- Session frontend:
   - `kasrt_token`
   - `kasrt_user`
 
-## Migrasi Data Historis 2025 (Root Only)
+## Arsitektur & Deploy
 
-- Tersedia menu khusus root: `/management/migrasi-2025`.
-- Endpoint backend migrasi berada di prefix `/migration/*` dan wajib role `root`.
-- Scope migrasi saat ini:
+- Frontend Next.js ada di folder `frontend`.
+- Backend Node API ada di folder `backend`.
+- Frontend akses backend via `NEXT_PUBLIC_API_URL`.
+- Deploy mengikuti `render.yaml`.
+
+## Cron Reminder Jimpitan
+
+- Scheduler: Vercel Cron `frontend/vercel.json`.
+- Waktu: `20:45 WIB` (`45 13 * * *` UTC).
+- Alur:
+  - Vercel hit `GET /api/cron` (frontend),
+  - frontend forward ke `POST /jimpitan/send-shift-reminder` (backend).
+- Secret wajib sinkron:
+  - frontend `CRON_SECRET`
+  - backend `CRON_SECRET`
+- Backend punya window guard agar reminder tidak terkirim telat.
+
+## Redis Cache (Opsional, Disarankan)
+
+- Env backend: `REDIS_URL` (`rediss://...`).
+- Jika Redis tidak tersedia, sistem fallback tanpa cache.
+- Cache aktif saat ini:
+  - dashboard warga (`/report/dashboard`) TTL 60 detik.
+  - jadwal jimpitan (`/jimpitan/schedule`) TTL 300 detik.
+- Invalidasi:
+  - perubahan petugas shift harus hapus cache jadwal.
+
+## Optimasi DB
+
+- Jalankan script index performa setelah deploy schema/perubahan besar:
+  - `cd backend && npm run db:indexes`
+- Script ini idempotent (`CREATE INDEX IF NOT EXISTS`).
+
+## Migrasi Histori 2025 (Root Only)
+
+- Frontend: `/management/migrasi-2025`
+- Backend: `/migration/*`
+- Scope:
   - `iuran-2025`
   - `internet-2025`
   - `lingkungan-2025`
@@ -82,31 +98,4 @@ Dokumen ini menjadi pedoman implementasi agent di codebase KasRT.
   - `sosial-2025`
   - `koperasi-iuran-2025`
   - `koperasi-loans-2025`
-- Aturan periode:
-  - data histori migrasi dibatasi sampai `2025-12`.
-  - data operasional 2026+ tetap diinput normal oleh admin terkait.
-- Untuk iuran wajib tersedia aksi:
-  - `POST /migration/iuran-2025/apply-opening-2026`
-  - fungsinya membentuk opening tunggakan 2026 dari closing 2025.
-
-### Prinsip Hitung Tunggakan
-
-- `closing_arrears_2025` adalah output sistem, bukan input manual user.
-- Rumus umum: `closing_arrears_2025 = total_target_2025 - total_paid_2025` (minimal 0).
-- Target tahunan yang ditetapkan:
-  - Iuran Wajib: `30.000 x 12`
-  - Jimpitan: `15.000 x 12`
-- Untuk Internet/Lingkungan, target dihitung dari tarif historis per bulan (effective month), bukan dirata-rata.
-
-## Integrasi Telegram
-
-- Notifikasi approval dikirim berdasarkan role approver.
-- Aktivasi Telegram dilakukan lewat link `/start kasrt_<kode>` dari dashboard.
-- Backend menyimpan `telegram_chat_id` setelah webhook valid.
-
-## Standar Perubahan Kode
-
-- Jangan bypass approval workflow demi shortcut implementasi.
-- Jangan pindahkan identitas actor ke payload client.
-- Pastikan setiap perubahan alur finansial tetap menjaga jejak audit.
-- Setiap endpoint baru terkait finansial harus mengikuti pola role check + pending check + audit update.
+- Batas periode histori: sampai `2025-12`.
