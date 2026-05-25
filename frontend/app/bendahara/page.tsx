@@ -402,7 +402,7 @@ export default function BendaharaPage() {
           void Promise.all([loadRekapKeuangan(), loadMeetingNote()]);
         }
       }
-    }, 8000);
+    }, 45000);
     return () => window.clearInterval(interval);
   }, [
     loading,

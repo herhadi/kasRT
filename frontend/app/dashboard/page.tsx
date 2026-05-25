@@ -82,28 +82,33 @@ export default function DashboardPage() {
     async function loadDashboard() {
       if (!user) return;
       setError('');
-      const [y, m] = selectedMonth.split('-').map(Number);
-      const prevDate = new Date(y, (m || 1) - 2, 1);
-      const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-
       try {
-        const [meResult, wargaResult, scheduleResult, prevMonthResult] = await Promise.all([
+        const [meResult, wargaResult, scheduleResult] = await Promise.all([
           apiFetch<{ success: boolean; user: UserSession }>('/auth/me'),
           apiFetch<{ success: boolean; data: DashboardWargaData }>(`/report/dashboard?month=${encodeURIComponent(selectedMonth)}`),
-          apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule'),
-          apiFetch<{ success: boolean; data: DashboardWargaData }>(`/report/dashboard?month=${encodeURIComponent(prevMonth)}`)
+          apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule')
         ]);
 
         refreshUser(meResult.user);
         setWargaData(wargaResult.data);
         setScheduleData(scheduleResult.data);
-        setLingkunganPrevMonthAmount(Number(prevMonthResult?.data?.lingkungan_bulan_ini || 0));
+        setLingkunganPrevMonthAmount(0);
 
         if (adminEndpoint) {
           const adminResult = await apiFetch<{ success: boolean; data: AdminPanelData }>(adminEndpoint);
           setAdminData(adminResult.data);
         } else {
           setAdminData(null);
+        }
+
+        if (wargaResult.data?.lingkungan_is_member) {
+          const [y, m] = selectedMonth.split('-').map(Number);
+          const prevDate = new Date(y, (m || 1) - 2, 1);
+          const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+          const prevMonthResult = await apiFetch<{ success: boolean; data: DashboardWargaData }>(
+            `/report/dashboard?month=${encodeURIComponent(prevMonth)}`
+          );
+          setLingkunganPrevMonthAmount(Number(prevMonthResult?.data?.lingkungan_bulan_ini || 0));
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Gagal memuat dashboard');

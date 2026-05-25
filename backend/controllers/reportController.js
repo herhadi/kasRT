@@ -23,6 +23,7 @@ import {
   ,getWargaFinancialSnapshot
 } from '../models/reportModel.js';
 import { getDashboardAdminJimpitan } from '../models/jimpitanModel.js';
+import { getCacheJson, setCacheJson } from '../services/cacheService.js';
 
 const JIMPITAN_TARGET_BULANAN = 15000;
 const IURAN_WAJIB_TARGET = 30000;
@@ -34,8 +35,15 @@ export async function dashboardWarga(req, res) {
   const user_id = req.user.user_id;
   const month = String(req.query.month || '').trim();
   const monthFilter = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
+  const cacheMonth = monthFilter || 'current';
+  const cacheKey = `dashboard:warga:${String(user_id)}:${cacheMonth}`;
 
   try {
+    const cached = await getCacheJson(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const jimpitan_hari_ini = await getJimpitanHarianByWarga(user_id);
     const jimpitan_bulan_ini = await getJimpitanBulananByWarga(user_id, monthFilter);
     const iuranRows = await getIuranBulananByWarga(user_id, monthFilter);
@@ -121,7 +129,7 @@ export async function dashboardWarga(req, res) {
       else lingkungan_status = 'LEBIH';
     }
 
-    return res.json({
+    const payload = {
       success: true,
       data: {
         jimpitan_hari_ini,
@@ -167,7 +175,9 @@ export async function dashboardWarga(req, res) {
           kas_koperasi: Number(kasUmum.kas_koperasi || 0)
         }
       }
-    });
+    };
+    await setCacheJson(cacheKey, payload, 60);
+    return res.json(payload);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false });

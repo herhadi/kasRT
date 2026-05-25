@@ -28,6 +28,7 @@ import {
   topUpJimpitanSaldo,
   updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
+import { delCache, getCacheJson, setCacheJson } from '../services/cacheService.js';
 
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
@@ -342,8 +343,15 @@ export async function getDailyRecapJimpitan(req, res) {
 
 export async function getJimpitanSchedule(_req, res) {
   try {
+    const cacheKey = 'jimpitan:schedule:weekly:v1';
+    const cached = await getCacheJson(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
     const data = await listJimpitanWeeklySchedule();
-    return res.json({ success: true, data });
+    const payload = { success: true, data };
+    await setCacheJson(cacheKey, payload, 300);
+    return res.json(payload);
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -374,6 +382,7 @@ export async function setPetugasShift(req, res) {
     if (!row) {
       return res.status(404).json({ success: false, message: 'User petugas tidak ditemukan' });
     }
+    await delCache('jimpitan:schedule:weekly:v1');
     return res.json({ success: true, data: row });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -434,9 +443,34 @@ export async function sendJimpitanShiftReminder(req, res) {
   }
 
   const nowJakarta = getJakartaNow();
+  const hourMinute = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(nowJakarta);
+  const [hourStr, minuteStr] = hourMinute.split(':');
+  const totalMinutes = Number(hourStr) * 60 + Number(minuteStr);
+  const targetMinutes = 20 * 60 + 45;
+  const allowedEarlyMinutes = 3;
+  const allowedLateMinutes = 10;
+  const isWithinWindow =
+    Number.isFinite(totalMinutes) &&
+    totalMinutes >= targetMinutes - allowedEarlyMinutes &&
+    totalMinutes <= targetMinutes + allowedLateMinutes;
+
+  if (!isWithinWindow) {
+    return res.json({
+      success: true,
+      skipped: true,
+      message: 'Di luar window reminder 20:45 WIB',
+      current_time_wib: hourMinute
+    });
+  }
+
   const shiftDay = getOperationalWeekdayNumber(nowJakarta);
   const reminderDate = nowJakarta.toISOString().slice(0, 10);
-  const reminderType = 'SHIFT_2055';
+  const reminderType = 'SHIFT_2045';
   const targetLabel = nowJakarta.toLocaleDateString('id-ID', {
     weekday: 'long',
     year: 'numeric',
@@ -463,6 +497,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       `⏰ <b>Pengingat Jimpitan</b>\n` +
       `Hari operasional: <b>${targetLabel}</b>\n` +
       `Pengambilan jimpitan dimulai pukul <b>21:00 WIB</b>.\n` +
+      `Pengingat otomatis dikirim pukul <b>20:45 WIB</b>.\n` +
       `Selamat bekerja...`;
 
     await Promise.all(
