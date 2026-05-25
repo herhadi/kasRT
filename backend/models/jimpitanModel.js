@@ -389,10 +389,11 @@ export async function isValidJimpitanShiftDay(shiftHari) {
 export async function listPetugasByShiftDay(shiftHari) {
   await ensureJimpitanScheduleColumns();
   const result = await pool.query(
-    `SELECT
+     `SELECT
        u.id,
        u.nama,
-       u.telegram_chat_id
+       u.telegram_chat_id,
+       u.no_hp
      FROM users u
      WHERE u.jimpitan_shift_hari = $1
        AND ${ELIGIBLE_USERS_CLAUSE}

@@ -1,5 +1,6 @@
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
+import { sendFonnteMessage } from '../services/fonnteService.js';
 import {
   approvePendingTaggedTransfer,
   createTransfer,
@@ -480,8 +481,9 @@ export async function sendJimpitanShiftReminder(req, res) {
 
   try {
     const petugas = await listPetugasByShiftDay(shiftDay);
-    const recipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
-    const lockAcquired = await lockDailyJimpitanReminder(reminderDate, reminderType, recipients.length);
+    const telegramRecipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
+    const waRecipients = petugas.filter((row) => String(row.no_hp || '').trim() !== '');
+    const lockAcquired = await lockDailyJimpitanReminder(reminderDate, reminderType, Math.max(telegramRecipients.length, waRecipients.length));
 
     if (!lockAcquired) {
       return res.json({
@@ -489,7 +491,7 @@ export async function sendJimpitanShiftReminder(req, res) {
         skipped: true,
         message: 'Reminder hari ini sudah pernah dikirim',
         shift_day: shiftDay,
-        total_recipients: recipients.length
+        total_recipients: Math.max(telegramRecipients.length, waRecipients.length)
       });
     }
 
@@ -500,15 +502,33 @@ export async function sendJimpitanShiftReminder(req, res) {
       `Pengingat otomatis dikirim pukul <b>20:45 WIB</b>.\n` +
       `Selamat bekerja...`;
 
-    await Promise.all(
-      recipients.map((row) => sendTelegramMessage(row.telegram_chat_id, text))
-    );
+    await Promise.all(telegramRecipients.map((row) => sendTelegramMessage(row.telegram_chat_id, text)));
+
+    // Fonnte message: plain text, tanpa tag HTML.
+    const waText =
+      `Pengingat Jimpitan\n` +
+      `Hari operasional: ${targetLabel}\n` +
+      `Pengambilan jimpitan dimulai pukul 21:00 WIB.\n` +
+      `Pengingat otomatis dikirim pukul 20:45 WIB.\n` +
+      `Selamat bekerja...`;
+    const waEnabled = Boolean(String(process.env.FONNTE_TOKEN || '').trim());
+    let waSent = 0;
+    if (waEnabled && waRecipients.length) {
+      const waResults = await Promise.allSettled(
+        waRecipients.map((row) => sendFonnteMessage(row.no_hp, waText))
+      );
+      waSent = waResults.filter((item) => item.status === 'fulfilled').length;
+    }
 
     return res.json({
       success: true,
       shift_day: shiftDay,
       total_target: petugas.length,
-      total_recipients: recipients.length
+      total_recipients: Math.max(telegramRecipients.length, waRecipients.length),
+      telegram_recipients: telegramRecipients.length,
+      wa_recipients: waRecipients.length,
+      wa_sent: waSent,
+      wa_enabled: waEnabled
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
