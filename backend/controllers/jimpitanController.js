@@ -62,10 +62,37 @@ function getOperationalWeekdayNumber(date) {
   return date.getDay() + 1;
 }
 
-function getJakartaNow() {
-  const now = new Date();
-  const jakartaString = now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
-  return new Date(jakartaString);
+function getJakartaTimeParts(now = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'short'
+  });
+  const parts = formatter.formatToParts(now);
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const weekdayMap = {
+    Sun: 1,
+    Mon: 2,
+    Tue: 3,
+    Wed: 4,
+    Thu: 5,
+    Fri: 6,
+    Sat: 7
+  };
+  const hour = Number(map.hour);
+  const minute = Number(map.minute);
+  return {
+    hour,
+    minute,
+    hourMinute: `${map.hour}:${map.minute}`,
+    shiftDay: weekdayMap[map.weekday] || null,
+    dateIso: `${map.year}-${map.month}-${map.day}`
+  };
 }
 
 async function getShiftAccessContext(userId, roles, operationalDate) {
@@ -443,15 +470,9 @@ export async function sendJimpitanShiftReminder(req, res) {
     return res.status(403).json({ success: false, message: 'Forbidden: invalid cron secret' });
   }
 
-  const nowJakarta = getJakartaNow();
-  const hourMinute = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Jakarta',
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(nowJakarta);
-  const [hourStr, minuteStr] = hourMinute.split(':');
-  const totalMinutes = Number(hourStr) * 60 + Number(minuteStr);
+  const now = new Date();
+  const jakartaTime = getJakartaTimeParts(now);
+  const totalMinutes = jakartaTime.hour * 60 + jakartaTime.minute;
   const targetMinutes = 20 * 60 + 45;
   const allowedEarlyMinutes = 3;
   const allowedLateMinutes = 10;
@@ -465,19 +486,23 @@ export async function sendJimpitanShiftReminder(req, res) {
       success: true,
       skipped: true,
       message: 'Di luar window reminder 20:45 WIB',
-      current_time_wib: hourMinute
+      current_time_wib: jakartaTime.hourMinute
     });
   }
 
-  const shiftDay = getOperationalWeekdayNumber(nowJakarta);
-  const reminderDate = nowJakarta.toISOString().slice(0, 10);
+  const shiftDay = jakartaTime.shiftDay;
+  if (!shiftDay) {
+    return res.status(500).json({ success: false, message: 'Gagal membaca hari operasional WIB' });
+  }
+  const reminderDate = jakartaTime.dateIso;
   const reminderType = 'SHIFT_2045';
-  const targetLabel = nowJakarta.toLocaleDateString('id-ID', {
+  const targetLabel = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
-  });
+  }).format(now);
 
   try {
     const petugas = await listPetugasByShiftDay(shiftDay);
