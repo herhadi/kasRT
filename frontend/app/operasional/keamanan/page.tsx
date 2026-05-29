@@ -159,9 +159,6 @@ export default function OperasionalKeamananPage() {
     }
   }
 
-  if (loading || !user) return <main className="min-h-screen" />;
-  if (!canAccess) return <main className="min-h-screen"><Navbar /></main>;
-
   const weeklyGroups = useMemo(() => {
     const days = scheduleData?.shift_days || [];
     const petugas = scheduleData?.petugas || [];
@@ -170,6 +167,9 @@ export default function OperasionalKeamananPage() {
       members: petugas.filter((person) => person.jimpitan_shift_hari === day.id)
     }));
   }, [scheduleData]);
+
+  if (loading || !user) return <main className="min-h-screen" />;
+  if (!canAccess) return <main className="min-h-screen"><Navbar /></main>;
 
   return (
     <main className="min-h-screen pb-10">
