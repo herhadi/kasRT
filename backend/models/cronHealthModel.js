@@ -43,3 +43,16 @@ export async function getLatestCronHealthLog(jobName = 'vercel-cron') {
   return result.rows[0] || null;
 }
 
+export async function listLatestCronHealthLogs(jobName = 'vercel-cron', limit = 5) {
+  await ensureCronHealthTable();
+  const safeLimit = Math.min(Math.max(Number(limit) || 5, 1), 20);
+  const result = await pool.query(
+    `SELECT id::text, job_name, source, status, message, payload, created_at
+     FROM cron_health_logs
+     WHERE job_name = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [jobName, safeLimit]
+  );
+  return result.rows;
+}

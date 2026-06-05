@@ -95,6 +95,19 @@ function getJakartaTimeParts(now = new Date()) {
   };
 }
 
+function getShiftDayLabel(shiftDay) {
+  const labels = {
+    1: 'Ahad',
+    2: 'Senin',
+    3: 'Selasa',
+    4: 'Rabu',
+    5: 'Kamis',
+    6: "Jum'at",
+    7: 'Sabtu'
+  };
+  return labels[Number(shiftDay)] || `Hari ${shiftDay}`;
+}
+
 async function getShiftAccessContext(userId, roles, operationalDate) {
   const normalizedRoles = (roles || []).map((role) => String(role).trim().toLowerCase());
   const isRoot = normalizedRoles.includes('root');
@@ -465,9 +478,14 @@ export async function sendJimpitanShiftReminder(req, res) {
   const incomingSecret = String(req.headers['x-cron-secret'] || '');
   const authHeader = String(req.headers.authorization || '');
   const bearerSecret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const testMode = String(req.query.test || req.body?.test || '').toLowerCase() === 'true';
+  const testShiftDay = testMode ? Number(req.query.shift_day || req.body?.shift_day || 0) : 0;
 
   if (configuredSecret && incomingSecret !== configuredSecret && bearerSecret !== configuredSecret) {
     return res.status(403).json({ success: false, message: 'Forbidden: invalid cron secret' });
+  }
+  if (testMode && (!Number.isInteger(testShiftDay) || testShiftDay < 1 || testShiftDay > 7)) {
+    return res.status(400).json({ success: false, message: 'shift_day test harus 1 sampai 7' });
   }
 
   const now = new Date();
@@ -481,7 +499,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     totalMinutes >= targetMinutes - allowedEarlyMinutes &&
     totalMinutes <= targetMinutes + allowedLateMinutes;
 
-  if (!isWithinWindow) {
+  if (!testMode && !isWithinWindow) {
     return res.json({
       success: true,
       skipped: true,
@@ -490,13 +508,15 @@ export async function sendJimpitanShiftReminder(req, res) {
     });
   }
 
-  const shiftDay = jakartaTime.shiftDay;
+  const shiftDay = testMode ? testShiftDay : jakartaTime.shiftDay;
   if (!shiftDay) {
     return res.status(500).json({ success: false, message: 'Gagal membaca hari operasional WIB' });
   }
   const reminderDate = jakartaTime.dateIso;
-  const reminderType = 'SHIFT_2045';
-  const targetLabel = new Intl.DateTimeFormat('id-ID', {
+  const reminderType = testMode ? `SHIFT_2045_TEST_${Date.now()}` : 'SHIFT_2045';
+  const targetLabel = testMode
+    ? getShiftDayLabel(shiftDay)
+    : new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     weekday: 'long',
     year: 'numeric',
@@ -520,22 +540,28 @@ export async function sendJimpitanShiftReminder(req, res) {
       });
     }
 
+    const testingPrefix = testMode ? `🧪 <b>TESTING REMINDER JIMPITAN</b>\n` : '';
+    const testingSuffix = testMode ? `\n\n<b>AKHIR TESTING - abaikan jika bukan jadwal operasional.</b>` : '';
     const text =
+      testingPrefix +
       `⏰ <b>Pengingat Jimpitan</b>\n` +
       `Hari operasional: <b>${targetLabel}</b>\n` +
       `Pengambilan jimpitan dimulai pukul <b>21:00 WIB</b>.\n` +
       `Pengingat otomatis dikirim pukul <b>20:45 WIB</b>.\n` +
-      `Selamat bekerja...`;
+      `Selamat bekerja...` +
+      testingSuffix;
 
     await Promise.all(telegramRecipients.map((row) => sendTelegramMessage(row.telegram_chat_id, text)));
 
     // Fonnte message: plain text, tanpa tag HTML.
     const waText =
+      (testMode ? `TESTING REMINDER JIMPITAN\n` : '') +
       `Pengingat Jimpitan\n` +
       `Hari operasional: ${targetLabel}\n` +
       `Pengambilan jimpitan dimulai pukul 21:00 WIB.\n` +
       `Pengingat otomatis dikirim pukul 20:45 WIB.\n` +
-      `Selamat bekerja...`;
+      `Selamat bekerja...` +
+      (testMode ? `\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.` : '');
     const waEnabled = Boolean(String(process.env.FONNTE_TOKEN || '').trim());
     let waSent = 0;
     if (waEnabled && waRecipients.length) {
@@ -553,7 +579,9 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegram_recipients: telegramRecipients.length,
       wa_recipients: waRecipients.length,
       wa_sent: waSent,
-      wa_enabled: waEnabled
+      wa_enabled: waEnabled,
+      test_mode: testMode,
+      test_shift_day: testMode ? shiftDay : null
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

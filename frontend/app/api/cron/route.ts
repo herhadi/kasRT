@@ -6,6 +6,35 @@ export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "";
   const cronSecret = process.env.CRON_SECRET || "";
 
+  let startHealthResult: unknown = { skipped: true, message: "Backend URL belum dikonfigurasi" };
+  if (baseUrl) {
+    try {
+      const response = await fetch(`${baseUrl}/management/cron/ping`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(cronSecret ? { "x-cron-secret": cronSecret } : {})
+        },
+        body: JSON.stringify({
+          job_name: "vercel-cron",
+          source: "frontend-api-cron",
+          status: "STARTED",
+          message: "Vercel cron endpoint mulai terpanggil",
+          notify_root: true,
+          payload: {
+            timestamp: new Date().toISOString()
+          }
+        })
+      });
+      startHealthResult = await response.json().catch(() => ({ success: false, message: "Invalid response" }));
+    } catch (error) {
+      startHealthResult = {
+        success: false,
+        message: error instanceof Error ? error.message : "Cron start health ping gagal"
+      };
+    }
+  }
+
   let reminderResult: unknown = { skipped: true, message: "Backend URL belum dikonfigurasi" };
   if (baseUrl) {
     try {
@@ -37,8 +66,9 @@ export async function GET() {
         body: JSON.stringify({
           job_name: "vercel-cron",
           source: "frontend-api-cron",
-          status: "OK",
-          message: "Vercel cron endpoint terpanggil",
+          status: "DONE",
+          message: "Vercel cron endpoint selesai diproses",
+          notify_root: false,
           payload: {
             timestamp: new Date().toISOString(),
             reminder_result: reminderResult
@@ -59,6 +89,7 @@ export async function GET() {
       ok: true,
       service: "frontend",
       timestamp: new Date().toISOString(),
+      start_health_result: startHealthResult,
       reminder_result: reminderResult,
       health_result: healthResult
     },

@@ -12,17 +12,35 @@ import { useAuth } from '@/lib/useAuth';
 
 type CronHealthStatus = {
   job_name: string;
-  latest: {
+  latest: CronHealthLog | null;
+  logs?: CronHealthLog[];
+  age_seconds: number | null;
+  checked_at: string;
+};
+
+type CronHealthLog = {
     id: string;
     job_name: string;
     source: string;
     status: string;
     message: string | null;
-    payload: unknown;
+    payload: {
+      reminder_result?: {
+        success?: boolean;
+        skipped?: boolean;
+        message?: string;
+        shift_day?: number;
+        total_target?: number;
+        total_recipients?: number;
+        telegram_recipients?: number;
+        wa_recipients?: number;
+        wa_sent?: number;
+        wa_enabled?: boolean;
+        current_time_wib?: string;
+      };
+      timestamp?: string;
+    } | null;
     created_at: string;
-  } | null;
-  age_seconds: number | null;
-  checked_at: string;
 };
 
 export default function ManagementHomePage() {
@@ -32,10 +50,14 @@ export default function ManagementHomePage() {
   const [cronError, setCronError] = useState('');
   const [loadingCron, setLoadingCron] = useState(false);
   const [testingCron, setTestingCron] = useState(false);
+  const [testingReminder, setTestingReminder] = useState(false);
   const [cronTestMessage, setCronTestMessage] = useState('');
+  const [testShiftDay, setTestShiftDay] = useState('3');
 
   const canManage = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
+  const doneLog = cronStatus?.logs?.find((log) => log.status === 'DONE');
+  const reminderResult = doneLog?.payload?.reminder_result;
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -69,6 +91,26 @@ export default function ManagementHomePage() {
       setCronTestMessage(error instanceof Error ? error.message : 'Cron health test gagal');
     } finally {
       setTestingCron(false);
+    }
+  }
+
+  async function testReminderEndpoint() {
+    setTestingReminder(true);
+    setCronTestMessage('');
+    try {
+      const response = await fetch(`/api/cron-test-reminder?shift_day=${encodeURIComponent(testShiftDay)}`);
+      const payload = await response.json().catch(() => ({}));
+      const reminder = payload?.reminder_result;
+      if (!response.ok || payload?.ok === false || reminder?.success === false) {
+        throw new Error(reminder?.message || payload?.message || 'Test reminder gagal');
+      }
+      setCronTestMessage(
+        `Test reminder ${getShiftDayLabel(testShiftDay)} diproses. Petugas: ${reminder?.total_target ?? '-'}, Telegram: ${reminder?.telegram_recipients ?? '-'}, WA: ${reminder?.wa_sent ?? '-'}/${reminder?.wa_recipients ?? '-'}`
+      );
+    } catch (error) {
+      setCronTestMessage(error instanceof Error ? error.message : 'Test reminder gagal');
+    } finally {
+      setTestingReminder(false);
     }
   }
 
@@ -132,8 +174,25 @@ export default function ManagementHomePage() {
             subtitle="Pantau kapan endpoint cron frontend terakhir terpanggil"
             headerRight={
               <div className="flex flex-col gap-2 sm:flex-row">
+                <select
+                  value={testShiftDay}
+                  onChange={(event) => setTestShiftDay(event.target.value)}
+                  className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none"
+                  aria-label="Pilih hari shift untuk test reminder"
+                >
+                  <option value="1">Ahad</option>
+                  <option value="2">Senin</option>
+                  <option value="3">Selasa</option>
+                  <option value="4">Rabu</option>
+                  <option value="5">Kamis</option>
+                  <option value="6">Jum&apos;at</option>
+                  <option value="7">Sabtu</option>
+                </select>
                 <Button variant="ghost" onClick={testCronHealthEndpoint} disabled={testingCron}>
                   {testingCron ? 'Test...' : 'Test Endpoint'}
+                </Button>
+                <Button variant="ghost" onClick={testReminderEndpoint} disabled={testingReminder}>
+                  {testingReminder ? 'Kirim...' : 'Test Reminder'}
                 </Button>
                 <Button variant="ghost" onClick={loadCronStatus} disabled={loadingCron}>
                   {loadingCron ? 'Memuat...' : 'Refresh'}
@@ -152,6 +211,14 @@ export default function ManagementHomePage() {
                 <InfoLine label="Terakhir Run" value={formatDateTimeWib(cronStatus.latest.created_at)} />
                 <InfoLine label="Umur" value={formatAge(cronStatus.age_seconds)} />
                 <InfoLine label="Pesan" value={cronStatus.latest.message || '-'} />
+                {reminderResult ? (
+                  <>
+                    <InfoLine label="Reminder" value={formatReminderStatus(reminderResult)} />
+                    <InfoLine label="Petugas Shift" value={String(reminderResult.total_target ?? '-')} />
+                    <InfoLine label="Telegram Target" value={String(reminderResult.telegram_recipients ?? '-')} />
+                    <InfoLine label="WA Terkirim" value={`${String(reminderResult.wa_sent ?? '-')}/${String(reminderResult.wa_recipients ?? '-')}`} />
+                  </>
+                ) : null}
               </div>
             ) : (
               <p className="text-sm text-[var(--text-muted)]">
@@ -192,4 +259,26 @@ function formatAge(seconds: number | null) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} jam lalu`;
   return `${Math.floor(hours / 24)} hari lalu`;
+}
+
+function formatReminderStatus(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
+  if (!result) return '-';
+  if (result.skipped) {
+    return result.current_time_wib ? `${result.message || 'Skipped'} (${result.current_time_wib} WIB)` : result.message || 'Skipped';
+  }
+  if (result.success === false) return result.message || 'Gagal';
+  return 'Diproses';
+}
+
+function getShiftDayLabel(value: string) {
+  const labels: Record<string, string> = {
+    '1': 'Ahad',
+    '2': 'Senin',
+    '3': 'Selasa',
+    '4': 'Rabu',
+    '5': 'Kamis',
+    '6': "Jum'at",
+    '7': 'Sabtu'
+  };
+  return labels[value] || 'shift';
 }
