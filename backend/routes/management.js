@@ -4,8 +4,11 @@ import { allowRoles } from '../middleware/role.js';
 import { addWargaUser, editWargaUser, getUserManagementData, updateUserAdminRoles } from '../controllers/userAdminController.js';
 import { getMeetingAttendance, getMeetingNote, saveMeetingAttendance, saveMeetingNote } from '../controllers/meetingController.js';
 import { deleteTelegramWebhook, getTelegramWebhookInfo, setTelegramWebhook } from '../controllers/telegramController.js';
+import { cronHealthPing, cronHealthStatus } from '../controllers/cronHealthController.js';
 
 const router = express.Router();
+
+router.post('/cron/ping', asyncHandler(cronHealthPing));
 
 router.use(auth);
 
@@ -20,5 +23,6 @@ router.post('/meeting-attendance', allowRoles('Sekretaris'), asyncHandler(saveMe
 router.get('/telegram/webhook-info', allowRoles('root'), asyncHandler(getTelegramWebhookInfo));
 router.post('/telegram/set-webhook', allowRoles('root'), asyncHandler(setTelegramWebhook));
 router.post('/telegram/delete-webhook', allowRoles('root'), asyncHandler(deleteTelegramWebhook));
+router.get('/cron/status', allowRoles('root'), asyncHandler(cronHealthStatus));
 
 export default router;

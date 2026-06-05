@@ -25,12 +25,42 @@ export async function GET() {
     }
   }
 
+  let healthResult: unknown = { skipped: true, message: "Backend URL belum dikonfigurasi" };
+  if (baseUrl) {
+    try {
+      const response = await fetch(`${baseUrl}/management/cron/ping`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(cronSecret ? { "x-cron-secret": cronSecret } : {})
+        },
+        body: JSON.stringify({
+          job_name: "vercel-cron",
+          source: "frontend-api-cron",
+          status: "OK",
+          message: "Vercel cron endpoint terpanggil",
+          payload: {
+            timestamp: new Date().toISOString(),
+            reminder_result: reminderResult
+          }
+        })
+      });
+      healthResult = await response.json().catch(() => ({ success: false, message: "Invalid response" }));
+    } catch (error) {
+      healthResult = {
+        success: false,
+        message: error instanceof Error ? error.message : "Cron health ping gagal"
+      };
+    }
+  }
+
   return NextResponse.json(
     {
       ok: true,
       service: "frontend",
       timestamp: new Date().toISOString(),
-      reminder_result: reminderResult
+      reminder_result: reminderResult,
+      health_result: healthResult
     },
     { status: 200 }
   );
