@@ -1,4 +1,5 @@
 import { getLatestCronHealthLog, insertCronHealthLog } from '../models/cronHealthModel.js';
+import { notifyRoles } from '../services/approvalNotifier.js';
 
 function parseJsonPayload(value) {
   if (!value || typeof value !== 'object') return null;
@@ -24,6 +25,15 @@ export async function cronHealthPing(req, res) {
     payload: parseJsonPayload(body.payload)
   });
 
+  await notifyRoles(
+    ['root'],
+    `✅ <b>Cron KasRT Terpanggil</b>\n` +
+      `Job: <b>${row.job_name}</b>\n` +
+      `Source: <b>${row.source}</b>\n` +
+      `Status: <b>${row.status}</b>\n` +
+      `Waktu: <b>${new Date(row.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB</b>`
+  );
+
   return res.json({ success: true, data: row });
 }
 
@@ -44,4 +54,3 @@ export async function cronHealthStatus(req, res) {
     }
   });
 }
-
