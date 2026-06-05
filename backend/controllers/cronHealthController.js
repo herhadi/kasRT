@@ -43,7 +43,7 @@ export async function cronHealthPing(req, res) {
 export async function cronHealthStatus(req, res) {
   const jobName = String(req.query.job_name || 'vercel-cron').trim();
   const latest = await getLatestCronHealthLog(jobName);
-  const logs = await listLatestCronHealthLogs(jobName, 5);
+  const logs = await listLatestCronHealthLogs(jobName, 20);
   const now = Date.now();
   const lastRunAt = latest?.created_at ? new Date(latest.created_at).getTime() : null;
   const ageSeconds = lastRunAt ? Math.max(0, Math.round((now - lastRunAt) / 1000)) : null;

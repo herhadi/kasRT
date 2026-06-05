@@ -56,7 +56,7 @@ export default function ManagementHomePage() {
 
   const canManage = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
-  const doneLog = cronStatus?.logs?.find((log) => log.status === 'DONE');
+  const doneLog = cronStatus?.logs?.find((log) => log.status === 'DONE' && log.payload?.reminder_result);
   const reminderResult = doneLog?.payload?.reminder_result;
 
   useEffect(() => {
@@ -204,21 +204,46 @@ export default function ManagementHomePage() {
             {cronError ? (
               <p className="text-sm text-red-600">{cronError}</p>
             ) : cronStatus?.latest ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                <InfoLine label="Job" value={cronStatus.job_name} />
-                <InfoLine label="Status" value={cronStatus.latest.status} />
-                <InfoLine label="Source" value={cronStatus.latest.source} />
-                <InfoLine label="Terakhir Run" value={formatDateTimeWib(cronStatus.latest.created_at)} />
-                <InfoLine label="Umur" value={formatAge(cronStatus.age_seconds)} />
-                <InfoLine label="Pesan" value={cronStatus.latest.message || '-'} />
-                {reminderResult ? (
-                  <>
-                    <InfoLine label="Reminder" value={formatReminderStatus(reminderResult)} />
-                    <InfoLine label="Petugas Shift" value={String(reminderResult.total_target ?? '-')} />
-                    <InfoLine label="Telegram Target" value={String(reminderResult.telegram_recipients ?? '-')} />
-                    <InfoLine label="WA Terkirim" value={`${String(reminderResult.wa_sent ?? '-')}/${String(reminderResult.wa_recipients ?? '-')}`} />
-                  </>
-                ) : null}
+              <div className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <InfoLine label="Job" value={cronStatus.job_name} />
+                  <InfoLine label="Status Terakhir" value={cronStatus.latest.status} />
+                  <InfoLine label="Source" value={cronStatus.latest.source} />
+                  <InfoLine label="Terakhir Run" value={formatDateTimeWib(cronStatus.latest.created_at)} />
+                  <InfoLine label="Umur" value={formatAge(cronStatus.age_seconds)} />
+                  <InfoLine label="Pesan" value={cronStatus.latest.message || '-'} />
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Hasil Reminder Terakhir</p>
+                  {reminderResult ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <InfoLine label="Reminder" value={formatReminderStatus(reminderResult)} />
+                      <InfoLine label="Petugas Shift" value={String(reminderResult.total_target ?? '-')} />
+                      <InfoLine label="Telegram Target" value={String(reminderResult.telegram_recipients ?? '-')} />
+                      <InfoLine label="WA Terkirim" value={`${String(reminderResult.wa_sent ?? '-')}/${String(reminderResult.wa_recipients ?? '-')}`} />
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[var(--text-muted)]">Belum ada log DONE yang membawa hasil reminder.</p>
+                  )}
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Riwayat Cron</p>
+                  <div className="space-y-2">
+                    {(cronStatus.logs || []).slice(0, 6).map((log) => (
+                      <div key={log.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="font-semibold text-[var(--text-primary)]">{log.status} - {log.message || '-'}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{formatDateTimeWib(log.created_at)}</p>
+                        </div>
+                        {log.payload?.reminder_result ? (
+                          <p className="mt-1 text-xs text-[var(--text-muted)]">
+                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_recipients ?? '-'} | WA: {log.payload.reminder_result.wa_sent ?? '-'}/{log.payload.reminder_result.wa_recipients ?? '-'}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-[var(--text-muted)]">
