@@ -60,14 +60,16 @@ Larangan:
 ## Cron Reminder Jimpitan
 
 - Scheduler: Vercel Cron `frontend/vercel.json`.
-- Waktu: `20:45 WIB` (`45 13 * * *` UTC).
+- Target reminder: sekitar `20:45 WIB`.
+- Schedule Vercel: `45 12 * * *` UTC (`19:45 WIB`).
+- Alasan schedule dimajukan: Vercel Cron gratis tidak presisi dan bisa terlambat; backend menerima window `20:15-21:05 WIB`.
 - Alur:
   - Vercel hit `GET /api/cron` (frontend),
   - frontend forward ke `POST /jimpitan/send-shift-reminder` (backend).
 - Secret wajib sinkron:
   - frontend `CRON_SECRET`
   - backend `CRON_SECRET`
-- Backend punya window guard agar reminder tidak terkirim telat.
+- Backend punya window guard agar reminder tidak terkirim terlalu malam.
 
 ## Redis Cache (Opsional, Disarankan)
 
