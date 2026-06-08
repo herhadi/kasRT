@@ -28,12 +28,40 @@ export async function GET(request: Request) {
       }
     });
     const reminderResult = await response.json().catch(() => ({ success: false, message: "Invalid response" }));
+    let healthResult: unknown = { skipped: true, message: "Backend URL belum dikonfigurasi" };
+    try {
+      const healthResponse = await fetch(`${baseUrl}/management/cron/ping`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(cronSecret ? { "x-cron-secret": cronSecret } : {})
+        },
+        body: JSON.stringify({
+          job_name: "vercel-cron",
+          source: "frontend-api-cron-test-reminder",
+          status: "TEST_REMINDER",
+          message: `Test reminder shift day ${shiftDay || "-"}`,
+          notify_root: false,
+          payload: {
+            timestamp: new Date().toISOString(),
+            reminder_result: reminderResult
+          }
+        })
+      });
+      healthResult = await healthResponse.json().catch(() => ({ success: false, message: "Invalid response" }));
+    } catch (error) {
+      healthResult = {
+        success: false,
+        message: error instanceof Error ? error.message : "Cron reminder test log gagal"
+      };
+    }
 
     return NextResponse.json({
       ok: response.ok,
       service: "frontend",
       timestamp: new Date().toISOString(),
-      reminder_result: reminderResult
+      reminder_result: reminderResult,
+      health_result: healthResult
     });
   } catch (error) {
     return NextResponse.json({

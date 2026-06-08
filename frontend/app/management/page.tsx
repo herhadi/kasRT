@@ -56,7 +56,7 @@ export default function ManagementHomePage() {
 
   const canManage = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
-  const doneLog = cronStatus?.logs?.find((log) => log.status === 'DONE' && log.payload?.reminder_result);
+  const doneLog = cronStatus?.logs?.find((log) => ['DONE', 'TEST_REMINDER'].includes(log.status) && log.payload?.reminder_result);
   const reminderResult = doneLog?.payload?.reminder_result;
 
   useEffect(() => {
@@ -223,7 +223,7 @@ export default function ManagementHomePage() {
                       <InfoLine label="WA Terkirim" value={`${String(reminderResult.wa_sent ?? '-')}/${String(reminderResult.wa_recipients ?? '-')}`} />
                     </div>
                   ) : (
-                    <p className="text-sm text-[var(--text-muted)]">Belum ada log DONE yang membawa hasil reminder.</p>
+                    <p className="text-sm text-[var(--text-muted)]">Belum ada log cron yang membawa hasil reminder.</p>
                   )}
                 </div>
                 <div>
