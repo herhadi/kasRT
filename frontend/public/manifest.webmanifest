@@ -1,6 +1,6 @@
 {
-  "name": "KasRT",
-  "short_name": "KasRT",
+  "name": "KasRT02",
+  "short_name": "KasRT02",
   "description": "Dashboard kas RT untuk warga dan pengurus.",
   "start_url": "/dashboard",
   "scope": "/",

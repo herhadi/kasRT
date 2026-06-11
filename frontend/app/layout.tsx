@@ -8,10 +8,10 @@ export const metadata: Metadata = {
   title: 'KasRT Modern',
   description: 'Dashboard kas RT modern berbasis Next.js',
   manifest: '/manifest.webmanifest',
-  applicationName: 'KasRT',
+  applicationName: 'KasRT02',
   appleWebApp: {
     capable: true,
-    title: 'KasRT',
+    title: 'KasRT02',
     statusBarStyle: 'default'
   },
   icons: {
