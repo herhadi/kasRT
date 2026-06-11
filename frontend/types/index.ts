@@ -64,6 +64,8 @@ export type DashboardWargaData = {
 export type JimpitanListItem = {
   id: string | number;
   nama: string;
+  target_type?: 'WARGA' | 'DONATUR';
+  external_participant_id?: string | null;
   status: 'LUNAS' | 'BELUM';
   namaPetugas: string;
   isLunas: boolean;

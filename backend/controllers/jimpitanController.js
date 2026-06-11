@@ -10,6 +10,8 @@ import {
 } from '../models/transactionModel.js';
 import {
   approveJimpitanBatch,
+  createJimpitanExternalDraft,
+  createJimpitanExternalParticipant,
   createJimpitanDraftAndUpdateSaldo,
   createSetorBatch,
   editNominalJimpitanByAdmin,
@@ -22,10 +24,12 @@ import {
   listJimpitanByOperationalDate,
   getJimpitanDailyRecapByMonth,
   listJimpitanWeeklySchedule,
+  listJimpitanExternalParticipants,
   listWargaTotalsInBatch,
   lockDailyJimpitanReminder,
   resetBulananJimpitanSaldo,
   saveJimpitanRouteOrder,
+  setJimpitanExternalParticipantActive,
   topUpJimpitanSaldo,
   updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
@@ -158,14 +162,18 @@ export async function healthCheck(_req, res) {
 }
 
 export async function inputJimpitan(req, res) {
-  const { warga_id, nominal } = req.body;
+  const { warga_id, nominal, target_type, external_participant_id } = req.body;
   const petugas_id = req.user.user_id;
   const roles = req.user.roles || [];
   const debug = process.env.DEBUG_JIMPITAN === 'true';
+  const targetType = String(target_type || 'WARGA').trim().toUpperCase();
+  const externalId = String(external_participant_id || '').trim();
   
   if (debug) {
     console.log('[JIMPITAN][INPUT] start', {
       warga_id,
+      external_participant_id: externalId,
+      targetType,
       nominal,
       petugas_id,
       roles
@@ -196,19 +204,29 @@ export async function inputJimpitan(req, res) {
   }
   
   try {
-    await createJimpitanDraftAndUpdateSaldo({
-      wargaId: warga_id,
-      nominal: nilaiNominal,
-      tanggal: tanggalOperasional.toISOString().slice(0, 10),
-      petugasId: petugas_id
-    });
-    await notifyUser(
-      String(warga_id),
-      `🧾 <b>Input Jimpitan Tercatat</b>\n` +
-        `Tanggal Operasional: <b>${tanggalOperasional.toISOString().slice(0, 10)}</b>\n` +
-        `Nominal: <b>${formatRupiah(nilaiNominal)}</b>\n` +
-        `Status: <b>DRAFT (menunggu setor/approval)</b>`
-    );
+    if (targetType === 'DONATUR') {
+      if (!externalId) return res.status(400).json({ success: false, message: 'external_participant_id wajib untuk donatur' });
+      await createJimpitanExternalDraft({
+        externalParticipantId: externalId,
+        nominal: nilaiNominal,
+        tanggal: tanggalOperasional.toISOString().slice(0, 10),
+        petugasId: petugas_id
+      });
+    } else {
+      await createJimpitanDraftAndUpdateSaldo({
+        wargaId: warga_id,
+        nominal: nilaiNominal,
+        tanggal: tanggalOperasional.toISOString().slice(0, 10),
+        petugasId: petugas_id
+      });
+      await notifyUser(
+        String(warga_id),
+        `🧾 <b>Input Jimpitan Tercatat</b>\n` +
+          `Tanggal Operasional: <b>${tanggalOperasional.toISOString().slice(0, 10)}</b>\n` +
+          `Nominal: <b>${formatRupiah(nilaiNominal)}</b>\n` +
+          `Status: <b>DRAFT (menunggu setor/approval)</b>`
+      );
+    }
     if (debug) {
       console.log('[JIMPITAN][INPUT] success', {
         warga_id,
@@ -333,12 +351,14 @@ export async function listJimpitan(req, res) {
       const saldo = Number(row.saldo || 0);
       const nominalHariIni = Number(row.nominal_hari_ini || 0);
       const totalKewajibanHarian = hariKe * BIAYA_HARIAN;
+      const targetType = String(row.target_type || 'WARGA').toUpperCase();
+      const isDonatur = targetType === 'DONATUR';
       
       const lunasByInput = nominalHariIni > 0 || nominalHariIni === 0 && row.petugas;
-      const lunasBySaldo = saldo >= TARGET_BULANAN || saldo >= totalKewajibanHarian;
+      const lunasBySaldo = !isDonatur && (saldo >= TARGET_BULANAN || saldo >= totalKewajibanHarian);
       const isLunasUI = Boolean(lunasByInput || lunasBySaldo);
       
-      const nominalSaran = isLunasUI ? 0 : calculateNominalSaran(saldo, hariKe);
+      const nominalSaran = isLunasUI ? 0 : (isDonatur ? BIAYA_HARIAN : calculateNominalSaran(saldo, hariKe));
       const detailStatus = String(row.detail_status || '').toUpperCase();
       const batchStatus = String(row.batch_status || '').toUpperCase();
       const canEditNominal = detailStatus !== '' && detailStatus !== 'APPROVED' && batchStatus !== 'APPROVED';
@@ -346,6 +366,8 @@ export async function listJimpitan(req, res) {
       return {
         id: row.id,
         nama: row.nama,
+        target_type: targetType,
+        external_participant_id: row.external_participant_id || null,
         status: isLunasUI ? 'LUNAS' : 'BELUM',
         namaPetugas: lunasByInput ? (row.petugas || '') : (lunasBySaldo ? 'Deposit' : ''),
         isLunas: isLunasUI,
@@ -395,6 +417,51 @@ export async function getJimpitanSchedule(_req, res) {
     return res.json(payload);
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getJimpitanExternalParticipants(_req, res) {
+  try {
+    const data = await listJimpitanExternalParticipants();
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function addJimpitanExternalParticipant(req, res) {
+  const nama = String(req.body.nama || '').trim();
+  const noHp = String(req.body.no_hp || '').trim();
+  const keterangan = String(req.body.keterangan || '').trim();
+  if (!nama) {
+    return res.status(400).json({ success: false, message: 'Nama donatur wajib diisi' });
+  }
+
+  try {
+    const data = await createJimpitanExternalParticipant({
+      nama,
+      noHp: noHp || null,
+      keterangan: keterangan || null
+    });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function updateJimpitanExternalParticipantStatus(req, res) {
+  const id = String(req.params.id || '').trim();
+  const isActive = Boolean(req.body.is_active);
+  if (!id) {
+    return res.status(400).json({ success: false, message: 'id donatur tidak valid' });
+  }
+
+  try {
+    const data = await setJimpitanExternalParticipantActive({ id, isActive });
+    if (!data) return res.status(404).json({ success: false, message: 'Donatur tidak ditemukan' });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
   }
 }
 

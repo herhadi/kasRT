@@ -54,10 +54,40 @@ export async function ensureJimpitanRouteOrderTable() {
   `);
 }
 
+export async function ensureJimpitanExternalParticipantsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jimpitan_external_participants (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      nama VARCHAR(120) NOT NULL,
+      no_hp VARCHAR(30) NULL,
+      keterangan TEXT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    ALTER TABLE jimpitan_details
+      ADD COLUMN IF NOT EXISTS external_participant_id UUID NULL
+  `);
+
+  await pool.query(`
+    ALTER TABLE jimpitan_details
+      ALTER COLUMN warga_id DROP NOT NULL
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_jimpitan_details_external_tanggal
+    ON jimpitan_details (external_participant_id, tanggal DESC)
+  `);
+}
+
 export async function ensureJimpitanScheduleColumns() {
   await ensureJimpitanShiftDaysTable();
   await ensureJimpitanReminderLogTable();
   await ensureJimpitanRouteOrderTable();
+  await ensureJimpitanExternalParticipantsTable();
 
   await pool.query(`
     ALTER TABLE users
@@ -131,6 +161,15 @@ export async function createJimpitanDraftAndUpdateSaldo({ wargaId, nominal, tang
   } finally {
     client.release();
   }
+}
+
+export async function createJimpitanExternalDraft({ externalParticipantId, nominal, tanggal, petugasId }) {
+  await ensureJimpitanScheduleColumns();
+  await pool.query(
+    `INSERT INTO jimpitan_details (warga_id, external_participant_id, nominal, tanggal, petugas_id, status)
+     VALUES (NULL, $1::uuid, $2, $3::date, $4, 'DRAFT')`,
+    [externalParticipantId, nominal, tanggal, petugasId]
+  );
 }
 
 export async function createSetorBatch({ petugasId, detailIds = null }) {
@@ -276,6 +315,7 @@ export async function listWargaTotalsInBatch(batchId) {
      FROM jimpitan_batch_items jbi
      JOIN jimpitan_details jd ON jd.id = jbi.jimpitan_detail_id
      WHERE jbi.batch_id = $1
+       AND jd.warga_id IS NOT NULL
      GROUP BY jd.warga_id`,
     [batchId]
   );
@@ -283,7 +323,8 @@ export async function listWargaTotalsInBatch(batchId) {
 }
 
 export async function listJimpitanByOperationalDate(operationalDate) {
-  const result = await pool.query(
+  await ensureJimpitanScheduleColumns();
+  const wargaResult = await pool.query(
     `WITH daily_nominal AS (
        SELECT
          jd.warga_id,
@@ -346,7 +387,100 @@ export async function listJimpitanByOperationalDate(operationalDate) {
      ORDER BY u.nama ASC`,
     [operationalDate]
   );
+  const externalResult = await pool.query(
+    `WITH daily_nominal AS (
+       SELECT
+         jd.external_participant_id,
+         COALESCE(SUM(jd.nominal), 0) AS nominal_hari_ini
+       FROM jimpitan_details jd
+       WHERE jd.tanggal = $1::date
+         AND jd.external_participant_id IS NOT NULL
+       GROUP BY jd.external_participant_id
+     ),
+     daily_petugas AS (
+       SELECT DISTINCT ON (jd.external_participant_id)
+         jd.external_participant_id,
+         jd.petugas_id
+       FROM jimpitan_details jd
+       WHERE jd.tanggal = $1::date
+         AND jd.external_participant_id IS NOT NULL
+       ORDER BY jd.external_participant_id, jd.created_at DESC
+     ),
+     daily_latest_input AS (
+       SELECT DISTINCT ON (jd.external_participant_id)
+         jd.external_participant_id,
+         jd.status AS detail_status,
+         jb.status AS batch_status
+       FROM jimpitan_details jd
+       LEFT JOIN jimpitan_batch_items jbi ON jbi.jimpitan_detail_id = jd.id
+       LEFT JOIN jimpitan_batches jb ON jb.id = jbi.batch_id
+       WHERE jd.tanggal = $1::date
+         AND jd.external_participant_id IS NOT NULL
+       ORDER BY jd.external_participant_id, jd.created_at DESC
+     ),
+     monthly_detail AS (
+       SELECT
+         jd.external_participant_id,
+         COALESCE(SUM(jd.nominal), 0) AS total_detail_bulan_ini
+       FROM jimpitan_details jd
+       WHERE DATE_TRUNC('month', jd.tanggal::date) = DATE_TRUNC('month', $1::date)
+         AND jd.external_participant_id IS NOT NULL
+       GROUP BY jd.external_participant_id
+     )
+     SELECT
+       CONCAT('DONATUR:', ep.id::text) AS id,
+       ep.id::text AS external_participant_id,
+       ep.nama,
+       'DONATUR' AS target_type,
+       COALESCE(md.total_detail_bulan_ini, 0) AS saldo,
+       COALESCE(dn.nominal_hari_ini, 0) AS nominal_hari_ini,
+       p.nama AS petugas,
+       dli.detail_status,
+       dli.batch_status
+     FROM jimpitan_external_participants ep
+     LEFT JOIN daily_nominal dn ON dn.external_participant_id = ep.id
+     LEFT JOIN daily_petugas dp ON dp.external_participant_id = ep.id
+     LEFT JOIN daily_latest_input dli ON dli.external_participant_id = ep.id
+     LEFT JOIN monthly_detail md ON md.external_participant_id = ep.id
+     LEFT JOIN users p ON p.id::text = dp.petugas_id::text
+     WHERE ep.is_active = TRUE
+     ORDER BY ep.nama ASC`,
+    [operationalDate]
+  );
+  return [...wargaResult.rows.map((row) => ({ ...row, target_type: 'WARGA' })), ...externalResult.rows];
+}
+
+export async function listJimpitanExternalParticipants() {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `SELECT id::text, nama, no_hp, keterangan, is_active, created_at, updated_at
+     FROM jimpitan_external_participants
+     ORDER BY is_active DESC, nama ASC`
+  );
   return result.rows;
+}
+
+export async function createJimpitanExternalParticipant({ nama, noHp = null, keterangan = null }) {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `INSERT INTO jimpitan_external_participants (nama, no_hp, keterangan)
+     VALUES ($1, $2, $3)
+     RETURNING id::text, nama, no_hp, keterangan, is_active`,
+    [nama, noHp, keterangan]
+  );
+  return result.rows[0];
+}
+
+export async function setJimpitanExternalParticipantActive({ id, isActive }) {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `UPDATE jimpitan_external_participants
+     SET is_active = $2, updated_at = NOW()
+     WHERE id = $1::uuid
+     RETURNING id::text, nama, no_hp, keterangan, is_active`,
+    [id, isActive]
+  );
+  return result.rows[0] || null;
 }
 
 export async function listJimpitanWeeklySchedule() {

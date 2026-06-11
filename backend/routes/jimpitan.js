@@ -4,9 +4,11 @@ import { allowRoles } from '../middleware/role.js';
 import {
   approveJimpitan,
   ajukanSetorKeBendahara,
+  addJimpitanExternalParticipant,
   approveSetorJimpitanKeBendahara,
   editNominalJimpitan,
   getJimpitanSchedule,
+  getJimpitanExternalParticipants,
   getDailyRecapJimpitan,
   getMyJimpitanRouteOrder,
   getSetorHistoryJimpitanAdmin,
@@ -16,6 +18,7 @@ import {
   resetBulananJimpitan,
   saveMyJimpitanRouteOrder,
   sendJimpitanShiftReminder,
+  updateJimpitanExternalParticipantStatus,
   setPetugasShift,
   setorJimpitan,
   topUpJimpitan
@@ -28,7 +31,7 @@ router.get('/', asyncHandler(healthCheck));
 router.post(
   '/input',
   auth,
-  validateRequiredFields(['warga_id', 'nominal']),
+  validateRequiredFields(['nominal']),
   asyncHandler(inputJimpitan)
 );
 
@@ -99,6 +102,27 @@ router.get(
   '/schedule',
   auth,
   asyncHandler(getJimpitanSchedule)
+);
+
+router.get(
+  '/external-participants',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  asyncHandler(getJimpitanExternalParticipants)
+);
+
+router.post(
+  '/external-participants',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  asyncHandler(addJimpitanExternalParticipant)
+);
+
+router.post(
+  '/external-participants/:id/status',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  asyncHandler(updateJimpitanExternalParticipantStatus)
 );
 
 router.post(

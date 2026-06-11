@@ -14,6 +14,13 @@ import { useAuth } from '@/lib/useAuth';
 import { JimpitanListItem } from '@/types';
 
 type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
+type ExternalParticipant = {
+  id: string;
+  nama: string;
+  no_hp?: string | null;
+  keterangan?: string | null;
+  is_active: boolean;
+};
 
 export default function JimpitanPage() {
   const { user, loading } = useAuth();
@@ -35,6 +42,11 @@ export default function JimpitanPage() {
   const [activeMoveId, setActiveMoveId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [savingRoute, setSavingRoute] = useState(false);
+  const [externalParticipants, setExternalParticipants] = useState<ExternalParticipant[]>([]);
+  const [donaturNama, setDonaturNama] = useState('');
+  const [donaturNoHp, setDonaturNoHp] = useState('');
+  const [donaturKeterangan, setDonaturKeterangan] = useState('');
+  const [savingDonatur, setSavingDonatur] = useState(false);
   const pressTimerRef = useRef<number | null>(null);
 
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
@@ -86,6 +98,16 @@ export default function JimpitanPage() {
     }
   }, []);
 
+  const loadExternalParticipants = useCallback(async () => {
+    if (!isAdminJimpitan) return;
+    try {
+      const result = await apiFetch<{ success: boolean; data: ExternalParticipant[] }>('/jimpitan/external-participants');
+      setExternalParticipants(result.data || []);
+    } catch {
+      setExternalParticipants([]);
+    }
+  }, [isAdminJimpitan]);
+
   const normalizeRouteOrder = useCallback((rawOrder: string[], rows: JimpitanListItem[]) => {
     const allIds = rows.map((row) => String(row.id));
     const uniqueValid = rawOrder.filter((id, idx) => allIds.includes(id) && rawOrder.indexOf(id) === idx);
@@ -128,13 +150,14 @@ export default function JimpitanPage() {
           setItems(rows);
           setCanOperateToday(Boolean(result.can_operate_today ?? true));
           await loadRouteOrder(rows);
+          await loadExternalParticipants();
         } catch (e) {
           setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
         }
       })();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [user, loadRouteOrder]);
+  }, [user, loadRouteOrder, loadExternalParticipants]);
 
   const recapData = useMemo(() => {
     const normalizedUserName = String(user?.nama || '').trim().toLowerCase();
@@ -208,7 +231,11 @@ export default function JimpitanPage() {
     try {
       await apiFetch('/jimpitan/input', {
         method: 'POST',
-        body: JSON.stringify({ warga_id: selected.id, nominal })
+        body: JSON.stringify(
+          selected.target_type === 'DONATUR'
+            ? { target_type: 'DONATUR', external_participant_id: selected.external_participant_id || String(selected.id).replace(/^DONATUR:/, ''), nominal }
+            : { target_type: 'WARGA', warga_id: selected.id, nominal }
+        )
       });
       await loadList();
       setSelected(null);
@@ -216,6 +243,46 @@ export default function JimpitanPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Gagal input jimpitan';
       pushToast(message, 'error');
+    }
+  }
+
+  async function handleAddDonatur() {
+    if (!donaturNama.trim()) {
+      pushToast('Nama donatur wajib diisi.', 'warning');
+      return;
+    }
+    try {
+      setSavingDonatur(true);
+      await apiFetch('/jimpitan/external-participants', {
+        method: 'POST',
+        body: JSON.stringify({
+          nama: donaturNama.trim(),
+          no_hp: donaturNoHp.trim(),
+          keterangan: donaturKeterangan.trim()
+        })
+      });
+      setDonaturNama('');
+      setDonaturNoHp('');
+      setDonaturKeterangan('');
+      await Promise.all([loadExternalParticipants(), loadList()]);
+      pushToast('Donatur jimpitan berhasil ditambahkan.', 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal menambah donatur', 'error');
+    } finally {
+      setSavingDonatur(false);
+    }
+  }
+
+  async function toggleDonaturStatus(item: ExternalParticipant) {
+    try {
+      await apiFetch(`/jimpitan/external-participants/${encodeURIComponent(item.id)}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ is_active: !item.is_active })
+      });
+      await Promise.all([loadExternalParticipants(), loadList()]);
+      pushToast(`${item.nama} ${item.is_active ? 'dinonaktifkan' : 'diaktifkan'}.`, 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal mengubah status donatur', 'error');
     }
   }
 
@@ -627,6 +694,40 @@ export default function JimpitanPage() {
             </div>
           ) : null}
         </div>
+
+        {isAdminJimpitan ? (
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-4">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Donatur Jimpitan</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-4">
+              <Input label="Nama Donatur" value={donaturNama} onChange={(event) => setDonaturNama(event.target.value)} />
+              <Input label="No HP" value={donaturNoHp} onChange={(event) => setDonaturNoHp(event.target.value)} />
+              <Input label="Keterangan" value={donaturKeterangan} onChange={(event) => setDonaturKeterangan(event.target.value)} />
+              <div className="flex items-end">
+                <Button className="w-full" onClick={handleAddDonatur} disabled={savingDonatur}>
+                  {savingDonatur ? 'Menyimpan...' : 'Tambah Donatur'}
+                </Button>
+              </div>
+            </div>
+            {externalParticipants.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {externalParticipants.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => void toggleDonaturStatus(item)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                      item.is_active
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {item.nama} {item.is_active ? 'Aktif' : 'Nonaktif'}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
@@ -696,7 +797,14 @@ export default function JimpitanPage() {
                   } ${reorderMode ? 'wiggle-card' : ''} ${activeMoveId === String(row.id) ? 'ring-2 ring-[var(--accent)]' : ''} ${draggingId === String(row.id) ? 'opacity-60' : ''}`}
                 >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-sm leading-tight">{row.nama}</p>
+                  <div>
+                    <p className="font-semibold text-sm leading-tight">{row.nama}</p>
+                    {row.target_type === 'DONATUR' ? (
+                      <span className="mt-1 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                        Donatur
+                      </span>
+                    ) : null}
+                  </div>
                   {statusLabel ? (
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap ${
