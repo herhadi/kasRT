@@ -1,0 +1,33 @@
+{
+  "name": "KasRT",
+  "short_name": "KasRT",
+  "description": "Dashboard kas RT untuk warga dan pengurus.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f4",
+  "theme_color": "#0f766e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/kasrt-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Buka ringkasan kas dan informasi pribadi."
+    },
+    {
+      "name": "Jimpitan",
+      "short_name": "Jimpitan",
+      "url": "/jimpitan",
+      "description": "Buka input jimpitan harian."
+    }
+  ]
+}

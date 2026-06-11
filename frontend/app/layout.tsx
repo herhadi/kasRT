@@ -1,11 +1,27 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import '../styles/globals.css';
 import AuthProvider from '@/components/providers/AuthProvider';
+import PwaRegister from '@/components/pwa/PwaRegister';
 
 export const metadata: Metadata = {
   title: 'KasRT Modern',
-  description: 'Dashboard kas RT modern berbasis Next.js'
+  description: 'Dashboard kas RT modern berbasis Next.js',
+  manifest: '/manifest.webmanifest',
+  applicationName: 'KasRT',
+  appleWebApp: {
+    capable: true,
+    title: 'KasRT',
+    statusBarStyle: 'default'
+  },
+  icons: {
+    icon: '/icons/kasrt-icon.svg',
+    apple: '/icons/kasrt-icon.svg'
+  }
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0f766e'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -18,6 +34,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] antialiased">
         <AuthProvider>{children}</AuthProvider>
+        <PwaRegister />
       </body>
     </html>
   );

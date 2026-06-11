@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="KasRT">
+  <rect width="512" height="512" rx="112" fill="#0f766e"/>
+  <path d="M112 184c0-39.8 32.2-72 72-72h144c39.8 0 72 32.2 72 72v144c0 39.8-32.2 72-72 72H184c-39.8 0-72-32.2-72-72V184Z" fill="#f8fafc"/>
+  <path d="M171 214h170v44H171v-44Zm0 72h120v44H171v-44Z" fill="#0f766e"/>
+  <circle cx="335" cy="308" r="34" fill="#f59e0b"/>
+  <path d="M211 160h90c16.6 0 30 13.4 30 30v8H181v-8c0-16.6 13.4-30 30-30Z" fill="#14b8a6"/>
+</svg>
