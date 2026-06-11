@@ -361,7 +361,7 @@ export async function listJimpitan(req, res) {
       const nominalSaran = isLunasUI ? 0 : (isDonatur ? BIAYA_HARIAN : calculateNominalSaran(saldo, hariKe));
       const detailStatus = String(row.detail_status || '').toUpperCase();
       const batchStatus = String(row.batch_status || '').toUpperCase();
-      const canEditNominal = detailStatus !== '' && detailStatus !== 'APPROVED' && batchStatus !== 'APPROVED';
+      const canEditNominal = !isDonatur && detailStatus !== '' && detailStatus !== 'APPROVED' && batchStatus !== 'APPROVED';
       
       return {
         id: row.id,

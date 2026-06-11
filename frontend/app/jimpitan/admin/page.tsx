@@ -15,6 +15,13 @@ import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
 
 type WargaOption = { id: string; nama: string; no_hp?: string };
+type ExternalParticipant = {
+  id: string;
+  nama: string;
+  no_hp?: string | null;
+  keterangan?: string | null;
+  is_active: boolean;
+};
 type SetorHistoryItem = {
   id: number;
   amount: number;
@@ -40,6 +47,11 @@ export default function JimpitanAdminPage() {
   const [setorLoading, setSetorLoading] = useState(false);
   const [setorHistoryLoading, setSetorHistoryLoading] = useState(false);
   const [setorHistory, setSetorHistory] = useState<SetorHistoryItem[]>([]);
+  const [externalParticipants, setExternalParticipants] = useState<ExternalParticipant[]>([]);
+  const [donaturNama, setDonaturNama] = useState('');
+  const [donaturNoHp, setDonaturNoHp] = useState('');
+  const [donaturKeterangan, setDonaturKeterangan] = useState('');
+  const [savingDonatur, setSavingDonatur] = useState(false);
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
 
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
@@ -73,6 +85,12 @@ export default function JimpitanAdminPage() {
     }
   }, []);
 
+  const loadExternalParticipants = useCallback(async () => {
+    if (!isAdminJimpitan) return;
+    const result = await apiFetch<{ success: boolean; data: ExternalParticipant[] }>('/jimpitan/external-participants');
+    setExternalParticipants(result.data || []);
+  }, [isAdminJimpitan]);
+
   useEffect(() => {
     if (loading) return;
     if (!user) {
@@ -83,10 +101,10 @@ export default function JimpitanAdminPage() {
       router.replace('/jimpitan');
       return;
     }
-    void Promise.all([loadWargaOptions(), loadSetorHistory()]).catch((error) => {
+    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, pushToast]);
+  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, pushToast]);
 
   const setorHistoryPager = usePagination(setorHistory, 20);
 
@@ -147,6 +165,46 @@ export default function JimpitanAdminPage() {
       pushToast(error instanceof Error ? error.message : 'Gagal ajukan setor ke Bendahara', 'error');
     } finally {
       setSetorLoading(false);
+    }
+  }
+
+  async function handleAddDonatur() {
+    if (!donaturNama.trim()) {
+      pushToast('Nama donatur wajib diisi.', 'warning');
+      return;
+    }
+    try {
+      setSavingDonatur(true);
+      await apiFetch('/jimpitan/external-participants', {
+        method: 'POST',
+        body: JSON.stringify({
+          nama: donaturNama.trim(),
+          no_hp: donaturNoHp.trim(),
+          keterangan: donaturKeterangan.trim()
+        })
+      });
+      setDonaturNama('');
+      setDonaturNoHp('');
+      setDonaturKeterangan('');
+      await loadExternalParticipants();
+      pushToast('Donatur jimpitan berhasil ditambahkan.', 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal menambah donatur', 'error');
+    } finally {
+      setSavingDonatur(false);
+    }
+  }
+
+  async function toggleDonaturStatus(item: ExternalParticipant) {
+    try {
+      await apiFetch(`/jimpitan/external-participants/${encodeURIComponent(item.id)}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ is_active: !item.is_active })
+      });
+      await loadExternalParticipants();
+      pushToast(`${item.nama} ${item.is_active ? 'dinonaktifkan' : 'diaktifkan'}.`, 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal mengubah status donatur', 'error');
     }
   }
 
@@ -234,6 +292,41 @@ export default function JimpitanAdminPage() {
             </div>
           </div>
         </Card>
+
+        {isAdminJimpitan ? (
+          <Card title="Donatur Jimpitan" subtitle="Kelola donatur non-warga yang ikut daftar input jimpitan harian">
+            <div className="grid gap-3 md:grid-cols-4">
+              <Input label="Nama Donatur" value={donaturNama} onChange={(event) => setDonaturNama(event.target.value)} />
+              <Input label="No HP" value={donaturNoHp} onChange={(event) => setDonaturNoHp(event.target.value)} />
+              <Input label="Keterangan" value={donaturKeterangan} onChange={(event) => setDonaturKeterangan(event.target.value)} />
+              <div className="flex items-end">
+                <Button className="w-full" onClick={handleAddDonatur} disabled={savingDonatur}>
+                  {savingDonatur ? 'Menyimpan...' : 'Tambah Donatur'}
+                </Button>
+              </div>
+            </div>
+            {externalParticipants.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {externalParticipants.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => void toggleDonaturStatus(item)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                      item.is_active
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {item.nama} {item.is_active ? 'Aktif' : 'Nonaktif'}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-[var(--text-muted)]">Belum ada donatur jimpitan.</p>
+            )}
+          </Card>
+        ) : null}
 
         <Card title="Riwayat Setor ke Bendahara" subtitle="Jejak pengajuan setor kas jimpitan oleh Admin Jimpitan">
           <div className="overflow-x-auto">
