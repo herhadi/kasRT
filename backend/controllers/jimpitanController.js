@@ -564,11 +564,29 @@ export async function sendJimpitanShiftReminder(req, res) {
       (testMode ? `\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.` : '');
     const waEnabled = Boolean(String(process.env.FONNTE_TOKEN || '').trim());
     let waSent = 0;
+    let waFailed = 0;
+    const waErrors = [];
     if (waEnabled && waRecipients.length) {
       const waResults = await Promise.allSettled(
         waRecipients.map((row) => sendFonnteMessage(row.no_hp, waText))
       );
-      waSent = waResults.filter((item) => item.status === 'fulfilled').length;
+      waSent = waResults.filter((item) => item.status === 'fulfilled' && item.value?.sent === true).length;
+      waFailed = waResults.length - waSent;
+      waResults.forEach((item, index) => {
+        if (item.status === 'rejected') {
+          waErrors.push({
+            nama: waRecipients[index]?.nama || null,
+            no_hp: waRecipients[index]?.no_hp || null,
+            message: item.reason?.message || String(item.reason || 'Fonnte gagal')
+          });
+        } else if (item.value?.sent !== true) {
+          waErrors.push({
+            nama: waRecipients[index]?.nama || null,
+            no_hp: waRecipients[index]?.no_hp || null,
+            message: item.value?.reason || 'Fonnte tidak mengirim'
+          });
+        }
+      });
     }
 
     return res.json({
@@ -579,6 +597,8 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegram_recipients: telegramRecipients.length,
       wa_recipients: waRecipients.length,
       wa_sent: waSent,
+      wa_failed: waFailed,
+      wa_errors: waErrors.slice(0, 5),
       wa_enabled: waEnabled,
       test_mode: testMode,
       test_shift_day: testMode ? shiftDay : null

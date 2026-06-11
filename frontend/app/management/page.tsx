@@ -35,6 +35,8 @@ type CronHealthLog = {
         telegram_recipients?: number;
         wa_recipients?: number;
         wa_sent?: number;
+        wa_failed?: number;
+        wa_errors?: Array<{ nama?: string | null; no_hp?: string | null; message?: string }>;
         wa_enabled?: boolean;
         current_time_wib?: string;
       };
@@ -220,7 +222,8 @@ export default function ManagementHomePage() {
                       <InfoLine label="Reminder" value={formatReminderStatus(reminderResult)} />
                       <InfoLine label="Petugas Shift" value={String(reminderResult.total_target ?? '-')} />
                       <InfoLine label="Telegram Target" value={String(reminderResult.telegram_recipients ?? '-')} />
-                      <InfoLine label="WA Terkirim" value={`${String(reminderResult.wa_sent ?? '-')}/${String(reminderResult.wa_recipients ?? '-')}`} />
+                      <InfoLine label="WA Terkirim" value={`${String(reminderResult.wa_sent ?? '-')}/${String(reminderResult.wa_recipients ?? '-')} (gagal ${String(reminderResult.wa_failed ?? 0)})`} />
+                      <InfoLine label="Error WA" value={formatWaError(reminderResult)} />
                     </div>
                   ) : (
                     <p className="text-sm text-[var(--text-muted)]">Belum ada log cron yang membawa hasil reminder.</p>
@@ -237,7 +240,7 @@ export default function ManagementHomePage() {
                         </div>
                         {log.payload?.reminder_result ? (
                           <p className="mt-1 text-xs text-[var(--text-muted)]">
-                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_recipients ?? '-'} | WA: {log.payload.reminder_result.wa_sent ?? '-'}/{log.payload.reminder_result.wa_recipients ?? '-'}
+                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_recipients ?? '-'} | WA: {log.payload.reminder_result.wa_sent ?? '-'}/{log.payload.reminder_result.wa_recipients ?? '-'} | Error WA: {formatWaError(log.payload.reminder_result)}
                           </p>
                         ) : null}
                       </div>
@@ -293,6 +296,14 @@ function formatReminderStatus(result: NonNullable<CronHealthLog['payload']>['rem
   }
   if (result.success === false) return result.message || 'Gagal';
   return 'Diproses';
+}
+
+function formatWaError(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
+  if (!result) return '-';
+  if (result.wa_enabled === false) return 'FONNTE_TOKEN belum aktif di backend';
+  if (!result.wa_errors?.length) return '-';
+  const first = result.wa_errors[0];
+  return `${first.nama || first.no_hp || 'WA'}: ${first.message || 'Fonnte gagal'}`;
 }
 
 function getShiftDayLabel(value: string) {

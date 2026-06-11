@@ -32,7 +32,10 @@ export async function sendFonnteMessage(target, message) {
     const messageText = payload?.reason || payload?.message || `HTTP ${response.status}`;
     throw new Error(`Fonnte error: ${messageText}`);
   }
+  if (payload?.status === false) {
+    const messageText = payload?.reason || payload?.message || 'Fonnte menolak request';
+    throw new Error(`Fonnte error: ${messageText}`);
+  }
 
   return { sent: true, target: normalizedTarget, raw: payload };
 }
-
