@@ -82,8 +82,8 @@ export default function AssetManagementPage() {
   const [savingAsset, setSavingAsset] = useState(false);
   const [savingRental, setSavingRental] = useState(false);
 
-  const canOpen = hasAnyRole(user, ['Ketua', 'Sekretaris', 'Bendahara', 'root']);
-  const canManageAsset = hasAnyRole(user, ['Sekretaris', 'Bendahara', 'root']);
+  const canOpen = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
+  const canManageAsset = hasAnyRole(user, ['Sekretaris', 'root']);
   const canRecordRental = hasAnyRole(user, ['Bendahara', 'root']);
   const activeAssets = useMemo(() => assets.filter((asset) => asset.is_active), [assets]);
 

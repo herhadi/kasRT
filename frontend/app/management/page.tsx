@@ -56,7 +56,7 @@ export default function ManagementHomePage() {
   const [cronTestMessage, setCronTestMessage] = useState('');
   const [testShiftDay, setTestShiftDay] = useState('3');
 
-  const canManage = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
+  const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
   const doneLog = cronStatus?.logs?.find((log) => ['DONE', 'TEST_REMINDER'].includes(log.status) && log.payload?.reminder_result);
   const reminderResult = doneLog?.payload?.reminder_result;

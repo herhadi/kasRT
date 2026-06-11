@@ -25,9 +25,9 @@ router.get('/telegram/webhook-info', allowRoles('root'), asyncHandler(getTelegra
 router.post('/telegram/set-webhook', allowRoles('root'), asyncHandler(setTelegramWebhook));
 router.post('/telegram/delete-webhook', allowRoles('root'), asyncHandler(deleteTelegramWebhook));
 router.get('/cron/status', allowRoles('root'), asyncHandler(cronHealthStatus));
-router.get('/assets', allowRoles('Ketua', 'Sekretaris', 'Bendahara', 'root'), asyncHandler(getAssetManagementData));
-router.post('/assets', allowRoles('Sekretaris', 'Bendahara', 'root'), asyncHandler(saveAsset));
-router.post('/assets/:id/status', allowRoles('Sekretaris', 'Bendahara', 'root'), asyncHandler(updateAssetStatus));
+router.get('/assets', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root'), asyncHandler(getAssetManagementData));
+router.post('/assets', allowRoles('Sekretaris', 'root'), asyncHandler(saveAsset));
+router.post('/assets/:id/status', allowRoles('Sekretaris', 'root'), asyncHandler(updateAssetStatus));
 router.post('/assets/rentals', allowRoles('Bendahara', 'root'), asyncHandler(recordAssetRental));
 
 export default router;
