@@ -6,9 +6,9 @@ export const KAS_SEWA_ASET = 'Kas Sewa Aset';
 export async function ensureAssetTables() {
   await pool.query(
     `INSERT INTO wallets (name)
-     SELECT $1
+     SELECT $1::text
      WHERE NOT EXISTS (
-       SELECT 1 FROM wallets WHERE LOWER(name) = LOWER($1)
+       SELECT 1 FROM wallets WHERE LOWER(name) = LOWER($1::text)
      )`,
     [KAS_SEWA_ASET]
   );
@@ -40,7 +40,7 @@ export async function ensureAssetTables() {
       quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
       amount NUMERIC(18,2) NOT NULL CHECK (amount > 0),
       notes TEXT,
-      transaction_id BIGINT REFERENCES transactions(id) ON DELETE SET NULL,
+      transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
       created_by UUID,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
