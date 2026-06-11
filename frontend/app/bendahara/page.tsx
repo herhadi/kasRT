@@ -102,7 +102,7 @@ type RekapKeuanganItem = {
   pemasukan_bulan: number;
   pengeluaran_bulan: number;
 };
-type PendapatanSummary = { iuran: number; jimpitan: number; total: number };
+type PendapatanSummary = { iuran: number; jimpitan: number; sewa_aset?: number; total: number };
 type OpeningArrearsItem = { warga_id: string; opening_arrears: number };
 type IuranTariffItem = { id: string; effective_month: string; monthly_fee: number };
 
@@ -136,7 +136,7 @@ export default function BendaharaPage() {
   const [warga, setWarga] = useState<WargaItem[]>([]);
   const [iuranStatus, setIuranStatus] = useState<IuranStatusItem[]>([]);
   const [wallets, setWallets] = useState<WalletItem[]>([]);
-  const [pendapatan, setPendapatan] = useState<PendapatanSummary>({ iuran: 0, jimpitan: 0, total: 0 });
+  const [pendapatan, setPendapatan] = useState<PendapatanSummary>({ iuran: 0, jimpitan: 0, sewa_aset: 0, total: 0 });
   const [openingArrears, setOpeningArrears] = useState<Record<string, number>>({});
   const [pengeluaran, setPengeluaran] = useState<PengeluaranItem[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -939,6 +939,7 @@ export default function BendaharaPage() {
               items={[
                 { label: 'Iuran', value: formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0)) },
                 { label: 'Jimpitan', value: formatRupiah(Number(pendapatan.jimpitan || 0)), className: 'hidden md:block' },
+                { label: 'Sewa Aset', value: formatRupiah(Number(pendapatan.sewa_aset || 0)), className: 'hidden md:block' },
                 { label: 'Total', value: formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0)), emphasize: true, className: 'hidden md:block' }
               ]}
             />
@@ -1262,6 +1263,7 @@ export default function BendaharaPage() {
                 items={[
                   { label: 'Iuran', value: formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0)) },
                   { label: 'Jimpitan', value: formatRupiah(Number(pendapatan.jimpitan || 0)), className: 'hidden md:block' },
+                  { label: 'Sewa Aset', value: formatRupiah(Number(pendapatan.sewa_aset || 0)), className: 'hidden md:block' },
                   { label: 'Total', value: formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0)), emphasize: true, className: 'hidden md:block' }
                 ]}
               />

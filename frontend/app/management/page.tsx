@@ -150,6 +150,13 @@ export default function ManagementHomePage() {
               <p className="text-sm font-semibold text-[var(--text-primary)]">Struktur RT</p>
               <p className="mt-1 text-xs text-[var(--text-muted)]">Tambah warga dan atur jabatan organisasi.</p>
             </Link>
+            <Link
+              href="/management/aset"
+              className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-4 transition hover:bg-[var(--surface-strong)]"
+            >
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Aset RT</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">Kelola inventaris dan catat pendapatan sewa aset.</p>
+            </Link>
             {hasAnyRole(user, ['root']) ? (
               <Link
                 href="/management/migrasi-2025"

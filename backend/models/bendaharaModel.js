@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 
 const KAS_IURAN_WAJIB = 'Kas Iuran Wajib';
 const KAS_JIMPITAN = 'Kas Jimpitan';
+const KAS_SEWA_ASET = 'Kas Sewa Aset';
 const DEFAULT_IURAN_WAJIB_FEE = 30000;
 
 export async function ensureIuranTariffTable() {
@@ -107,9 +108,9 @@ export async function listFinanceWallets() {
            1
          )
      ) m ON TRUE
-     WHERE LOWER(name) IN (LOWER($1), LOWER($2))
+     WHERE LOWER(name) IN (LOWER($1), LOWER($2), LOWER($3))
      ORDER BY w.name ASC`,
-    [KAS_IURAN_WAJIB, KAS_JIMPITAN]
+    [KAS_IURAN_WAJIB, KAS_JIMPITAN, KAS_SEWA_ASET]
   );
   return result.rows;
 }
@@ -174,14 +175,16 @@ export async function listPengeluaranBulanan({ month, limit = 100 } = {}) {
 
 export async function listPendapatanBulanan({ month } = {}) {
   const isValidMonth = typeof month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
-  const params = isValidMonth ? [month, KAS_IURAN_WAJIB, KAS_JIMPITAN] : [KAS_IURAN_WAJIB, KAS_JIMPITAN];
+  const params = isValidMonth
+    ? [month, KAS_IURAN_WAJIB, KAS_JIMPITAN, KAS_SEWA_ASET]
+    : [KAS_IURAN_WAJIB, KAS_JIMPITAN, KAS_SEWA_ASET];
   const sql = isValidMonth
     ? `SELECT w.name AS wallet_name, COALESCE(SUM(t.amount), 0) AS total
        FROM transactions t
        JOIN wallets w ON w.id = t.target_wallet_id
        WHERE t.type = 'IN'
          AND t.status = 'APPROVED'
-         AND LOWER(w.name) IN (LOWER($2), LOWER($3))
+         AND LOWER(w.name) IN (LOWER($2), LOWER($3), LOWER($4))
          AND DATE_TRUNC('month', t.created_at) = DATE_TRUNC('month', TO_DATE($1, 'YYYY-MM'))
        GROUP BY w.name`
     : `SELECT w.name AS wallet_name, COALESCE(SUM(t.amount), 0) AS total
@@ -189,7 +192,7 @@ export async function listPendapatanBulanan({ month } = {}) {
        JOIN wallets w ON w.id = t.target_wallet_id
        WHERE t.type = 'IN'
          AND t.status = 'APPROVED'
-         AND LOWER(w.name) IN (LOWER($1), LOWER($2))
+         AND LOWER(w.name) IN (LOWER($1), LOWER($2), LOWER($3))
          AND DATE_TRUNC('month', t.created_at) = DATE_TRUNC('month', CURRENT_DATE)
        GROUP BY w.name`;
 
@@ -197,7 +200,8 @@ export async function listPendapatanBulanan({ month } = {}) {
   const map = new Map(result.rows.map((r) => [String(r.wallet_name || '').toLowerCase(), Number(r.total || 0)]));
   const iuran = map.get(KAS_IURAN_WAJIB.toLowerCase()) || 0;
   const jimpitan = map.get(KAS_JIMPITAN.toLowerCase()) || 0;
-  return { iuran, jimpitan, total: iuran + jimpitan };
+  const sewa_aset = map.get(KAS_SEWA_ASET.toLowerCase()) || 0;
+  return { iuran, jimpitan, sewa_aset, total: iuran + jimpitan + sewa_aset };
 }
 
 async function findIuranWajibContributionTypeId(client) {

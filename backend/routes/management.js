@@ -5,6 +5,7 @@ import { addWargaUser, editWargaUser, getUserManagementData, updateUserAdminRole
 import { getMeetingAttendance, getMeetingNote, saveMeetingAttendance, saveMeetingNote } from '../controllers/meetingController.js';
 import { deleteTelegramWebhook, getTelegramWebhookInfo, setTelegramWebhook } from '../controllers/telegramController.js';
 import { cronHealthPing, cronHealthStatus } from '../controllers/cronHealthController.js';
+import { getAssetManagementData, recordAssetRental, saveAsset, updateAssetStatus } from '../controllers/assetController.js';
 
 const router = express.Router();
 
@@ -24,5 +25,9 @@ router.get('/telegram/webhook-info', allowRoles('root'), asyncHandler(getTelegra
 router.post('/telegram/set-webhook', allowRoles('root'), asyncHandler(setTelegramWebhook));
 router.post('/telegram/delete-webhook', allowRoles('root'), asyncHandler(deleteTelegramWebhook));
 router.get('/cron/status', allowRoles('root'), asyncHandler(cronHealthStatus));
+router.get('/assets', allowRoles('Ketua', 'Sekretaris', 'Bendahara', 'root'), asyncHandler(getAssetManagementData));
+router.post('/assets', allowRoles('Sekretaris', 'Bendahara', 'root'), asyncHandler(saveAsset));
+router.post('/assets/:id/status', allowRoles('Sekretaris', 'Bendahara', 'root'), asyncHandler(updateAssetStatus));
+router.post('/assets/rentals', allowRoles('Bendahara', 'root'), asyncHandler(recordAssetRental));
 
 export default router;
