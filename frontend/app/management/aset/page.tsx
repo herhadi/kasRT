@@ -341,6 +341,26 @@ export default function AssetManagementPage() {
         </Card>
 
         <Card title="Riwayat Sewa" subtitle="Status pembayaran sewa aset dan konfirmasi kas oleh Bendahara">
+          <div className="mb-4 grid gap-3 md:grid-cols-2">
+            {rentals.length === 0 ? (
+              <p className="text-sm text-[var(--text-muted)]">Belum ada riwayat sewa.</p>
+            ) : rentals.map((row) => (
+              <div key={`summary-${row.id}`} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-[var(--text-primary)]">{row.asset_name} x{row.quantity}</p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">Penyewa: {row.renter_name}</p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(row.rental_date)}</p>
+                  </div>
+                  <StatusBadge status={row.status} />
+                </div>
+                <div className="mt-3 flex items-end justify-between gap-3">
+                  <p className="font-bold text-[var(--accent)]">{formatRupiah(row.amount)}</p>
+                  {row.paid_at ? <p className="text-xs text-[var(--text-muted)]">Diterima: {formatTanggalIndonesia(row.paid_at)}</p> : null}
+                </div>
+              </div>
+            ))}
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
               <thead>
@@ -363,9 +383,7 @@ export default function AssetManagementPage() {
                     <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.asset_name} x{row.quantity}</td>
                     <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.renter_name}</td>
                     <td className="border-b border-[var(--line)] px-4 py-3 text-sm">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${row.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                        {row.status === 'PAID' ? 'Lunas' : 'Menunggu Bendahara'}
-                      </span>
+                      <StatusBadge status={row.status} />
                       {row.paid_at ? <p className="mt-1 text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(row.paid_at)}</p> : null}
                     </td>
                     <td className="border-b border-[var(--line)] px-4 py-3 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(row.amount)}</td>
@@ -377,6 +395,15 @@ export default function AssetManagementPage() {
         </Card>
       </div>
     </main>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const paid = status === 'PAID';
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${paid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+      {paid ? 'Lunas' : 'Menunggu Bendahara'}
+    </span>
   );
 }
 

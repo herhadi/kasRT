@@ -18,6 +18,8 @@ export default function BendaharaApprovalPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<PendingApprovalItem[]>([]);
+  const jimpitanItems = items.filter((item) => item.kind === 'JIMPITAN_HANDOVER');
+  const assetRentalItems = items.filter((item) => item.kind === 'ASSET_RENTAL_PAYMENT');
   const [historyItems, setHistoryItems] = useState<ApprovalHistoryItem[]>([]);
   const [message, setMessage] = useState('');
   const [loadingList, setLoadingList] = useState(false);
@@ -114,32 +116,27 @@ export default function BendaharaApprovalPage() {
         ) : null}
 
         {canApproveBendahara ? (
-          <Card title="Menunggu Diterima" subtitle="Klik terima hanya setelah uang fisik sudah di tangan Bendahara">
-            {items.length === 0 && !loadingList ? (
-              <p className="text-sm text-[var(--text-muted)]">Belum ada penerimaan yang menunggu Bendahara.</p>
-            ) : null}
-            <div className="space-y-2">
-              {items.map((item) => {
-                const actionKey = `${item.kind}-${item.id}`;
-                const isApproving = approvingKey === actionKey;
-                return (
-                  <article key={actionKey} className="surface-muted flex flex-col gap-3 rounded-xl border border-[var(--line)] p-3 md:flex-row md:items-center md:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
-                      <p className="mt-1 text-xs text-[var(--text-muted)]">{item.description}</p>
-                      <p className="mt-1 text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(item.created_at)}</p>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 md:flex-col md:items-end">
-                      <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
-                      <Button className="whitespace-nowrap text-sm px-3 py-1.5" onClick={() => void approveItem(item)} disabled={isApproving}>
-                        {isApproving ? '...' : 'Terima Uang'}
-                      </Button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </Card>
+          <ApprovalGroup
+            title="Terima Setor Jimpitan"
+            subtitle="Setoran kas jimpitan dari Admin Jimpitan"
+            emptyText="Belum ada setor jimpitan yang menunggu Bendahara."
+            items={jimpitanItems}
+            approvingKey={approvingKey}
+            onApprove={approveItem}
+            loading={loadingList}
+          />
+        ) : null}
+
+        {canApproveBendahara ? (
+          <ApprovalGroup
+            title="Penerimaan Sewa Aset"
+            subtitle="Pembayaran sewa aset yang baru masuk kas setelah Bendahara menerima uang"
+            emptyText="Belum ada sewa aset yang menunggu Bendahara."
+            items={assetRentalItems}
+            approvingKey={approvingKey}
+            onApprove={approveItem}
+            loading={loadingList}
+          />
         ) : null}
 
         {canApproveBendahara ? (
@@ -162,5 +159,52 @@ export default function BendaharaApprovalPage() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+function ApprovalGroup({
+  title,
+  subtitle,
+  emptyText,
+  items,
+  approvingKey,
+  onApprove,
+  loading
+}: {
+  title: string;
+  subtitle: string;
+  emptyText: string;
+  items: PendingApprovalItem[];
+  approvingKey: string;
+  onApprove: (item: PendingApprovalItem) => Promise<void>;
+  loading: boolean;
+}) {
+  return (
+    <Card title={title} subtitle={subtitle}>
+      {items.length === 0 && !loading ? (
+        <p className="text-sm text-[var(--text-muted)]">{emptyText}</p>
+      ) : null}
+      <div className="space-y-2">
+        {items.map((item) => {
+          const actionKey = `${item.kind}-${item.id}`;
+          const isApproving = approvingKey === actionKey;
+          return (
+            <article key={actionKey} className="surface-muted flex flex-col gap-3 rounded-xl border border-[var(--line)] p-3 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">{item.description}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(item.created_at)}</p>
+              </div>
+              <div className="flex items-center justify-between gap-3 md:flex-col md:items-end">
+                <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
+                <Button className="whitespace-nowrap text-sm px-3 py-1.5" onClick={() => void onApprove(item)} disabled={isApproving}>
+                  {isApproving ? '...' : 'Terima Uang'}
+                </Button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
