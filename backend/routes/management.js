@@ -5,7 +5,7 @@ import { addWargaUser, editWargaUser, getUserManagementData, updateUserAdminRole
 import { getMeetingAttendance, getMeetingNote, saveMeetingAttendance, saveMeetingNote } from '../controllers/meetingController.js';
 import { deleteTelegramWebhook, getTelegramWebhookInfo, setTelegramWebhook } from '../controllers/telegramController.js';
 import { cronHealthPing, cronHealthStatus } from '../controllers/cronHealthController.js';
-import { getAssetManagementData, recordAssetRental, saveAsset, updateAssetStatus } from '../controllers/assetController.js';
+import { confirmAssetRentalPaymentHandler, getAssetManagementData, recordAssetRental, saveAsset, updateAssetStatus } from '../controllers/assetController.js';
 
 const router = express.Router();
 
@@ -28,6 +28,7 @@ router.get('/cron/status', allowRoles('root'), asyncHandler(cronHealthStatus));
 router.get('/assets', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root'), asyncHandler(getAssetManagementData));
 router.post('/assets', allowRoles('Sekretaris', 'root'), asyncHandler(saveAsset));
 router.post('/assets/:id/status', allowRoles('Sekretaris', 'root'), asyncHandler(updateAssetStatus));
-router.post('/assets/rentals', allowRoles('Bendahara', 'root'), asyncHandler(recordAssetRental));
+router.post('/assets/rentals', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(recordAssetRental));
+router.post('/assets/rentals/:id/confirm-payment', allowRoles('Bendahara', 'root'), asyncHandler(confirmAssetRentalPaymentHandler));
 
 export default router;

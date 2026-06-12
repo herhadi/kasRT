@@ -35,6 +35,10 @@ type AssetRental = {
   quantity: number;
   amount: number;
   notes?: string | null;
+  status: 'PENDING_PAYMENT' | 'PAID' | string;
+  paid_at?: string | null;
+  paid_by_nama?: string | null;
+  created_by_nama?: string | null;
 };
 
 type AssetForm = {
@@ -84,7 +88,7 @@ export default function AssetManagementPage() {
 
   const canOpen = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const canManageAsset = hasAnyRole(user, ['Sekretaris', 'root']);
-  const canRecordRental = hasAnyRole(user, ['Bendahara', 'root']);
+  const canRecordRental = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
   const activeAssets = useMemo(() => assets.filter((asset) => asset.is_active), [assets]);
 
   const loadData = useCallback(async () => {
@@ -222,7 +226,7 @@ export default function AssetManagementPage() {
       setRentalAmount('');
       setRentalNotes('');
       await loadData();
-      setMessage('Sewa aset tercatat dan masuk ke Kas Sewa Aset.');
+      setMessage('Sewa aset tercatat. Kas baru bertambah setelah Bendahara konfirmasi uang diterima.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal mencatat sewa aset');
     } finally {
@@ -240,7 +244,7 @@ export default function AssetManagementPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Manajemen Aset</p>
           <h2 className="mt-1 text-2xl font-bold text-[var(--text-primary)]">Inventaris dan Sewa Aset RT</h2>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Kelola barang milik RT seperti kursi, sound system, tenda, dan catat pendapatan sewanya ke Bendahara.
+            Kelola barang milik RT seperti kursi, sound system, tenda, dan pantau pembayaran sewanya sampai diterima Bendahara.
           </p>
         </div>
 
@@ -269,7 +273,7 @@ export default function AssetManagementPage() {
         ) : null}
 
         {canRecordRental ? (
-          <Card title="Catat Sewa Aset" subtitle="Nominal otomatis masuk sebagai transaksi pendapatan Kas Sewa Aset">
+          <Card title="Catat Sewa Aset" subtitle="Catatan sewa belum masuk kas sampai Bendahara mengonfirmasi uang diterima">
             <div className="grid gap-3 md:grid-cols-4">
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-[var(--text-primary)]">Aset</span>
@@ -336,7 +340,7 @@ export default function AssetManagementPage() {
           </div>
         </Card>
 
-        <Card title="Riwayat Sewa" subtitle="Pendapatan sewa yang sudah masuk ke Kas Sewa Aset">
+        <Card title="Riwayat Sewa" subtitle="Status pembayaran sewa aset dan konfirmasi kas oleh Bendahara">
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
               <thead>
@@ -344,19 +348,26 @@ export default function AssetManagementPage() {
                   <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Tanggal</th>
                   <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Aset</th>
                   <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Penyewa</th>
+                  <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Status</th>
                   <th className="border-b border-[var(--line)] px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Nominal</th>
                 </tr>
               </thead>
               <tbody>
                 {rentals.length === 0 ? (
                   <tr className="bg-[var(--surface)]">
-                    <td colSpan={4} className="px-4 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat sewa.</td>
+                    <td colSpan={5} className="px-4 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat sewa.</td>
                   </tr>
                 ) : rentals.map((row) => (
                   <tr key={row.id} className="bg-[var(--surface)]">
                     <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{formatTanggalIndonesia(row.rental_date)}</td>
                     <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.asset_name} x{row.quantity}</td>
                     <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.renter_name}</td>
+                    <td className="border-b border-[var(--line)] px-4 py-3 text-sm">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${row.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                        {row.status === 'PAID' ? 'Lunas' : 'Menunggu Bendahara'}
+                      </span>
+                      {row.paid_at ? <p className="mt-1 text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(row.paid_at)}</p> : null}
+                    </td>
                     <td className="border-b border-[var(--line)] px-4 py-3 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(row.amount)}</td>
                   </tr>
                 ))}

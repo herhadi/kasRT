@@ -48,6 +48,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
   const isAdminKeamanan = hasExactRole(user, 'Admin Keamanan');
   const isSekretaris = hasExactRole(user, 'Sekretaris');
   const jimpitanMenuHref = '/jimpitan';
+  const approvalMenuHref = isBendahara ? '/approval/bendahara' : '/approval';
   const opsMenu = isBendahara
     ? { href: '/operasional/bendahara', label: 'Operasional', icon: '🧾' }
     : isSekretaris
@@ -128,7 +129,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: jimpitanMenuHref, label: 'Jimpitan', icon: '💰' },
     { ...opsMenu, opsOnly: true },
-    { href: '/approval', label: 'Approval', icon: '✅', gated: true },
+    { href: approvalMenuHref, label: 'Approval', icon: '✅', gated: true },
     { href: '/management', label: 'Manajemen', icon: '🛠️', managerOnly: true }
   ];
 
@@ -170,6 +171,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
                 const isOpsMenu = Boolean((menu as { opsOnly?: boolean }).opsOnly);
                 const active =
                   pathname === menu.href ||
+                  (menu.href.startsWith('/approval') && pathname?.startsWith('/approval')) ||
                   (menu.href === '/management' && pathname?.startsWith('/management')) ||
                   (isOpsMenu && pathname?.startsWith('/operasional'));
                 return (
@@ -185,7 +187,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
                   >
                     <span>{menu.icon}</span>
                     <span>{menu.label}</span>
-                    {menu.href === '/approval' && pendingCount > 0 ? (
+                    {menu.href.startsWith('/approval') && pendingCount > 0 ? (
                       <span
                         className={`inline-flex min-w-[20px] items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
                           active ? 'bg-amber-400/0 text-transparent' : 'bg-amber-400 text-slate-900'
@@ -204,4 +206,3 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     </header>
   );
 }
-

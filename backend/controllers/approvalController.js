@@ -1,5 +1,6 @@
 import {
   listApprovalHistory,
+  listPendingAssetRentalPaymentApprovals,
   listPendingSosialReceiptApprovals,
   listPendingSetorBendaharaApprovals,
   listPendingJimpitanBatches,
@@ -51,11 +52,14 @@ export async function getPendingApprovals(req, res) {
   }
 
   if (canApproveSetorHandover) {
-    const rows = await listPendingSetorBendaharaApprovals();
+    const [jimpitanRows, assetRentalRows] = await Promise.all([
+      listPendingSetorBendaharaApprovals(),
+      listPendingAssetRentalPaymentApprovals()
+    ]);
     sections.push({
-      key: 'jimpitan_handover',
-      label: 'Terima Setor Jimpitan',
-      items: rows
+      key: 'bendahara_receipt',
+      label: 'Penerimaan Bendahara',
+      items: [...jimpitanRows, ...assetRentalRows]
     });
   }
 
@@ -96,6 +100,7 @@ export async function getApprovalHistory(req, res) {
     includeJimpitan: canApproveJimpitan,
     includeFinance: canApproveFinance,
     includeHandover: canApproveSetorHandover,
+    includeAssetRentalPayment: canApproveSetorHandover,
     includeSocialReceipt: canSeeSocialReceiptHistory,
     limit,
     offset

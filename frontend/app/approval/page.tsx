@@ -169,6 +169,13 @@ export default function ApprovalPage() {
         });
       }
 
+      if (item.kind === 'ASSET_RENTAL_PAYMENT') {
+        await apiFetch(`/management/assets/rentals/${encodeURIComponent(String(item.meta.rental_id ?? item.id))}/confirm-payment`, {
+          method: 'POST',
+          body: JSON.stringify({})
+        });
+      }
+
       setMessage(`${item.title} berhasil di-approve.`);
       await loadPending();
       await loadHistory(historyPage);

@@ -140,10 +140,50 @@ export async function listPendingSetorBendaharaApprovals() {
   }));
 }
 
+export async function listPendingAssetRentalPaymentApprovals() {
+  const result = await pool.query(
+    `SELECT
+       ar.id,
+       ar.amount,
+       ar.created_at,
+       ar.rental_date,
+       ar.renter_name,
+       ar.renter_phone,
+       ar.quantity,
+       ar.created_by,
+       a.name AS asset_name,
+       creator.nama AS created_by_nama
+     FROM asset_rentals ar
+     JOIN assets a ON a.id = ar.asset_id
+     LEFT JOIN users creator ON creator.id::text = ar.created_by::text
+     WHERE ar.status <> 'PAID'
+       AND ar.transaction_id IS NULL
+     ORDER BY ar.rental_date ASC, ar.created_at ASC`
+  );
+
+  return result.rows.map((row) => ({
+    kind: 'ASSET_RENTAL_PAYMENT',
+    id: row.id,
+    title: 'Penerimaan Sewa Aset',
+    description: `${row.asset_name || '-'} x${row.quantity || 1} • Penyewa: ${row.renter_name || '-'}${row.renter_phone ? ` • ${row.renter_phone}` : ''}`,
+    amount: Number(row.amount || 0),
+    created_at: row.created_at,
+    meta: {
+      rental_id: row.id,
+      asset_name: row.asset_name,
+      renter_name: row.renter_name,
+      rental_date: row.rental_date,
+      created_by: row.created_by,
+      created_by_nama: row.created_by_nama || null
+    }
+  }));
+}
+
 export async function listApprovalHistory({
   includeJimpitan = false,
   includeFinance = false,
   includeHandover = false,
+  includeAssetRentalPayment = false,
   includeSocialReceipt = false,
   limit = 10,
   offset = 0
@@ -216,6 +256,26 @@ export async function listApprovalHistory({
         AND t.approved_at IS NOT NULL
         AND t.type = 'TRANSFER'
         AND t.description LIKE '[JIMPITAN_SETOR]%'
+    `);
+  }
+
+  if (includeAssetRentalPayment) {
+    selects.push(`
+      SELECT
+        'ASSET_RENTAL_PAYMENT'::text AS kind,
+        ar.id::text AS id,
+        'Penerimaan Sewa Aset' AS title,
+        (COALESCE(a.name, '-') || ' x' || ar.quantity::text || ' • Penyewa: ' || COALESCE(ar.renter_name, '-')) AS description,
+        COALESCE(ar.amount, 0)::numeric AS amount,
+        ar.created_at,
+        ar.paid_at AS approved_at,
+        ar.paid_by::text AS approved_by,
+        approver.nama AS approved_by_nama
+      FROM asset_rentals ar
+      JOIN assets a ON a.id = ar.asset_id
+      LEFT JOIN users approver ON approver.id::text = ar.paid_by::text
+      WHERE ar.status = 'PAID'
+        AND ar.paid_at IS NOT NULL
     `);
   }
 

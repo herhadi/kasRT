@@ -16,7 +16,6 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, formatTanggalIndonesia, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
-import { PendingApprovalItem } from '@/types';
 
 type WargaItem = { id: string | number; nama: string };
 type IuranStatusItem = { warga_id: string; nama: string; paid_amount: number };
@@ -178,8 +177,6 @@ export default function BendaharaPage() {
   const [yearlyYear, setYearlyYear] = useState(() => new Date().getFullYear());
   const [yearlyBook, setYearlyBook] = useState<YearlyBookSummary | null>(null);
   const [showClosingTools, setShowClosingTools] = useState(false);
-  const [pendingHandover, setPendingHandover] = useState<PendingApprovalItem[]>([]);
-  const [loadingHandover, setLoadingHandover] = useState(false);
   const [sosialSummary, setSosialSummary] = useState<SosialSummary | null>(null);
   const [rekapKeuangan, setRekapKeuangan] = useState<RekapKeuanganItem[]>([]);
   const [showBendaharaDetail, setShowBendaharaDetail] = useState(false);
@@ -339,26 +336,6 @@ export default function BendaharaPage() {
     setYearlyBook(result.data || null);
   }, [yearlyYear]);
 
-  const loadPendingHandover = useCallback(async () => {
-    if (!isBendahara) return;
-    setLoadingHandover(true);
-    try {
-      const result = await apiFetch<{
-        success: boolean;
-        data: {
-          sections: Array<{ key: string; items: PendingApprovalItem[] }>;
-        };
-      }>('/approval/pending');
-
-      const section = (result.data?.sections || []).find((item) => item.key === 'jimpitan_handover');
-      setPendingHandover(section?.items || []);
-    } catch {
-      setPendingHandover([]);
-    } finally {
-      setLoadingHandover(false);
-    }
-  }, [isBendahara]);
-
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
@@ -384,16 +361,16 @@ export default function BendaharaPage() {
       }
       return;
     }
-    void Promise.all([loadMaster(), loadIuranTariffs(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadPendingHandover(), loadOpeningArrears()]).catch((e) =>
+    void Promise.all([loadMaster(), loadIuranTariffs(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadOpeningArrears()]).catch((e) =>
       setError(e instanceof Error ? e.message : 'Gagal memuat menu bendahara')
     );
-  }, [loading, canSeeOps, isBendahara, isKetua, isAdminSosial, isSekretaris, router, loadMaster, loadIuranTariffs, loadReport, loadWargaOptions, loadYearlyBook, loadPendingHandover, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
+  }, [loading, canSeeOps, isBendahara, isKetua, isAdminSosial, isSekretaris, router, loadMaster, loadIuranTariffs, loadReport, loadWargaOptions, loadYearlyBook, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
 
   useEffect(() => {
     if (loading || !canSeeOps) return;
     const interval = window.setInterval(() => {
       if (isBendahara || isKetua) {
-        void Promise.all([loadMaster(), loadIuranTariffs(), loadReport(), loadPendingHandover(), loadOpeningArrears()]);
+        void Promise.all([loadMaster(), loadIuranTariffs(), loadReport(), loadOpeningArrears()]);
       } else {
         if (isAdminSosial) {
           void Promise.all([loadPendingSosialReceiptCount(), loadSosialSummary()]);
@@ -414,7 +391,6 @@ export default function BendaharaPage() {
     loadMaster,
     loadIuranTariffs,
     loadReport,
-    loadPendingHandover,
     loadPendingSosialReceiptCount,
     loadSosialSummary,
     loadRekapKeuangan,
@@ -661,7 +637,6 @@ export default function BendaharaPage() {
       setToast({ type: 'success', text: 'Setoran iuran berhasil dicatat.' });
       await loadReport();
       await loadMaster();
-      await loadPendingHandover();
       console.info('[BENDAHARA][IURAN] submit:done');
       return true;
     } catch (e) {
@@ -833,24 +808,6 @@ export default function BendaharaPage() {
       setMessage(`Opening periode ${nextYear} berhasil dibuat.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal opening tahun berikutnya');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function approveSetorMasuk(transactionId: string | number) {
-    try {
-      setBusy(true);
-      setError('');
-      setMessage('');
-      await apiFetch('/jimpitan/approve-setor-bendahara', {
-        method: 'POST',
-        body: JSON.stringify({ transaction_id: transactionId })
-      });
-      setMessage('Setor kas jimpitan berhasil diterima Bendahara.');
-      await Promise.all([loadPendingHandover(), loadMaster(), loadReport()]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal approve setor jimpitan');
     } finally {
       setBusy(false);
     }
@@ -1268,13 +1225,21 @@ export default function BendaharaPage() {
                 ]}
               />
               {!iuranPageMode ? (
-                <div className="mb-3">
+                <div className="mb-3 flex flex-wrap gap-2">
                   <Link
                     href="/operasional/bendahara/iuran"
                     className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold"
                   >
                     Input Iuran
                   </Link>
+                  {isBendahara ? (
+                    <Link
+                      href="/approval/bendahara"
+                      className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold"
+                    >
+                      Approval Bendahara
+                    </Link>
+                  ) : null}
                 </div>
               ) : null}
               {iuranPageMode ? (

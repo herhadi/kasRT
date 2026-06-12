@@ -104,7 +104,7 @@ export type ManagementUserItem = {
 };
 
 export type PendingApprovalItem = {
-  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT';
+  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT' | 'ASSET_RENTAL_PAYMENT';
   id: string | number;
   title: string;
   description: string;
@@ -117,6 +117,9 @@ export type PendingApprovalItem = {
     created_by?: string | number;
     created_by_nama?: string | null;
     request_id?: string | number;
+    rental_id?: string | number;
+    asset_name?: string;
+    renter_name?: string;
     periode?: string;
     requested_by?: string | number;
   };
@@ -129,7 +132,7 @@ export type PendingApprovalSection = {
 };
 
 export type ApprovalHistoryItem = {
-  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT';
+  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT' | 'ASSET_RENTAL_PAYMENT';
   id: string | number;
   title: string;
   description: string;

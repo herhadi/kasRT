@@ -41,9 +41,26 @@ export async function ensureAssetTables() {
       amount NUMERIC(18,2) NOT NULL CHECK (amount > 0),
       notes TEXT,
       transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+      status VARCHAR(30) NOT NULL DEFAULT 'PENDING_PAYMENT',
+      paid_by UUID,
+      paid_at TIMESTAMPTZ,
       created_by UUID,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE asset_rentals
+      ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'PENDING_PAYMENT',
+      ADD COLUMN IF NOT EXISTS paid_by UUID,
+      ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ
+  `);
+  await pool.query(`
+    UPDATE asset_rentals
+    SET status = 'PAID',
+        paid_at = COALESCE(paid_at, created_at)
+    WHERE transaction_id IS NOT NULL
+      AND status <> 'PAID'
   `);
 }
 
@@ -65,7 +82,9 @@ export async function listAssets() {
       a.updated_at
     FROM assets a
     LEFT JOIN LATERAL (
-      SELECT COUNT(*)::int AS total_rental, COALESCE(SUM(amount), 0) AS total_amount
+      SELECT
+        COUNT(*)::int AS total_rental,
+        COALESCE(SUM(amount) FILTER (WHERE status = 'PAID'), 0) AS total_amount
       FROM asset_rentals ar
       WHERE ar.asset_id = a.id
     ) r ON TRUE
@@ -140,9 +159,16 @@ export async function listAssetRentals({ limit = 30 } = {}) {
        ar.amount,
        ar.notes,
        ar.transaction_id,
+       ar.status,
+       ar.paid_at,
+       ar.paid_by::text,
+       payer.nama AS paid_by_nama,
+       creator.nama AS created_by_nama,
        ar.created_at
      FROM asset_rentals ar
      JOIN assets a ON a.id = ar.asset_id
+     LEFT JOIN users payer ON payer.id::text = ar.paid_by::text
+     LEFT JOIN users creator ON creator.id::text = ar.created_by::text
      ORDER BY ar.rental_date DESC, ar.created_at DESC
      LIMIT $1`,
     [safeLimit]
@@ -156,22 +182,63 @@ export async function listAssetRentals({ limit = 30 } = {}) {
 
 export async function createAssetRental({ assetId, renterName, renterPhone, rentalDate, returnDate, quantity, amount, notes, actor }) {
   await ensureAssetTables();
+  const asset = await pool.query(
+    `SELECT id, quantity, is_active
+     FROM assets
+     WHERE id = $1
+     LIMIT 1`,
+    [assetId]
+  );
+  if (!asset.rows.length) throw new Error('Aset tidak ditemukan');
+  if (!asset.rows[0].is_active) throw new Error('Aset tidak aktif');
+  if (Number(quantity) > Number(asset.rows[0].quantity || 0)) {
+    throw new Error('Jumlah sewa melebihi jumlah aset tersedia');
+  }
+
+  const rental = await pool.query(
+    `INSERT INTO asset_rentals
+     (id, asset_id, renter_name, renter_phone, rental_date, return_date, quantity, amount, notes, status, created_by)
+     VALUES ($1, $2, $3, NULLIF($4, ''), $5::date, NULLIF($6, '')::date, $7, $8, NULLIF($9, ''), 'PENDING_PAYMENT', $10::uuid)
+     RETURNING id::text`,
+    [
+      randomUUID(),
+      assetId,
+      renterName,
+      renterPhone || '',
+      rentalDate,
+      returnDate || '',
+      quantity,
+      amount,
+      notes || '',
+      actor || null
+    ]
+  );
+  return rental.rows[0];
+}
+
+export async function confirmAssetRentalPayment({ rentalId, actor }) {
+  await ensureAssetTables();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const asset = await client.query(
-      `SELECT id, name, quantity, is_active
-       FROM assets
-       WHERE id = $1
-       LIMIT 1`,
-      [assetId]
+    const rental = await client.query(
+      `SELECT
+         ar.id,
+         ar.amount,
+         ar.renter_name,
+         ar.transaction_id,
+         ar.status,
+         a.name AS asset_name
+       FROM asset_rentals ar
+       JOIN assets a ON a.id = ar.asset_id
+       WHERE ar.id = $1
+       FOR UPDATE`,
+      [rentalId]
     );
-    if (!asset.rows.length) throw new Error('Aset tidak ditemukan');
-    if (!asset.rows[0].is_active) throw new Error('Aset tidak aktif');
-    if (Number(quantity) > Number(asset.rows[0].quantity || 0)) {
-      throw new Error('Jumlah sewa melebihi jumlah aset tersedia');
-    }
+    if (!rental.rows.length) throw new Error('Data sewa tidak ditemukan');
+    const row = rental.rows[0];
+    if (row.transaction_id || row.status === 'PAID') throw new Error('Sewa aset sudah dikonfirmasi lunas');
 
     const wallet = await client.query(
       `SELECT id FROM wallets WHERE LOWER(name) = LOWER($1) LIMIT 1`,
@@ -181,40 +248,29 @@ export async function createAssetRental({ assetId, renterName, renterPhone, rent
 
     const tx = await client.query(
       `INSERT INTO transactions
-       (type, target_wallet_id, amount, status, description, created_by, approved_by, approved_at, created_at)
-       VALUES ('IN', $1, $2, 'APPROVED', $3, $4::uuid, $4::uuid, NOW(), $5::date)
+       (type, target_wallet_id, amount, status, description, created_by, approved_by, approved_at)
+       VALUES ('IN', $1, $2, 'APPROVED', $3, $4::uuid, $4::uuid, NOW())
        RETURNING id`,
       [
         wallet.rows[0].id,
-        amount,
-        `[ASSET_RENTAL] Sewa aset ${asset.rows[0].name} oleh ${renterName}`,
-        actor || null,
-        rentalDate
-      ]
-    );
-
-    const rental = await client.query(
-      `INSERT INTO asset_rentals
-       (id, asset_id, renter_name, renter_phone, rental_date, return_date, quantity, amount, notes, transaction_id, created_by)
-       VALUES ($1, $2, $3, NULLIF($4, ''), $5::date, NULLIF($6, '')::date, $7, $8, NULLIF($9, ''), $10, $11::uuid)
-       RETURNING id::text`,
-      [
-        randomUUID(),
-        assetId,
-        renterName,
-        renterPhone || '',
-        rentalDate,
-        returnDate || '',
-        quantity,
-        amount,
-        notes || '',
-        tx.rows[0].id,
+        row.amount,
+        `[ASSET_RENTAL] Pembayaran sewa aset ${row.asset_name} oleh ${row.renter_name}`,
         actor || null
       ]
     );
 
+    await client.query(
+      `UPDATE asset_rentals
+       SET status = 'PAID',
+           transaction_id = $2,
+           paid_by = $3::uuid,
+           paid_at = NOW()
+       WHERE id = $1`,
+      [rentalId, tx.rows[0].id, actor || null]
+    );
+
     await client.query('COMMIT');
-    return rental.rows[0];
+    return { id: rentalId, transaction_id: tx.rows[0].id };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

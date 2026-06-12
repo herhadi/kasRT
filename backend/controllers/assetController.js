@@ -1,10 +1,13 @@
 import {
+  confirmAssetRentalPayment,
   createAssetRental,
   listAssetRentals,
   listAssets,
   setAssetActive,
   upsertAsset
 } from '../models/assetModel.js';
+import { notifyRoles } from '../services/approvalNotifier.js';
+import { formatRupiah } from '../services/telegramService.js';
 
 function parsePositiveNumber(value, fallback = 0) {
   const number = Number(value);
@@ -106,7 +109,36 @@ export async function recordAssetRental(req, res) {
       notes,
       actor
     });
+    const frontendUrl = String(
+      process.env.FRONTEND_BASE_URL ||
+      process.env.FRONTEND_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      ''
+    ).replace(/\/$/, '');
+    const approvalLink = frontendUrl ? `\n\n🔗 <a href="${frontendUrl}/approval/bendahara">Buka Approval Bendahara</a>` : '';
+    await notifyRoles(
+      ['Bendahara'],
+      `🔔 <b>Penerimaan Sewa Aset Menunggu Bendahara</b>\n` +
+        `Penyewa: <b>${renterName}</b>\n` +
+        `Nominal: <b>${formatRupiah(amount)}</b>\n` +
+        `Tanggal Sewa: <b>${rentalDate}</b>` +
+        approvalLink
+    );
     return res.json({ success: true, data: rental });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function confirmAssetRentalPaymentHandler(req, res) {
+  const rentalId = String(req.params.id || '').trim();
+  const actor = String(req.user?.user_id || '').trim();
+  if (!rentalId) return res.status(400).json({ success: false, message: 'ID sewa tidak valid' });
+  if (!actor) return res.status(401).json({ success: false, message: 'User tidak valid' });
+
+  try {
+    const data = await confirmAssetRentalPayment({ rentalId, actor });
+    return res.json({ success: true, data, message: 'Pembayaran sewa aset dikonfirmasi dan masuk Kas Sewa Aset' });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

@@ -38,7 +38,7 @@ import { delCache, getCacheJson, setCacheJson } from '../services/cacheService.j
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
 
-function buildApprovalLink() {
+function buildApprovalLink(path = '/approval') {
   const base =
     process.env.FRONTEND_BASE_URL ||
     process.env.FRONTEND_URL ||
@@ -48,7 +48,7 @@ function buildApprovalLink() {
   if (!base) return '';
   
   const normalized = String(base).trim().replace(/\/+$/, '');
-  return `${normalized}/approval`;
+  return `${normalized}${path}`;
 }
 
 function getOperationalDate(now = new Date()) {
@@ -778,13 +778,19 @@ export async function ajukanSetorKeBendahara(req, res) {
       description: tagDescription
     });
 
+    const bendaharaApprovalLink = buildApprovalLink('/approval/bendahara');
+    const linkSection = bendaharaApprovalLink
+      ? `\n\n🔗 <a href="${bendaharaApprovalLink}">Buka Approval Bendahara</a>`
+      : '';
+
     await notifyRoles(
       ['Bendahara', 'root'],
       `📦 <b>Pengajuan Setor Jimpitan ke Bendahara</b>\n` +
         `Periode: <b>${period}</b>\n` +
         `Batch APPROVED: <b>${totalBatch}</b>\n` +
         `Total Rekap: <b>${formatRupiah(totalNominal)}</b>\n` +
-        `Diajukan oleh Admin Jimpitan ID: <b>${adminId}</b>`
+        `Diajukan oleh Admin Jimpitan ID: <b>${adminId}</b>` +
+        linkSection
     );
     
     return res.json({
