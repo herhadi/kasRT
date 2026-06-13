@@ -174,24 +174,50 @@ export default function OperasionalKeamananPage() {
       return;
     }
 
-    const lines = ['*DAFTAR PETUGAS MINGGUAN*', ''];
+    setError('');
+    setMessage('');
+
+    const totalPetugas = weeklyGroups.reduce((total, day) => total + day.members.length, 0);
+    const hariTerisi = weeklyGroups.filter((day) => day.members.length > 0).length;
+    const lines = [
+      '📅 *JADWAL MINGGUAN*',
+      '📋 *PETUGAS RONDA/JIMPITAN*',      
+      '━━━━━━━━━━━━━━━━━━━━━',
+      ''
+    ];
+
     weeklyGroups.forEach((day) => {
-      lines.push(`*${day.label}*`);
+      lines.push(`📍 *${String(day.label).toUpperCase()}*`);
       if (day.members.length > 0) {
         day.members.forEach((person, index) => {
-          lines.push(`${index + 1}. ${person.nama}`);
+          lines.push(`   ${index + 1}. ${person.nama}`);
         });
       } else {
-        lines.push('_Belum ada petugas_');
+        lines.push('   _Belum ada petugas_');
       }
       lines.push('');
     });
 
+    lines.push('━━━━━━━━━━━━━━━');
+    lines.push('📊 *RINGKASAN*');
+    lines.push(`👥 Total petugas terjadwal: *${totalPetugas}*`);
+    lines.push(`🗓️ Hari terisi: *${hariTerisi}/${weeklyGroups.length}*`);
+    lines.push('━━━━━━━━━━━━━━━');
+    lines.push(`_Dibagikan oleh: ${user?.nama || 'Admin Jimpitan'}_`);
+
+    const text = lines.join('\n').trim();
+    if (navigator.share) {
+      navigator.share({ title: 'Jadwal Petugas Jimpitan', text }).catch(() => {});
+      return;
+    }
+
+    const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
     window.open(
-      `https://api.whatsapp.com/send?text=${encodeURIComponent(lines.join('\n').trim())}`,
+      `https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(text)}`,
       '_blank',
       'noopener,noreferrer'
     );
+    setMessage('Browser tidak mendukung share. Dialihkan ke WA Admin.');
   }
 
   if (loading || !user) return <main className="min-h-screen" />;
@@ -304,10 +330,12 @@ export default function OperasionalKeamananPage() {
                 <Button
                   type="button"
                   variant="ghost"
+                  className="btn-action-green rounded-xl border-2 px-4 py-3 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={handleKirimJadwalWA}
                   disabled={scheduleLoading || !weeklyGroups.length}
                 >
-                  Kirim ke WA
+                  <span className="mr-2">📤</span>
+                  Kirim Jadwal WA
                 </Button>
               )}
             >
