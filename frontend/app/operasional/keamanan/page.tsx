@@ -168,6 +168,32 @@ export default function OperasionalKeamananPage() {
     }));
   }, [scheduleData]);
 
+  function handleKirimJadwalWA() {
+    if (!weeklyGroups.length) {
+      setError('Jadwal petugas belum tersedia.');
+      return;
+    }
+
+    const lines = ['*DAFTAR PETUGAS MINGGUAN*', ''];
+    weeklyGroups.forEach((day) => {
+      lines.push(`*${day.label}*`);
+      if (day.members.length > 0) {
+        day.members.forEach((person, index) => {
+          lines.push(`${index + 1}. ${person.nama}`);
+        });
+      } else {
+        lines.push('_Belum ada petugas_');
+      }
+      lines.push('');
+    });
+
+    window.open(
+      `https://api.whatsapp.com/send?text=${encodeURIComponent(lines.join('\n').trim())}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }
+
   if (loading || !user) return <main className="min-h-screen" />;
   if (!canAccess) return <main className="min-h-screen"><Navbar /></main>;
 
@@ -271,7 +297,20 @@ export default function OperasionalKeamananPage() {
               </div>
             </Card>
 
-            <Card title="Tabel Jadwal Mingguan" subtitle="Referensi petugas jimpitan per hari (Ahad - Sabtu)">
+            <Card
+              title="Tabel Jadwal Mingguan"
+              subtitle="Referensi petugas jimpitan per hari (Ahad - Sabtu)"
+              headerRight={(
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleKirimJadwalWA}
+                  disabled={scheduleLoading || !weeklyGroups.length}
+                >
+                  Kirim ke WA
+                </Button>
+              )}
+            >
               <div className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                   <thead>
