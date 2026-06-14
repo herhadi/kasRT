@@ -71,8 +71,10 @@ export default function PresensiSekretarisPage() {
 
   function kirimRekapHadirWA() {
     const hadir = attendance.filter((a) => a.status === 'HADIR');
-    if (hadir.length === 0) {
-      pushToast('Belum ada warga yang hadir.', 'warning');
+    const ijin = attendance.filter((a) => a.status === 'IJIN');
+    const tanpaKeterangan = attendance.filter((a) => a.status === 'TIDAK_HADIR');
+    if (attendance.length === 0) {
+      pushToast('Data presensi belum tersedia.', 'warning');
       return;
     }
 
@@ -82,11 +84,31 @@ export default function PresensiSekretarisPage() {
 
     let text = '📋 *REKAP PRESENSI RAPAT RT*\n';
     text += `📅 *${periodText}*\n`;
-    text += `✅ *Total Hadir: ${hadir.length}*\n\n`;
-    text += '*Daftar Warga Hadir:*\n';
-    hadir.forEach((item, idx) => {
-      text += `${idx + 1}. ${item.nama}\n`;
-    });
+    text += '━━━━━━━━━━━━━━━\n';
+    text += '📊 *RINGKASAN KEHADIRAN*\n';
+    text += `✅ Hadir: *${hadir.length}*\n`;
+    text += `📝 Izin: *${ijin.length}*\n`;
+    text += `❌ Tanpa Keterangan: *${tanpaKeterangan.length}*\n`;
+    // text += `👥 Total Warga: *${attendance.length}*\n`;
+    text += '━━━━━━━━━━━━━━━\n\n';
+
+    text += '✅ *DAFTAR WARGA HADIR*\n';
+    if (hadir.length > 0) {
+      hadir.forEach((item, idx) => {
+        text += `${idx + 1}. ${item.nama}\n`;
+      });
+    } else {
+      text += '_Belum ada warga yang hadir_\n';
+    }
+
+    text += '\n📝 *DAFTAR WARGA IZIN*\n';
+    if (ijin.length > 0) {
+      ijin.forEach((item, idx) => {
+        text += `${idx + 1}. ${item.nama}\n`;
+      });
+    } else {
+      text += '_Tidak ada warga yang izin_\n';
+    }
 
     const nomor = process.env.NEXT_PUBLIC_WA_ADMIN || '';
     if (navigator.share) {
