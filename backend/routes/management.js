@@ -13,12 +13,12 @@ router.post('/cron/ping', asyncHandler(cronHealthPing));
 
 router.use(auth);
 
-router.get('/users', allowRoles('Ketua', 'Sekretaris'), asyncHandler(getUserManagementData));
+router.get('/users', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(getUserManagementData));
 router.get('/meeting-note', allowRoles('Ketua', 'Sekretaris'), asyncHandler(getMeetingNote));
 router.get('/meeting-attendance', allowRoles('Ketua', 'Sekretaris'), asyncHandler(getMeetingAttendance));
-router.post('/users', allowRoles('Sekretaris'), asyncHandler(addWargaUser));
-router.post('/users/:id/edit', allowRoles('Sekretaris'), asyncHandler(editWargaUser));
-router.post('/users/:id/admin-roles', allowRoles('Sekretaris'), asyncHandler(updateUserAdminRoles));
+router.post('/users', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(addWargaUser));
+router.post('/users/:id/edit', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(editWargaUser));
+router.post('/users/:id/admin-roles', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(updateUserAdminRoles));
 router.post('/meeting-note', allowRoles('Sekretaris'), asyncHandler(saveMeetingNote));
 router.post('/meeting-attendance', allowRoles('Sekretaris'), asyncHandler(saveMeetingAttendance));
 router.get('/telegram/webhook-info', allowRoles('root'), asyncHandler(getTelegramWebhookInfo));

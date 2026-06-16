@@ -47,6 +47,7 @@ export async function updateUserAdminRoles(req, res) {
   const roleIds = Array.isArray(req.body.role_ids) ? req.body.role_ids : [];
   const actorRoles = (req.user?.roles || []).map((r) => String(r).toLowerCase());
   const isRoot = actorRoles.includes('root');
+  const canManageLeadership = isRoot || actorRoles.includes('ketua') || actorRoles.includes('plt ketua');
 
   if (!userId) {
     return res.status(400).json({ success: false, message: 'user id tidak valid' });
@@ -68,10 +69,10 @@ export async function updateUserAdminRoles(req, res) {
       (ketuaRoleId && incoming.includes(Number(ketuaRoleId))) ||
       (sekretarisRoleId && incoming.includes(Number(sekretarisRoleId)));
 
-    if ((touchesLeadership || targetHasLeadership) && !isRoot) {
+    if ((touchesLeadership || targetHasLeadership) && !canManageLeadership) {
       return res.status(403).json({
         success: false,
-        message: 'Role Ketua/Sekretaris hanya bisa ditunjuk oleh root'
+        message: 'Role Ketua/Sekretaris hanya bisa ditunjuk oleh Ketua, Plt Ketua, atau root'
       });
     }
 

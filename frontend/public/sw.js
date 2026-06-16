@@ -1,7 +1,14 @@
-const CACHE_VERSION = 'kasrt-pwa-v1';
+const CACHE_VERSION = 'kasrt-pwa-v2';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const APP_SHELL = ['/', '/dashboard', '/manifest.webmanifest', '/icons/kasrt-icon.svg'];
+const APP_SHELL = [
+  '/',
+  '/dashboard',
+  '/manifest.webmanifest',
+  '/icons/kasrt-icon.svg',
+  '/icons/kasrt-icon-192.png',
+  '/icons/kasrt-icon-512.png'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

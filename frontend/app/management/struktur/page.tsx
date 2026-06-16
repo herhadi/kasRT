@@ -36,8 +36,9 @@ export default function UserManagementPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  const canManage = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
+  const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
+  const canManageLeadership = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'root']);
 
   const loadData = useCallback(async () => {
     const result = await apiFetch<{
@@ -217,7 +218,7 @@ export default function UserManagementPage() {
   const leadershipRoleNames = new Set(['ketua', 'sekretaris']);
   const roleOptions = organizationRoles.filter((role) => {
     const isLeadership = leadershipRoleNames.has(String(role.name).toLowerCase());
-    return isRoot || !isLeadership;
+    return canManageLeadership || !isLeadership;
   });
 
   if (!canManage) {
@@ -225,7 +226,7 @@ export default function UserManagementPage() {
       <main className="min-h-screen pb-10">
         <Navbar />
         <div className="mx-auto mt-6 w-full max-w-4xl px-4 md:px-6">
-          <Card title="Tidak Ada Akses" subtitle="Khusus Ketua, Sekretaris, atau root">
+          <Card title="Tidak Ada Akses" subtitle="Khusus Ketua, Plt Ketua, Sekretaris, atau root">
             <p className="text-sm text-[var(--text-muted)]">Anda tidak memiliki akses ke menu manajemen warga/admin.</p>
           </Card>
         </div>
@@ -303,7 +304,7 @@ export default function UserManagementPage() {
             Role `Warga` tetap melekat. Jabatan tambahan di sini bersifat organisasi.
           </p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Khusus jabatan `Ketua` dan `Sekretaris`, hanya `root` yang boleh menetapkan atau mengubah.
+            Khusus jabatan `Ketua` dan `Sekretaris`, hanya `Ketua`, `Plt Ketua`, atau `root` yang boleh menetapkan atau mengubah.
           </p>
 
           <div className="mt-4 overflow-x-auto">
