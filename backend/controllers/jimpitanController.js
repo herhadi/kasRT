@@ -618,7 +618,25 @@ export async function sendJimpitanShiftReminder(req, res) {
       `Selamat bekerja...` +
       testingSuffix;
 
-    await Promise.all(telegramRecipients.map((row) => sendTelegramMessage(row.telegram_chat_id, text)));
+    const telegramResults = await Promise.allSettled(
+      telegramRecipients.map((row) => sendTelegramMessage(row.telegram_chat_id, text))
+    );
+    const telegramSent = telegramResults.filter((item) => item.status === 'fulfilled' && item.value?.success === true).length;
+    const telegramFailed = telegramResults.length - telegramSent;
+    const telegramErrors = [];
+    telegramResults.forEach((item, index) => {
+      if (item.status === 'rejected') {
+        telegramErrors.push({
+          nama: telegramRecipients[index]?.nama || null,
+          message: item.reason?.message || String(item.reason || 'Telegram gagal')
+        });
+      } else if (item.value?.success !== true) {
+        telegramErrors.push({
+          nama: telegramRecipients[index]?.nama || null,
+          message: item.value?.error || item.value?.reason || 'Telegram tidak mengirim'
+        });
+      }
+    });
 
     // Fonnte message: plain text, tanpa tag HTML.
     const waText =
@@ -667,6 +685,9 @@ export async function sendJimpitanShiftReminder(req, res) {
       total_target: petugas.length,
       total_recipients: Math.max(telegramRecipients.length, waRecipients.length),
       telegram_recipients: telegramRecipients.length,
+      telegram_sent: telegramSent,
+      telegram_failed: telegramFailed,
+      telegram_errors: telegramErrors.slice(0, 5),
       wa_recipients: waRecipients.length,
       wa_sent: waSent,
       wa_failed: waFailed,
