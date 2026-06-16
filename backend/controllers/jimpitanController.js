@@ -52,18 +52,19 @@ function buildApprovalLink(path = '/approval') {
 }
 
 function getOperationalDate(now = new Date()) {
-  const opDate = new Date(now);
+  const jakartaTime = getJakartaTimeParts(now);
+  const [year, month, day] = jakartaTime.dateIso.split('-').map(Number);
+  const opDate = new Date(Date.UTC(year, month - 1, day));
   // Operational day: starts at 21:00, ends at 12:00 (noon) next day
   // So if it's before 12:00, we're still in previous day's operational period
-  if (opDate.getHours() < 12) {
+  if (jakartaTime.hour < 12) {
     opDate.setDate(opDate.getDate() - 1);
   }
-  opDate.setHours(0, 0, 0, 0);
   return opDate;
 }
 
 function getOperationalWeekdayNumber(date) {
-  return date.getDay() + 1;
+  return getJakartaTimeParts(date).shiftDay;
 }
 
 function getJakartaTimeParts(now = new Date()) {
@@ -135,7 +136,7 @@ function canInputByTime(userRoles = [], now = new Date()) {
   console.log('[JIMPITAN][SHIFT] role check', { userRoles, normalizedRoles, isRoot });
   if (isRoot) return true;
   
-  const hour = now.getHours();
+  const hour = getJakartaTimeParts(now).hour;
   return hour >= 21 || hour < 6;
 }
 
