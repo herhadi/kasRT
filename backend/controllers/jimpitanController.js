@@ -622,13 +622,18 @@ export async function sendJimpitanShiftReminder(req, res) {
 
     // Fonnte message: plain text, tanpa tag HTML.
     const waText =
-      (testMode ? `TESTING REMINDER JIMPITAN\n` : '') +
-      `Pengingat Jimpitan\n` +
-      `Hari operasional: ${targetLabel}\n` +
-      `Pengambilan jimpitan dimulai pukul 21:00 WIB.\n` +
-      `Pengingat otomatis dikirim sebelum jam operasional.\n` +
-      `Selamat bekerja...` +
-      (testMode ? `\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.` : '');
+      (testMode ? `🧪 TESTING REMINDER JIMPITAN\n` : '') +
+      `⏰ PENGINGAT JIMPITAN KASRT\n` +
+      `------------------------------\n` +
+      `📅 Hari operasional:\n` +
+      `${targetLabel}\n\n` +
+      `🕘 Jam mulai:\n` +
+      `21:00 WIB\n\n` +
+      `📝 Catatan:\n` +
+      `Pengingat ini dikirim otomatis sebelum jam operasional.\n\n` +
+      `🙏 Selamat bertugas. Terima kasih...\n` +
+      `------------------------------` +
+      (testMode ? `\n🧪 TESTING - abaikan jika bukan jadwal operasional.` : '');
     const waEnabled = Boolean(String(process.env.FONNTE_TOKEN || '').trim());
     let waSent = 0;
     let waFailed = 0;
