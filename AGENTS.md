@@ -61,8 +61,9 @@ Larangan:
 
 - Scheduler: Vercel Cron `frontend/vercel.json`.
 - Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
-- Schedule Vercel: `15 13 * * *` UTC (`20:15 WIB`).
-- Alasan schedule: Vercel Cron gratis tidak presisi dan bisa terlambat; backend menerima window `20:15-21:05 WIB`.
+- Schedule Vercel: beberapa trigger di `20:15`, `20:30`, `20:45`, dan `21:00 WIB`.
+- Alasan schedule: Vercel Cron gratis tidak presisi dan bisa terlambat; backend menerima window `20:15-21:15 WIB`.
+- Backend memakai daily lock sehingga beberapa trigger cron tidak mengirim reminder dobel.
 - Alur:
   - Vercel hit `GET /api/cron` (frontend),
   - frontend forward ke `POST /jimpitan/send-shift-reminder` (backend).

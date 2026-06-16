@@ -560,7 +560,7 @@ export async function sendJimpitanShiftReminder(req, res) {
   const totalMinutes = jakartaTime.hour * 60 + jakartaTime.minute;
   const targetMinutes = 20 * 60 + 45;
   const allowedEarlyMinutes = 30;
-  const allowedLateMinutes = 20;
+  const allowedLateMinutes = 30;
   const isWithinWindow =
     Number.isFinite(totalMinutes) &&
     totalMinutes >= targetMinutes - allowedEarlyMinutes &&
@@ -570,7 +570,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     return res.json({
       success: true,
       skipped: true,
-      message: 'Di luar window reminder 20:15-21:05 WIB',
+      message: 'Di luar window reminder 20:15-21:15 WIB',
       current_time_wib: jakartaTime.hourMinute
     });
   }

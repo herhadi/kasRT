@@ -71,8 +71,9 @@ Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`create
 
 - Trigger harian via Vercel Cron ke `GET /api/cron` (frontend).
 - Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
-- Schedule Vercel: `15 13 * * *` UTC (`20:15 WIB`) sesuai `frontend/vercel.json`.
-- Catatan: Vercel Cron pada plan gratis bisa terlambat, jadi backend menerima window `20:15-21:05 WIB`.
+- Schedule Vercel: beberapa trigger di `20:15`, `20:30`, `20:45`, dan `21:00 WIB` sesuai `frontend/vercel.json`.
+- Catatan: Vercel Cron pada plan gratis bisa terlambat, jadi backend menerima window `20:15-21:15 WIB`.
+- Backend memakai daily lock, jadi beberapa trigger cron tidak akan mengirim reminder dobel.
 - Frontend cron route meneruskan ke backend:
   - `POST /jimpitan/send-shift-reminder`
   - auth via `x-cron-secret` / bearer secret.
