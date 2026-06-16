@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/icons/kasrt-icon.svg',
-    apple: '/icons/kasrt-icon.svg'
+    apple: '/icons/kasrt-icon-192.png'
   }
 };
 

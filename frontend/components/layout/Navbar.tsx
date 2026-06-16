@@ -32,7 +32,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
     'Admin Internet', 'Admin Koperasi', 'Admin Keamanan', 'root'
   ]);
-  const canManageUsers = hasAnyRole(user, ['Ketua', 'Sekretaris', 'root']);
+  const canManageUsers = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
   const canSeeOps = hasAnyRole(user, [
     'Bendahara', 'Ketua', 'Sekretaris', 'Admin Jimpitan',
     'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
