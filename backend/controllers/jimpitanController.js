@@ -1,6 +1,6 @@
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
-import { sendFonnteMessage } from '../services/fonnteService.js';
+import { getWaReminderStatus, sendWaReminderBatch } from '../services/waReminderService.js';
 import {
   approvePendingTaggedTransfer,
   createTransfer,
@@ -639,7 +639,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       }
     });
 
-    // Fonnte message: plain text, tanpa tag HTML.
+    // WA message: plain text, tanpa tag HTML.
     const waText =
       (testMode ? `🧪 TESTING REMINDER JIMPITAN\n` : '') +
       `⏰ PENGINGAT JIMPITAN RONDA\n` +
@@ -655,32 +655,11 @@ export async function sendJimpitanShiftReminder(req, res) {
       `🙏 Selamat bertugas...\n` +
       `------------------------------` +
       (testMode ? `\n🧪 TESTING - abaikan jika bukan jadwal operasional.` : '');
-    const waEnabled = Boolean(String(process.env.FONNTE_TOKEN || '').trim());
-    let waSent = 0;
-    let waFailed = 0;
-    const waErrors = [];
-    if (waEnabled && waRecipients.length) {
-      const waResults = await Promise.allSettled(
-        waRecipients.map((row) => sendFonnteMessage(row.no_hp, waText))
-      );
-      waSent = waResults.filter((item) => item.status === 'fulfilled' && item.value?.sent === true).length;
-      waFailed = waResults.length - waSent;
-      waResults.forEach((item, index) => {
-        if (item.status === 'rejected') {
-          waErrors.push({
-            nama: waRecipients[index]?.nama || null,
-            no_hp: waRecipients[index]?.no_hp || null,
-            message: item.reason?.message || String(item.reason || 'Fonnte gagal')
-          });
-        } else if (item.value?.sent !== true) {
-          waErrors.push({
-            nama: waRecipients[index]?.nama || null,
-            no_hp: waRecipients[index]?.no_hp || null,
-            message: item.value?.reason || 'Fonnte tidak mengirim'
-          });
-        }
-      });
-    }
+    const waStatus = getWaReminderStatus();
+    const waResult = await sendWaReminderBatch(waRecipients, waText, {
+      // Test reminder jangan menunggu delay panjang agar mudah dicek dari UI.
+      useDelay: !testMode
+    });
 
     return res.json({
       success: true,
@@ -692,10 +671,12 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegram_failed: telegramFailed,
       telegram_errors: telegramErrors.slice(0, 5),
       wa_recipients: waRecipients.length,
-      wa_sent: waSent,
-      wa_failed: waFailed,
-      wa_errors: waErrors.slice(0, 5),
-      wa_enabled: waEnabled,
+      wa_sent: waResult.sent,
+      wa_failed: waResult.failed,
+      wa_errors: waResult.errors.slice(0, 5),
+      wa_enabled: waResult.enabled,
+      wa_provider: waResult.provider,
+      wa_queue_enabled: waStatus.queue,
       test_mode: testMode,
       test_shift_day: testMode ? shiftDay : null
     });

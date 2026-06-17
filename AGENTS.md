@@ -64,6 +64,17 @@ Larangan:
 - Schedule Vercel: beberapa trigger di `20:15`, `20:30`, `20:45`, dan `21:00 WIB`.
 - Alasan schedule: Vercel Cron gratis tidak presisi dan bisa terlambat; backend menerima window `20:15-21:15 WIB`.
 - Backend memakai daily lock sehingga beberapa trigger cron tidak mengirim reminder dobel.
+- Kanal Telegram dan WA harus diperlakukan terpisah.
+- Telegram memakai bot resmi untuk user yang sudah aktivasi chat id.
+- WA reminder memakai service `backend/services/waReminderService.js` dengan provider env:
+  - `WA_REMINDER_PROVIDER=off`
+  - `WA_REMINDER_PROVIDER=fonnte`
+  - `WA_REMINDER_PROVIDER=http`
+- Provider `http` dipakai untuk gateway WA mandiri yang terpisah dari backend utama.
+- Untuk provider `http`, backend mengirim serial dengan jeda acak:
+  - `WA_REMINDER_MIN_DELAY_MS`
+  - `WA_REMINDER_MAX_DELAY_MS`
+- WA hanya untuk reminder ringan jimpitan harian; notifikasi kompleks diarahkan ke Telegram/dashboard.
 - Alur:
   - Vercel hit `GET /api/cron` (frontend),
   - frontend forward ke `POST /jimpitan/send-shift-reminder` (backend).

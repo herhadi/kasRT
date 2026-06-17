@@ -43,6 +43,16 @@ Telegram:
 - `TELEGRAM_WEBHOOK_SECRET`
 - `BACKEND_PUBLIC_URL`
 
+WA reminder jimpitan:
+- `WA_REMINDER_PROVIDER`
+  - `off`: WA reminder mati.
+  - `fonnte`: kirim via Fonnte lama.
+  - `http`: kirim ke gateway WA mandiri yang terpisah.
+- `WA_GATEWAY_URL` (wajib jika `WA_REMINDER_PROVIDER=http`)
+- `WA_GATEWAY_SECRET` (opsional, dikirim sebagai header `x-wa-gateway-secret`)
+- `WA_REMINDER_MIN_DELAY_MS` dan `WA_REMINDER_MAX_DELAY_MS` untuk jeda acak antar nomor pada provider `http`.
+- `FONNTE_TOKEN` hanya dipakai jika `WA_REMINDER_PROVIDER=fonnte` atau provider dikosongkan dan token tersedia.
+
 Opsional performa:
 - `REDIS_URL` (contoh: `rediss://...`)
 
@@ -74,6 +84,11 @@ Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`create
 - Schedule Vercel: beberapa trigger di `20:15`, `20:30`, `20:45`, dan `21:00 WIB` sesuai `frontend/vercel.json`.
 - Catatan: Vercel Cron pada plan gratis bisa terlambat, jadi backend menerima window `20:15-21:15 WIB`.
 - Backend memakai daily lock, jadi beberapa trigger cron tidak akan mengirim reminder dobel.
+- Telegram dan WA dipisah. Telegram tetap memakai bot resmi, sedangkan WA reminder memakai provider backend terpisah:
+  - `off`
+  - `fonnte`
+  - `http` untuk gateway WA mandiri.
+- Provider `http` mengirim serial dengan jeda acak agar reminder harian tidak menembak banyak nomor sekaligus.
 - Frontend cron route meneruskan ke backend:
   - `POST /jimpitan/send-shift-reminder`
   - auth via `x-cron-secret` / bearer secret.

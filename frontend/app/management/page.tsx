@@ -41,6 +41,8 @@ type CronHealthLog = {
         wa_failed?: number;
         wa_errors?: Array<{ nama?: string | null; no_hp?: string | null; message?: string }>;
         wa_enabled?: boolean;
+        wa_provider?: string;
+        wa_queue_enabled?: boolean;
         current_time_wib?: string;
       };
       timestamp?: string;
@@ -233,6 +235,7 @@ export default function ManagementHomePage() {
                       <InfoLine label="Petugas Shift" value={String(reminderResult.total_target ?? '-')} />
                       <InfoLine label="Telegram Terkirim" value={`${String(reminderResult.telegram_sent ?? reminderResult.telegram_recipients ?? '-')}/${String(reminderResult.telegram_recipients ?? '-')} (gagal ${String(reminderResult.telegram_failed ?? 0)})`} />
                       <InfoLine label="Error Telegram" value={formatTelegramError(reminderResult)} />
+                      <InfoLine label="Provider WA" value={formatWaProvider(reminderResult)} />
                       <InfoLine label="WA Terkirim" value={`${String(reminderResult.wa_sent ?? '-')}/${String(reminderResult.wa_recipients ?? '-')} (gagal ${String(reminderResult.wa_failed ?? 0)})`} />
                       <InfoLine label="Error WA" value={formatWaError(reminderResult)} />
                     </div>
@@ -251,7 +254,7 @@ export default function ManagementHomePage() {
                         </div>
                         {log.payload?.reminder_result ? (
                           <p className="mt-1 text-xs text-[var(--text-muted)]">
-                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_sent ?? log.payload.reminder_result.telegram_recipients ?? '-'}/{log.payload.reminder_result.telegram_recipients ?? '-'} | Error Telegram: {formatTelegramError(log.payload.reminder_result)} | WA: {log.payload.reminder_result.wa_sent ?? '-'}/{log.payload.reminder_result.wa_recipients ?? '-'} | Error WA: {formatWaError(log.payload.reminder_result)}
+                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_sent ?? log.payload.reminder_result.telegram_recipients ?? '-'}/{log.payload.reminder_result.telegram_recipients ?? '-'} | Error Telegram: {formatTelegramError(log.payload.reminder_result)} | Provider WA: {formatWaProvider(log.payload.reminder_result)} | WA: {log.payload.reminder_result.wa_sent ?? '-'}/{log.payload.reminder_result.wa_recipients ?? '-'} | Error WA: {formatWaError(log.payload.reminder_result)}
                           </p>
                         ) : null}
                       </div>
@@ -311,10 +314,10 @@ function formatReminderStatus(result: NonNullable<CronHealthLog['payload']>['rem
 
 function formatWaError(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
   if (!result) return '-';
-  if (result.wa_enabled === false) return 'FONNTE_TOKEN belum aktif di backend';
+  if (result.wa_enabled === false) return 'WA reminder nonaktif';
   if (!result.wa_errors?.length) return '-';
   const first = result.wa_errors[0];
-  return `${first.nama || first.no_hp || 'WA'}: ${first.message || 'Fonnte gagal'}`;
+  return `${first.nama || first.no_hp || 'WA'}: ${first.message || 'WA gagal'}`;
 }
 
 function formatTelegramError(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
@@ -322,6 +325,12 @@ function formatTelegramError(result: NonNullable<CronHealthLog['payload']>['remi
   if (!result.telegram_errors?.length) return '-';
   const first = result.telegram_errors[0];
   return `${first.nama || 'Telegram'}: ${first.message || 'Telegram gagal'}`;
+}
+
+function formatWaProvider(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
+  if (!result) return '-';
+  const provider = result.wa_provider || (result.wa_enabled === false ? 'off' : 'fonnte');
+  return result.wa_queue_enabled ? `${provider} + queue` : provider;
 }
 
 function getShiftDayLabel(value: string) {
