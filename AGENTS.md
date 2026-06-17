@@ -70,6 +70,8 @@ Larangan:
   - `WA_REMINDER_PROVIDER=off`
   - `WA_REMINDER_PROVIDER=fonnte`
   - `WA_REMINDER_PROVIDER=http`
+- Root bisa mengubah provider aktif lewat `/management`.
+- Pilihan UI disimpan di tabel `app_settings` key `wa_reminder` dan mengalahkan fallback env `WA_REMINDER_PROVIDER`.
 - Provider `http` dipakai untuk gateway WA mandiri yang terpisah dari backend utama.
 - Untuk provider `http`, backend mengirim serial dengan jeda acak:
   - `WA_REMINDER_MIN_DELAY_MS`

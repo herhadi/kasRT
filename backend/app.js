@@ -23,6 +23,7 @@ import { ensureLingkunganTables } from './models/lingkunganModel.js';
 import { ensureKoperasiTables } from './models/koperasiModel.js';
 import { ensureSecurityTables } from './models/securityModel.js';
 import { ensureAssetTables } from './models/assetModel.js';
+import { ensureAppSettingsTable } from './models/appSettingModel.js';
 
 const app = express();
 const PORT = process.env.PORT;
@@ -76,6 +77,7 @@ async function startServer() {
     await ensureKoperasiTables();
     await ensureSecurityTables();
     await ensureAssetTables();
+    await ensureAppSettingsTable();
     console.log('✅ Master data roles/wallets/contribution_types siap');
   } catch (error) {
     console.error('❌ Gagal memastikan master data:', error.message);

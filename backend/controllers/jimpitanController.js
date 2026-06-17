@@ -655,7 +655,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       `🙏 Selamat bertugas...\n` +
       `------------------------------` +
       (testMode ? `\n🧪 TESTING - abaikan jika bukan jadwal operasional.` : '');
-    const waStatus = getWaReminderStatus();
+    const waStatus = await getWaReminderStatus();
     const waResult = await sendWaReminderBatch(waRecipients, waText, {
       // Test reminder jangan menunggu delay panjang agar mudah dicek dari UI.
       useDelay: !testMode

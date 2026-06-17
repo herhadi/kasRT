@@ -48,6 +48,8 @@ WA reminder jimpitan:
   - `off`: WA reminder mati.
   - `fonnte`: kirim via Fonnte lama.
   - `http`: kirim ke gateway WA mandiri yang terpisah.
+- Root bisa mengubah provider aktif dari `/management` pada card `WA Reminder Jimpitan`.
+- Pilihan dari UI disimpan di database (`app_settings`) dan akan mengalahkan fallback `WA_REMINDER_PROVIDER`.
 - `WA_GATEWAY_URL` (wajib jika `WA_REMINDER_PROVIDER=http`)
 - `WA_GATEWAY_SECRET` (opsional, dikirim sebagai header `x-wa-gateway-secret`)
 - `WA_REMINDER_MIN_DELAY_MS` dan `WA_REMINDER_MAX_DELAY_MS` untuk jeda acak antar nomor pada provider `http`.
@@ -88,6 +90,7 @@ Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`create
   - `off`
   - `fonnte`
   - `http` untuk gateway WA mandiri.
+- Root dapat mengubah provider WA dari `/management` tanpa deploy ulang.
 - Provider `http` mengirim serial dengan jeda acak agar reminder harian tidak menembak banyak nomor sekaligus.
 - Frontend cron route meneruskan ke backend:
   - `POST /jimpitan/send-shift-reminder`

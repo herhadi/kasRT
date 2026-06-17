@@ -9,6 +9,7 @@ import {
   ,
   upsertMeetingAttendanceByMonth
 } from '../models/managementModel.js';
+import { getWaReminderStatus, updateWaReminderConfig } from '../services/waReminderService.js';
 
 export async function getUserManagementData(_req, res) {
   try {
@@ -156,6 +157,53 @@ export async function saveMeetingAttendance(req, res) {
   try {
     await upsertMeetingAttendanceByMonth({ month, attendance, actorId });
     return res.json({ success: true });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function getWaReminderManagementConfig(_req, res) {
+  try {
+    const status = await getWaReminderStatus();
+    return res.json({
+      success: true,
+      data: {
+        provider: status.provider,
+        enabled: status.enabled,
+        queue_enabled: status.queue,
+        delay: status.delay,
+        updated_at: status.updated_at,
+        env: {
+          fonnte_configured: Boolean(String(process.env.FONNTE_TOKEN || '').trim()),
+          gateway_configured: Boolean(String(process.env.WA_GATEWAY_URL || '').trim())
+        }
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function updateWaReminderManagementConfig(req, res) {
+  const actorId = String(req.user?.user_id || '').trim();
+  const provider = String(req.body.provider || '').trim().toLowerCase();
+
+  try {
+    const data = await updateWaReminderConfig({ provider, updatedBy: actorId || null });
+    const status = await getWaReminderStatus();
+    return res.json({
+      success: true,
+      data: {
+        ...data,
+        enabled: status.enabled,
+        queue_enabled: status.queue,
+        delay: status.delay,
+        env: {
+          fonnte_configured: Boolean(String(process.env.FONNTE_TOKEN || '').trim()),
+          gateway_configured: Boolean(String(process.env.WA_GATEWAY_URL || '').trim())
+        }
+      }
+    });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

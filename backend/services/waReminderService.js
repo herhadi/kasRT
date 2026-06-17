@@ -1,7 +1,9 @@
 import { sendFonnteMessage } from './fonnteService.js';
+import { getAppSetting, upsertAppSetting } from '../models/appSettingModel.js';
 
 const DEFAULT_MIN_DELAY_MS = 30000;
 const DEFAULT_MAX_DELAY_MS = 120000;
+const WA_REMINDER_SETTING_KEY = 'wa_reminder';
 
 export function normalizeWaPhone(value) {
   const raw = String(value || '').replace(/[^\d]/g, '');
@@ -16,10 +18,40 @@ export function isValidWaPhone(value) {
   return /^628\d{7,13}$/.test(normalized);
 }
 
-function getWaProvider() {
+function getEnvWaProvider() {
   const provider = String(process.env.WA_REMINDER_PROVIDER || '').trim().toLowerCase();
   if (provider) return provider;
   return String(process.env.FONNTE_TOKEN || '').trim() ? 'fonnte' : 'off';
+}
+
+export async function getWaReminderConfig() {
+  const setting = await getAppSetting(WA_REMINDER_SETTING_KEY, null);
+  const provider = String(setting?.provider || getEnvWaProvider()).trim().toLowerCase();
+  const allowedProvider = ['off', 'fonnte', 'http'].includes(provider) ? provider : 'off';
+  return {
+    provider: allowedProvider,
+    updated_at: setting?.updated_at || null
+  };
+}
+
+export async function updateWaReminderConfig({ provider, updatedBy }) {
+  const normalizedProvider = String(provider || '').trim().toLowerCase();
+  if (!['off', 'fonnte', 'http'].includes(normalizedProvider)) {
+    throw new Error('Provider WA tidak valid');
+  }
+
+  const value = {
+    provider: normalizedProvider,
+    updated_at: new Date().toISOString()
+  };
+
+  await upsertAppSetting({
+    keyName: WA_REMINDER_SETTING_KEY,
+    value,
+    updatedBy
+  });
+
+  return value;
 }
 
 function getDelayConfig() {
@@ -70,18 +102,21 @@ async function sendHttpGatewayMessage(target, message, recipient = {}) {
   return { sent: true, target, raw: payload };
 }
 
-export function getWaReminderStatus() {
-  const provider = getWaProvider();
+export async function getWaReminderStatus() {
+  const config = await getWaReminderConfig();
+  const provider = config.provider;
   return {
     provider,
     enabled: provider !== 'off',
     queue: provider === 'http',
-    delay: getDelayConfig()
+    delay: getDelayConfig(),
+    updated_at: config.updated_at
   };
 }
 
 export async function sendWaReminderBatch(recipients, message, options = {}) {
-  const provider = getWaProvider();
+  const config = await getWaReminderConfig();
+  const provider = config.provider;
   const enabled = provider !== 'off';
   const errors = [];
   let sent = 0;

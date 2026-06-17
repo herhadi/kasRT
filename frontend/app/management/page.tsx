@@ -50,6 +50,21 @@ type CronHealthLog = {
     created_at: string;
 };
 
+type WaReminderConfig = {
+  provider: 'off' | 'fonnte' | 'http';
+  enabled: boolean;
+  queue_enabled: boolean;
+  delay: {
+    min: number;
+    max: number;
+  };
+  updated_at?: string | null;
+  env: {
+    fonnte_configured: boolean;
+    gateway_configured: boolean;
+  };
+};
+
 export default function ManagementHomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -60,6 +75,11 @@ export default function ManagementHomePage() {
   const [testingReminder, setTestingReminder] = useState(false);
   const [cronTestMessage, setCronTestMessage] = useState('');
   const [testShiftDay, setTestShiftDay] = useState('3');
+  const [waConfig, setWaConfig] = useState<WaReminderConfig | null>(null);
+  const [waProvider, setWaProvider] = useState<WaReminderConfig['provider']>('off');
+  const [loadingWaConfig, setLoadingWaConfig] = useState(false);
+  const [savingWaConfig, setSavingWaConfig] = useState(false);
+  const [waConfigMessage, setWaConfigMessage] = useState('');
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
@@ -81,6 +101,40 @@ export default function ManagementHomePage() {
       setCronError(error instanceof Error ? error.message : 'Gagal memuat status cron');
     } finally {
       setLoadingCron(false);
+    }
+  }
+
+  async function loadWaReminderConfig() {
+    if (!isRoot) return;
+    setLoadingWaConfig(true);
+    setWaConfigMessage('');
+    try {
+      const res = await apiFetch<{ success: boolean; data: WaReminderConfig }>('/management/wa-reminder');
+      setWaConfig(res.data);
+      setWaProvider(res.data.provider);
+    } catch (error) {
+      setWaConfigMessage(error instanceof Error ? error.message : 'Gagal memuat setting WA reminder');
+    } finally {
+      setLoadingWaConfig(false);
+    }
+  }
+
+  async function saveWaReminderConfig() {
+    setSavingWaConfig(true);
+    setWaConfigMessage('');
+    try {
+      const res = await apiFetch<{ success: boolean; data: WaReminderConfig }>('/management/wa-reminder', {
+        method: 'POST',
+        body: JSON.stringify({ provider: waProvider })
+      });
+      setWaConfig(res.data);
+      setWaProvider(res.data.provider);
+      setWaConfigMessage('Setting WA reminder tersimpan.');
+      await loadCronStatus();
+    } catch (error) {
+      setWaConfigMessage(error instanceof Error ? error.message : 'Gagal menyimpan setting WA reminder');
+    } finally {
+      setSavingWaConfig(false);
     }
   }
 
@@ -124,6 +178,7 @@ export default function ManagementHomePage() {
   useEffect(() => {
     if (!loading && user && isRoot) {
       void loadCronStatus();
+      void loadWaReminderConfig();
     }
   }, [loading, user?.id, isRoot]);
 
@@ -182,6 +237,83 @@ export default function ManagementHomePage() {
             ) : null}
           </div>
         </Card>
+        {isRoot ? (
+          <Card
+            title="WA Reminder Jimpitan"
+            subtitle="Pilih kanal WA untuk reminder harian. Telegram tetap berjalan terpisah."
+            headerRight={
+              <Button variant="ghost" onClick={loadWaReminderConfig} disabled={loadingWaConfig}>
+                {loadingWaConfig ? 'Memuat...' : 'Refresh'}
+              </Button>
+            }
+          >
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className={`cursor-pointer rounded-2xl border px-4 py-4 transition ${waProvider === 'off' ? 'border-[var(--accent)] bg-[var(--surface-strong)]' : 'border-[var(--line)] bg-[var(--surface)]'}`}>
+                  <input
+                    type="radio"
+                    name="wa_provider"
+                    value="off"
+                    checked={waProvider === 'off'}
+                    onChange={() => setWaProvider('off')}
+                    className="sr-only"
+                  />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Nonaktif</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">WA tidak dikirim. Aman saat nomor/device bermasalah.</p>
+                </label>
+                <label className={`cursor-pointer rounded-2xl border px-4 py-4 transition ${waProvider === 'fonnte' ? 'border-[var(--accent)] bg-[var(--surface-strong)]' : 'border-[var(--line)] bg-[var(--surface)]'}`}>
+                  <input
+                    type="radio"
+                    name="wa_provider"
+                    value="fonnte"
+                    checked={waProvider === 'fonnte'}
+                    onChange={() => setWaProvider('fonnte')}
+                    className="sr-only"
+                  />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Fonnte</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">Pakai token Fonnte lama dari env backend.</p>
+                </label>
+                <label className={`cursor-pointer rounded-2xl border px-4 py-4 transition ${waProvider === 'http' ? 'border-[var(--accent)] bg-[var(--surface-strong)]' : 'border-[var(--line)] bg-[var(--surface)]'}`}>
+                  <input
+                    type="radio"
+                    name="wa_provider"
+                    value="http"
+                    checked={waProvider === 'http'}
+                    onChange={() => setWaProvider('http')}
+                    className="sr-only"
+                  />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Gateway Mandiri</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">Kirim ke service WA terpisah dengan queue dan jeda acak.</p>
+                </label>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <InfoLine label="Provider Aktif" value={waConfig ? formatWaConfigProvider(waConfig) : '-'} />
+                <InfoLine label="Fonnte Token" value={waConfig?.env.fonnte_configured ? 'Tersedia di env' : 'Belum diset'} />
+                <InfoLine label="Gateway Mandiri" value={waConfig?.env.gateway_configured ? 'WA_GATEWAY_URL tersedia' : 'Belum diset'} />
+                <InfoLine label="Jeda Gateway" value={waConfig ? `${waConfig.delay.min / 1000}-${waConfig.delay.max / 1000} detik` : '-'} />
+              </div>
+
+              {waProvider === 'fonnte' && waConfig?.env.fonnte_configured === false ? (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Fonnte dipilih, tapi `FONNTE_TOKEN` belum tersedia di env backend.
+                </p>
+              ) : null}
+              {waProvider === 'http' && waConfig?.env.gateway_configured === false ? (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Gateway mandiri dipilih, tapi `WA_GATEWAY_URL` belum tersedia di env backend.
+                </p>
+              ) : null}
+              {waConfigMessage ? <p className="text-sm text-[var(--text-muted)]">{waConfigMessage}</p> : null}
+
+              <div className="flex justify-end">
+                <Button onClick={saveWaReminderConfig} disabled={savingWaConfig || loadingWaConfig}>
+                  {savingWaConfig ? 'Menyimpan...' : 'Simpan Setting WA'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ) : null}
         {isRoot ? (
           <Card
             title="Status Cron Vercel"
@@ -331,6 +463,13 @@ function formatWaProvider(result: NonNullable<CronHealthLog['payload']>['reminde
   if (!result) return '-';
   const provider = result.wa_provider || (result.wa_enabled === false ? 'off' : 'fonnte');
   return result.wa_queue_enabled ? `${provider} + queue` : provider;
+}
+
+function formatWaConfigProvider(config: WaReminderConfig) {
+  if (config.provider === 'off') return 'Nonaktif';
+  if (config.provider === 'fonnte') return 'Fonnte';
+  if (config.provider === 'http') return config.queue_enabled ? 'Gateway Mandiri + queue' : 'Gateway Mandiri';
+  return config.provider;
 }
 
 function getShiftDayLabel(value: string) {
