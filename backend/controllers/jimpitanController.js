@@ -642,7 +642,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     // Fonnte message: plain text, tanpa tag HTML.
     const waText =
       (testMode ? `🧪 TESTING REMINDER JIMPITAN\n` : '') +
-      `⏰ PENGINGAT JIMPITAN KASRT\n` +
+      `⏰ PENGINGAT JIMPITAN RONDA\n` +
       `------------------------------\n` +
       `📅 Hari operasional:\n` +
       `${targetLabel}\n\n` +
@@ -650,7 +650,9 @@ export async function sendJimpitanShiftReminder(req, res) {
       `21:00 WIB\n\n` +
       `📝 Catatan:\n` +
       `Pengingat ini dikirim otomatis sebelum jam operasional.\n\n` +
-      `🙏 Selamat bertugas. Terima kasih...\n` +
+      `Silahkan login menggunakan nomor hp dengan password 1234\n` +
+      `👉 https://kas02.vercel.app\n\n` +
+      `🙏 Selamat bertugas...\n` +
       `------------------------------` +
       (testMode ? `\n🧪 TESTING - abaikan jika bukan jadwal operasional.` : '');
     const waEnabled = Boolean(String(process.env.FONNTE_TOKEN || '').trim());
