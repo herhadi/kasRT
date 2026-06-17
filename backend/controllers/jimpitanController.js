@@ -651,7 +651,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       `📝 Catatan:\n` +
       `Pengingat ini dikirim otomatis sebelum jam operasional.\n\n` +
       `Silahkan login menggunakan nomor hp dengan password 1234\n` +
-      `👉 https://kas02.vercel.app\n\n` +
+      `👉 https://kas02.vercel.app/jimpitan\n\n` +
       `🙏 Selamat bertugas...\n` +
       `------------------------------` +
       (testMode ? `\n🧪 TESTING - abaikan jika bukan jadwal operasional.` : '');
