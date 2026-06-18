@@ -62,6 +62,35 @@ type WaReminderConfig = {
   env: {
     fonnte_configured: boolean;
     gateway_configured: boolean;
+    gateway_send_configured?: boolean;
+    gateway_base_configured?: boolean;
+  };
+};
+
+type WaGatewayStatus = {
+  configured: boolean;
+  success: boolean;
+  message?: string;
+  data?: {
+    connected: boolean;
+    state: string;
+    number?: string | null;
+    has_qr: boolean;
+    last_qr_at?: string | null;
+    last_connected_at?: string | null;
+    last_disconnect_reason?: string | number | null;
+  };
+};
+
+type WaGatewayQr = {
+  configured: boolean;
+  success: boolean;
+  message?: string;
+  data?: {
+    qr?: string | null;
+    qr_data_url?: string | null;
+    last_qr_at?: string | null;
+    status?: WaGatewayStatus['data'];
   };
 };
 
@@ -80,6 +109,9 @@ export default function ManagementHomePage() {
   const [loadingWaConfig, setLoadingWaConfig] = useState(false);
   const [savingWaConfig, setSavingWaConfig] = useState(false);
   const [waConfigMessage, setWaConfigMessage] = useState('');
+  const [waGatewayStatus, setWaGatewayStatus] = useState<WaGatewayStatus | null>(null);
+  const [waGatewayQr, setWaGatewayQr] = useState<WaGatewayQr | null>(null);
+  const [loadingWaGateway, setLoadingWaGateway] = useState(false);
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
@@ -138,6 +170,29 @@ export default function ManagementHomePage() {
     }
   }
 
+  async function loadWaGateway() {
+    if (!isRoot) return;
+    setLoadingWaGateway(true);
+    try {
+      const [statusResult, qrResult] = await Promise.allSettled([
+        apiFetch<WaGatewayStatus>('/management/wa-gateway/status'),
+        apiFetch<WaGatewayQr>('/management/wa-gateway/qr')
+      ]);
+      if (statusResult.status === 'fulfilled') {
+        setWaGatewayStatus(statusResult.value);
+      } else {
+        setWaGatewayStatus({ configured: false, success: false, message: statusResult.reason?.message || 'Gagal memuat status gateway' });
+      }
+      if (qrResult.status === 'fulfilled') {
+        setWaGatewayQr(qrResult.value);
+      } else {
+        setWaGatewayQr({ configured: false, success: false, message: qrResult.reason?.message || 'Gagal memuat QR gateway' });
+      }
+    } finally {
+      setLoadingWaGateway(false);
+    }
+  }
+
   async function testCronHealthEndpoint() {
     setTestingCron(true);
     setCronTestMessage('');
@@ -179,6 +234,7 @@ export default function ManagementHomePage() {
     if (!loading && user && isRoot) {
       void loadCronStatus();
       void loadWaReminderConfig();
+      void loadWaGateway();
     }
   }, [loading, user?.id, isRoot]);
 
@@ -290,8 +346,36 @@ export default function ManagementHomePage() {
               <div className="grid gap-3 md:grid-cols-2">
                 <InfoLine label="Provider Aktif" value={waConfig ? formatWaConfigProvider(waConfig) : '-'} />
                 <InfoLine label="Fonnte Token" value={waConfig?.env.fonnte_configured ? 'Tersedia di env' : 'Belum diset'} />
-                <InfoLine label="Gateway Mandiri" value={waConfig?.env.gateway_configured ? 'WA_GATEWAY_URL tersedia' : 'Belum diset'} />
+                <InfoLine label="Gateway Kirim" value={waConfig?.env.gateway_send_configured ? 'WA_GATEWAY_URL tersedia' : 'Belum diset'} />
+                <InfoLine label="Gateway Status" value={waConfig?.env.gateway_base_configured ? 'WA_GATEWAY_BASE_URL tersedia' : 'Belum diset'} />
                 <InfoLine label="Jeda Gateway" value={waConfig ? `${waConfig.delay.min / 1000}-${waConfig.delay.max / 1000} detik` : '-'} />
+              </div>
+
+              <div className="rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Status Gateway Mandiri</p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">{formatGatewayStatus(waGatewayStatus)}</p>
+                  </div>
+                  <Button variant="ghost" onClick={loadWaGateway} disabled={loadingWaGateway}>
+                    {loadingWaGateway ? 'Memuat...' : 'Refresh Gateway'}
+                  </Button>
+                </div>
+                {waGatewayQr?.data?.qr_data_url ? (
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={waGatewayQr.data.qr_data_url}
+                      alt="QR login WhatsApp gateway"
+                      className="h-44 w-44 rounded-2xl border border-[var(--line)] bg-white p-2"
+                    />
+                    <div className="text-sm text-[var(--text-muted)]">
+                      <p className="font-semibold text-[var(--text-primary)]">Scan QR dari WhatsApp</p>
+                      <p className="mt-1">Buka WhatsApp, pilih Perangkat Tertaut, lalu scan QR ini.</p>
+                      <p className="mt-1">Setelah connected, pilih provider `Gateway Mandiri` dan simpan.</p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {waProvider === 'fonnte' && waConfig?.env.fonnte_configured === false ? (
@@ -299,9 +383,9 @@ export default function ManagementHomePage() {
                   Fonnte dipilih, tapi `FONNTE_TOKEN` belum tersedia di env backend.
                 </p>
               ) : null}
-              {waProvider === 'http' && waConfig?.env.gateway_configured === false ? (
+              {waProvider === 'http' && waConfig?.env.gateway_send_configured === false ? (
                 <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Gateway mandiri dipilih, tapi `WA_GATEWAY_URL` belum tersedia di env backend.
+                  Gateway mandiri dipilih, tapi `WA_GATEWAY_URL` untuk kirim pesan belum tersedia di env backend.
                 </p>
               ) : null}
               {waConfigMessage ? <p className="text-sm text-[var(--text-muted)]">{waConfigMessage}</p> : null}
@@ -470,6 +554,15 @@ function formatWaConfigProvider(config: WaReminderConfig) {
   if (config.provider === 'fonnte') return 'Fonnte';
   if (config.provider === 'http') return config.queue_enabled ? 'Gateway Mandiri + queue' : 'Gateway Mandiri';
   return config.provider;
+}
+
+function formatGatewayStatus(status: WaGatewayStatus | null) {
+  if (!status) return 'Belum dicek';
+  if (!status.configured) return status.message || 'WA_GATEWAY_BASE_URL belum diset di backend';
+  if (!status.success) return status.message || 'Gateway belum bisa diakses';
+  if (status.data?.connected) return `Connected (${status.data.number || 'nomor belum terbaca'})`;
+  if (status.data?.has_qr) return 'Menunggu scan QR';
+  return `Belum connected (${status.data?.state || 'unknown'})`;
 }
 
 function getShiftDayLabel(value: string) {

@@ -175,7 +175,9 @@ export async function getWaReminderManagementConfig(_req, res) {
         updated_at: status.updated_at,
         env: {
           fonnte_configured: Boolean(String(process.env.FONNTE_TOKEN || '').trim()),
-          gateway_configured: Boolean(String(process.env.WA_GATEWAY_URL || '').trim())
+          gateway_configured: Boolean(String(process.env.WA_GATEWAY_URL || process.env.WA_GATEWAY_BASE_URL || '').trim()),
+          gateway_send_configured: Boolean(String(process.env.WA_GATEWAY_URL || '').trim()),
+          gateway_base_configured: Boolean(String(process.env.WA_GATEWAY_BASE_URL || '').trim())
         }
       }
     });
@@ -200,11 +202,56 @@ export async function updateWaReminderManagementConfig(req, res) {
         delay: status.delay,
         env: {
           fonnte_configured: Boolean(String(process.env.FONNTE_TOKEN || '').trim()),
-          gateway_configured: Boolean(String(process.env.WA_GATEWAY_URL || '').trim())
+          gateway_configured: Boolean(String(process.env.WA_GATEWAY_URL || process.env.WA_GATEWAY_BASE_URL || '').trim()),
+          gateway_send_configured: Boolean(String(process.env.WA_GATEWAY_URL || '').trim()),
+          gateway_base_configured: Boolean(String(process.env.WA_GATEWAY_BASE_URL || '').trim())
         }
       }
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
+}
+
+async function fetchWaGateway(path) {
+  const baseUrl = String(process.env.WA_GATEWAY_BASE_URL || process.env.WA_GATEWAY_URL || '').trim().replace(/\/+$/, '');
+  const secret = String(process.env.WA_GATEWAY_SECRET || '').trim();
+  if (!baseUrl) {
+    return {
+      configured: false,
+      success: false,
+      message: 'WA_GATEWAY_BASE_URL belum diset'
+    };
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    headers: {
+      ...(secret ? { 'x-wa-gateway-secret': secret } : {})
+    }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.success === false) {
+    return {
+      configured: true,
+      success: false,
+      message: payload?.message || `WA gateway HTTP ${response.status}`
+    };
+  }
+  return {
+    configured: true,
+    success: true,
+    data: payload?.data || payload
+  };
+}
+
+export async function getWaGatewayStatus(_req, res) {
+  const result = await fetchWaGateway('/status');
+  const statusCode = result.configured && !result.success ? 502 : 200;
+  return res.status(statusCode).json(result);
+}
+
+export async function getWaGatewayQr(_req, res) {
+  const result = await fetchWaGateway('/qr');
+  const statusCode = result.configured && !result.success ? 502 : 200;
+  return res.status(statusCode).json(result);
 }

@@ -73,6 +73,15 @@ Larangan:
 - Root bisa mengubah provider aktif lewat `/management`.
 - Pilihan UI disimpan di tabel `app_settings` key `wa_reminder` dan mengalahkan fallback env `WA_REMINDER_PROVIDER`.
 - Provider `http` dipakai untuk gateway WA mandiri yang terpisah dari backend utama.
+- Gateway mandiri berada di folder `wa-gateway`.
+- Untuk backend KasRT:
+  - `WA_GATEWAY_URL` adalah endpoint kirim penuh, contoh `https://.../send`.
+  - `WA_GATEWAY_BASE_URL` adalah base URL untuk status/QR management, contoh `https://...`.
+  - `WA_GATEWAY_SECRET` harus sama dengan env gateway.
+- Endpoint gateway:
+  - `GET /status`
+  - `GET /qr`
+  - `POST /send`
 - Untuk provider `http`, backend mengirim serial dengan jeda acak:
   - `WA_REMINDER_MIN_DELAY_MS`
   - `WA_REMINDER_MAX_DELAY_MS`

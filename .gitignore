@@ -84,10 +84,10 @@ coverage/
 # =========================
 backend/sql/
 adopsi_ini.*
+wa-gateway/auth/
 
 # =========================
 # IGNORE
 # =========================
 .gitignore
 AGENTS.md
-
