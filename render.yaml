@@ -49,18 +49,18 @@ services:
   #     - key: CRON_SECRET
   #       sync: false
 
-  - type: web
-    name: kasrt02
-    runtime: node
-    region: singapore
-    rootDir: frontend
-    plan: free
-    buildCommand: "echo 'No build needed for redirect'"
-    startCommand: node -e "const http = require('http'); http.createServer((req, res) => { res.writeHead(301, { 'Location': 'https://kas02.vercel.app' + req.url }); res.end(); }).listen(process.env.PORT || 10000);"
-    autoDeploy: true
-    envVars:
-      - key: NODE_VERSION
-        value: 25
+  # - type: web
+  #   name: kasrt02
+  #   runtime: node
+  #   region: singapore
+  #   rootDir: frontend
+  #   plan: free
+  #   buildCommand: "echo 'No build needed for redirect'"
+  #   startCommand: node -e "const http = require('http'); http.createServer((req, res) => { res.writeHead(301, { 'Location': 'https://kas02.vercel.app' + req.url }); res.end(); }).listen(process.env.PORT || 10000);"
+  #   autoDeploy: true
+  #   envVars:
+  #     - key: NODE_VERSION
+  #       value: 25
 
   - type: web
     name: kasrt-wa-gateway
