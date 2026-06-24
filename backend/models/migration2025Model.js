@@ -202,6 +202,19 @@ export async function getSosialMigrationDetail2025() {
 export async function ensureMigrationTablesForYear(year = 2025) {
   const suffix = String(year);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS module_opening_balances (
+      module_key VARCHAR(30) NOT NULL,
+      closing_year INT NOT NULL,
+      opening_year INT NOT NULL,
+      amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+      created_by UUID REFERENCES users(id),
+      updated_by UUID REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (module_key, closing_year)
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS mig_iuran_wajib_${suffix} (
       id BIGSERIAL PRIMARY KEY,
       warga_id UUID NOT NULL,
@@ -295,6 +308,28 @@ export async function ensureMigrationTablesForYear(year = 2025) {
 
 export async function ensureMigration2025Tables(year = 2025) {
   return ensureMigrationTablesForYear(year);
+}
+
+export async function getModuleMigrationOpeningBalance({ moduleKey, closingYear }) {
+  await ensureMigrationTablesForYear(closingYear);
+  const result = await pool.query(
+    `SELECT amount, opening_year FROM module_opening_balances WHERE module_key = $1 AND closing_year = $2`,
+    [moduleKey, closingYear]
+  );
+  return { amount: Number(result.rows[0]?.amount || 0), opening_year: Number(result.rows[0]?.opening_year || (closingYear + 1)) };
+}
+
+export async function upsertModuleMigrationOpeningBalance({ moduleKey, closingYear, amount, actorId }) {
+  await ensureMigrationTablesForYear(closingYear);
+  const result = await pool.query(
+    `INSERT INTO module_opening_balances (module_key, closing_year, opening_year, amount, created_by, updated_by)
+     VALUES ($1, $2, $3, $4, $5::uuid, $5::uuid)
+     ON CONFLICT (module_key, closing_year)
+     DO UPDATE SET amount = EXCLUDED.amount, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+     RETURNING amount, opening_year`,
+    [moduleKey, closingYear, closingYear + 1, amount, actorId]
+  );
+  return { amount: Number(result.rows[0]?.amount || 0), opening_year: Number(result.rows[0]?.opening_year || (closingYear + 1)) };
 }
 
 export async function upsertIuranWajib2025Rows({ rows, actorId, year = 2025 }) {

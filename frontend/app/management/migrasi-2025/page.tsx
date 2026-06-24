@@ -10,6 +10,7 @@ import MigrationSummaryPanel from '@/components/migration/MigrationSummaryPanel'
 import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
+import { formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import { isFormMigrationModule, isMemberOnlyMigrationModule, migrationWargaOptionsPath } from '@/lib/migration2025';
 import { useAuth } from '@/lib/useAuth';
 
@@ -129,6 +130,10 @@ export default function Migration2025Page() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [toasts, setToasts] = useState<Array<{ id: number; text: string; kind: 'success' | 'error' | 'warning' }>>([]);
+  const [openingBalance, setOpeningBalance] = useState('0');
+  const moduleBase = String(moduleKey).split('-')[0];
+  const supportsOpeningBalance = moduleBase === 'internet' || moduleBase === 'lingkungan';
+  const cashOnlyMigrationModule = supportsOpeningBalance;
 
   function pushToast(text: string, kind: 'success' | 'error' | 'warning' = 'success') {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -191,6 +196,19 @@ export default function Migration2025Page() {
     })();
   }, [canAccess, moduleKey]);
 
+  useEffect(() => {
+    if (!canAccess || !supportsOpeningBalance) return;
+    void (async () => {
+      try {
+        const result = await apiFetch<{ success: boolean; data: { amount: number } }>(`/migration/${moduleBase}-${year}/opening-balance`);
+        setOpeningBalance(String(Number(result.data?.amount || 0)));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Gagal memuat saldo awal';
+        setError(msg);
+      }
+    })();
+  }, [canAccess, moduleBase, supportsOpeningBalance, year]);
+
   async function saveRows() {
     try {
       setBusy(true);
@@ -223,6 +241,32 @@ export default function Migration2025Page() {
       pushToast(`Opening ${year + 1} berhasil diproses.`, 'success');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Gagal apply opening 2026';
+      setError(msg);
+      pushToast(msg, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveOpeningBalance() {
+    const amount = parseRupiahInput(openingBalance);
+    if (!Number.isFinite(amount) || amount < 0) {
+      setError('Saldo kas akhir Desember tidak valid.');
+      return;
+    }
+    try {
+      setBusy(true);
+      const result = await apiFetch<{ success: boolean; data: { amount: number; opening_year: number } }>(`/migration/${moduleBase}-${year}/opening-balance`, {
+        method: 'POST',
+        body: JSON.stringify({ amount })
+      });
+      const nextYear = result.data?.opening_year || (year + 1);
+      setOpeningBalance(String(Number(result.data?.amount || 0)));
+      const msg = `Saldo awal kas ${nextYear} berhasil disimpan.`;
+      setMessage(msg);
+      pushToast(msg, 'success');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Gagal menyimpan saldo awal kas';
       setError(msg);
       pushToast(msg, 'error');
     } finally {
@@ -303,7 +347,20 @@ export default function Migration2025Page() {
               </button>
             ))}
           </div>
-          {showFormMode ? (
+          {supportsOpeningBalance ? (
+            <div className="mt-4 rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-3">
+              <p className="text-sm font-bold text-[var(--text-primary)]">Saldo Kas Akhir Desember {year}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">Nominal ini menjadi saldo awal kas {moduleBase === 'internet' ? 'Internet' : 'Lingkungan'} pada {year + 1}. Input iuran per warga tetap hanya untuk histori dan tunggakan.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                <label className="flex-1 space-y-1 text-xs font-semibold text-[var(--text-muted)]">
+                  <span>Nominal saldo kas</span>
+                  <input type="text" inputMode="numeric" value={formatRupiahInput(openingBalance)} onChange={(e) => setOpeningBalance(e.target.value)} placeholder="Contoh: 1.500.000" className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+                </label>
+                <Button className="btn-action-blue" onClick={saveOpeningBalance} disabled={busy}>Simpan Saldo Awal {year + 1}</Button>
+              </div>
+            </div>
+          ) : null}
+          {!cashOnlyMigrationModule && showFormMode ? (
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
@@ -329,7 +386,11 @@ export default function Migration2025Page() {
               </button>
             </div>
           ) : null}
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {cashOnlyMigrationModule ? (
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Tidak perlu input iuran atau tunggakan per warga untuk {moduleBase === 'internet' ? 'Internet' : 'Lingkungan'} pada {year}. Cukup simpan saldo kas akhir Desember di atas; tagihan mulai dihitung dari Januari {year + 1}.
+            </p>
+          ) : <div className="mt-3 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
               {showFormMode && inputMode === 'form' ? (
                 <>
@@ -422,27 +483,26 @@ export default function Migration2025Page() {
                 </pre>
               )}
             </div>
-          </div>
-          {isMemberOnlyMigrationModule(moduleKey) ? (
+          </div>}
+          {!cashOnlyMigrationModule && isMemberOnlyMigrationModule(moduleKey) ? (
             <p className="mt-3 text-xs text-amber-700">
               Modul <b>{moduleKey === 'internet-2025' ? 'Internet' : 'Lingkungan'}</b> hanya menampilkan warga yang terdaftar sebagai{' '}
               <b>member aktif</b> di pengaturan modul terkait.
             </p>
           ) : null}
-          <p className="mt-3 text-xs text-[var(--text-muted)]">
+          {!cashOnlyMigrationModule ? <p className="mt-3 text-xs text-[var(--text-muted)]">
             Catatan: bulan wajib format `2025-01` s.d. `2025-12`. Untuk iuran/internet/lingkungan/koperasi gunakan field `amount`.
             Untuk sosial gunakan `pemasukan` + `pengeluaran`. Untuk iuran wajib gunakan `target_amount` + `paid_amount`.
             Untuk koperasi loan gunakan: `loan_key`, `warga_id`, `principal_amount`, `tenor_months`, `paid_installments`, `interest_model`, `interest_rate_monthly`, `first_due_month`.
-          </p>
+          </p> : null}
         </Card>
         <Card title="Langkah Penggunaan" subtitle="Panduan cepat migrasi data manual ke KasRT">
           <ol className="list-decimal space-y-2 pl-5 text-sm text-[var(--text-primary)]">
             <li>Pilih modul migrasi yang ingin diinput.</li>
             <li>
-              Semua modul kecuali <b>Koperasi Loan</b> punya tab <b>Form</b> (grid 12 bulan). Iuran/Internet/Lingkungan memakai
-              default tarif dari pengaturan sistem.
+              Internet dan Lingkungan hanya membutuhkan saldo kas akhir Desember. Modul lain selain Koperasi Loan memakai tab <b>Form</b> (grid 12 bulan).
             </li>
-            <li>Isi data sesuai modul, lalu klik <b>Simpan</b> (form per warga atau simpan rows JSON).</li>
+            <li>Untuk Internet/Lingkungan, isi saldo kas Desember lalu klik <b>Simpan Saldo Awal</b>. Untuk modul lain, isi form per warga atau rows JSON.</li>
             <li>Klik <b>Refresh</b> untuk cek ringkasan hasil import.</li>
             <li>Ulangi untuk semua modul sampai data Desember 2025 lengkap.</li>
             <li>Khusus modul <b>Iuran Wajib</b>, klik <b>Apply Opening 2026</b> setelah data final.</li>

@@ -18,6 +18,7 @@ import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
+import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
 
 type InternetRow = {
   warga_id: string;
@@ -81,6 +82,7 @@ export default function OperasionalInternetPage() {
   const canResetMemberStartMonths = hasAnyRole(user, ['root']);
   const iuranOnlyMode = pathname === '/operasional/internet/iuran';
   const settingMode = pathname === '/operasional/internet/setting';
+  const guideMode = pathname === '/operasional/internet/panduan';
 
   const loadAll = useCallback(async () => {
     if (!canAccess) return;
@@ -119,7 +121,7 @@ export default function OperasionalInternetPage() {
     if (filter === 'sudah') return rows.filter((r) => Number(r.arrears || 0) <= 0);
     return rows;
   }, [summary, filter]);
-  const pager = usePagination(filteredRows, 20);
+  const pager = usePagination(filteredRows, 10);
   const memberPager = usePagination(members, 10);
   const expensePager = usePagination(history?.expenses || [], 10);
   const contributionRows = useMemo<WargaContributionRow[]>(
@@ -264,6 +266,10 @@ export default function OperasionalInternetPage() {
 
   if (loading || !user) return <main className="min-h-screen" />;
 
+  if (guideMode) {
+    return <><Navbar sticky={false} /><OperationalIuranGuide module="internet" /></>;
+  }
+
   if (iuranOnlyMode) {
     return (
       <main className="min-h-screen pb-10">
@@ -311,6 +317,10 @@ export default function OperasionalInternetPage() {
         <Navbar sticky={false} />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
           <OperationalSubmenuHeader backHref="/operasional/internet" title="Kembali ke Operasional Internet" />
+          <div className="sticky top-0 z-40 grid gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur md:grid-cols-2">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">Anggota aktif: <b className="text-emerald-800">{members.filter((member) => member.is_active).length}</b></div>
+            <div className="rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-900">Tarif aktif: <b className="text-sky-800">{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+          </div>
           <Card title="Pengaturan Internet" subtitle="Tarif dan keanggotaan iuran internet.">
             <div className="grid gap-3 md:grid-cols-4">
               <Input label="Tarif Berlaku Mulai" type="month" value={tariffMonth} onChange={(e) => setTariffMonth(e.target.value)} />
@@ -318,7 +328,6 @@ export default function OperasionalInternetPage() {
               <div className="md:col-span-2 flex items-end"><Button className="w-full" onClick={submitTariff} disabled={busy}>Simpan Tarif</Button></div>
             </div>
           </Card>
-          <div className="surface-muted rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Anggota aktif: <b>{members.filter((member) => member.is_active).length}</b></div>
           {canResetMemberStartMonths ? (
             <div className="flex justify-end">
               <Button variant="ghost" className="btn-action-blue" onClick={() => void resetAllMemberStartMonths()} disabled={busy}>
@@ -351,7 +360,10 @@ export default function OperasionalInternetPage() {
           {canWrite ? (
             <div className="mt-4 flex items-center justify-between gap-2">
               <Link href="/operasional/internet/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
-              <Link href="/operasional/internet/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
+              <div className="flex gap-2">
+                <Link href="/operasional/internet/panduan" className="btn-action-blue link-action px-3 py-1.5 text-xs">📖 Panduan</Link>
+                <Link href="/operasional/internet/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
+              </div>
             </div>
           ) : null}
         </Card>

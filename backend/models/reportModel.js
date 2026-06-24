@@ -313,12 +313,14 @@ export async function getKasUmumSnapshot() {
     pool.query(
       `SELECT
          COALESCE((SELECT SUM(amount) FROM inet_payments), 0)
-         - COALESCE((SELECT SUM(amount) FROM inet_expenses), 0) AS total`
+         - COALESCE((SELECT SUM(amount) FROM inet_expenses), 0)
+         + COALESCE((SELECT SUM(amount) FROM module_opening_balances WHERE module_key = 'internet' AND opening_year <= EXTRACT(YEAR FROM CURRENT_DATE)::int), 0) AS total`
     ),
     pool.query(
       `SELECT
          COALESCE((SELECT SUM(amount) FROM lh_payments), 0)
-         - COALESCE((SELECT SUM(amount) FROM lh_expenses), 0) AS total`
+         - COALESCE((SELECT SUM(amount) FROM lh_expenses), 0)
+         + COALESCE((SELECT SUM(amount) FROM module_opening_balances WHERE module_key = 'lingkungan' AND opening_year <= EXTRACT(YEAR FROM CURRENT_DATE)::int), 0) AS total`
     ),
     pool.query(
       `SELECT COALESCE(SUM(

@@ -24,6 +24,7 @@ import {
   getMigration2025SosialSummary,
   getMigration2025TabunganSummary,
   getMigration2025TabunganWargaDetail,
+  getMigrationModuleOpeningBalance,
   saveMigration2025Internet,
   saveMigration2025Iuran,
   saveMigration2025Jimpitan,
@@ -31,12 +32,16 @@ import {
   saveMigration2025KoperasiLoans,
   saveMigration2025Lingkungan,
   saveMigration2025Sosial,
-  saveMigration2025Tabungan
+  saveMigration2025Tabungan,
+  saveMigrationModuleOpeningBalance
 } from '../controllers/migrationController.js';
 
 const router = express.Router();
 
 router.use(auth, allowRoles('root'));
+
+router.get('/:module-:year/opening-balance', asyncHandler(getMigrationModuleOpeningBalance));
+router.post('/:module-:year/opening-balance', asyncHandler(saveMigrationModuleOpeningBalance));
 
 router.get('/iuran-2025/summary', asyncHandler(getMigration2025IuranSummary));
 router.get('/iuran-2025/tariffs', asyncHandler(getMigration2025IuranTariffs));

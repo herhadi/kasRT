@@ -12,6 +12,8 @@ import {
   upsertIuranWajib2025Rows,
   MIGRATION_MONTH_KEYS_FOR_YEAR,
   ensureMigrationTablesForYear,
+  getModuleMigrationOpeningBalance,
+  upsertModuleMigrationOpeningBalance,
   MIGRATION_MONTH_KEYS_2025
 } from '../models/migration2025Model.js';
 import { pool } from '../db.js';
@@ -30,6 +32,36 @@ function parseYearParam(req) {
   const p = String(req.params?.year || req.query?.year || '2025');
   const y = Number(p || 2025);
   return Number.isFinite(y) && y > 1900 && y < 3000 ? y : 2025;
+}
+
+function readOpeningModule(req) {
+  const moduleKey = String(req.params?.module || '').trim().toLowerCase();
+  if (!['internet', 'lingkungan'].includes(moduleKey)) throw new Error('Modul saldo awal tidak valid');
+  return moduleKey;
+}
+
+export async function getMigrationModuleOpeningBalance(req, res) {
+  try {
+    const closingYear = parseYearParam(req);
+    const data = await getModuleMigrationOpeningBalance({ moduleKey: readOpeningModule(req), closingYear });
+    return res.json({ success: true, data: { closing_year: closingYear, ...data } });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function saveMigrationModuleOpeningBalance(req, res) {
+  const actorId = String(req.user?.user_id || '').trim();
+  const amount = Number(req.body?.amount || 0);
+  if (!actorId) return res.status(401).json({ success: false, message: 'User tidak valid' });
+  if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ success: false, message: 'Nominal saldo awal tidak valid' });
+  try {
+    const closingYear = parseYearParam(req);
+    const data = await upsertModuleMigrationOpeningBalance({ moduleKey: readOpeningModule(req), closingYear, amount, actorId });
+    return res.json({ success: true, data: { closing_year: closingYear, ...data } });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
 }
 
 export async function getMigration2025IuranSummary(_req, res) {

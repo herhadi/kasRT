@@ -7,6 +7,19 @@ const MEMBER_START_MONTH = '2026-01';
 
 export async function ensureInternetTables() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS module_opening_balances (
+      module_key VARCHAR(30) NOT NULL,
+      closing_year INT NOT NULL,
+      opening_year INT NOT NULL,
+      amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+      created_by UUID REFERENCES users(id),
+      updated_by UUID REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (module_key, closing_year)
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS inet_tariffs (
       id UUID PRIMARY KEY,
       effective_month VARCHAR(7) NOT NULL UNIQUE,
