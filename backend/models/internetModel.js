@@ -232,7 +232,9 @@ export async function getInternetSummary(month) {
   const totalInOut = await pool.query(
     `SELECT
       (SELECT COALESCE(SUM(amount),0) FROM inet_payments WHERE month_key = $1) AS pemasukan,
-      (SELECT COALESCE(SUM(amount),0) FROM inet_expenses WHERE TO_CHAR(expense_date,'YYYY-MM') = $1) AS pengeluaran`,
+      (SELECT COALESCE(SUM(amount),0) FROM inet_expenses WHERE TO_CHAR(expense_date,'YYYY-MM') = $1) AS pengeluaran,
+      (SELECT COALESCE(SUM(amount),0) FROM inet_payments) -
+        (SELECT COALESCE(SUM(amount),0) FROM inet_expenses) AS total_kas`,
     [month]
   );
   return {
@@ -247,7 +249,8 @@ export async function getInternetSummary(month) {
     active_fee: activeFee,
     tariffs,
     pemasukan: Number(totalInOut.rows[0]?.pemasukan || 0),
-    pengeluaran: Number(totalInOut.rows[0]?.pengeluaran || 0)
+    pengeluaran: Number(totalInOut.rows[0]?.pengeluaran || 0),
+    total_kas: Number(totalInOut.rows[0]?.total_kas || 0)
   };
 }
 

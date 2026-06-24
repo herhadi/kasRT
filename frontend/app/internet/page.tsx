@@ -32,6 +32,7 @@ type InternetSummary = {
   monthly_fee: number;
   pemasukan: number;
   pengeluaran: number;
+  total_kas: number;
   rows: InternetRow[];
   tariffs: Array<{ id: string; effective_month: string; monthly_fee: number }>;
 };
@@ -40,6 +41,7 @@ type InternetHistory = {
   payments: Array<{ id: string; tanggal: string; nama: string; amount: number; note?: string; kind: 'PAYMENT' }>;
   expenses: Array<{ id: string; tanggal: string; nama: string; amount: number; note?: string; kind: 'EXPENSE' }>;
 };
+type DashboardKasSnapshot = { kas_umum?: { kas_internet?: number } };
 type InternetYearlyHistory = {
   year: string;
   recap: Array<{ month: string; pemasukan: number; pengeluaran: number }>;
@@ -52,6 +54,7 @@ export default function OperasionalInternetPage() {
   const { user, loading } = useAuth();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [summary, setSummary] = useState<InternetSummary | null>(null);
+  const [internetKas, setInternetKas] = useState(0);
   const [history, setHistory] = useState<InternetHistory | null>(null);
   const [yearlyHistory, setYearlyHistory] = useState<InternetYearlyHistory | null>(null);
   const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
@@ -83,13 +86,15 @@ export default function OperasionalInternetPage() {
     if (!canAccess) return;
     const requestSequence = ++loadSequenceRef.current;
     setError('');
-    const [sumRes, histRes, memberRes] = await Promise.all([
+    const [sumRes, histRes, memberRes, dashboardRes] = await Promise.all([
       apiFetch<{ success: boolean; data: InternetSummary }>(`/internet/summary?month=${encodeURIComponent(month)}`),
       apiFetch<{ success: boolean; data: InternetHistory }>(`/internet/history?month=${encodeURIComponent(month)}`),
-      apiFetch<{ success: boolean; data: InternetMember[] }>(`/internet/members`)
+      apiFetch<{ success: boolean; data: InternetMember[] }>(`/internet/members`),
+      apiFetch<{ success: boolean; data: DashboardKasSnapshot }>('/report/dashboard')
     ]);
     if (requestSequence !== loadSequenceRef.current) return;
     setSummary(sumRes.data || null);
+    setInternetKas(Number(dashboardRes.data?.kas_umum?.kas_internet || 0));
     setHistory(histRes.data || null);
     setMembers(memberRes.data || []);
     setMemberMonthDrafts(Object.fromEntries((memberRes.data || []).map((member) => [member.warga_id, member.active_from_month || MEMBER_START_MONTH])));
@@ -354,7 +359,7 @@ export default function OperasionalInternetPage() {
           className="sticky z-40 gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur"
           style={{ top: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
         >
-          <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Tarif<br /><b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+          <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Kas<br /><b>{formatRupiah(internetKas)}</b></div>
           <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Masuk<br /><b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
           <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Keluar<br /><b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
         </div>
