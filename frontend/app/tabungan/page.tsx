@@ -9,9 +9,11 @@ import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHead
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import FeedbackToast from '@/components/ui/FeedbackToast';
+import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import WargaContributionModal from '@/components/contribution/WargaContributionModal';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import { apiFetch } from '@/lib/api';
+import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import usePagination from '@/lib/hooks/usePagination';
 
@@ -20,6 +22,9 @@ type TabunganWargaItem = {
   nama: string;
   total_balance: number;
 };
+
+type TabunganMember = { warga_id: string; nama: string; is_active: boolean };
+type TabunganTariff = { id: string; effective_month: string; monthly_fee: number };
 
 type TabunganHistoryItem = {
   id: string;
@@ -37,6 +42,8 @@ export default function TabunganPage() {
   const { user, token, loading: authLoading } = useAuth();
   const pathname = usePathname();
   const inputPageMode = pathname === '/operasional/tabungan/input';
+  const settingMode = pathname === '/operasional/tabungan/setting';
+  const canWrite = hasAnyRole(user, ['Admin Pembangunan', 'root']);
   const [rows, setRows] = useState<TabunganWargaItem[]>([]);
   const [historyRows, setHistoryRows] = useState<TabunganHistoryItem[]>([]);
   const [selected, setSelected] = useState<TabunganWargaItem | null>(null);
@@ -56,11 +63,26 @@ export default function TabunganPage() {
   });
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseNotes, setExpenseNotes] = useState('');
+  const [minimumFee, setMinimumFee] = useState(5000);
+  const [members, setMembers] = useState<TabunganMember[]>([]);
+  const [tariffs, setTariffs] = useState<TabunganTariff[]>([]);
+  const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [tariffValue, setTariffValue] = useState('');
   const PAGE_SIZE = 20;
 
   const loadSummary = useCallback(async () => {
-    const result = await apiFetch<{ success: boolean; data: TabunganWargaItem[] }>('/tabungan/summary');
+    const result = await apiFetch<{ success: boolean; data: TabunganWargaItem[]; minimum_fee?: number }>('/tabungan/summary');
     setRows(result.data || []);
+    setMinimumFee(Number(result.minimum_fee || 5000));
+  }, []);
+
+  const loadSettings = useCallback(async () => {
+    const [memberResult, tariffResult] = await Promise.all([
+      apiFetch<{ success: boolean; data: TabunganMember[] }>('/tabungan/members'),
+      apiFetch<{ success: boolean; data: TabunganTariff[] }>('/tabungan/tariffs')
+    ]);
+    setMembers(memberResult.data || []);
+    setTariffs(tariffResult.data || []);
   }, []);
 
   const loadHistory = useCallback(async () => {
@@ -73,10 +95,10 @@ export default function TabunganPage() {
   useEffect(() => {
     if (authLoading || !user || !token) return;
     setLoading(true);
-    Promise.all([loadSummary(), loadHistory()])
+    Promise.all([loadSummary(), loadHistory(), ...(settingMode ? [loadSettings()] : [])])
       .catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat tabungan'))
       .finally(() => setLoading(false));
-  }, [authLoading, user, token, loadSummary, loadHistory]);
+  }, [authLoading, user, token, loadSummary, loadHistory, loadSettings, settingMode]);
 
   const totalTabungan = useMemo(
     () => rows.reduce((sum, row) => sum + Number(row.total_balance || 0), 0),
@@ -128,8 +150,8 @@ export default function TabunganPage() {
 
   async function submitSetoran(amount: number) {
     if (!selected || !user || !token) return;
-    if (!Number.isFinite(amount) || amount < 5000) {
-      setError('Nominal minimal Rp 5.000');
+    if (!Number.isFinite(amount) || amount < minimumFee) {
+      setError(`Nominal minimal ${formatRupiah(minimumFee)}`);
       return;
     }
     try {
@@ -155,6 +177,63 @@ export default function TabunganPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function setMemberActive(wargaId: string, isActive: boolean) {
+    try {
+      setBusy(true); setError(''); setMessage('');
+      await apiFetch('/tabungan/members/set-active', { method: 'POST', body: JSON.stringify({ warga_id: wargaId, is_active: isActive }) });
+      setMessage(isActive ? 'Warga diaktifkan sebagai anggota tabungan.' : 'Warga dinonaktifkan dari anggota tabungan.');
+      await Promise.all([loadSettings(), loadSummary()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mengubah keanggotaan tabungan');
+    } finally { setBusy(false); }
+  }
+
+  async function submitTariff() {
+    const monthlyFee = parseRupiahInput(tariffValue);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(tariffMonth) || monthlyFee <= 0) {
+      setError('Periode dan nominal tarif wajib valid.'); return;
+    }
+    try {
+      setBusy(true); setError(''); setMessage('');
+      await apiFetch('/tabungan/tariff', { method: 'POST', body: JSON.stringify({ effective_month: tariffMonth, monthly_fee: monthlyFee }) });
+      setTariffValue('');
+      setMessage('Tarif minimum tabungan berhasil disimpan.');
+      await Promise.all([loadSettings(), loadSummary()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal menyimpan tarif tabungan');
+    } finally { setBusy(false); }
+  }
+
+  const memberPager = usePagination(members, PAGE_SIZE);
+  useEffect(() => { memberPager.reset(); }, [members.length]);
+
+  if (settingMode) {
+    return (
+      <main className="min-h-screen pb-10">
+        <FeedbackToast error={error} message={message} /><Navbar />
+        <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <OperationalSubmenuHeader backHref="/operasional/tabungan" title="Kembali ke Operasional Pembangunan" />
+          <div className="surface-muted rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Anggota aktif: <b>{members.filter((member) => member.is_active).length}</b></div>
+          <Card title="Pengaturan Tabungan" subtitle="Atur minimum setoran dan warga yang menjadi anggota tabungan.">
+            <div className="grid gap-3 md:grid-cols-3">
+              <Input label="Tarif Berlaku Mulai" type="month" value={tariffMonth} onChange={(e) => setTariffMonth(e.target.value)} />
+              <Input label="Minimum Setoran" type="text" inputMode="numeric" value={formatRupiahInput(tariffValue)} onChange={(e) => setTariffValue(e.target.value)} placeholder={formatRupiah(minimumFee)} />
+              <div className="flex items-end"><button type="button" className="btn-action-blue w-full rounded-xl px-4 py-2 text-sm font-semibold" onClick={submitTariff} disabled={busy}>Simpan Tarif</button></div>
+            </div>
+            {tariffs.length ? <p className="mt-3 text-xs text-[var(--text-muted)]">Tarif aktif: {formatRupiah(minimumFee)}. Riwayat terbaru: {tariffs.slice(0, 3).map((t) => `${t.effective_month} ${formatRupiah(t.monthly_fee)}`).join(' · ')}</p> : null}
+          </Card>
+          <Card title="Keanggotaan Tabungan" subtitle="Semua user eligible ditampilkan. Hanya anggota aktif yang muncul di form input.">
+            <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
+              {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={member.is_active} disabled={busy} onToggle={() => void setMemberActive(member.warga_id, !member.is_active)} /></td></tr>)}
+              {!members.length ? <tr><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada user eligible.</td></tr> : null}
+            </tbody></table></div>
+            <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
+          </Card>
+        </div>
+      </main>
+    );
   }
 
   async function submitPengeluaranTabungan() {
@@ -208,26 +287,31 @@ export default function TabunganPage() {
         {inputPageMode ? <OperationalSubmenuHeader backHref="/operasional/tabungan" title="Kembali ke Operasional Pembangunan" /> : null}
         <Card
           title="Tabungan Pembangunan"
-          subtitle="Setoran sukarela warga (minimal Rp 5.000)"
+          subtitle={`Setoran sukarela warga (minimal ${formatRupiah(minimumFee)})`}
           headerRight={(
             <div className="w-full max-w-[220px]">
               <Input label="Periode Riwayat" type="month" value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)} />
             </div>
           )}
         >
-          {!inputPageMode ? (
-            <div className="mb-3">
+          {!inputPageMode && canWrite ? (
+            <div className="mb-3 flex items-center justify-between gap-2">
               <Link
                 href="/operasional/tabungan/input"
                 className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold"
               >
                 Input Tabungan
               </Link>
+              <Link href="/operasional/tabungan/setting" className="btn-action-blue ml-auto inline-flex rounded-xl px-4 py-2 text-sm font-semibold">⚙️ Pengaturan</Link>
             </div>
           ) : null}
           <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Saldo Berjalan (Semua Warga)</p>
             <p className="mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(totalTabungan)}</p>
+          </div>
+          <div className="mt-2 surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga Aktif</p>
+            <p className="mt-1 text-xl font-bold text-[var(--accent)]">{rows.length}</p>
           </div>
           <div
             className="mt-2 surface-muted sticky z-40 rounded-2xl border border-[var(--line)] px-4 py-3"

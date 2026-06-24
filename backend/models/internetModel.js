@@ -18,10 +18,21 @@ export async function ensureInternetTables() {
     CREATE TABLE IF NOT EXISTS inet_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      active_from_month VARCHAR(7) NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY-MM'),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by UUID REFERENCES users(id)
     )
   `);
+  await pool.query(`ALTER TABLE inet_members ADD COLUMN IF NOT EXISTS active_from_month VARCHAR(7)`);
+  await pool.query(`ALTER TABLE inet_members ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id)`);
+  await pool.query(
+    `UPDATE inet_members
+     SET active_from_month = (SELECT COALESCE(MIN(effective_month), TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM inet_tariffs)
+     WHERE active_from_month IS NULL`
+  );
+  await pool.query(`ALTER TABLE inet_members ALTER COLUMN active_from_month SET DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY-MM')`);
+  await pool.query(`ALTER TABLE inet_members ALTER COLUMN active_from_month SET NOT NULL`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS inet_payments (
@@ -82,8 +93,8 @@ export async function ensureInternetMembersFromWarga() {
       FROM eligible_all
       WHERE NOT EXISTS (SELECT 1 FROM warga_role)
     )
-    INSERT INTO inet_members (warga_id, is_active)
-    SELECT id, TRUE FROM warga_final
+    INSERT INTO inet_members (warga_id, is_active, active_from_month)
+    SELECT id, TRUE, TO_CHAR(CURRENT_DATE, 'YYYY-MM') FROM warga_final
     ON CONFLICT (warga_id) DO NOTHING
   `);
 }
@@ -97,7 +108,8 @@ export async function listInternetMembers() {
        FROM users u
        WHERE ${ELIGIBLE_USERS_CLAUSE}
      )
-     SELECT b.warga_id::text AS warga_id, b.nama, COALESCE(im.is_active, FALSE) AS is_active
+     SELECT b.warga_id::text AS warga_id, b.nama, COALESCE(im.is_active, FALSE) AS is_active,
+       COALESCE(im.active_from_month, TO_CHAR(im.created_at, 'YYYY-MM')) AS active_from_month
      FROM base b
      LEFT JOIN inet_members im ON im.warga_id = b.warga_id
      ORDER BY b.nama`
@@ -105,16 +117,17 @@ export async function listInternetMembers() {
   return rs.rows;
 }
 
-export async function setInternetMemberActive({ wargaId, isActive }) {
+export async function setInternetMemberActive({ wargaId, isActive, activeFromMonth, updatedBy }) {
   await ensureInternetTables();
   await pool.query(
-    `INSERT INTO inet_members (warga_id, is_active, updated_at)
-     VALUES ($1::uuid, $2::boolean, NOW())
+    `INSERT INTO inet_members (warga_id, is_active, active_from_month, updated_at, updated_by)
+     VALUES ($1::uuid, $2::boolean, $3, NOW(), $4::uuid)
      ON CONFLICT (warga_id)
-     DO UPDATE SET is_active = EXCLUDED.is_active, updated_at = NOW()`,
-    [wargaId, isActive]
+     DO UPDATE SET is_active = EXCLUDED.is_active, active_from_month = EXCLUDED.active_from_month,
+       updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
+    [wargaId, isActive, activeFromMonth, updatedBy]
   );
-  return { warga_id: wargaId, is_active: Boolean(isActive) };
+  return { warga_id: wargaId, is_active: Boolean(isActive), active_from_month: activeFromMonth, updated_by: updatedBy };
 }
 
 export async function getInternetSummary(month) {
@@ -133,7 +146,7 @@ export async function getInternetSummary(month) {
        SELECT im.warga_id, u.nama
        FROM inet_members im
        JOIN users u ON u.id = im.warga_id
-       WHERE im.is_active = TRUE
+       WHERE im.is_active = TRUE AND im.active_from_month <= $1
      ),
      paid AS (
        SELECT warga_id, COALESCE(SUM(amount),0) AS amount
@@ -164,21 +177,20 @@ export async function getInternetSummary(month) {
   );
   const arrearsRows = await pool.query(
     `WITH members AS (
-       SELECT im.warga_id
+       SELECT im.warga_id, im.active_from_month
        FROM inet_members im
-       WHERE im.is_active = TRUE
+       WHERE im.is_active = TRUE AND im.active_from_month <= $1
      ),
      months AS (
-       SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
-       FROM generate_series(
-         TO_DATE((SELECT COALESCE(MIN(effective_month), $1) FROM inet_tariffs), 'YYYY-MM'),
-         TO_DATE($1, 'YYYY-MM'),
-         interval '1 month'
+       SELECT members.warga_id, TO_CHAR(m, 'YYYY-MM') AS month_key
+       FROM members
+       CROSS JOIN LATERAL generate_series(
+         TO_DATE(members.active_from_month, 'YYYY-MM'), TO_DATE($1, 'YYYY-MM'), interval '1 month'
        ) m
      ),
      month_target AS (
        SELECT
-         mo.month_key,
+         mo.warga_id, mo.month_key,
          COALESCE((
            SELECT t.monthly_fee
            FROM inet_tariffs t
@@ -197,7 +209,7 @@ export async function getInternetSummary(month) {
        m.warga_id::text AS warga_id,
        COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
      FROM members m
-     CROSS JOIN month_target mt
+     JOIN month_target mt ON mt.warga_id = m.warga_id
      LEFT JOIN paid p ON p.warga_id = m.warga_id AND p.month_key = mt.month_key
      GROUP BY m.warga_id`,
     [month, INTERNET_MONTHLY_FEE]
@@ -241,6 +253,12 @@ export async function setInternetTariff({ effectiveMonth, monthlyFee, createdBy 
 }
 
 export async function addInternetPayment({ wargaId, month, amount, paidAt, note, createdBy }) {
+  const member = await pool.query(
+    `SELECT 1 FROM inet_members
+     WHERE warga_id = $1::uuid AND is_active = TRUE AND active_from_month <= $2`,
+    [wargaId, month]
+  );
+  if (!member.rowCount) throw new Error('Warga bukan anggota internet aktif pada periode ini');
   await pool.query(
     `INSERT INTO inet_payments (id, warga_id, month_key, amount, paid_at, note, created_by)
      VALUES ($1, $2::uuid, $3, $4, $5::date, $6, $7::uuid)`,

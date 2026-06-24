@@ -219,6 +219,48 @@ html.dark .btn-action-green:hover {
   font-weight: 600;
 }
 
+/* Shared action layout for member-management tables. */
+.member-action-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(6.5rem, 1fr));
+  gap: 0.5rem;
+  min-width: 14rem;
+}
+
+.member-action-button {
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  border-color: color-mix(in srgb, var(--line) 85%, var(--accent)) !important;
+  background: color-mix(in srgb, var(--surface-strong) 90%, var(--accent) 10%) !important;
+  box-shadow: none !important;
+  color: var(--text-primary) !important;
+}
+
+.member-action-button:hover {
+  background: color-mix(in srgb, var(--surface-strong) 80%, var(--accent) 20%) !important;
+}
+
+.member-action-button-enable {
+  color: #166534 !important;
+  border-color: color-mix(in srgb, var(--line) 75%, #22c55e) !important;
+  background: color-mix(in srgb, var(--surface-strong) 92%, #22c55e 8%) !important;
+}
+
+.member-action-button-disable {
+  color: #9f1239 !important;
+  border-color: color-mix(in srgb, var(--line) 75%, #fb7185) !important;
+  background: color-mix(in srgb, var(--surface-strong) 92%, #fb7185 8%) !important;
+}
+
+.member-action-buttons-toggle-only .member-action-button {
+  grid-column: 2;
+}
+
+@media (max-width: 640px) {
+  .member-action-buttons { min-width: 13.5rem; }
+}
+
 /* Reusable surface tone for inner rows/cards across pages */
 .surface-muted {
   background: color-mix(in srgb, var(--surface-strong) 78%, transparent);

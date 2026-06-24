@@ -2,7 +2,27 @@ import { pool } from '../db.js';
 import { randomUUID } from 'crypto';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
+export const TABUNGAN_MINIMUM_FEE = 5000;
+
 export async function ensureTabunganTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tab_savings_tariffs (
+      id UUID PRIMARY KEY,
+      effective_month VARCHAR(7) NOT NULL UNIQUE,
+      monthly_fee NUMERIC(18, 2) NOT NULL CHECK (monthly_fee > 0),
+      created_by UUID NOT NULL REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tab_savings_members (
+      warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by UUID REFERENCES users(id)
+    )
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tab_savings_accounts (
       id UUID PRIMARY KEY,
@@ -103,11 +123,25 @@ export async function ensureTabunganTables() {
       UNIQUE (year, warga_id)
     )
   `);
+
+  const seed = await pool.query(`SELECT 1 FROM tab_savings_tariffs LIMIT 1`);
+  if (!seed.rowCount) {
+    await pool.query(
+      `INSERT INTO tab_savings_tariffs (id, effective_month, monthly_fee, created_by)
+       SELECT $1, TO_CHAR(CURRENT_DATE, 'YYYY-MM'), $2, id
+       FROM users
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [randomUUID(), TABUNGAN_MINIMUM_FEE]
+    );
+  }
 }
 
-export async function listTabunganWargaSummary() {
-  const result = await pool.query(
-    `WITH warga_role AS (
+export async function ensureTabunganMembersFromEligible() {
+  await ensureTabunganTables();
+  await pool.query(
+    `INSERT INTO tab_savings_members (warga_id, is_active)
+     WITH warga_role AS (
        SELECT DISTINCT u.id
        FROM users u
        JOIN user_roles ur ON ur.user_id = u.id
@@ -116,24 +150,91 @@ export async function listTabunganWargaSummary() {
          AND ${ELIGIBLE_USERS_CLAUSE}
      ),
      eligible_all AS (
-       SELECT u.id
-       FROM users u
-       WHERE ${ELIGIBLE_USERS_CLAUSE}
+       SELECT u.id FROM users u WHERE ${ELIGIBLE_USERS_CLAUSE}
      ),
      warga_final AS (
        SELECT id FROM warga_role
        UNION
-       SELECT id
-       FROM eligible_all
+       SELECT id FROM eligible_all
        WHERE NOT EXISTS (SELECT 1 FROM warga_role)
      )
-     SELECT
+     SELECT id, TRUE FROM warga_final
+     ON CONFLICT (warga_id) DO NOTHING`
+  );
+}
+
+export async function listTabunganMembers() {
+  await ensureTabunganMembersFromEligible();
+  const result = await pool.query(
+    `SELECT
+       u.id::text AS warga_id,
+       u.nama,
+       COALESCE(sm.is_active, FALSE) AS is_active
+     FROM users u
+     LEFT JOIN tab_savings_members sm ON sm.warga_id = u.id
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
+     ORDER BY u.nama ASC`
+  );
+  return result.rows.map((row) => ({ ...row, is_active: Boolean(row.is_active) }));
+}
+
+export async function setTabunganMemberActive({ wargaId, isActive, updatedBy }) {
+  await ensureTabunganTables();
+  await pool.query(
+    `INSERT INTO tab_savings_members (warga_id, is_active, updated_at, updated_by)
+     VALUES ($1::uuid, $2::boolean, NOW(), $3::uuid)
+     ON CONFLICT (warga_id)
+     DO UPDATE SET is_active = EXCLUDED.is_active, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
+    [wargaId, isActive, updatedBy]
+  );
+  return { warga_id: wargaId, is_active: Boolean(isActive) };
+}
+
+export async function listTabunganTariffs() {
+  await ensureTabunganTables();
+  const result = await pool.query(
+    `SELECT id::text, effective_month, monthly_fee
+     FROM tab_savings_tariffs
+     ORDER BY effective_month DESC`
+  );
+  return result.rows.map((row) => ({ ...row, monthly_fee: Number(row.monthly_fee || 0) }));
+}
+
+export async function setTabunganTariff({ effectiveMonth, monthlyFee, createdBy }) {
+  await ensureTabunganTables();
+  await pool.query(
+    `INSERT INTO tab_savings_tariffs (id, effective_month, monthly_fee, created_by)
+     VALUES ($1, $2, $3, $4::uuid)
+     ON CONFLICT (effective_month)
+     DO UPDATE SET monthly_fee = EXCLUDED.monthly_fee`,
+    [randomUUID(), effectiveMonth, monthlyFee, createdBy]
+  );
+}
+
+export async function getTabunganMinimumFee(month) {
+  await ensureTabunganTables();
+  const result = await pool.query(
+    `SELECT monthly_fee
+     FROM tab_savings_tariffs
+     WHERE effective_month <= $1
+     ORDER BY effective_month DESC
+     LIMIT 1`,
+    [month]
+  );
+  return Number(result.rows[0]?.monthly_fee || TABUNGAN_MINIMUM_FEE);
+}
+
+export async function listTabunganWargaSummary() {
+  await ensureTabunganMembersFromEligible();
+  const result = await pool.query(
+    `SELECT
        u.id::text AS warga_id,
        u.nama,
        COALESCE(sa.total_balance, 0) AS total_balance
-     FROM warga_final wf
-     JOIN users u ON u.id = wf.id
+     FROM tab_savings_members sm
+     JOIN users u ON u.id = sm.warga_id
      LEFT JOIN tab_savings_accounts sa ON sa.warga_id = u.id
+     WHERE sm.is_active = TRUE
      ORDER BY u.nama ASC`
   );
   return result.rows.map((r) => ({
@@ -147,6 +248,12 @@ export async function inputTabunganSetoran({ wargaId, amount, description, creat
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    const member = await client.query(
+      `SELECT 1 FROM tab_savings_members WHERE warga_id = $1::uuid AND is_active = TRUE`,
+      [wargaId]
+    );
+    if (!member.rowCount) throw new Error('Warga bukan anggota tabungan aktif');
 
     await client.query(
       `INSERT INTO tab_savings_accounts (id, warga_id, total_balance)

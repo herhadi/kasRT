@@ -8,6 +8,7 @@ import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHead
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -43,7 +44,7 @@ type InternetYearlyHistory = {
   year: string;
   recap: Array<{ month: string; pemasukan: number; pengeluaran: number }>;
 };
-type InternetMember = { warga_id: string; nama: string; is_active?: boolean };
+type InternetMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string };
 
 export default function OperasionalInternetPage() {
   const pathname = usePathname();
@@ -66,14 +67,14 @@ export default function OperasionalInternetPage() {
   const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [tariffValue, setTariffValue] = useState('');
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
-  const [showTariffSetting, setShowTariffSetting] = useState(false);
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
   const [members, setMembers] = useState<InternetMember[]>([]);
-  const [showMemberSection, setShowMemberSection] = useState(false);
+  const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
 
   const canAccess = hasAnyRole(user, ['Admin Internet', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Internet', 'root']);
   const iuranOnlyMode = pathname === '/operasional/internet/iuran';
+  const settingMode = pathname === '/operasional/internet/setting';
 
   const loadAll = useCallback(async () => {
     if (!canAccess) return;
@@ -86,6 +87,7 @@ export default function OperasionalInternetPage() {
     setSummary(sumRes.data || null);
     setHistory(histRes.data || null);
     setMembers(memberRes.data || []);
+    setMemberMonthDrafts(Object.fromEntries((memberRes.data || []).map((member) => [member.warga_id, member.active_from_month || month])));
     const yRes = await apiFetch<{ success: boolean; data: InternetYearlyHistory }>(`/internet/history?year=${encodeURIComponent(historyYear)}`);
     setYearlyHistory(yRes.data || null);
   }, [canAccess, month, historyYear]);
@@ -194,14 +196,14 @@ export default function OperasionalInternetPage() {
     }
   }
 
-  async function setMemberActive(wid: string, next: boolean) {
+  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || month) {
     try {
       setBusy(true);
       setError('');
       setMessage('');
       await apiFetch('/internet/members/set-active', {
         method: 'POST',
-        body: JSON.stringify({ warga_id: wid, is_active: next })
+        body: JSON.stringify({ warga_id: wid, is_active: next, active_from_month: activeFromMonth })
       });
       setMessage(next ? 'Warga diaktifkan sebagai anggota internet.' : 'Warga dinonaktifkan dari anggota internet.');
       await loadAll();
@@ -254,6 +256,33 @@ export default function OperasionalInternetPage() {
     );
   }
 
+  if (settingMode) {
+    return (
+      <main className="min-h-screen pb-10">
+        <FeedbackToast error={error} message={message} />
+        <Navbar />
+        <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <OperationalSubmenuHeader backHref="/operasional/internet" title="Kembali ke Operasional Internet" />
+          <Card title="Pengaturan Internet" subtitle="Tarif dan keanggotaan iuran internet.">
+            <div className="grid gap-3 md:grid-cols-4">
+              <Input label="Tarif Berlaku Mulai" type="month" value={tariffMonth} onChange={(e) => setTariffMonth(e.target.value)} />
+              <Input label="Nominal Tarif Baru" type="text" inputMode="numeric" value={formatRupiahInput(tariffValue)} onChange={(e) => setTariffValue(e.target.value)} />
+              <div className="md:col-span-2 flex items-end"><Button className="w-full" onClick={submitTariff} disabled={busy}>Simpan Tarif</Button></div>
+            </div>
+          </Card>
+          <div className="surface-muted rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Anggota aktif: <b>{members.filter((member) => member.is_active).length}</b></div>
+          <Card title="Keanggotaan Internet" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran internet.">
+            <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Iuran</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
+              {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><input type="month" className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" value={memberMonthDrafts[member.warga_id] || member.active_from_month || month} onChange={(event) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: event.target.value }))} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={Boolean(member.is_active)} disabled={busy} onSaveStart={() => void setMemberActive(member.warga_id, Boolean(member.is_active))} onToggle={() => void setMemberActive(member.warga_id, !Boolean(member.is_active))} /></td></tr>)}
+              {!members.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td></tr> : null}
+            </tbody></table></div>
+            <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={error} message={message} />
@@ -264,83 +293,22 @@ export default function OperasionalInternetPage() {
           subtitle="Iuran wajib internet bulanan, tunggakan, dan pengeluaran"
           headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
         >
-          <div className="grid gap-2 md:grid-cols-3">
-            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
-            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pemasukan Bulan: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
-            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pengeluaran Bulan: <b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
-          </div>
-
           {canWrite ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-4">
-              <div className="md:col-span-4 flex items-center justify-between">
-                <Link href="/operasional/internet/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">
-                  Input Iuran
-                </Link>
-                <Button variant="ghost" className="btn-action-blue" onClick={() => setShowTariffSetting((v) => !v)}>
-                  ⚙️ Pengaturan Tarif
-                </Button>
-              </div>
-              {showTariffSetting ? (
-                <>
-                  <Input label="Tarif Berlaku Mulai" type="month" value={tariffMonth} onChange={(e) => setTariffMonth(e.target.value)} />
-                  <Input label="Nominal Tarif Baru" type="text" inputMode="numeric" value={formatRupiahInput(tariffValue)} onChange={(e) => setTariffValue(e.target.value)} />
-                  <div className="md:col-span-2 flex items-end"><Button className="w-full" onClick={submitTariff} disabled={busy}>Simpan Tarif</Button></div>
-                </>
-              ) : null}
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <Link href="/operasional/internet/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
+              <Link href="/operasional/internet/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
             </div>
           ) : null}
         </Card>
-
-        {canWrite && !iuranOnlyMode ? (
-          <Card title="Keanggotaan Internet" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran internet.">
-            <div className="mb-3">
-              <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
-                {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}
-              </button>
-            </div>
-            {showMemberSection ? (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-                    <thead>
-                      <tr className="bg-[var(--surface-strong)]">
-                        <th className="px-3 py-2 text-left text-xs">Warga</th>
-                        <th className="px-3 py-2 text-left text-xs">Status</th>
-                        <th className="px-3 py-2 text-right text-xs">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {memberPager.pagedItems.map((m) => (
-                        <tr key={m.warga_id}>
-                          <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td>
-                          <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>
-                            {m.is_active ? 'Aktif' : 'Nonaktif'}
-                          </td>
-                          <td className="border-t border-[var(--line)] px-3 py-2 text-right">
-                            <button
-                              type="button"
-                              className="btn-action-blue rounded-xl px-3 py-1.5 text-xs"
-                              onClick={() => void setMemberActive(m.warga_id, !Boolean(m.is_active))}
-                              disabled={busy}
-                            >
-                              {m.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {!members.length ? (
-                        <tr>
-                          <td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-                <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
-              </>
-            ) : null}
-          </Card>
-        ) : null}
+        <div
+          className="sticky z-40 grid gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur md:grid-cols-4"
+          style={{ top: 'var(--sticky-nav-offset)' }}
+        >
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Warga Aktif: <b>{(summary?.rows || []).length}</b></div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pemasukan Bulan: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
+            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pengeluaran Bulan: <b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
+        </div>
 
         {canWrite && !iuranOnlyMode ? (
           <Card title="Pengeluaran Internet" subtitle="Riwayat biaya internet RT">

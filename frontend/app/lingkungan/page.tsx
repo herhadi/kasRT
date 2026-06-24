@@ -8,6 +8,7 @@ import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHead
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -182,6 +183,7 @@ export default function LingkunganPage() {
     return (
       <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
+        <div className="surface-muted rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Anggota aktif: <b>{members.filter((member) => member.is_active).length}</b></div>
         <Card title="Pengaturan Lingkungan" subtitle="Tarif, keanggotaan, dan pengaturan operasional lingkungan">
           <div className="grid gap-3 md:grid-cols-4">
             <Input label="Tarif Berlaku Mulai" type="month" value={tariffMonth} onChange={(e) => setTariffMonth(e.target.value)} />
@@ -210,12 +212,12 @@ export default function LingkunganPage() {
                   </td>
                   <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td>
                   <td className="border-t border-[var(--line)] px-3 py-2 text-right">
-                    <button type="button" className="btn-action-blue rounded-xl px-3 py-1.5 text-xs" onClick={() => void setMemberActive(m.warga_id, Boolean(m.is_active))} disabled={busy}>
-                      Simpan Mulai
-                    </button>
-                    <button type="button" className="btn-action-blue ml-2 rounded-xl px-3 py-1.5 text-xs" onClick={() => void setMemberActive(m.warga_id, !Boolean(m.is_active))} disabled={busy}>
-                      {m.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                    </button>
+                    <MemberActionButtons
+                      isActive={Boolean(m.is_active)}
+                      disabled={busy}
+                      onSaveStart={() => void setMemberActive(m.warga_id, Boolean(m.is_active))}
+                      onToggle={() => void setMemberActive(m.warga_id, !Boolean(m.is_active))}
+                    />
                   </td>
                 </tr>
               ))}
@@ -234,7 +236,7 @@ export default function LingkunganPage() {
         {canWrite ? (
           <div className="mt-4 flex items-center justify-between gap-2">
             <Link href="/operasional/lingkungan/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
-            <Link href="/operasional/lingkungan/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">Pengaturan</Link>
+            <Link href="/operasional/lingkungan/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
           </div>
         ) : null}
       </Card>
@@ -243,6 +245,7 @@ export default function LingkunganPage() {
         style={{ top: 'var(--sticky-nav-offset)' }}
       >
         <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+        <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Warga Aktif: <b>{(summary?.rows || []).length}</b></div>
         <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pemasukan Bulan: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
         <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pengeluaran Bulan: <b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
         <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Total Saldo: <b>{formatRupiah(saldoBulan)}</b></div>
@@ -350,4 +353,3 @@ export default function LingkunganPage() {
     </div></main>
   );
 }
-

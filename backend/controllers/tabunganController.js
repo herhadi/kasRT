@@ -3,16 +3,22 @@ import {
   createTabunganEvent,
   getTabunganYearlyBook,
   getTabunganEventDetail,
+  getTabunganMinimumFee,
   inputTabunganSetoran,
+  listTabunganMembers,
+  listTabunganTariffs,
   listTabunganLedgerByMonth,
   listTabunganWargaSummary,
-  openTabunganYear
+  openTabunganYear,
+  setTabunganMemberActive,
+  setTabunganTariff
 } from '../models/tabunganModel.js';
 
 export async function getTabunganSummary(_req, res) {
   try {
-    const data = await listTabunganWargaSummary();
-    return res.json({ success: true, data });
+    const month = new Date().toISOString().slice(0, 7);
+    const [data, minimumFee] = await Promise.all([listTabunganWargaSummary(), getTabunganMinimumFee(month)]);
+    return res.json({ success: true, data, minimum_fee: minimumFee });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -25,8 +31,9 @@ export async function inputTabunganWarga(req, res) {
   const actor = String(req.user.user_id || '').trim();
 
   if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id tidak valid' });
-  if (!Number.isFinite(amount) || amount < 5000) {
-    return res.status(400).json({ success: false, message: 'amount minimal 5000' });
+  const minimumFee = await getTabunganMinimumFee(new Date().toISOString().slice(0, 7));
+  if (!Number.isFinite(amount) || amount < minimumFee) {
+    return res.status(400).json({ success: false, message: `amount minimal ${minimumFee}` });
   }
   if (!description) {
     return res.status(400).json({ success: false, message: 'description wajib diisi' });
@@ -35,6 +42,48 @@ export async function inputTabunganWarga(req, res) {
   try {
     await inputTabunganSetoran({ wargaId, amount, description, createdBy: actor });
     return res.json({ success: true, message: 'Setoran tabungan berhasil dicatat' });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function getTabunganMembersHandler(_req, res) {
+  try {
+    return res.json({ success: true, data: await listTabunganMembers() });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function postTabunganMemberSetActiveHandler(req, res) {
+  const wargaId = String(req.body.warga_id || '').trim();
+  const isActive = Boolean(req.body.is_active);
+  const actor = String(req.user.user_id || '').trim();
+  if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib diisi' });
+  try {
+    return res.json({ success: true, data: await setTabunganMemberActive({ wargaId, isActive, updatedBy: actor }) });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function getTabunganTariffsHandler(_req, res) {
+  try {
+    return res.json({ success: true, data: await listTabunganTariffs() });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function postTabunganTariffHandler(req, res) {
+  const effectiveMonth = String(req.body.effective_month || '').trim();
+  const monthlyFee = Number(req.body.monthly_fee || 0);
+  const actor = String(req.user.user_id || '').trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(effectiveMonth)) return res.status(400).json({ success: false, message: 'effective_month tidak valid' });
+  if (!Number.isFinite(monthlyFee) || monthlyFee <= 0) return res.status(400).json({ success: false, message: 'monthly_fee harus lebih dari 0' });
+  try {
+    await setTabunganTariff({ effectiveMonth, monthlyFee, createdBy: actor });
+    return res.json({ success: true, data: await listTabunganTariffs() });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

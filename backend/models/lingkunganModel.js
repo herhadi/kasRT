@@ -238,6 +238,15 @@ export async function listLingkunganTariffs() {
   return rs.rows.map((r) => ({ id: r.id, effective_month: r.effective_month, monthly_fee: Number(r.monthly_fee) }));
 }
 export async function addLingkunganPayment({ wargaId, month, amount, paidAt, note, createdBy }) {
+  const member = await pool.query(
+    `SELECT 1
+     FROM lh_members
+     WHERE warga_id = $1::uuid
+       AND is_active = TRUE
+       AND active_from_month <= $2`,
+    [wargaId, month]
+  );
+  if (!member.rowCount) throw new Error('Warga bukan anggota lingkungan aktif pada periode ini');
   await pool.query(
     `INSERT INTO lh_payments (id, warga_id, month_key, amount, paid_at, note, created_by)
      VALUES ($1, $2::uuid, $3, $4, $5::date, $6, $7::uuid)`,
