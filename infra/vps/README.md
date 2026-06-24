@@ -67,7 +67,7 @@ Setelah cron VPS aktif, hapus konfigurasi `crons` dari `frontend/vercel.json` da
 
 ## GitHub Actions
 
-Workflow memakai GitHub Actions self-hosted runner yang sudah berjalan di PC Debian untuk Eduflow. Karena runner menjalankan deployment langsung dari PC yang sama, tidak perlu SSH, port forwarding, atau secrets VPS.
+Workflow memakai GitHub Actions self-hosted runner di PC Debian. Karena runner menjalankan deployment langsung dari PC yang sama, tidak perlu SSH, port forwarding, atau secrets VPS. Runner Eduflow yang terdaftar pada level repository tidak dapat dipakai oleh KasRT, jadi tambahkan runner repository-level kedua dengan label `kasrt-vps`.
 
 Clone repository pada `/srv/kasrt/app` lalu pastikan user runner:
 
