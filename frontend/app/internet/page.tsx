@@ -235,6 +235,27 @@ export default function OperasionalInternetPage() {
     }
   }
 
+  async function resetAllMemberStartMonths() {
+    if (!window.confirm('Atur bulan mulai iuran semua anggota Internet menjadi Januari 2026?')) return;
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      const result = await apiFetch<{ success: boolean; data: { active_from_month: string; affected_count: number } }>('/internet/members/reset-start-month', {
+        method: 'POST'
+      });
+      const savedMonth = result.data?.active_from_month || MEMBER_START_MONTH;
+      setMembers((previous) => previous.map((member) => ({ ...member, active_from_month: savedMonth })));
+      setMemberMonthDrafts((previous) => Object.fromEntries(Object.keys(previous).map((id) => [id, savedMonth])));
+      setMessage(`${result.data?.affected_count || 0} anggota Internet diatur mulai iuran ${savedMonth}.`);
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mereset bulan mulai iuran Internet');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading || !user) return <main className="min-h-screen" />;
 
   if (iuranOnlyMode) {
@@ -292,6 +313,13 @@ export default function OperasionalInternetPage() {
             </div>
           </Card>
           <div className="surface-muted rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Anggota aktif: <b>{members.filter((member) => member.is_active).length}</b></div>
+          {canWrite ? (
+            <div className="flex justify-end">
+              <Button variant="ghost" className="btn-action-blue" onClick={() => void resetAllMemberStartMonths()} disabled={busy}>
+                Reset Semua Mulai Januari 2026
+              </Button>
+            </div>
+          ) : null}
           <Card title="Keanggotaan Internet" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran internet.">
             <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Iuran</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
               {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><input type="month" className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" value={memberMonthDrafts[member.warga_id] || member.active_from_month || MEMBER_START_MONTH} onChange={(event) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: event.target.value }))} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={Boolean(member.is_active)} disabled={busy} onSaveStart={() => void setMemberActive(member.warga_id, Boolean(member.is_active))} onToggle={() => void setMemberActive(member.warga_id, !Boolean(member.is_active))} /></td></tr>)}

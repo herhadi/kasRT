@@ -7,6 +7,7 @@ import {
   listInternetMembers,
   getInternetMonthlyRecapByYear,
   getInternetSummary,
+  resetInternetMembersStartMonth,
   setInternetMemberActive,
   listInternetTariffs,
   setInternetTariff
@@ -99,5 +100,11 @@ export async function postInternetMemberSetActiveHandler(req, res) {
   if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(activeFromMonth)) return res.status(400).json({ success: false, message: 'active_from_month invalid' });
   const data = await setInternetMemberActive({ wargaId, isActive, activeFromMonth, updatedBy: actor });
+  return res.json({ success: true, data });
+}
+
+export async function postInternetMembersResetStartMonthHandler(req, res) {
+  const actor = String(req.user.user_id || '').trim();
+  const data = await resetInternetMembersStartMonth({ activeFromMonth: '2026-01', updatedBy: actor });
   return res.json({ success: true, data });
 }

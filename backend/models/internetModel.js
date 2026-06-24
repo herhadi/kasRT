@@ -131,6 +131,19 @@ export async function setInternetMemberActive({ wargaId, isActive, activeFromMon
   return { warga_id: wargaId, is_active: Boolean(isActive), active_from_month: activeFromMonth, updated_by: updatedBy };
 }
 
+export async function resetInternetMembersStartMonth({ activeFromMonth = MEMBER_START_MONTH, updatedBy }) {
+  await ensureInternetTables();
+  const result = await pool.query(
+    `UPDATE inet_members
+     SET active_from_month = $1,
+         updated_at = NOW(),
+         updated_by = $2::uuid
+     RETURNING warga_id::text`,
+    [activeFromMonth, updatedBy]
+  );
+  return { active_from_month: activeFromMonth, affected_count: result.rowCount || 0 };
+}
+
 export async function getInternetSummary(month) {
   const tariffRows = await pool.query(
     `SELECT effective_month, monthly_fee

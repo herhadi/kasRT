@@ -6,6 +6,7 @@ import {
   getInternetMembersHandler,
   getInternetSummaryHandler,
   getInternetTariffsHandler,
+  postInternetMembersResetStartMonthHandler,
   postInternetMemberSetActiveHandler,
   postInternetExpenseHandler,
   postInternetPaymentHandler,
@@ -23,5 +24,6 @@ router.post('/payment', allowRoles('Admin Internet'), asyncHandler(postInternetP
 router.post('/expense', allowRoles('Admin Internet'), asyncHandler(postInternetExpenseHandler));
 router.post('/tariff', allowRoles('Admin Internet'), asyncHandler(postInternetTariffHandler));
 router.post('/members/set-active', allowRoles('Admin Internet'), asyncHandler(postInternetMemberSetActiveHandler));
+router.post('/members/reset-start-month', allowRoles('Admin Internet'), asyncHandler(postInternetMembersResetStartMonthHandler));
 
 export default router;
