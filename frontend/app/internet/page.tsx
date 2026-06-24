@@ -75,6 +75,7 @@ export default function OperasionalInternetPage() {
 
   const canAccess = hasAnyRole(user, ['Admin Internet', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Internet', 'root']);
+  const canResetMemberStartMonths = hasAnyRole(user, ['root']);
   const iuranOnlyMode = pathname === '/operasional/internet/iuran';
   const settingMode = pathname === '/operasional/internet/setting';
 
@@ -313,7 +314,7 @@ export default function OperasionalInternetPage() {
             </div>
           </Card>
           <div className="surface-muted rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Anggota aktif: <b>{members.filter((member) => member.is_active).length}</b></div>
-          {canWrite ? (
+          {canResetMemberStartMonths ? (
             <div className="flex justify-end">
               <Button variant="ghost" className="btn-action-blue" onClick={() => void resetAllMemberStartMonths()} disabled={busy}>
                 Reset Semua Mulai Januari 2026
