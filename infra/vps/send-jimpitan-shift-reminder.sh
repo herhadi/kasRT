@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-PROJECT_DIR="${KASRT_PROJECT_DIR:-/opt/kasrt}"
+PROJECT_DIR="${KASRT_PROJECT_DIR:-/srv/kasrt/app}"
 ENV_FILE="${KASRT_ENV_FILE:-$PROJECT_DIR/backend/.env}"
 BACKEND_URL="${KASRT_BACKEND_URL:-http://127.0.0.1:3005}"
 

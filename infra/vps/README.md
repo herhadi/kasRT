@@ -6,7 +6,7 @@ Stack ini hanya menjalankan backend KasRT. PostgreSQL tetap memakai Neon dan fro
 
 - Docker Engine dan Docker Compose plugin tersedia.
 - User deploy menjadi anggota grup `docker`.
-- Repo sudah di-clone pada `/opt/kasrt` (atau lokasi lain yang nanti disimpan sebagai `VPS_DEPLOY_PATH`).
+- Repo sudah di-clone pada `/srv/kasrt/app`.
 - `cloudflared` yang sudah berjalan memiliki route untuk `api-kasrt.tripleatech.my.id` ke `http://localhost:3005`.
 
 Tambahkan ingress berikut sebelum rule `http_status:404` lalu restart Cloudflared:
@@ -39,7 +39,7 @@ Tambahkan domain frontend produksi lain ke `CORS_ORIGINS` dengan pemisah koma. J
 Jalankan deploy awal dari VPS:
 
 ```bash
-cd /opt/kasrt
+cd /srv/kasrt/app
 chmod +x infra/vps/deploy-backend.sh infra/vps/send-jimpitan-shift-reminder.sh
 ./infra/vps/deploy-backend.sh
 curl --fail-with-body http://127.0.0.1:3005/
@@ -58,7 +58,7 @@ sudo systemctl restart cron
 Tes manual tanpa menunggu jadwal:
 
 ```bash
-sudo /opt/kasrt/infra/vps/send-jimpitan-shift-reminder.sh
+sudo /srv/kasrt/app/infra/vps/send-jimpitan-shift-reminder.sh
 ```
 
 Tes manual di luar window akan mengembalikan `skipped`; itu normal. Untuk pengujian pengiriman, jalankan pada window `20:42-20:55 WIB`.

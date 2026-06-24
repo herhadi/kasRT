@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-PROJECT_DIR="${KASRT_PROJECT_DIR:-/opt/kasrt}"
+PROJECT_DIR="${KASRT_PROJECT_DIR:-/srv/kasrt/app}"
 BRANCH="${DEPLOY_BRANCH:-main}"
 LOG_DIR="${DEPLOY_LOG_DIR:-${PROJECT_DIR}/logs/deploy}"
 LOCK_FILE="${DEPLOY_LOCK_FILE:-/tmp/kasrt-deploy.lock}"
