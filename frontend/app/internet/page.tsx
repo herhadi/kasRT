@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
@@ -71,6 +71,7 @@ export default function OperasionalInternetPage() {
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
   const [members, setMembers] = useState<InternetMember[]>([]);
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
+  const loadSequenceRef = useRef(0);
 
   const canAccess = hasAnyRole(user, ['Admin Internet', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Internet', 'root']);
@@ -79,17 +80,20 @@ export default function OperasionalInternetPage() {
 
   const loadAll = useCallback(async () => {
     if (!canAccess) return;
+    const requestSequence = ++loadSequenceRef.current;
     setError('');
     const [sumRes, histRes, memberRes] = await Promise.all([
       apiFetch<{ success: boolean; data: InternetSummary }>(`/internet/summary?month=${encodeURIComponent(month)}`),
       apiFetch<{ success: boolean; data: InternetHistory }>(`/internet/history?month=${encodeURIComponent(month)}`),
       apiFetch<{ success: boolean; data: InternetMember[] }>(`/internet/members`)
     ]);
+    if (requestSequence !== loadSequenceRef.current) return;
     setSummary(sumRes.data || null);
     setHistory(histRes.data || null);
     setMembers(memberRes.data || []);
     setMemberMonthDrafts(Object.fromEntries((memberRes.data || []).map((member) => [member.warga_id, member.active_from_month || MEMBER_START_MONTH])));
     const yRes = await apiFetch<{ success: boolean; data: InternetYearlyHistory }>(`/internet/history?year=${encodeURIComponent(historyYear)}`);
+    if (requestSequence !== loadSequenceRef.current) return;
     setYearlyHistory(yRes.data || null);
   }, [canAccess, month, historyYear]);
 
@@ -206,11 +210,23 @@ export default function OperasionalInternetPage() {
       setBusy(true);
       setError('');
       setMessage('');
-      await apiFetch('/internet/members/set-active', {
+      const result = await apiFetch<{ success: boolean; data?: InternetMember }>('/internet/members/set-active', {
         method: 'POST',
         body: JSON.stringify({ warga_id: wid, is_active: next, active_from_month: activeFromMonth })
       });
-      setMessage(next ? 'Warga diaktifkan sebagai anggota internet.' : 'Warga dinonaktifkan dari anggota internet.');
+      const savedMonth = String(result.data?.active_from_month || '');
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(savedMonth)) {
+        throw new Error('Backend belum mendukung penyimpanan bulan mulai iuran. Deploy backend terbaru terlebih dahulu.');
+      }
+      setMemberMonthDrafts((previous) => ({ ...previous, [wid]: savedMonth }));
+      setMembers((previous) => previous.map((member) => (
+        member.warga_id === wid ? { ...member, is_active: next, active_from_month: savedMonth } : member
+      )));
+      setMessage(
+        next
+          ? `Keanggotaan internet aktif. Mulai iuran tersimpan: ${savedMonth}.`
+          : `Warga dinonaktifkan. Mulai iuran tersimpan: ${savedMonth}.`
+      );
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal update anggota internet');

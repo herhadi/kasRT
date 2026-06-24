@@ -65,19 +65,33 @@ git fetch origin "$BRANCH"
 git reset --hard "origin/$BRANCH"
 HEAD_SHA="$(git rev-parse --short HEAD)"
 
-docker compose -f docker-compose.vps.yml build kasrt-backend
-docker compose -f docker-compose.vps.yml up --detach --no-deps kasrt-backend
+COMPOSE_FILE="docker-compose.vps.yml"
+SERVICE="kasrt-backend"
+
+if ! docker compose -f "$COMPOSE_FILE" config --services | grep -Fxq "$SERVICE"; then
+  echo "Service ${SERVICE} tidak ditemukan pada ${COMPOSE_FILE}." >&2
+  exit 1
+fi
+
+docker compose -f "$COMPOSE_FILE" build "$SERVICE"
+docker compose -f "$COMPOSE_FILE" up --detach --no-deps --force-recreate "$SERVICE"
+
+if ! docker compose -f "$COMPOSE_FILE" ps --status running --services | grep -Fxq "$SERVICE"; then
+  echo "Container service ${SERVICE} tidak berjalan setelah deploy." >&2
+  docker compose -f "$COMPOSE_FILE" ps >&2
+  exit 1
+fi
 
 for attempt in {1..30}; do
   if curl --fail --silent --show-error http://127.0.0.1:3005/ >/dev/null; then
     finished_at="$(date +%s)"
     echo "Deploy KasRT berhasil. Commit: $HEAD_SHA, durasi: $((finished_at - STARTED_AT))s"
-    docker compose -f docker-compose.vps.yml ps
+    docker compose -f "$COMPOSE_FILE" ps
     exit 0
   fi
   sleep 2
 done
 
 echo "Health check backend gagal setelah 60 detik." >&2
-docker compose -f docker-compose.vps.yml logs --tail=100 kasrt-backend >&2
+docker compose -f "$COMPOSE_FILE" logs --tail=100 "$SERVICE" >&2
 exit 1
