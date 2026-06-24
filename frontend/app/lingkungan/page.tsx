@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
@@ -55,6 +55,7 @@ export default function LingkunganPage() {
   const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
   const [historyYearMonth, setHistoryYearMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const paymentSyncRef = useRef(Promise.resolve());
   const iuranOnlyMode = pathname === '/operasional/lingkungan/iuran';
   const settingMode = pathname === '/operasional/lingkungan/setting';
   const guideMode = pathname === '/operasional/lingkungan/panduan';
@@ -114,16 +115,45 @@ export default function LingkunganPage() {
     memberPager.reset();
   }, [filteredMembers.length, memberFilter]);
 
-  async function submitPayment(amount: number) {
+  function submitPayment(amount: number) {
     if (!selectedWargaId || amount <= 0) return setError('Pilih warga & nominal valid');
-    try {
-      setBusy(true); setError(''); setMessage('');
-      await apiFetch('/lingkungan/payment', { method: 'POST', body: JSON.stringify({ warga_id: selectedWargaId, month, amount, paid_at: expenseDate, note: '' }) });
-      setMessage('Iuran lingkungan berhasil dicatat.');
-      await loadAll();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal input iuran lingkungan');
-    } finally { setBusy(false); }
+    const wargaId = selectedWargaId;
+    const paidAt = expenseDate;
+    setError('');
+    setSummary((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        pemasukan: Number(current.pemasukan || 0) + amount,
+        total_saldo: Number(current.total_saldo || 0) + amount,
+        total_kas: Number(current.total_kas || 0) + amount,
+        rows: current.rows.map((row) => {
+          if (row.warga_id !== wargaId) return row;
+          const nextPaid = Number(row.paid_amount || 0) + amount;
+          const nextArrears = Math.max(Number(row.target_amount || 0) - nextPaid, 0);
+          const resolvedArrears = Math.max(Number(row.arrears || 0) - nextArrears, 0);
+          return {
+            ...row,
+            paid_amount: nextPaid,
+            arrears: nextArrears,
+            total_arrears: Math.max(Number(row.total_arrears || 0) - resolvedArrears, 0),
+            arrears_months: Number(row.arrears || 0) > 0 && nextArrears === 0 ? Math.max(Number(row.arrears_months || 0) - 1, 0) : Number(row.arrears_months || 0)
+          };
+        })
+      };
+    });
+    setMessage('Iuran disimpan lokal. Menyinkronkan di latar belakang…');
+    paymentSyncRef.current = paymentSyncRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await apiFetch('/lingkungan/payment', { method: 'POST', body: JSON.stringify({ warga_id: wargaId, month, amount, paid_at: paidAt, note: '' }) });
+        setMessage('Iuran lingkungan berhasil disinkronkan.');
+        void loadAll().catch(() => undefined);
+      })
+      .catch((error) => {
+        setError(error instanceof Error ? error.message : 'Gagal menyinkronkan iuran lingkungan');
+        void loadAll().catch(() => undefined);
+      });
   }
 
   async function submitExpense() {
@@ -175,7 +205,7 @@ export default function LingkunganPage() {
       <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar sticky={false} /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
         <Card title="Input Iuran Lingkungan" subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`} headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
-          <WargaContributionSection rows={rowsForInput} selectedRow={selectedRow} loading={busy} presets={[{ label: '20rb', amount: 20000 }, { label: '40rb', amount: 40000 }, { label: '60rb', amount: 60000 }, { label: '80rb', amount: 80000 }, { label: '100rb', amount: 100000 }, { label: '120rb', amount: 120000 }]} onOpen={(r) => { setSelectedWargaId(String(r.id)); setSelectedRow(r); }} onClose={() => setSelectedRow(null)} onSubmit={async (a) => { await submitPayment(a); setSelectedRow(null); }} />
+          <WargaContributionSection rows={rowsForInput} selectedRow={selectedRow} loading={busy} presets={[{ label: '20rb', amount: 20000 }, { label: '40rb', amount: 40000 }, { label: '60rb', amount: 60000 }, { label: '80rb', amount: 80000 }]} onOpen={(r) => { setSelectedWargaId(String(r.id)); setSelectedRow(r); }} onClose={() => setSelectedRow(null)} onSubmit={async (a) => { submitPayment(a); setSelectedRow(null); }} />
         </Card>
       </div></main>
     );

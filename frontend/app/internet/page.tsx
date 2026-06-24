@@ -74,6 +74,7 @@ export default function OperasionalInternetPage() {
   const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
   const loadSequenceRef = useRef(0);
+  const paymentSyncRef = useRef(Promise.resolve());
 
   const canAccess = hasAnyRole(user, ['Admin Internet', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Internet', 'root']);
@@ -143,32 +144,58 @@ export default function OperasionalInternetPage() {
     expensePager.reset();
   }, [summary?.expenses?.length]);
 
-  async function submitPayment(forcedAmount?: number) {
+  function submitPayment(forcedAmount?: number) {
     const amount = Number.isFinite(forcedAmount as number) ? Number(forcedAmount) : parseRupiahInput(payAmount);
     if (!selectedWargaId || amount <= 0) return setError('Pilih warga dan nominal valid.');
-    try {
-      setBusy(true);
-      setError('');
-      setMessage('');
-      await apiFetch('/internet/payment', {
+    const wargaId = selectedWargaId;
+    const paidAt = expenseDate;
+    const note = payNote;
+    setError('');
+    setPayAmount('');
+    setPayNote('');
+    setSummary((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        pemasukan: Number(current.pemasukan || 0) + amount,
+        total_kas: Number(current.total_kas || 0) + amount,
+        rows: current.rows.map((row) => {
+          if (row.warga_id !== wargaId) return row;
+          const nextPaid = Number(row.paid_amount || 0) + amount;
+          const nextArrears = Math.max(Number(row.target_amount || 0) - nextPaid, 0);
+          const resolvedArrears = Math.max(Number(row.arrears || 0) - nextArrears, 0);
+          return {
+            ...row,
+            paid_amount: nextPaid,
+            arrears: nextArrears,
+            total_arrears: Math.max(Number(row.total_arrears || 0) - resolvedArrears, 0),
+            arrears_months: Number(row.arrears || 0) > 0 && nextArrears === 0 ? Math.max(Number(row.arrears_months || 0) - 1, 0) : Number(row.arrears_months || 0)
+          };
+        })
+      };
+    });
+    setInternetKas((current) => current + amount);
+    setMessage('Iuran disimpan lokal. Menyinkronkan di latar belakang…');
+    paymentSyncRef.current = paymentSyncRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await apiFetch('/internet/payment', {
         method: 'POST',
         body: JSON.stringify({
-          warga_id: selectedWargaId,
+          warga_id: wargaId,
           month,
           amount,
-          paid_at: expenseDate,
-          note: payNote
+          paid_at: paidAt,
+          note
         })
+        });
+        setMessage('Iuran internet berhasil disinkronkan.');
+        void loadAll().catch(() => undefined);
+      })
+      .catch((error) => {
+        setError(error instanceof Error ? error.message : 'Gagal menyinkronkan iuran internet');
+        void loadAll().catch(() => undefined);
       });
-      setPayAmount('');
-      setPayNote('');
-      setMessage('Iuran internet berhasil dicatat.');
-      await loadAll();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal input iuran internet');
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function submitExpense() {
@@ -290,9 +317,7 @@ export default function OperasionalInternetPage() {
                 { label: '60rb', amount: 60000 },
                 { label: '120rb', amount: 120000 },
                 { label: '180rb', amount: 180000 },
-                { label: '240rb', amount: 240000 },
-                { label: '300rb', amount: 300000 },
-                { label: '360rb', amount: 360000 }
+                { label: '240rb', amount: 240000 }
               ]}
               onOpen={(row) => {
                 setSelectedWargaId(String(row.id));
@@ -300,7 +325,7 @@ export default function OperasionalInternetPage() {
               }}
               onClose={() => setSelectedRow(null)}
               onSubmit={async (amount) => {
-                await submitPayment(amount);
+                submitPayment(amount);
                 setSelectedRow(null);
               }}
             />

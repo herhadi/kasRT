@@ -47,7 +47,7 @@ export default function WargaContributionModal({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm">
-      <div className="glass-card w-full max-w-sm rounded-2xl p-4">
+      <div className="glass-card w-full max-w-sm rounded-2xl p-5 md:p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Input Iuran</p>
         <h3 className="mt-1 text-lg font-bold text-[var(--text-primary)]">{wargaNama}</h3>
         {typeof currentBalance === 'number' ? (
@@ -56,12 +56,12 @@ export default function WargaContributionModal({
           </p>
         ) : null}
 
-        <div className="quick-choice-grid-2 mt-3">
+        <div className="mt-4 grid grid-cols-2 gap-4 px-1 py-2">
           {presets.map((preset) => (
             <Button
               key={preset.amount}
               variant="ghost"
-              className="quick-choice-btn btn-action-blue"
+              className="quick-choice-btn btn-action-blue !min-h-[4.25rem] !px-4 !py-3 !text-base"
               onClick={() => void onSubmit(preset.amount)}
               disabled={loading}
             >
@@ -71,25 +71,26 @@ export default function WargaContributionModal({
         </div>
 
         {showManual ? (
-          <div className="mt-4 space-y-2">
+          <div className="mt-5 space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-4">
             <button
               type="button"
-              className="text-xs font-semibold text-[var(--accent)]"
+              className="text-sm font-semibold text-[var(--accent)]"
               onClick={() => setManualOpen((v) => !v)}
             >
               {manualOpen ? '▾ Sembunyikan Nominal Lainnya' : '▸ Nominal Lainnya'}
             </button>
             {manualOpen ? (
               <>
-            <Input
+              <Input
               label="Nominal Lainnya"
               type="text"
               inputMode="numeric"
+              className="!py-4 !text-lg !font-bold"
               value={formatRupiahInput(manual)}
               onChange={(e) => setManual(e.target.value)}
               placeholder="Contoh: 30.000"
             />
-            <Button className="w-full" onClick={() => void onSubmit(parseRupiahInput(manual))} disabled={loading || !manual}>
+            <Button className="w-full !min-h-[3.5rem] !text-base" onClick={() => void onSubmit(parseRupiahInput(manual))} disabled={loading || !manual}>
               Simpan Nominal
             </Button>
               </>
