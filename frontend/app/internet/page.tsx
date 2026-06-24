@@ -27,6 +27,7 @@ type InternetRow = {
   target_amount: number;
   arrears: number;
   total_arrears: number;
+  surplus_amount: number;
   arrears_months: number;
   chargeable_months: number;
 };
@@ -133,7 +134,11 @@ export default function OperasionalInternetPage() {
         paidAmount: Number(r.paid_amount || 0),
         targetAmount: Number(summary?.monthly_fee || 0),
         canInput: true,
-        suggestionText: `Total tunggakan: ${formatRupiah(Number(r.total_arrears || 0))}`
+        suggestionText: Number(r.surplus_amount || 0) > 0
+          ? `Surplus: ${formatRupiah(Number(r.surplus_amount || 0))}`
+          : Number(r.total_arrears || 0) > 0
+            ? `Kurang: ${formatRupiah(Number(r.total_arrears || 0))}`
+            : 'Lunas sampai periode ini'
       })),
     [summary]
   );

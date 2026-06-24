@@ -168,44 +168,11 @@ export async function getInternetSummary(month) {
   const tariffs = tariffRows.rows.map((r) => ({ month: String(r.effective_month), fee: Number(r.monthly_fee) }));
   const activeFee = tariffs.length ? tariffs[tariffs.length - 1].fee : INTERNET_MONTHLY_FEE;
 
-  const result = await pool.query(
-    `WITH members AS (
-       SELECT im.warga_id, u.nama
-       FROM inet_members im
-       JOIN users u ON u.id = im.warga_id
-       WHERE im.is_active = TRUE AND im.active_from_month <= $1
-     ),
-     paid AS (
-       SELECT warga_id, COALESCE(SUM(amount),0) AS amount
-       FROM inet_payments
-       WHERE month_key = $1
-       GROUP BY warga_id
-     ),
-     income AS (
-       SELECT COALESCE(SUM(amount),0) AS total_in
-       FROM inet_payments
-       WHERE month_key = $1
-     ),
-     expense AS (
-       SELECT COALESCE(SUM(amount),0) AS total_out
-       FROM inet_expenses
-       WHERE TO_CHAR(expense_date,'YYYY-MM') = $1
-     )
-     SELECT
-       m.warga_id::text AS warga_id,
-       m.nama,
-       COALESCE(p.amount,0) AS paid_amount,
-       $2::numeric AS target_amount,
-       GREATEST($2::numeric - COALESCE(p.amount,0), 0) AS arrears
-     FROM members m
-     LEFT JOIN paid p ON p.warga_id = m.warga_id
-     ORDER BY m.nama`,
-    [month, activeFee]
-  );
   const arrearsRows = await pool.query(
     `WITH members AS (
-       SELECT im.warga_id, im.active_from_month
+       SELECT im.warga_id, im.active_from_month, u.nama
        FROM inet_members im
+       JOIN users u ON u.id = im.warga_id
        WHERE im.is_active = TRUE AND im.active_from_month <= $1
      ),
      months AS (
@@ -227,27 +194,40 @@ export async function getInternetSummary(month) {
          ), $2::numeric) AS target
        FROM months mo
      ),
-     paid AS (
-       SELECT warga_id, month_key, SUM(amount) AS paid
+     paid_total AS (
+       SELECT warga_id, SUM(amount) AS total_paid
        FROM inet_payments
-       GROUP BY warga_id, month_key
+       WHERE month_key <= $1
+       GROUP BY warga_id
+     ),
+     running_targets AS (
+       SELECT mt.*,
+              SUM(mt.target) OVER (PARTITION BY mt.warga_id ORDER BY mt.month_key ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS target_through_month
+       FROM month_target mt
+     ),
+     allocated AS (
+       SELECT rt.*,
+              COALESCE(pt.total_paid, 0) AS total_paid,
+              LEAST(rt.target, GREATEST(COALESCE(pt.total_paid, 0) - (rt.target_through_month - rt.target), 0)) AS applied_amount
+       FROM running_targets rt
+       LEFT JOIN paid_total pt ON pt.warga_id = rt.warga_id
      )
      SELECT
        m.warga_id::text AS warga_id,
-       COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears,
-       COUNT(*) FILTER (WHERE GREATEST(mt.target - COALESCE(p.paid,0), 0) > 0) AS arrears_months,
+       MAX(m.nama) AS nama,
+       COALESCE(MAX(a.applied_amount) FILTER (WHERE a.month_key = $1), 0) AS paid_amount,
+       COALESCE(MAX(a.target) FILTER (WHERE a.month_key = $1), 0) AS target_amount,
+       COALESCE(MAX(a.target - a.applied_amount) FILTER (WHERE a.month_key = $1), 0) AS arrears,
+       COALESCE(SUM(a.target - a.applied_amount), 0) AS total_arrears,
+       GREATEST(MAX(a.total_paid) - SUM(a.target), 0) AS surplus_amount,
+       COUNT(*) FILTER (WHERE a.applied_amount < a.target) AS arrears_months,
        COUNT(*) AS chargeable_months
      FROM members m
-     JOIN month_target mt ON mt.warga_id = m.warga_id
-     LEFT JOIN paid p ON p.warga_id = m.warga_id AND p.month_key = mt.month_key
-     GROUP BY m.warga_id`,
+     JOIN allocated a ON a.warga_id = m.warga_id
+     GROUP BY m.warga_id
+     ORDER BY MAX(m.nama)`,
     [month, INTERNET_MONTHLY_FEE]
   );
-  const arrearsMap = new Map(arrearsRows.rows.map((row) => [String(row.warga_id), {
-    totalArrears: Number(row.total_arrears || 0),
-    arrearsMonths: Number(row.arrears_months || 0),
-    chargeableMonths: Number(row.chargeable_months || 0)
-  }]));
   const totalInOut = await pool.query(
     `SELECT
       (SELECT COALESCE(SUM(amount),0) FROM inet_payments WHERE month_key = $1) AS pemasukan,
@@ -269,15 +249,16 @@ export async function getInternetSummary(month) {
      LIMIT 200`
   );
   return {
-    rows: result.rows.map((r) => ({
-      warga_id: r.warga_id,
-      nama: r.nama,
-      paid_amount: Number(r.paid_amount || 0),
-      target_amount: Number(r.target_amount || 0),
-      arrears: Number(r.arrears || 0),
-      total_arrears: arrearsMap.get(String(r.warga_id))?.totalArrears || 0,
-      arrears_months: arrearsMap.get(String(r.warga_id))?.arrearsMonths || 0,
-      chargeable_months: arrearsMap.get(String(r.warga_id))?.chargeableMonths || 0
+    rows: arrearsRows.rows.map((row) => ({
+      warga_id: String(row.warga_id),
+      nama: String(row.nama || ''),
+      paid_amount: Number(row.paid_amount || 0),
+      target_amount: Number(row.target_amount || 0),
+      arrears: Number(row.arrears || 0),
+      total_arrears: Number(row.total_arrears || 0),
+      surplus_amount: Number(row.surplus_amount || 0),
+      arrears_months: Number(row.arrears_months || 0),
+      chargeable_months: Number(row.chargeable_months || 0)
     })),
     active_fee: activeFee,
     tariffs,

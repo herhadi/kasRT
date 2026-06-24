@@ -11,6 +11,7 @@ type Preset = { label: string; amount: number };
 export default function WargaContributionModal({
   open,
   wargaNama,
+  suggestionText,
   currentBalance,
   presets,
   loading,
@@ -20,6 +21,7 @@ export default function WargaContributionModal({
 }: {
   open: boolean;
   wargaNama: string;
+  suggestionText?: string;
   currentBalance?: number | null;
   presets: Preset[];
   loading: boolean;
@@ -50,6 +52,7 @@ export default function WargaContributionModal({
       <div className="glass-card w-full max-w-sm rounded-2xl p-5 md:p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Input Iuran</p>
         <h3 className="mt-1 text-lg font-bold text-[var(--text-primary)]">{wargaNama}</h3>
+        {suggestionText ? <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">{suggestionText}</p> : null}
         {typeof currentBalance === 'number' ? (
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             Saldo saat ini: <b>{formatRupiah(currentBalance)}</b>

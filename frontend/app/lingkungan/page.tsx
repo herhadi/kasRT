@@ -20,7 +20,7 @@ import WargaContributionSection from '@/components/contribution/WargaContributio
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
 
-type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; arrears_months: number; chargeable_months: number };
+type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; surplus_amount: number; arrears_months: number; chargeable_months: number };
 type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
 type Yearly = { year: string; recap: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
 type LingkunganMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string; updated_by?: string };
@@ -108,7 +108,18 @@ export default function LingkunganPage() {
   const memberPager = usePagination(filteredMembers, 10);
   const expensePager = usePagination(summary?.expenses || [], 10);
   const rowsForInput = useMemo<WargaContributionRow[]>(
-    () => (summary?.rows || []).map((r) => ({ id: r.warga_id, nama: r.nama, paidAmount: r.paid_amount, targetAmount: Number(summary?.monthly_fee || 0), canInput: true, suggestionText: `Total tunggakan: ${formatRupiah(r.total_arrears)}` })),
+    () => (summary?.rows || []).map((r) => ({
+      id: r.warga_id,
+      nama: r.nama,
+      paidAmount: r.paid_amount,
+      targetAmount: Number(summary?.monthly_fee || 0),
+      canInput: true,
+      suggestionText: Number(r.surplus_amount || 0) > 0
+        ? `Surplus: ${formatRupiah(Number(r.surplus_amount || 0))}`
+        : Number(r.total_arrears || 0) > 0
+          ? `Kurang: ${formatRupiah(Number(r.total_arrears || 0))}`
+          : 'Lunas sampai periode ini'
+    })),
     [summary]
   );
   useEffect(() => {

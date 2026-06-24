@@ -71,6 +71,7 @@ export default function WargaContributionSection({
       <WargaContributionModal
         open={Boolean(selectedRow)}
         wargaNama={selectedRow?.nama || '-'}
+        suggestionText={selectedRow?.suggestionText}
         presets={
           presets || [
             { label: '30rb', amount: 30000 },
