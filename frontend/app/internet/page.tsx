@@ -295,7 +295,7 @@ export default function OperasionalInternetPage() {
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card
           title="Operasional Internet"
-          subtitle="Iuran wajib internet bulanan, tunggakan, dan pengeluaran"
+          subtitle="Iuran wajib internet bulanan"
           headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
         >
           {canWrite ? (
@@ -309,9 +309,9 @@ export default function OperasionalInternetPage() {
           className="sticky z-40 gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur"
           style={{ top: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
         >
-            <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[10px] leading-[14px] md:px-3 md:py-2 md:text-sm">Tarif<br /><b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
-            <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[10px] leading-[14px] md:px-3 md:py-2 md:text-sm">Masuk<br /><b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
-            <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[10px] leading-[14px] md:px-3 md:py-2 md:text-sm">Keluar<br /><b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
+          <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Tarif<br /><b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+          <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Masuk<br /><b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
+          <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Keluar<br /><b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
         </div>
 
         {canWrite && !iuranOnlyMode ? (
@@ -322,34 +322,34 @@ export default function OperasionalInternetPage() {
               <Input label="Keterangan" value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} />
               <div className="flex items-end"><Button className="w-full" onClick={submitExpense} disabled={busy}>Catat Pengeluaran</Button></div>
             </div>
+            <div className="mt-5 border-t border-[var(--line)] pt-4">
+              <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Riwayat Pengeluaran Periode {month}</p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                  <thead>
+                    <tr className="bg-[var(--surface-strong)]">
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expensePager.pagedItems.length === 0 ? (
+                      <tr className="bg-[var(--surface)]"><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada pengeluaran pada periode ini.</td></tr>
+                    ) : expensePager.pagedItems.map((expense) => (
+                      <tr key={expense.id} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{new Date(expense.tanggal).toLocaleDateString('id-ID')}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{expense.note || '-'}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(Number(expense.amount || 0))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
+            </div>
           </Card>
         ) : null}
-
-        <Card title="Riwayat Pengeluaran Internet" subtitle={`Pengeluaran periode ${month}`}>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-              <thead>
-                <tr className="bg-[var(--surface-strong)]">
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expensePager.pagedItems.length === 0 ? (
-                  <tr className="bg-[var(--surface)]"><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada pengeluaran pada periode ini.</td></tr>
-                ) : expensePager.pagedItems.map((expense) => (
-                  <tr key={expense.id} className="bg-[var(--surface)]">
-                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{new Date(expense.tanggal).toLocaleDateString('id-ID')}</td>
-                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{expense.note || '-'}</td>
-                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(Number(expense.amount || 0))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
-        </Card>
 
         <Card title="Status Iuran Warga" subtitle="Hitungan tunggakan mengikuti tarif efektif per bulan">
           <div className="mb-3 flex w-full gap-2">
@@ -395,47 +395,47 @@ export default function OperasionalInternetPage() {
         </Card>
 
         {!iuranOnlyMode ? (
-        <Card
-          title="Riwayat Internet"
-          subtitle="Total pemasukan dan pengeluaran per bulan"
-          headerRight={
-            <div className="w-full max-w-[220px]">
-              <Input
-                label="Tahun"
-                type="month"
-                value={historyYearMonth}
-                onChange={(e) => {
-                  const v = String(e.target.value || '');
-                  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) {
-                    setHistoryYearMonth(v);
-                    setHistoryYear(v.slice(0, 4));
-                  }
-                }}
-              />
-            </div>
-          }
-        >
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-              <thead>
-                <tr className="bg-[var(--surface-strong)]">
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Bulan</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pemasukan</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pengeluaran</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(yearlyHistory?.recap || []).map((row) => (
-                  <tr key={row.month} className="bg-[var(--surface)]">
-                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.month}</td>
-                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">{formatRupiah(Number(row.pemasukan || 0))}</td>
-                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(Number(row.pengeluaran || 0))}</td>
+          <Card
+            title="Riwayat Internet"
+            subtitle="Total pemasukan dan pengeluaran per bulan"
+            headerRight={
+              <div className="w-full max-w-[220px]">
+                <Input
+                  label="Tahun"
+                  type="month"
+                  value={historyYearMonth}
+                  onChange={(e) => {
+                    const v = String(e.target.value || '');
+                    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) {
+                      setHistoryYearMonth(v);
+                      setHistoryYear(v.slice(0, 4));
+                    }
+                  }}
+                />
+              </div>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Bulan</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pemasukan</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pengeluaran</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                </thead>
+                <tbody>
+                  {(yearlyHistory?.recap || []).map((row) => (
+                    <tr key={row.month} className="bg-[var(--surface)]">
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.month}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">{formatRupiah(Number(row.pemasukan || 0))}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(Number(row.pengeluaran || 0))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         ) : null}
 
       </div>
