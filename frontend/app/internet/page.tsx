@@ -111,6 +111,7 @@ export default function OperasionalInternetPage() {
   }, [summary, filter]);
   const pager = usePagination(filteredRows, 20);
   const memberPager = usePagination(members, 10);
+  const expensePager = usePagination(history?.expenses || [], 10);
   const contributionRows = useMemo<WargaContributionRow[]>(
     () =>
       (summary?.rows || []).map((r) => ({
@@ -126,6 +127,9 @@ export default function OperasionalInternetPage() {
   useEffect(() => {
     memberPager.reset();
   }, [members.length]);
+  useEffect(() => {
+    expensePager.reset();
+  }, [month]);
 
   async function submitPayment(forcedAmount?: number) {
     const amount = Number.isFinite(forcedAmount as number) ? Number(forcedAmount) : parseRupiahInput(payAmount);
@@ -303,7 +307,7 @@ export default function OperasionalInternetPage() {
         </Card>
         <div
           className="sticky z-40 gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur"
-          style={{ top: 'var(--sticky-nav-offset)', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
+          style={{ top: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
         >
             <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[10px] leading-[14px] md:px-3 md:py-2 md:text-sm">Tarif<br /><b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
             <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[10px] leading-[14px] md:px-3 md:py-2 md:text-sm">Masuk<br /><b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
@@ -320,6 +324,32 @@ export default function OperasionalInternetPage() {
             </div>
           </Card>
         ) : null}
+
+        <Card title="Riwayat Pengeluaran Internet" subtitle={`Pengeluaran periode ${month}`}>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+              <thead>
+                <tr className="bg-[var(--surface-strong)]">
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expensePager.pagedItems.length === 0 ? (
+                  <tr className="bg-[var(--surface)]"><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada pengeluaran pada periode ini.</td></tr>
+                ) : expensePager.pagedItems.map((expense) => (
+                  <tr key={expense.id} className="bg-[var(--surface)]">
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{new Date(expense.tanggal).toLocaleDateString('id-ID')}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{expense.note || '-'}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(Number(expense.amount || 0))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
+        </Card>
 
         <Card title="Status Iuran Warga" subtitle="Hitungan tunggakan mengikuti tarif efektif per bulan">
           <div className="mb-3 flex w-full gap-2">
