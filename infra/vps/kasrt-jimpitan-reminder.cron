@@ -1,0 +1,2 @@
+CRON_TZ=Asia/Jakarta
+45 20 * * * root /opt/kasrt/infra/vps/send-jimpitan-shift-reminder.sh >> /var/log/kasrt-jimpitan-reminder.log 2>&1

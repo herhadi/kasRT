@@ -26,9 +26,20 @@ import { ensureAssetTables } from './models/assetModel.js';
 import { ensureAppSettingsTable } from './models/appSettingModel.js';
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = Number(process.env.PORT || 3005);
+const corsOrigins = String(process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || corsOrigins.length === 0 || corsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Origin tidak diizinkan'));
+  }
+}));
 app.use(express.json());
 
 app.use('/auth', authRoutes);

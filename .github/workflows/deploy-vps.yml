@@ -1,0 +1,51 @@
+name: Deploy KasRT Backend to VPS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - docker-compose.vps.yml
+      - infra/vps/deploy-backend.sh
+      - .github/workflows/deploy-vps.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kasrt-vps-deploy
+  cancel-in-progress: false
+
+env:
+  KASRT_DEPLOY_PATH: /srv/kasrt/app
+  KASRT_LOG_DIR: /srv/kasrt/logs/deploy
+
+jobs:
+  deploy:
+    name: Deploy backend production
+    runs-on: self-hosted
+    timeout-minutes: 30
+
+    steps:
+      - name: Deploy backend container
+        env:
+          DEPLOY_BRANCH: main
+          DEPLOY_LOG_DIR: ${{ env.KASRT_LOG_DIR }}
+        run: |
+          cd "$KASRT_DEPLOY_PATH"
+          KASRT_PROJECT_DIR="$KASRT_DEPLOY_PATH" bash ./infra/vps/deploy-backend.sh
+
+      - name: Show deploy logs on failure
+        if: failure()
+        run: |
+          set +e
+          latest_log="$(ls -t "$KASRT_LOG_DIR"/*.log 2>/dev/null | head -n 1)"
+          if [ -z "$latest_log" ]; then
+            echo "Tidak ada log deployment di ${KASRT_LOG_DIR}."
+            exit 0
+          fi
+
+          echo "Menampilkan 200 baris terakhir dari ${latest_log}"
+          tail -n 200 "$latest_log"

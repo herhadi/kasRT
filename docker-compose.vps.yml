@@ -1,0 +1,26 @@
+services:
+  kasrt-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kasrt-backend
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: 3005
+    ports:
+      - "127.0.0.1:${KASRT_BACKEND_PORT:-3005}:3005"
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3005/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3

@@ -82,7 +82,8 @@ Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`create
 
 ## Reminder Otomatis Jimpitan
 
-- Trigger harian via Vercel Cron ke `GET /api/cron` (frontend).
+- Untuk deployment frontend di Vercel, trigger dapat memakai Vercel Cron ke `GET /api/cron` (frontend).
+- Untuk deployment backend di VPS, gunakan cron Linux yang memanggil backend lokal pada pukul `20:45 WIB`; ini direkomendasikan karena presisi jadwalnya lebih baik.
 - Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
 - Schedule Vercel: beberapa trigger di `20:15`, `20:30`, `20:45`, dan `21:00 WIB` sesuai `frontend/vercel.json`.
 - Catatan: Vercel Cron pada plan gratis bisa terlambat, jadi backend menerima window `20:15-21:15 WIB`.
@@ -128,6 +129,8 @@ Deploy menggunakan `render.yaml`:
 - Service frontend: root `frontend`
 
 Pastikan env frontend-backend dan `CRON_SECRET` sinkron.
+
+Alternatif deploy backend tanpa sleep menggunakan Docker di VPS tersedia pada `infra/vps/README.md`. Konfigurasi ini menjalankan backend pada `127.0.0.1:3005` dan dapat dipublikasikan melalui Cloudflare Tunnel.
 
 ## Migrasi Data Historis
 
