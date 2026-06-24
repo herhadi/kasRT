@@ -265,7 +265,7 @@ export async function getInternetSummary(month) {
        description,
        created_at
      FROM inet_expenses
-     ORDER BY created_at DESC
+     ORDER BY expense_date DESC, created_at DESC
      LIMIT 200`
   );
   return {

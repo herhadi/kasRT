@@ -204,7 +204,7 @@ export async function getLingkunganSummary(month) {
        TO_CHAR(expense_date, 'YYYY-MM') AS expense_month,
        created_at
      FROM lh_expenses
-     ORDER BY created_at DESC
+     ORDER BY expense_date DESC, created_at DESC
      LIMIT 200`
   );
   return {
