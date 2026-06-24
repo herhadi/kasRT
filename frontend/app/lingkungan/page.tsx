@@ -23,6 +23,7 @@ type Row = { warga_id: string; nama: string; paid_amount: number; target_amount:
 type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
 type Yearly = { year: string; recap: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
 type LingkunganMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string; updated_by?: string };
+const MEMBER_START_MONTH = '2026-01';
 
 function formatLocalMonth(offset = 0) {
   const date = new Date();
@@ -70,7 +71,7 @@ export default function LingkunganPage() {
     setSummary(s.data || null);
     setYearly(y.data || null);
     setMembers(m.data || []);
-    setMemberMonthDrafts(Object.fromEntries((m.data || []).map((row) => [row.warga_id, row.active_from_month || month])));
+    setMemberMonthDrafts(Object.fromEntries((m.data || []).map((row) => [row.warga_id, row.active_from_month || MEMBER_START_MONTH])));
   }, [canAccess, month, historyYear]);
 
   useEffect(() => { void loadAll().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data lingkungan')); }, [loadAll]);
@@ -145,7 +146,7 @@ export default function LingkunganPage() {
       setError(e instanceof Error ? e.message : 'Gagal simpan tarif');
     } finally { setBusy(false); }
   }
-  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || month) {
+  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || MEMBER_START_MONTH) {
     try {
       setBusy(true); setError(''); setMessage('');
       await apiFetch('/lingkungan/members/set-active', {
@@ -203,7 +204,7 @@ export default function LingkunganPage() {
                       type="month"
                       lang="id-ID"
                       className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                      value={memberMonthDrafts[m.warga_id] || m.active_from_month || month}
+                      value={memberMonthDrafts[m.warga_id] || m.active_from_month || MEMBER_START_MONTH}
                       onChange={(e) => {
                         const nextMonth = e.target.value;
                         setMemberMonthDrafts((prev) => ({ ...prev, [m.warga_id]: nextMonth }));

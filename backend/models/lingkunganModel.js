@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export const LINGKUNGAN_MONTHLY_FEE = 20000;
+const MEMBER_START_MONTH = '2026-01';
 
 export async function ensureLingkunganTables() {
   await pool.query(`
@@ -18,7 +19,7 @@ export async function ensureLingkunganTables() {
     CREATE TABLE IF NOT EXISTS lh_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
-      active_from_month VARCHAR(7) NOT NULL DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY-MM'),
+      active_from_month VARCHAR(7) NOT NULL DEFAULT '${MEMBER_START_MONTH}',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_by UUID REFERENCES users(id)
@@ -28,10 +29,10 @@ export async function ensureLingkunganTables() {
   await pool.query(`ALTER TABLE lh_members ADD COLUMN IF NOT EXISTS active_from_month VARCHAR(7)`);
   await pool.query(
     `UPDATE lh_members
-     SET active_from_month = (SELECT COALESCE(MIN(effective_month), TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM lh_tariffs)
+     SET active_from_month = '${MEMBER_START_MONTH}'
      WHERE active_from_month IS NULL`
   );
-  await pool.query(`ALTER TABLE lh_members ALTER COLUMN active_from_month SET DEFAULT TO_CHAR(CURRENT_DATE, 'YYYY-MM')`);
+  await pool.query(`ALTER TABLE lh_members ALTER COLUMN active_from_month SET DEFAULT '${MEMBER_START_MONTH}'`);
   await pool.query(`ALTER TABLE lh_members ALTER COLUMN active_from_month SET NOT NULL`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lh_payments (
@@ -86,7 +87,7 @@ export async function ensureLingkunganMembersFromWarga() {
       WHERE NOT EXISTS (SELECT 1 FROM warga_role)
     )
     INSERT INTO lh_members (warga_id, is_active, active_from_month)
-    SELECT id, TRUE, TO_CHAR(CURRENT_DATE, 'YYYY-MM') FROM warga_final
+    SELECT id, TRUE, '${MEMBER_START_MONTH}' FROM warga_final
     ON CONFLICT (warga_id) DO NOTHING
   `);
 }

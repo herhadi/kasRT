@@ -45,6 +45,7 @@ type InternetYearlyHistory = {
   recap: Array<{ month: string; pemasukan: number; pengeluaran: number }>;
 };
 type InternetMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string };
+const MEMBER_START_MONTH = '2026-01';
 
 export default function OperasionalInternetPage() {
   const pathname = usePathname();
@@ -87,7 +88,7 @@ export default function OperasionalInternetPage() {
     setSummary(sumRes.data || null);
     setHistory(histRes.data || null);
     setMembers(memberRes.data || []);
-    setMemberMonthDrafts(Object.fromEntries((memberRes.data || []).map((member) => [member.warga_id, member.active_from_month || month])));
+    setMemberMonthDrafts(Object.fromEntries((memberRes.data || []).map((member) => [member.warga_id, member.active_from_month || MEMBER_START_MONTH])));
     const yRes = await apiFetch<{ success: boolean; data: InternetYearlyHistory }>(`/internet/history?year=${encodeURIComponent(historyYear)}`);
     setYearlyHistory(yRes.data || null);
   }, [canAccess, month, historyYear]);
@@ -196,7 +197,7 @@ export default function OperasionalInternetPage() {
     }
   }
 
-  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || month) {
+  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || MEMBER_START_MONTH) {
     try {
       setBusy(true);
       setError('');
@@ -220,7 +221,7 @@ export default function OperasionalInternetPage() {
     return (
       <main className="min-h-screen pb-10">
         <FeedbackToast error={error} message={message} />
-        <Navbar />
+        <Navbar sticky={false} />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
           <OperationalSubmenuHeader backHref="/operasional/internet" title="Kembali ke Operasional Internet" />
           <Card
@@ -260,7 +261,7 @@ export default function OperasionalInternetPage() {
     return (
       <main className="min-h-screen pb-10">
         <FeedbackToast error={error} message={message} />
-        <Navbar />
+        <Navbar sticky={false} />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
           <OperationalSubmenuHeader backHref="/operasional/internet" title="Kembali ke Operasional Internet" />
           <Card title="Pengaturan Internet" subtitle="Tarif dan keanggotaan iuran internet.">
@@ -273,7 +274,7 @@ export default function OperasionalInternetPage() {
           <div className="surface-muted rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Anggota aktif: <b>{members.filter((member) => member.is_active).length}</b></div>
           <Card title="Keanggotaan Internet" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran internet.">
             <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Iuran</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
-              {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><input type="month" className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" value={memberMonthDrafts[member.warga_id] || member.active_from_month || month} onChange={(event) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: event.target.value }))} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={Boolean(member.is_active)} disabled={busy} onSaveStart={() => void setMemberActive(member.warga_id, Boolean(member.is_active))} onToggle={() => void setMemberActive(member.warga_id, !Boolean(member.is_active))} /></td></tr>)}
+              {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><input type="month" className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" value={memberMonthDrafts[member.warga_id] || member.active_from_month || MEMBER_START_MONTH} onChange={(event) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: event.target.value }))} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={Boolean(member.is_active)} disabled={busy} onSaveStart={() => void setMemberActive(member.warga_id, Boolean(member.is_active))} onToggle={() => void setMemberActive(member.warga_id, !Boolean(member.is_active))} /></td></tr>)}
               {!members.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td></tr> : null}
             </tbody></table></div>
             <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
@@ -286,7 +287,7 @@ export default function OperasionalInternetPage() {
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={error} message={message} />
-      <Navbar />
+      <Navbar sticky={false} />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card
           title="Operasional Internet"
@@ -301,13 +302,12 @@ export default function OperasionalInternetPage() {
           ) : null}
         </Card>
         <div
-          className="sticky z-40 grid gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur md:grid-cols-4"
-          style={{ top: 'var(--sticky-nav-offset)' }}
+          className="sticky z-40 gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur"
+          style={{ top: 'var(--sticky-nav-offset)', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
         >
-            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Tarif Aktif: <b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
-            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Warga Aktif: <b>{(summary?.rows || []).length}</b></div>
-            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pemasukan Bulan: <b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
-            <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pengeluaran Bulan: <b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
+            <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[10px] leading-[14px] md:px-3 md:py-2 md:text-sm">Tarif<br /><b>{formatRupiah(Number(summary?.monthly_fee || 0))}</b></div>
+            <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[10px] leading-[14px] md:px-3 md:py-2 md:text-sm">Masuk<br /><b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
+            <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[10px] leading-[14px] md:px-3 md:py-2 md:text-sm">Keluar<br /><b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
         </div>
 
         {canWrite && !iuranOnlyMode ? (
