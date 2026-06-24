@@ -79,7 +79,7 @@ export default function OperationalIuranGuide({ module }: { module: ModuleName }
               <tbody>{metricCopy.map(([name, description]) => <tr key={name} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm font-semibold">{name}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{description}</td></tr>)}</tbody>
             </table>
           </div>
-          <p className="mt-4 text-sm leading-6 text-[var(--text-primary)]">Bagian <b>Riwayat {config.title}</b> memperlihatkan pemasukan dan pengeluaran per bulan. Pilih bulan pada filter Tahun untuk melihat rekap tahun yang diinginkan. Untuk mengecek kewajiban per orang, lihat tabel <b>Status Iuran Warga</b>: Bayar/Target, Tunggakan Bulan, dan Total Tunggakan.</p>
+          <p className="mt-4 text-sm leading-6 text-[var(--text-primary)]">Bagian <b>Riwayat {config.title}</b> memperlihatkan pemasukan dan pengeluaran per bulan. Pilih bulan pada filter Tahun untuk melihat rekap tahun yang diinginkan. Untuk mengecek kewajiban per orang, lihat tabel <b>Status Iuran Warga</b>: Bayar/Target, <b>Tunggakan Bulan</b> (jumlah bulan yang belum lunas dari seluruh bulan iuran), dan Total Tunggakan.</p>
         </Card>
       </div>
     </main>

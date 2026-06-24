@@ -12,7 +12,7 @@ import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, formatTanggalDdMmYyyy, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
@@ -27,6 +27,8 @@ type InternetRow = {
   target_amount: number;
   arrears: number;
   total_arrears: number;
+  arrears_months: number;
+  chargeable_months: number;
 };
 type InternetSummary = {
   month: string;
@@ -36,11 +38,7 @@ type InternetSummary = {
   total_kas: number;
   rows: InternetRow[];
   tariffs: Array<{ id: string; effective_month: string; monthly_fee: number }>;
-};
-type InternetHistory = {
-  month: string;
-  payments: Array<{ id: string; tanggal: string; nama: string; amount: number; note?: string; kind: 'PAYMENT' }>;
-  expenses: Array<{ id: string; tanggal: string; nama: string; amount: number; note?: string; kind: 'EXPENSE' }>;
+  expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }>;
 };
 type DashboardKasSnapshot = { kas_umum?: { kas_internet?: number } };
 type InternetYearlyHistory = {
@@ -56,7 +54,6 @@ export default function OperasionalInternetPage() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [summary, setSummary] = useState<InternetSummary | null>(null);
   const [internetKas, setInternetKas] = useState(0);
-  const [history, setHistory] = useState<InternetHistory | null>(null);
   const [yearlyHistory, setYearlyHistory] = useState<InternetYearlyHistory | null>(null);
   const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
   const [historyYearMonth, setHistoryYearMonth] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
@@ -74,6 +71,7 @@ export default function OperasionalInternetPage() {
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
   const [members, setMembers] = useState<InternetMember[]>([]);
+  const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
   const loadSequenceRef = useRef(0);
 
@@ -88,16 +86,14 @@ export default function OperasionalInternetPage() {
     if (!canAccess) return;
     const requestSequence = ++loadSequenceRef.current;
     setError('');
-    const [sumRes, histRes, memberRes, dashboardRes] = await Promise.all([
+    const [sumRes, memberRes, dashboardRes] = await Promise.all([
       apiFetch<{ success: boolean; data: InternetSummary }>(`/internet/summary?month=${encodeURIComponent(month)}`),
-      apiFetch<{ success: boolean; data: InternetHistory }>(`/internet/history?month=${encodeURIComponent(month)}`),
       apiFetch<{ success: boolean; data: InternetMember[] }>(`/internet/members`),
       apiFetch<{ success: boolean; data: DashboardKasSnapshot }>('/report/dashboard')
     ]);
     if (requestSequence !== loadSequenceRef.current) return;
     setSummary(sumRes.data || null);
     setInternetKas(Number(dashboardRes.data?.kas_umum?.kas_internet || 0));
-    setHistory(histRes.data || null);
     setMembers(memberRes.data || []);
     setMemberMonthDrafts(Object.fromEntries((memberRes.data || []).map((member) => [member.warga_id, member.active_from_month || MEMBER_START_MONTH])));
     const yRes = await apiFetch<{ success: boolean; data: InternetYearlyHistory }>(`/internet/history?year=${encodeURIComponent(historyYear)}`);
@@ -122,8 +118,12 @@ export default function OperasionalInternetPage() {
     return rows;
   }, [summary, filter]);
   const pager = usePagination(filteredRows, 10);
-  const memberPager = usePagination(members, 10);
-  const expensePager = usePagination(history?.expenses || [], 10);
+  const filteredMembers = useMemo(
+    () => members.filter((member) => (memberFilter === 'aktif' ? Boolean(member.is_active) : !member.is_active)),
+    [members, memberFilter]
+  );
+  const memberPager = usePagination(filteredMembers, 10);
+  const expensePager = usePagination(summary?.expenses || [], 10);
   const contributionRows = useMemo<WargaContributionRow[]>(
     () =>
       (summary?.rows || []).map((r) => ({
@@ -138,10 +138,10 @@ export default function OperasionalInternetPage() {
   );
   useEffect(() => {
     memberPager.reset();
-  }, [members.length]);
+  }, [filteredMembers.length, memberFilter]);
   useEffect(() => {
     expensePager.reset();
-  }, [month]);
+  }, [summary?.expenses?.length]);
 
   async function submitPayment(forcedAmount?: number) {
     const amount = Number.isFinite(forcedAmount as number) ? Number(forcedAmount) : parseRupiahInput(payAmount);
@@ -336,9 +336,16 @@ export default function OperasionalInternetPage() {
             </div>
           ) : null}
           <Card title="Keanggotaan Internet" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran internet.">
+            <div className="mb-3 flex w-full gap-2">
+              {(['aktif', 'nonaktif'] as const).map((filter) => (
+                <button key={filter} type="button" onClick={() => setMemberFilter(filter)} className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${memberFilter === filter ? 'opacity-100' : 'opacity-70'}`}>
+                  {filter === 'aktif' ? `Aktif (${members.filter((member) => member.is_active).length})` : `Nonaktif (${members.filter((member) => !member.is_active).length})`}
+                </button>
+              ))}
+            </div>
             <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Iuran</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
               {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><input type="month" className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" value={memberMonthDrafts[member.warga_id] || member.active_from_month || MEMBER_START_MONTH} onChange={(event) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: event.target.value }))} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={Boolean(member.is_active)} disabled={busy} onSaveStart={() => void setMemberActive(member.warga_id, Boolean(member.is_active))} onToggle={() => void setMemberActive(member.warga_id, !Boolean(member.is_active))} /></td></tr>)}
-              {!members.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td></tr> : null}
+              {!filteredMembers.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Tidak ada anggota {memberFilter}.</td></tr> : null}
             </tbody></table></div>
             <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
           </Card>
@@ -385,23 +392,25 @@ export default function OperasionalInternetPage() {
               <div className="flex items-end"><Button className="w-full" onClick={submitExpense} disabled={busy}>Catat Pengeluaran</Button></div>
             </div>
             <div className="mt-5 border-t border-[var(--line)] pt-4">
-              <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Riwayat Pengeluaran Periode {month}</p>
+              <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Riwayat Pengeluaran</p>
               <div className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                   <thead>
                     <tr className="bg-[var(--surface-strong)]">
                       <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
                       <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
                       <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
                     </tr>
                   </thead>
                   <tbody>
                     {expensePager.pagedItems.length === 0 ? (
-                      <tr className="bg-[var(--surface)]"><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada pengeluaran pada periode ini.</td></tr>
+                      <tr className="bg-[var(--surface)]"><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat pengeluaran.</td></tr>
                     ) : expensePager.pagedItems.map((expense) => (
                       <tr key={expense.id} className="bg-[var(--surface)]">
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{new Date(expense.tanggal).toLocaleDateString('id-ID')}</td>
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{expense.note || '-'}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{formatTanggalDdMmYyyy(expense.expense_date)}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{expense.expense_month || '-'}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{expense.description || '-'}</td>
                         <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(Number(expense.amount || 0))}</td>
                       </tr>
                     ))}
@@ -443,7 +452,9 @@ export default function OperasionalInternetPage() {
                       <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-primary)]">
                         {formatRupiah(row.paid_amount)} / {formatRupiah(row.target_amount)}
                       </td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-600">{formatRupiah(row.arrears)}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--text-primary)]">
+                        {row.arrears_months} dari {row.chargeable_months} bulan
+                      </td>
                       <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
                         {formatRupiah(row.total_arrears)}
                       </td>

@@ -23,6 +23,15 @@ export function formatTanggalIndonesia(dateValue: Date | string) {
   return new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(date);
 }
 
+export function formatTanggalDdMmYyyy(dateValue: Date | string) {
+  const raw = typeof dateValue === 'string' ? dateValue.slice(0, 10) : '';
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+  const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+  if (Number.isNaN(date.getTime())) return raw || '-';
+  return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+}
+
 export function normalizeDateInputValue(value: unknown, type = 'date') {
   if (value === null || value === undefined) return '';
   const raw = String(value);

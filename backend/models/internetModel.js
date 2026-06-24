@@ -234,14 +234,20 @@ export async function getInternetSummary(month) {
      )
      SELECT
        m.warga_id::text AS warga_id,
-       COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
+       COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears,
+       COUNT(*) FILTER (WHERE GREATEST(mt.target - COALESCE(p.paid,0), 0) > 0) AS arrears_months,
+       COUNT(*) AS chargeable_months
      FROM members m
      JOIN month_target mt ON mt.warga_id = m.warga_id
      LEFT JOIN paid p ON p.warga_id = m.warga_id AND p.month_key = mt.month_key
      GROUP BY m.warga_id`,
     [month, INTERNET_MONTHLY_FEE]
   );
-  const arrearsMap = new Map(arrearsRows.rows.map((r) => [String(r.warga_id), Number(r.total_arrears || 0)]));
+  const arrearsMap = new Map(arrearsRows.rows.map((row) => [String(row.warga_id), {
+    totalArrears: Number(row.total_arrears || 0),
+    arrearsMonths: Number(row.arrears_months || 0),
+    chargeableMonths: Number(row.chargeable_months || 0)
+  }]));
   const totalInOut = await pool.query(
     `SELECT
       (SELECT COALESCE(SUM(amount),0) FROM inet_payments WHERE month_key = $1) AS pemasukan,
@@ -250,6 +256,18 @@ export async function getInternetSummary(month) {
         (SELECT COALESCE(SUM(amount),0) FROM inet_expenses) AS total_kas`,
     [month]
   );
+  const expenseRows = await pool.query(
+    `SELECT
+       id::text AS id,
+       expense_date::text AS expense_date,
+       TO_CHAR(expense_date, 'YYYY-MM') AS expense_month,
+       amount,
+       description,
+       created_at
+     FROM inet_expenses
+     ORDER BY created_at DESC
+     LIMIT 200`
+  );
   return {
     rows: result.rows.map((r) => ({
       warga_id: r.warga_id,
@@ -257,13 +275,22 @@ export async function getInternetSummary(month) {
       paid_amount: Number(r.paid_amount || 0),
       target_amount: Number(r.target_amount || 0),
       arrears: Number(r.arrears || 0),
-      total_arrears: Number(arrearsMap.get(String(r.warga_id)) || 0)
+      total_arrears: arrearsMap.get(String(r.warga_id))?.totalArrears || 0,
+      arrears_months: arrearsMap.get(String(r.warga_id))?.arrearsMonths || 0,
+      chargeable_months: arrearsMap.get(String(r.warga_id))?.chargeableMonths || 0
     })),
     active_fee: activeFee,
     tariffs,
     pemasukan: Number(totalInOut.rows[0]?.pemasukan || 0),
     pengeluaran: Number(totalInOut.rows[0]?.pengeluaran || 0),
-    total_kas: Number(totalInOut.rows[0]?.total_kas || 0)
+    total_kas: Number(totalInOut.rows[0]?.total_kas || 0),
+    expenses: expenseRows.rows.map((row) => ({
+      id: String(row.id),
+      expense_date: String(row.expense_date || ''),
+      expense_month: String(row.expense_month || ''),
+      amount: Number(row.amount || 0),
+      description: String(row.description || '')
+    }))
   };
 }
 
@@ -314,11 +341,11 @@ export async function getInternetHistory(month) {
     [month]
   );
   const expenses = await pool.query(
-    `SELECT e.id::text, e.expense_date AS tanggal, '-' AS nama, e.amount, e.description AS note, 'EXPENSE' AS kind
+    `SELECT e.id::text, e.expense_date AS tanggal, TO_CHAR(e.expense_date, 'YYYY-MM') AS expense_month,
+            '-' AS nama, e.amount, e.description AS note, 'EXPENSE' AS kind
      FROM inet_expenses e
-     WHERE TO_CHAR(e.expense_date,'YYYY-MM') = $1
      ORDER BY e.expense_date DESC, e.created_at DESC`,
-    [month]
+    []
   );
   return { payments: payments.rows, expenses: expenses.rows };
 }

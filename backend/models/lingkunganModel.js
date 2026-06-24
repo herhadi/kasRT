@@ -170,14 +170,21 @@ export async function getLingkunganSummary(month) {
        FROM months mo
      ),
      paid AS (SELECT warga_id, month_key, SUM(amount) AS paid FROM lh_payments GROUP BY warga_id, month_key)
-     SELECT m.warga_id::text AS warga_id, COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0),0)),0) AS total_arrears
+     SELECT m.warga_id::text AS warga_id,
+            COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0),0)),0) AS total_arrears,
+            COUNT(*) FILTER (WHERE GREATEST(mt.target - COALESCE(p.paid,0),0) > 0) AS arrears_months,
+            COUNT(*) AS chargeable_months
      FROM members m
      JOIN month_target mt ON mt.warga_id = m.warga_id
      LEFT JOIN paid p ON p.warga_id = m.warga_id AND p.month_key = mt.month_key
      GROUP BY m.warga_id`,
     [month, LINGKUNGAN_MONTHLY_FEE]
   );
-  const aMap = new Map(arrearsRows.rows.map((r) => [String(r.warga_id), Number(r.total_arrears || 0)]));
+  const aMap = new Map(arrearsRows.rows.map((row) => [String(row.warga_id), {
+    totalArrears: Number(row.total_arrears || 0),
+    arrearsMonths: Number(row.arrears_months || 0),
+    chargeableMonths: Number(row.chargeable_months || 0)
+  }]));
   const totals = await pool.query(
     `SELECT
       (SELECT COALESCE(SUM(amount),0) FROM lh_payments WHERE month_key = $1) AS pemasukan,
@@ -207,7 +214,9 @@ export async function getLingkunganSummary(month) {
       paid_amount: Number(r.paid_amount || 0),
       target_amount: activeFee,
       arrears: Math.max(activeFee - Number(r.paid_amount || 0), 0),
-      total_arrears: Number(aMap.get(String(r.warga_id)) || 0)
+      total_arrears: aMap.get(String(r.warga_id))?.totalArrears || 0,
+      arrears_months: aMap.get(String(r.warga_id))?.arrearsMonths || 0,
+      chargeable_months: aMap.get(String(r.warga_id))?.chargeableMonths || 0
     })),
     active_fee: activeFee,
     tariffs,
