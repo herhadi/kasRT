@@ -310,6 +310,7 @@ export async function getWargaYearlyProgress(userId) {
 }
 
 export async function getKasUmumSnapshot() {
+  await ensureReportTables();
   const [rows, bendaharaWallets] = await Promise.all([
     getFinanceRecapByMonth(new Date().toISOString().slice(0, 7)),
     listFinanceWallets()
@@ -320,10 +321,12 @@ export async function getKasUmumSnapshot() {
 
   const [pembangunanRes, internetRes, lingkunganRes, koperasiRes] = await Promise.all([
     pool.query(
-      `SELECT COALESCE(SUM(it.amount), 0) AS total
-       FROM iuran_transactions it
-       JOIN contribution_types ct ON ct.id = it.contribution_type_id
-       WHERE LOWER(TRIM(ct.name)) = 'pembangunan'`
+      `SELECT
+         COALESCE((SELECT SUM(total_balance) FROM tab_savings_accounts), 0)
+         + COALESCE((
+           SELECT SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE -amount END)
+           FROM tab_cash_posts
+         ), 0) AS total`
     ),
     pool.query(
       `SELECT

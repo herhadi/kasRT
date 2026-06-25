@@ -333,7 +333,10 @@ export default function TabunganPage() {
               >
                 Input Tabungan
               </Link>
-              <Link href="/operasional/tabungan/setting" className="btn-action-blue ml-auto inline-flex rounded-xl px-4 py-2 text-sm font-semibold">⚙️ Pengaturan</Link>
+              <div className="ml-auto flex gap-2">
+                <Link href="/operasional/tabungan/panduan" className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold">📖 Panduan</Link>
+                <Link href="/operasional/tabungan/setting" className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold">⚙️ Pengaturan</Link>
+              </div>
             </div>
           ) : null}
           <div className="grid gap-2 md:grid-cols-3">
