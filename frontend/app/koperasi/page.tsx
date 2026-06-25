@@ -13,7 +13,6 @@ import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
-import MembershipRequestPanel, { MembershipRequestItem } from '@/components/membership/MembershipRequestPanel';
 
 type Member = { warga_id: string; nama: string; is_active?: boolean };
 type WargaOption = { id: string; nama: string; no_hp?: string };
@@ -26,7 +25,6 @@ export default function KoperasiPage() {
   const canAccess = hasAnyRole(user, ['Admin Koperasi', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Koperasi', 'root']);
   const [members, setMembers] = useState<Member[]>([]);
-  const [membershipRequests, setMembershipRequests] = useState<MembershipRequestItem[]>([]);
   const [wargaOptions, setWargaOptions] = useState<WargaOption[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [wargaId, setWargaId] = useState('');
@@ -52,18 +50,14 @@ export default function KoperasiPage() {
 
   async function loadAll() {
     if (!canAccess) return;
-    const [mRes, sRes, wRes, requestRes] = await Promise.all([
+    const [mRes, sRes, wRes] = await Promise.all([
       apiFetch<{ success: boolean; data: Member[] }>('/koperasi/members'),
       apiFetch<{ success: boolean; data: Summary }>('/koperasi/summary'),
-      apiFetch<{ success: boolean; data: WargaOption[] }>('/auth/warga-options'),
-      canWrite
-        ? apiFetch<{ success: boolean; data: MembershipRequestItem[] }>('/membership/requests?module_key=koperasi')
-        : Promise.resolve({ success: true, data: [] })
+      apiFetch<{ success: boolean; data: WargaOption[] }>('/auth/warga-options')
     ]);
     const m = mRes.data || [];
     const w = wRes.data || [];
     setMembers(m);
-    setMembershipRequests(requestRes.data || []);
     setWargaOptions(w);
     setSummary(sRes.data || null);
     if (w[0] && !wargaId) setWargaId(String(w[0].id));
@@ -205,21 +199,6 @@ export default function KoperasiPage() {
     }
   }
 
-  async function reviewMembershipRequest(requestId: string, status: 'APPROVED' | 'REJECTED') {
-    try {
-      setBusy(true); setError(''); setMessage('');
-      const res = await apiFetch<{ success: boolean; message?: string }>('/membership/review', {
-        method: 'POST',
-        body: JSON.stringify({ request_id: requestId, status })
-      });
-      setMessage(res.message || 'Request keanggotaan diproses.');
-      await loadAll();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal memproses request keanggotaan');
-    } finally {
-      setBusy(false);
-    }
-  }
 
   if (loading || !user) return <main className="min-h-screen" />;
 
@@ -243,13 +222,6 @@ export default function KoperasiPage() {
 
         {canWrite ? (
           <Card title="Keanggotaan Koperasi" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk anggota koperasi.">
-            <MembershipRequestPanel
-              title="Request Keanggotaan Koperasi"
-              requests={membershipRequests}
-              busy={busy}
-              onApprove={(requestId) => void reviewMembershipRequest(requestId, 'APPROVED')}
-              onReject={(requestId) => void reviewMembershipRequest(requestId, 'REJECTED')}
-            />
             <div className="mb-3">
               <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
                 {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}

@@ -48,7 +48,16 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
   const isAdminKeamanan = hasExactRole(user, 'Admin Keamanan');
   const isSekretaris = hasExactRole(user, 'Sekretaris');
   const jimpitanMenuHref = '/jimpitan';
-  const approvalMenuHref = isBendahara ? '/approval/bendahara' : '/approval';
+  const isRoot = hasExactRole(user, 'root');
+  const approvalMenuHref = isBendahara
+    ? '/approval/bendahara'
+    : isAdminInternet
+      ? '/approval/internet'
+      : isAdminLingkungan
+        ? '/approval/lingkungan'
+        : isAdminKoperasi
+          ? '/approval/koperasi'
+          : '/approval';
   const opsMenu = isBendahara
     ? { href: '/operasional/bendahara', label: 'Operasional', icon: '🧾' }
     : isSekretaris
@@ -79,14 +88,26 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     const loadPendingCount = async () => {
       try {
         const result = await apiFetch<{ success: boolean; data: { total_pending: number } }>('/approval/pending');
-        setPendingCount(Number(result.data?.total_pending || 0));
+        const membershipModules = [
+          ...(isAdminInternet || isRoot ? ['internet'] : []),
+          ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
+          ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
+        ];
+        const membershipCounts = await Promise.all(
+          membershipModules.map((moduleKey) =>
+            apiFetch<{ success: boolean; data: unknown[] }>(`/membership/requests?module_key=${moduleKey}`)
+              .then((res) => Number(res.data?.length || 0))
+              .catch(() => 0)
+          )
+        );
+        setPendingCount(Number(result.data?.total_pending || 0) + membershipCounts.reduce((sum, count) => sum + count, 0));
       } catch { setPendingCount(0); }
     };
     
     const kickoff = window.setTimeout(() => { void loadPendingCount(); }, 0);
     const interval = window.setInterval(() => { void loadPendingCount(); }, 30000);
     return () => { window.clearTimeout(kickoff); window.clearInterval(interval); };
-  }, [canSeeApproval, user]);
+  }, [canSeeApproval, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isRoot, user]);
 
   useEffect(() => {
     const scroller = navScrollerRef.current;

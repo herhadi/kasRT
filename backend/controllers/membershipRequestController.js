@@ -34,7 +34,7 @@ export async function createMyMembershipRequestHandler(req, res) {
     `📝 <b>Request Keanggotaan ${label}</b>\n` +
       `Warga: <b>${req.user.nama || actor}</b>\n` +
       `Status: <b>PENDING</b>\n\n` +
-      `Silakan review di menu pengaturan ${label}.`
+      `Silakan review di menu Approval ${label}.`
   );
   return res.json({ success: true, data, message: `Permintaan keanggotaan ${label} dikirim ke admin.` });
 }

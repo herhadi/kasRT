@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import Link from 'next/link';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -196,9 +197,16 @@ export default function ApprovalPage() {
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
         <Card title="Approval Center" subtitle={`${totalPending} transaksi pending`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-[var(--text-muted)]">
-              Total pending: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
-            </p>
+            <div>
+              <p className="text-sm text-[var(--text-muted)]">
+                Total pending transaksi: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {hasAnyRole(user, ['Admin Internet', 'root']) ? <Link href="/approval/internet" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Internet</Link> : null}
+                {hasAnyRole(user, ['Admin Lingkungan', 'root']) ? <Link href="/approval/lingkungan" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Lingkungan</Link> : null}
+                {hasAnyRole(user, ['Admin Koperasi', 'root']) ? <Link href="/approval/koperasi" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Koperasi</Link> : null}
+              </div>
+            </div>
             <Button variant="ghost" className="text-sm px-3 py-1.5" onClick={() => void loadPending()} disabled={loadingList}>
               {loadingList ? 'Memuat...' : 'Refresh'}
             </Button>
