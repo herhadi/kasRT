@@ -233,8 +233,21 @@ export async function getInternetSummary(month) {
       (SELECT COALESCE(SUM(amount),0) FROM inet_payments WHERE month_key = $1) AS pemasukan,
       (SELECT COALESCE(SUM(amount),0) FROM inet_expenses WHERE TO_CHAR(expense_date,'YYYY-MM') = $1) AS pengeluaran,
       (SELECT COALESCE(SUM(amount),0) FROM inet_payments) -
-        (SELECT COALESCE(SUM(amount),0) FROM inet_expenses) AS total_kas`,
+        (SELECT COALESCE(SUM(amount),0) FROM inet_expenses) +
+        (SELECT COALESCE(SUM(amount),0) FROM module_opening_balances WHERE module_key = 'internet' AND opening_year <= EXTRACT(YEAR FROM CURRENT_DATE)::int) AS total_kas`,
     [month]
+  );
+  const openingRows = await pool.query(
+    `SELECT
+       'opening-internet-' || closing_year::text AS id,
+       MAKE_DATE(opening_year, 1, 1)::text AS tanggal,
+       closing_year,
+       opening_year,
+       amount,
+       'Saldo awal migrasi Desember ' || closing_year::text AS description
+     FROM module_opening_balances
+     WHERE module_key = 'internet'
+     ORDER BY opening_year DESC, closing_year DESC`
   );
   const expenseRows = await pool.query(
     `SELECT
@@ -265,6 +278,14 @@ export async function getInternetSummary(month) {
     pemasukan: Number(totalInOut.rows[0]?.pemasukan || 0),
     pengeluaran: Number(totalInOut.rows[0]?.pengeluaran || 0),
     total_kas: Number(totalInOut.rows[0]?.total_kas || 0),
+    opening_balances: openingRows.rows.map((row) => ({
+      id: String(row.id),
+      tanggal: String(row.tanggal || ''),
+      closing_year: Number(row.closing_year || 0),
+      opening_year: Number(row.opening_year || 0),
+      amount: Number(row.amount || 0),
+      description: String(row.description || '')
+    })),
     expenses: expenseRows.rows.map((row) => ({
       id: String(row.id),
       expense_date: String(row.expense_date || ''),

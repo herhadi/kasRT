@@ -38,6 +38,10 @@ type TabunganHistoryItem = {
   created_at: string;
 };
 
+function stickyValueClass(value: number) {
+  return Number(value || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]';
+}
+
 export default function TabunganPage() {
   const { user, token, loading: authLoading } = useAuth();
   const pathname = usePathname();
@@ -236,7 +240,7 @@ export default function TabunganPage() {
   if (settingMode) {
     return (
       <main className="min-h-screen pb-10">
-        <FeedbackToast error={error} message={message} /><Navbar />
+        <FeedbackToast error={error} message={message} /><Navbar sticky={false} />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
           <OperationalSubmenuHeader backHref="/operasional/tabungan" title="Kembali ke Operasional Pembangunan" />
           <div className="surface-muted rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Anggota aktif: <b>{members.filter((member) => member.is_active).length}</b></div>
@@ -313,7 +317,7 @@ export default function TabunganPage() {
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={error} message={message} />
-      <Navbar />
+      <Navbar sticky={false} />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         {inputPageMode ? <OperationalSubmenuHeader backHref="/operasional/tabungan" title="Kembali ke Operasional Pembangunan" /> : null}
         <Card
@@ -339,33 +343,6 @@ export default function TabunganPage() {
               </div>
             </div>
           ) : null}
-          <div className="grid gap-2 md:grid-cols-3">
-            <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Warga</p>
-              <p className="mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(tabunganTotals.total_saldo_warga || totalTabungan)}</p>
-            </div>
-            <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Sisa Kas Kegiatan</p>
-              <p className="mt-1 text-xl font-bold text-emerald-600">{formatRupiah(tabunganTotals.sisa_kas_kegiatan)}</p>
-            </div>
-            <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Kas Dana</p>
-              <p className="mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(tabunganTotals.total_kas_dana || totalTabungan)}</p>
-            </div>
-          </div>
-          <div className="mt-2 surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga Aktif</p>
-            <p className="mt-1 text-xl font-bold text-[var(--accent)]">{rows.length}</p>
-          </div>
-          <div
-            className="mt-2 surface-muted sticky z-40 rounded-2xl border border-[var(--line)] px-4 py-3"
-            style={{ top: 'var(--sticky-nav-offset)' }}
-          >
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Mutasi Bulan {historyMonth}</p>
-            <p className={`mt-1 text-lg font-bold ${totalMutasiBulan >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {totalMutasiBulan >= 0 ? '+' : '-'} {formatRupiah(Math.abs(totalMutasiBulan))}
-            </p>
-          </div>
           {inputPageMode ? (
             <div className="mt-3 mb-1 grid w-full grid-cols-3 gap-2 md:max-w-md">
               <button
@@ -429,6 +406,15 @@ export default function TabunganPage() {
             </div>
           ) : null}
         </Card>
+
+        <div
+          className="sticky z-40 gap-2 rounded-xl border border-sky-200 bg-sky-50 p-2 shadow-sm"
+          style={{ top: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
+        >
+          <div className="min-w-0 rounded-lg border border-sky-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-sky-950 md:px-3 md:py-2 md:text-sm">Kas Dana<br /><b className={stickyValueClass(tabunganTotals.total_kas_dana || totalTabungan)}>{formatRupiah(tabunganTotals.total_kas_dana || totalTabungan)}</b></div>
+          <div className="min-w-0 rounded-lg border border-emerald-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-emerald-950 md:px-3 md:py-2 md:text-sm">Saldo Warga<br /><b className={stickyValueClass(tabunganTotals.total_saldo_warga || totalTabungan)}>{formatRupiah(tabunganTotals.total_saldo_warga || totalTabungan)}</b></div>
+          <div className="min-w-0 rounded-lg border border-amber-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-amber-950 md:px-3 md:py-2 md:text-sm">Sisa Kas<br /><b className={stickyValueClass(tabunganTotals.sisa_kas_kegiatan)}>{formatRupiah(tabunganTotals.sisa_kas_kegiatan)}</b></div>
+        </div>
 
         {!inputPageMode ? (
           <>

@@ -37,7 +37,7 @@ function parseYearParam(req) {
 
 function readOpeningModule(req) {
   const moduleKey = String(req.params?.module || '').trim().toLowerCase();
-  if (!['internet', 'lingkungan'].includes(moduleKey)) throw new Error('Modul saldo awal tidak valid');
+  if (!['internet', 'lingkungan', 'sosial'].includes(moduleKey)) throw new Error('Modul saldo awal tidak valid');
   return moduleKey;
 }
 
@@ -526,10 +526,12 @@ export async function saveMigration2025Tabungan(req, res) {
 export async function getMigration2025SosialSummary(_req, res) {
   try {
     const year = parseYearParam(_req);
-    await ensureMigrationTablesForYear(year);
-    const rows = await pool.query(`SELECT month_key, pemasukan, pengeluaran, (pemasukan - pengeluaran) AS saldo_bulan FROM mig_sosial_wallet_${year} ORDER BY month_key ASC`);
-    const total = rows.rows.reduce((acc, r) => acc + Number(r.saldo_bulan || 0), 0);
-    const data = { rows: rows.rows.map((r) => ({ month: String(r.month_key), pemasukan: Number(r.pemasukan || 0), pengeluaran: Number(r.pengeluaran || 0), saldo_bulan: Number(r.saldo_bulan || 0) })), ['saldo_akhir_' + String(year)]: total };
+    const opening = await getModuleMigrationOpeningBalance({ moduleKey: 'sosial', closingYear: year });
+    const data = {
+      closing_year: year,
+      opening_year: opening.opening_year,
+      ['saldo_akhir_' + String(year)]: opening.amount
+    };
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

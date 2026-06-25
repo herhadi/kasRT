@@ -83,8 +83,7 @@ const EXAMPLES: Record<ModuleKey, string> = {
   ),
   'sosial-2025': JSON.stringify(
     [
-      { month: '2025-01', pemasukan: 500000, pengeluaran: 200000 },
-      { month: '2025-02', pemasukan: 300000, pengeluaran: 100000 }
+      { amount: 1500000 }
     ],
     null,
     2
@@ -132,8 +131,9 @@ export default function Migration2025Page() {
   const [toasts, setToasts] = useState<Array<{ id: number; text: string; kind: 'success' | 'error' | 'warning' }>>([]);
   const [openingBalance, setOpeningBalance] = useState('0');
   const moduleBase = String(moduleKey).split('-')[0];
-  const supportsOpeningBalance = moduleBase === 'internet' || moduleBase === 'lingkungan';
+  const supportsOpeningBalance = moduleBase === 'internet' || moduleBase === 'lingkungan' || moduleBase === 'sosial';
   const cashOnlyMigrationModule = supportsOpeningBalance;
+  const moduleCashLabel = moduleBase === 'internet' ? 'Internet' : moduleBase === 'lingkungan' ? 'Lingkungan' : 'Sosial';
 
   function pushToast(text: string, kind: 'success' | 'error' | 'warning' = 'success') {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -353,7 +353,12 @@ export default function Migration2025Page() {
           {supportsOpeningBalance ? (
             <div className="mt-4 rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-3">
               <p className="text-sm font-bold text-[var(--text-primary)]">Saldo Kas Akhir Desember {year}</p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">Nominal ini menjadi saldo awal kas {moduleBase === 'internet' ? 'Internet' : 'Lingkungan'} pada {year + 1}. Input iuran per warga tetap hanya untuk histori dan tunggakan.</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Nominal ini menjadi saldo awal kas {moduleCashLabel} pada {year + 1}.{' '}
+                {moduleBase === 'sosial'
+                  ? `Sosial tidak memakai tunggakan; aktivitas kas berjalan dari transfer Bendahara dan pengeluaran Admin Sosial mulai Januari ${year + 1}.`
+                  : `Untuk modul ini tidak perlu input tunggakan ${year}; tagihan baru dihitung mulai Januari ${year + 1}.`}
+              </p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
                 <label className="flex-1 space-y-1 text-xs font-semibold text-[var(--text-muted)]">
                   <span>Nominal saldo kas</span>
@@ -391,7 +396,7 @@ export default function Migration2025Page() {
           ) : null}
           {cashOnlyMigrationModule ? (
             <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Tidak perlu input iuran atau tunggakan per warga untuk {moduleBase === 'internet' ? 'Internet' : 'Lingkungan'} pada {year}. Cukup simpan saldo kas akhir Desember di atas; tagihan mulai dihitung dari Januari {year + 1}.
+              Tidak perlu input iuran atau tunggakan per warga untuk {moduleCashLabel} pada {year}. Cukup simpan saldo kas akhir Desember di atas; {moduleBase === 'sosial' ? 'saldo ini menjadi dasar kas sosial tahun berikutnya.' : `tagihan mulai dihitung dari Januari ${year + 1}.`}
             </p>
           ) : <div className="mt-3 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
@@ -513,7 +518,7 @@ export default function Migration2025Page() {
           {!cashOnlyMigrationModule ? <p className="mt-3 text-xs text-[var(--text-muted)]">
             Catatan: bulan wajib format `2025-01` s.d. `2025-12`. Untuk tabungan cukup isi saldo akhir Desember per warga.
             Untuk iuran/internet/lingkungan/koperasi gunakan field `amount`.
-            Untuk sosial gunakan `pemasukan` + `pengeluaran`. Untuk iuran wajib gunakan `target_amount` + `paid_amount`.
+            Untuk iuran wajib gunakan `target_amount` + `paid_amount`.
             Untuk koperasi loan gunakan: `loan_key`, `warga_id`, `principal_amount`, `tenor_months`, `paid_installments`, `interest_model`, `interest_rate_monthly`, `first_due_month`.
           </p> : null}
         </Card>
@@ -521,9 +526,9 @@ export default function Migration2025Page() {
           <ol className="list-decimal space-y-2 pl-5 text-sm text-[var(--text-primary)]">
             <li>Pilih modul migrasi yang ingin diinput.</li>
             <li>
-              Internet dan Lingkungan hanya membutuhkan saldo kas akhir Desember. Tabungan memakai form saldo akhir Desember per warga/by name. Modul lain selain Koperasi Loan memakai tab <b>Form</b> (grid 12 bulan).
+              Internet, Lingkungan, dan Sosial hanya membutuhkan saldo kas akhir Desember. Tabungan memakai form saldo akhir Desember per warga/by name. Modul lain selain Koperasi Loan memakai tab <b>Form</b> (grid 12 bulan).
             </li>
-            <li>Untuk Internet/Lingkungan, isi saldo kas Desember lalu klik <b>Simpan Saldo Awal</b>. Untuk Tabungan, isi saldo akhir by name. Untuk modul lain, isi form per warga atau rows JSON.</li>
+            <li>Untuk Internet/Lingkungan/Sosial, isi saldo kas Desember lalu klik <b>Simpan Saldo Awal</b>. Untuk Tabungan, isi saldo akhir by name. Untuk modul lain, isi form per warga atau rows JSON.</li>
             <li>Klik <b>Refresh</b> untuk cek ringkasan hasil import.</li>
             <li>Ulangi untuk semua modul sampai data Desember 2025 lengkap.</li>
             <li>Khusus modul <b>Iuran Wajib</b>, klik <b>Apply Opening 2026</b> setelah data final.</li>

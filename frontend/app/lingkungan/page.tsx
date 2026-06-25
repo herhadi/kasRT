@@ -12,7 +12,7 @@ import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah, formatRupiahInput, formatTanggalDdMmYyyy, parseRupiahInput } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
@@ -21,7 +21,7 @@ import { WargaContributionRow } from '@/components/contribution/WargaContributio
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
 
 type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; surplus_amount: number; arrears_months: number; chargeable_months: number };
-type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
+type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; opening_balances?: Array<{ id: string; tanggal: string; closing_year: number; opening_year: number; amount: number; description: string }>; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
 type Yearly = { year: string; recap: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
 type LingkunganMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string; updated_by?: string };
 type DashboardKasSnapshot = { kas_umum?: { kas_lingkungan?: number } };
@@ -32,6 +32,19 @@ function formatLocalMonth(offset = 0) {
   date.setDate(1);
   date.setMonth(date.getMonth() + offset);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatTanggalDdMmYyyy(dateValue: Date | string) {
+  const raw = typeof dateValue === 'string' ? dateValue.slice(0, 10) : '';
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+  const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+  if (Number.isNaN(date.getTime())) return raw || '-';
+  return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+}
+
+function stickyValueClass(value: number) {
+  return Number(value || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]';
 }
 
 export default function LingkunganPage() {
@@ -110,6 +123,7 @@ export default function LingkunganPage() {
     [members, memberFilter]
   );
   const memberPager = usePagination(filteredMembers, 10);
+  const openingPager = usePagination(summary?.opening_balances || [], 10);
   const expensePager = usePagination(summary?.expenses || [], 10);
   const rowsForInput = useMemo<WargaContributionRow[]>(
     () => (summary?.rows || []).map((r) => ({
@@ -129,6 +143,10 @@ export default function LingkunganPage() {
   useEffect(() => {
     memberPager.reset();
   }, [filteredMembers.length, memberFilter]);
+  useEffect(() => {
+    openingPager.reset();
+    expensePager.reset();
+  }, [summary?.opening_balances?.length, summary?.expenses?.length]);
 
   function submitPayment(amount: number) {
     if (!selectedWargaId || amount <= 0) return setError('Pilih warga & nominal valid');
@@ -300,13 +318,40 @@ export default function LingkunganPage() {
         ) : null}
       </Card>
       <div
-        className="sticky z-40 gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur"
+        className="sticky z-40 gap-2 rounded-xl border border-sky-200 bg-sky-50 p-2 shadow-sm"
         style={{ top: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
       >
-        <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Kas<br /><b>{formatRupiah(Number(lingkunganKas || 0))}</b></div>
-        <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Masuk<br /><b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
-        <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Keluar<br /><b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
+        <div className="min-w-0 rounded-lg border border-sky-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-sky-950 md:px-3 md:py-2 md:text-sm">Kas<br /><b className={stickyValueClass(Number(lingkunganKas || 0))}>{formatRupiah(Number(lingkunganKas || 0))}</b></div>
+        <div className="min-w-0 rounded-lg border border-emerald-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-emerald-950 md:px-3 md:py-2 md:text-sm">Masuk<br /><b className={stickyValueClass(Number(summary?.pemasukan || 0))}>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
+        <div className="min-w-0 rounded-lg border border-rose-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-rose-950 md:px-3 md:py-2 md:text-sm">Keluar<br /><b className={stickyValueClass(Number(summary?.pengeluaran || 0))}>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
       </div>
+      <Card title="Saldo Awal Migrasi Lingkungan" subtitle="Riwayat dana awal dari input migrasi, dipisah dari pemasukan iuran bulanan">
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+            <thead>
+              <tr className="bg-[var(--surface-strong)]">
+                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
+                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {openingPager.pagedItems.length === 0 ? (
+                <tr className="bg-[var(--surface)]"><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada saldo awal migrasi.</td></tr>
+              ) : openingPager.pagedItems.map((row) => (
+                <tr key={row.id} className="bg-[var(--surface)]">
+                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{formatTanggalDdMmYyyy(row.tanggal)}</td>
+                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.opening_year}</td>
+                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.description || '-'}</td>
+                  <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">{formatRupiah(Number(row.amount || 0))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <PaginationControls page={openingPager.page} totalPages={openingPager.totalPages} onPrev={openingPager.prev} onNext={openingPager.next} />
+      </Card>
       {canWrite ? (
         <Card title="Pengeluaran Lingkungan" subtitle="Riwayat biaya lingkungan">
           <div className="grid gap-3 md:grid-cols-4">

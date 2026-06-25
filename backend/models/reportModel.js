@@ -3,7 +3,7 @@ import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 import { ensureInternetTables } from './internetModel.js';
 import { ensureLingkunganTables } from './lingkunganModel.js';
 import { ensureKoperasiTables } from './koperasiModel.js';
-import { ensureTabunganTables } from './tabunganModel.js';
+import { ensureTabunganTables, getTabunganDanaSummary } from './tabunganModel.js';
 import { listFinanceWallets } from './bendaharaModel.js';
 
 let reportTablesEnsured = false;
@@ -319,14 +319,13 @@ export async function getKasUmumSnapshot() {
   const kasSosial = Number(walletMap.get('kas sosial') || 0);
   const kasBendahara = (bendaharaWallets || []).reduce((sum, row) => sum + Number(row.balance || 0), 0);
 
-  const [pembangunanRes, internetRes, lingkunganRes, koperasiRes] = await Promise.all([
+  const [pembangunanDana, sosialOpeningRes, internetRes, lingkunganRes, koperasiRes] = await Promise.all([
+    getTabunganDanaSummary(),
     pool.query(
-      `SELECT
-         COALESCE((SELECT SUM(total_balance) FROM tab_savings_accounts), 0)
-         + COALESCE((
-           SELECT SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE -amount END)
-           FROM tab_cash_posts
-         ), 0) AS total`
+      `SELECT COALESCE(SUM(amount), 0) AS total
+       FROM module_opening_balances
+       WHERE module_key = 'sosial'
+         AND opening_year <= EXTRACT(YEAR FROM CURRENT_DATE)::int`
     ),
     pool.query(
       `SELECT
@@ -354,8 +353,8 @@ export async function getKasUmumSnapshot() {
 
   return {
     kas_bendahara: Number(kasBendahara || 0),
-    kas_sosial: kasSosial,
-    kas_tabungan_pembangunan: Number(pembangunanRes.rows[0]?.total || 0),
+    kas_sosial: Number(kasSosial || 0) + Number(sosialOpeningRes.rows[0]?.total || 0),
+    kas_tabungan_pembangunan: Number(pembangunanDana.total_kas_dana || 0),
     kas_lingkungan: Number(lingkunganRes.rows[0]?.total || 0),
     kas_internet: Number(internetRes.rows[0]?.total || 0),
     kas_koperasi: Number(koperasiRes.rows[0]?.total || 0)
@@ -669,6 +668,12 @@ export async function getDashboardAdminSosialByMonth(month) {
        WHERE LOWER(name) = LOWER('Kas Sosial')
        LIMIT 1
      ),
+     social_opening AS (
+       SELECT COALESCE(SUM(amount), 0) AS amount
+       FROM module_opening_balances
+       WHERE module_key = 'sosial'
+         AND opening_year <= EXTRACT(YEAR FROM CURRENT_DATE)::int
+     ),
      baseline AS (
        SELECT
          ks.id AS wallet_id,
@@ -678,6 +683,7 @@ export async function getDashboardAdminSosialByMonth(month) {
            WHEN UPPER(COALESCE(ap.status, 'OPEN')) = 'CLOSED' THEN COALESCE(y.closing_balance, 0)
            ELSE COALESCE(y.opening_balance, 0)
          END AS base_balance,
+         so.amount AS social_opening_balance,
          MAKE_DATE(
            CASE
              WHEN y.wallet_id IS NULL THEN EXTRACT(YEAR FROM CURRENT_DATE)::int
@@ -688,6 +694,7 @@ export async function getDashboardAdminSosialByMonth(month) {
            1
          ) AS baseline_date
        FROM kas_sosial ks
+       CROSS JOIN social_opening so
        LEFT JOIN LATERAL (
          SELECT yy.wallet_id, yy.year, yy.opening_balance, yy.closing_balance
          FROM yearly_wallet_balances yy
@@ -698,7 +705,7 @@ export async function getDashboardAdminSosialByMonth(month) {
        LEFT JOIN accounting_periods ap ON ap.year = y.year
      )
      SELECT
-       COALESCE(b.base_balance, 0) + COALESCE((
+       COALESCE(b.base_balance, 0) + COALESCE(b.social_opening_balance, 0) + COALESCE((
          SELECT SUM(
            CASE
              WHEN t.status = 'APPROVED' AND t.target_wallet_id = b.wallet_id AND t.type IN ('IN', 'TRANSFER') THEN t.amount
@@ -717,6 +724,12 @@ export async function getDashboardAdminSosialByMonth(month) {
            AND t.target_wallet_id = b.wallet_id
            AND t.type IN ('IN', 'TRANSFER')
            AND DATE_TRUNC('month', t.created_at) = DATE_TRUNC('month', $1::date)
+       ), 0) + COALESCE((
+         SELECT SUM(amount)
+         FROM module_opening_balances
+         WHERE module_key = 'sosial'
+           AND opening_year = EXTRACT(YEAR FROM $1::date)::int
+           AND DATE_TRUNC('month', MAKE_DATE(opening_year, 1, 1)) = DATE_TRUNC('month', $1::date)
        ), 0) AS pemasukan_bulan,
        COALESCE((
          SELECT SUM(t.amount)
@@ -755,8 +768,57 @@ export async function getDashboardAdminSosialByMonth(month) {
     [monthStart]
   );
 
+  const incomeRows = await pool.query(
+    `WITH kas_sosial AS (
+       SELECT id
+       FROM wallets
+       WHERE LOWER(name) = LOWER('Kas Sosial')
+       LIMIT 1
+     )
+     SELECT
+       id,
+       amount,
+       status,
+       description,
+       created_at,
+       created_by_nama,
+       source_wallet_name
+     FROM (
+       SELECT
+         t.id::text AS id,
+         t.amount,
+         t.status,
+         REPLACE(COALESCE(t.description, ''), '[SOCIAL_RECEIPT] ', '') AS description,
+         t.created_at,
+         u.nama AS created_by_nama,
+         sw.name AS source_wallet_name
+       FROM transactions t
+       LEFT JOIN users u ON u.id::text = t.created_by::text
+       LEFT JOIN wallets sw ON sw.id = t.source_wallet_id
+       CROSS JOIN kas_sosial ks
+       WHERE t.status = 'APPROVED'
+         AND t.target_wallet_id = ks.id
+         AND t.type IN ('IN', 'TRANSFER')
+       UNION ALL
+       SELECT
+         'opening-sosial-' || closing_year::text AS id,
+         amount,
+         'APPROVED' AS status,
+         'Saldo awal migrasi Desember ' || closing_year::text AS description,
+         MAKE_DATE(opening_year, 1, 1)::timestamptz AS created_at,
+         NULL::text AS created_by_nama,
+         'Migrasi ' || closing_year::text AS source_wallet_name
+       FROM module_opening_balances
+       WHERE module_key = 'sosial'
+     ) income_src
+     ORDER BY created_at DESC
+     LIMIT 100`,
+    []
+  );
+
   return {
     summary: summaryResult.rows[0] || {},
+    incomes: incomeRows.rows,
     expenses: expenseRows.rows
   };
 }

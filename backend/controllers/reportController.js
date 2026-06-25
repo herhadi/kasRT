@@ -377,6 +377,15 @@ export async function dashboardAdminSosial(req, res) {
         saldo_total: Number(data.summary?.saldo_total || 0),
         pemasukan_bulan: Number(data.summary?.pemasukan_bulan || 0),
         pengeluaran_bulan: Number(data.summary?.pengeluaran_bulan || 0),
+        incomes: (data.incomes || []).map((row) => ({
+          id: row.id,
+          amount: Number(row.amount || 0),
+          status: row.status,
+          description: row.description || '',
+          created_at: row.created_at,
+          created_by_nama: row.created_by_nama || null,
+          source_wallet_name: row.source_wallet_name || null
+        })),
         expenses: (data.expenses || []).map((row) => ({
           id: row.id,
           amount: Number(row.amount || 0),

@@ -276,6 +276,30 @@ export async function getTabunganCashSummary() {
   return { sisa_kas_kegiatan: Number(result.rows[0]?.sisa_kas_kegiatan || 0) };
 }
 
+export async function getTabunganDanaSummary() {
+  await ensureTabunganMembersFromEligible();
+  const result = await pool.query(
+    `SELECT
+       COALESCE((
+         SELECT SUM(COALESCE(sa.total_balance, 0))
+         FROM tab_savings_members sm
+         LEFT JOIN tab_savings_accounts sa ON sa.warga_id = sm.warga_id
+         WHERE sm.is_active = TRUE
+       ), 0) AS total_saldo_warga,
+       COALESCE((
+         SELECT SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE -amount END)
+         FROM tab_cash_posts
+       ), 0) AS sisa_kas_kegiatan`
+  );
+  const totalSaldoWarga = Number(result.rows[0]?.total_saldo_warga || 0);
+  const sisaKasKegiatan = Number(result.rows[0]?.sisa_kas_kegiatan || 0);
+  return {
+    total_saldo_warga: totalSaldoWarga,
+    sisa_kas_kegiatan: sisaKasKegiatan,
+    total_kas_dana: totalSaldoWarga + sisaKasKegiatan
+  };
+}
+
 export async function inputTabunganSetoran({ wargaId, amount, description, createdBy }) {
   const client = await pool.connect();
   try {

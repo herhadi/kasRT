@@ -18,6 +18,7 @@ type SosialSummary = {
   saldo_total: number;
   pemasukan_bulan: number;
   pengeluaran_bulan: number;
+  incomes: Array<{ id: string | number; amount: number; status: string; description: string; created_at: string; source_wallet_name?: string; created_by_nama?: string }>;
   expenses: Array<{ id: string | number; amount: number; status: string; description: string; created_at: string }>;
 };
 type PendingApprovalSection = {
@@ -25,6 +26,12 @@ type PendingApprovalSection = {
   title: string;
   count: number;
 };
+
+function formatTanggalDdMmYyyy(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+}
 
 export default function SosialPage() {
   const { user, loading } = useAuth();
@@ -44,7 +51,8 @@ export default function SosialPage() {
 
   const canAccess = hasAnyRole(user, ['Admin Sosial', 'Ketua']);
   const canSubmit = hasAnyRole(user, ['Admin Sosial']);
-  const expensesPager = usePagination(data?.expenses || [], 20);
+  const incomesPager = usePagination(data?.incomes || [], 10);
+  const expensesPager = usePagination(data?.expenses || [], 10);
 
   const load = useCallback(async () => {
     if (!canAccess) return;
@@ -87,7 +95,8 @@ export default function SosialPage() {
   }, [loadPending]);
   useEffect(() => {
     expensesPager.reset();
-  }, [month, (data?.expenses || []).length]);
+    incomesPager.reset();
+  }, [month, (data?.expenses || []).length, (data?.incomes || []).length]);
 
   async function submit() {
     const nominal = parseRupiahInput(amount);
@@ -152,39 +161,90 @@ export default function SosialPage() {
             <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pemasukan: <b>{formatRupiah(Number(data?.pemasukan_bulan || 0))}</b></div>
             <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2">Pengeluaran: <b>{formatRupiah(Number(data?.pengeluaran_bulan || 0))}</b></div>
           </div>
-          <div className="mt-3 overflow-x-auto">
-            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-              <thead>
-                <tr className="bg-[var(--surface-strong)]">
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data?.expenses || []).length === 0 ? (
-                  <tr className="bg-[var(--surface)]">
-                    <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada riwayat pengeluaran sosial pada bulan ini.</td>
+          <div className="mt-4 border-t border-[var(--line)] pt-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-[var(--text-primary)]">Riwayat Dana Masuk</p>
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                Bulan ini {formatRupiah(Number(data?.pemasukan_bulan || 0))}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Sumber</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
                   </tr>
-                ) : (
-                  expensesPager.pagedItems.map((row) => (
-                    <tr key={String(row.id)} className="bg-[var(--surface)]">
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{new Date(row.created_at).toLocaleDateString('id-ID')}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)] break-words whitespace-normal">{row.description || '-'}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.status}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.amount || 0))}</td>
+                </thead>
+                <tbody>
+                  {(data?.incomes || []).length === 0 ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada dana masuk sosial pada bulan ini.</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-            <PaginationControls
-              page={expensesPager.page}
-              totalPages={expensesPager.totalPages}
-              onPrev={expensesPager.prev}
-              onNext={expensesPager.next}
-            />
+                  ) : (
+                    incomesPager.pagedItems.map((row) => (
+                      <tr key={String(row.id)} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{formatTanggalDdMmYyyy(row.created_at)}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.source_wallet_name || '-'}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)] break-words whitespace-normal">{row.description || '-'}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">{formatRupiah(Number(row.amount || 0))}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              <PaginationControls
+                page={incomesPager.page}
+                totalPages={incomesPager.totalPages}
+                onPrev={incomesPager.prev}
+                onNext={incomesPager.next}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 border-t border-[var(--line)] pt-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-[var(--text-primary)]">Riwayat Pengeluaran</p>
+              <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
+                {formatRupiah(Number(data?.pengeluaran_bulan || 0))}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data?.expenses || []).length === 0 ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada riwayat pengeluaran sosial pada bulan ini.</td>
+                    </tr>
+                  ) : (
+                    expensesPager.pagedItems.map((row) => (
+                      <tr key={String(row.id)} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{formatTanggalDdMmYyyy(row.created_at)}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)] break-words whitespace-normal">{row.description || '-'}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">{row.status}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-700">{formatRupiah(Number(row.amount || 0))}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              <PaginationControls
+                page={expensesPager.page}
+                totalPages={expensesPager.totalPages}
+                onPrev={expensesPager.prev}
+                onNext={expensesPager.next}
+              />
+            </div>
           </div>
         </Card>
       </div>

@@ -2,7 +2,7 @@ import {
   closeTabunganYear,
   createTabunganEvent,
   getTabunganYearlyBook,
-  getTabunganCashSummary,
+  getTabunganDanaSummary,
   getTabunganEventDetail,
   getTabunganMinimumFee,
   inputTabunganSetoran,
@@ -18,20 +18,16 @@ import {
 export async function getTabunganSummary(_req, res) {
   try {
     const month = new Date().toISOString().slice(0, 7);
-    const [data, minimumFee, cashSummary] = await Promise.all([
+    const [data, minimumFee, danaSummary] = await Promise.all([
       listTabunganWargaSummary(),
       getTabunganMinimumFee(month),
-      getTabunganCashSummary()
+      getTabunganDanaSummary()
     ]);
-    const totalSaldoWarga = data.reduce((sum, row) => sum + Number(row.total_balance || 0), 0);
-    const sisaKasKegiatan = Number(cashSummary.sisa_kas_kegiatan || 0);
     return res.json({
       success: true,
       data,
       minimum_fee: minimumFee,
-      total_saldo_warga: totalSaldoWarga,
-      sisa_kas_kegiatan: sisaKasKegiatan,
-      total_kas_dana: totalSaldoWarga + sisaKasKegiatan
+      ...danaSummary
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

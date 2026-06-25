@@ -7,6 +7,19 @@ const MEMBER_START_MONTH = '2026-01';
 
 export async function ensureLingkunganTables() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS module_opening_balances (
+      module_key VARCHAR(30) NOT NULL,
+      closing_year INT NOT NULL,
+      opening_year INT NOT NULL,
+      amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+      created_by UUID REFERENCES users(id),
+      updated_by UUID REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (module_key, closing_year)
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS lh_tariffs (
       id UUID PRIMARY KEY,
       effective_month VARCHAR(7) NOT NULL UNIQUE,
@@ -195,8 +208,21 @@ export async function getLingkunganSummary(month) {
       (SELECT COALESCE(SUM(amount),0) FROM lh_payments WHERE month_key = $1) -
         (SELECT COALESCE(SUM(amount),0) FROM lh_expenses WHERE TO_CHAR(expense_date,'YYYY-MM') = $1) AS total_saldo,
       (SELECT COALESCE(SUM(amount),0) FROM lh_payments) -
-        (SELECT COALESCE(SUM(amount),0) FROM lh_expenses) AS total_kas`,
+        (SELECT COALESCE(SUM(amount),0) FROM lh_expenses) +
+        (SELECT COALESCE(SUM(amount),0) FROM module_opening_balances WHERE module_key = 'lingkungan' AND opening_year <= EXTRACT(YEAR FROM CURRENT_DATE)::int) AS total_kas`,
     [month]
+  );
+  const openingRows = await pool.query(
+    `SELECT
+       'opening-lingkungan-' || closing_year::text AS id,
+       MAKE_DATE(opening_year, 1, 1)::text AS tanggal,
+       closing_year,
+       opening_year,
+       amount,
+       'Saldo awal migrasi Desember ' || closing_year::text AS description
+     FROM module_opening_balances
+     WHERE module_key = 'lingkungan'
+     ORDER BY opening_year DESC, closing_year DESC`
   );
   const expenseRows = await pool.query(
     `SELECT
@@ -228,6 +254,14 @@ export async function getLingkunganSummary(month) {
     pengeluaran: Number(totals.rows[0]?.pengeluaran || 0),
     total_saldo: Number(totals.rows[0]?.total_saldo || 0),
     total_kas: Number(totals.rows[0]?.total_kas || 0),
+    opening_balances: openingRows.rows.map((r) => ({
+      id: String(r.id),
+      tanggal: String(r.tanggal || ''),
+      closing_year: Number(r.closing_year || 0),
+      opening_year: Number(r.opening_year || 0),
+      amount: Number(r.amount || 0),
+      description: String(r.description || '')
+    })),
     expenses: expenseRows.rows.map((r) => ({
       id: String(r.id),
       expense_date: String(r.expense_date || ''),
