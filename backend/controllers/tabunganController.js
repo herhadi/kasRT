@@ -2,6 +2,7 @@ import {
   closeTabunganYear,
   createTabunganEvent,
   getTabunganYearlyBook,
+  getTabunganCashSummary,
   getTabunganEventDetail,
   getTabunganMinimumFee,
   inputTabunganSetoran,
@@ -17,8 +18,21 @@ import {
 export async function getTabunganSummary(_req, res) {
   try {
     const month = new Date().toISOString().slice(0, 7);
-    const [data, minimumFee] = await Promise.all([listTabunganWargaSummary(), getTabunganMinimumFee(month)]);
-    return res.json({ success: true, data, minimum_fee: minimumFee });
+    const [data, minimumFee, cashSummary] = await Promise.all([
+      listTabunganWargaSummary(),
+      getTabunganMinimumFee(month),
+      getTabunganCashSummary()
+    ]);
+    const totalSaldoWarga = data.reduce((sum, row) => sum + Number(row.total_balance || 0), 0);
+    const sisaKasKegiatan = Number(cashSummary.sisa_kas_kegiatan || 0);
+    return res.json({
+      success: true,
+      data,
+      minimum_fee: minimumFee,
+      total_saldo_warga: totalSaldoWarga,
+      sisa_kas_kegiatan: sisaKasKegiatan,
+      total_kas_dana: totalSaldoWarga + sisaKasKegiatan
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -93,6 +107,7 @@ export async function createKebutuhanKhusus(req, res) {
   const title = String(req.body.title || '').trim();
   const eventDate = String(req.body.event_date || '').trim();
   const totalAmount = Number(req.body.total_amount || 0);
+  const perWargaAmount = Number(req.body.per_warga_amount || 0);
   const notes = String(req.body.notes || '').trim();
   const actor = String(req.user.user_id || '').trim();
 
@@ -103,9 +118,12 @@ export async function createKebutuhanKhusus(req, res) {
   if (!Number.isFinite(totalAmount) || totalAmount < 5000) {
     return res.status(400).json({ success: false, message: 'total_amount minimal 5000' });
   }
+  if (!Number.isFinite(perWargaAmount) || perWargaAmount <= 0) {
+    return res.status(400).json({ success: false, message: 'per_warga_amount wajib lebih dari 0' });
+  }
 
   try {
-    const data = await createTabunganEvent({ title, eventDate, totalAmount, notes, createdBy: actor });
+    const data = await createTabunganEvent({ title, eventDate, totalAmount, perWargaAmount, notes, createdBy: actor });
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

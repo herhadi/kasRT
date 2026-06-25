@@ -62,6 +62,7 @@ export default function TabunganPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
   const [expenseAmount, setExpenseAmount] = useState('');
+  const [expensePerWargaAmount, setExpensePerWargaAmount] = useState('');
   const [expenseNotes, setExpenseNotes] = useState('');
   const [minimumFee, setMinimumFee] = useState(5000);
   const [members, setMembers] = useState<TabunganMember[]>([]);
@@ -69,11 +70,28 @@ export default function TabunganPage() {
   const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [tariffValue, setTariffValue] = useState('');
   const PAGE_SIZE = 20;
+  const [tabunganTotals, setTabunganTotals] = useState({
+    total_saldo_warga: 0,
+    sisa_kas_kegiatan: 0,
+    total_kas_dana: 0
+  });
 
   const loadSummary = useCallback(async () => {
-    const result = await apiFetch<{ success: boolean; data: TabunganWargaItem[]; minimum_fee?: number }>('/tabungan/summary');
+    const result = await apiFetch<{
+      success: boolean;
+      data: TabunganWargaItem[];
+      minimum_fee?: number;
+      total_saldo_warga?: number;
+      sisa_kas_kegiatan?: number;
+      total_kas_dana?: number;
+    }>('/tabungan/summary');
     setRows(result.data || []);
     setMinimumFee(Number(result.minimum_fee || 5000));
+    setTabunganTotals({
+      total_saldo_warga: Number(result.total_saldo_warga || 0),
+      sisa_kas_kegiatan: Number(result.sisa_kas_kegiatan || 0),
+      total_kas_dana: Number(result.total_kas_dana || 0)
+    });
   }, []);
 
   const loadSettings = useCallback(async () => {
@@ -112,6 +130,12 @@ export default function TabunganPage() {
       }, 0),
     [historyRows]
   );
+  const expenseActualAmount = useMemo(() => parseRupiahInput(expenseAmount), [expenseAmount]);
+  const expenseActiveWargaCount = rows.length;
+  const expenseSuggestedPerWarga = expenseActiveWargaCount > 0 ? expenseActualAmount / expenseActiveWargaCount : 0;
+  const expenseFinalPerWarga = parseRupiahInput(expensePerWargaAmount);
+  const expenseChargedTotal = expenseFinalPerWarga * expenseActiveWargaCount;
+  const expenseSurplus = expenseChargedTotal - expenseActualAmount;
   const monthlyCreditByWarga = useMemo(() => {
     const map: Record<string, number> = {};
     for (const row of historyRows) {
@@ -239,6 +263,7 @@ export default function TabunganPage() {
   async function submitPengeluaranTabungan() {
     if (!user || !token) return;
     const total = parseRupiahInput(expenseAmount);
+    const perWargaAmount = parseRupiahInput(expensePerWargaAmount);
     if (!expenseTitle.trim()) {
       setError('Judul pengeluaran wajib diisi');
       return;
@@ -249,6 +274,10 @@ export default function TabunganPage() {
     }
     if (!Number.isFinite(total) || total < 5000) {
       setError('Nominal pengeluaran minimal Rp 5.000');
+      return;
+    }
+    if (!Number.isFinite(perWargaAmount) || perWargaAmount <= 0) {
+      setError('Nominal final per warga wajib diisi.');
       return;
     }
     try {
@@ -264,13 +293,15 @@ export default function TabunganPage() {
           title: expenseTitle.trim(),
           event_date: expenseDate,
           total_amount: total,
+          per_warga_amount: perWargaAmount,
           notes: expenseNotes.trim() || null
         })
       });
       setExpenseTitle('');
       setExpenseAmount('');
+      setExpensePerWargaAmount('');
       setExpenseNotes('');
-      setMessage('Pengeluaran tabungan berhasil dicatat.');
+      setMessage('Potongan saldo tabungan berhasil dicatat. Jika ada surplus, pos sisa kegiatan otomatis dibuat.');
       await Promise.all([loadSummary(), loadHistory()]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mencatat pengeluaran tabungan');
@@ -305,9 +336,19 @@ export default function TabunganPage() {
               <Link href="/operasional/tabungan/setting" className="btn-action-blue ml-auto inline-flex rounded-xl px-4 py-2 text-sm font-semibold">⚙️ Pengaturan</Link>
             </div>
           ) : null}
-          <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Saldo Berjalan (Semua Warga)</p>
-            <p className="mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(totalTabungan)}</p>
+          <div className="grid gap-2 md:grid-cols-3">
+            <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Warga</p>
+              <p className="mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(tabunganTotals.total_saldo_warga || totalTabungan)}</p>
+            </div>
+            <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Sisa Kas Kegiatan</p>
+              <p className="mt-1 text-xl font-bold text-emerald-600">{formatRupiah(tabunganTotals.sisa_kas_kegiatan)}</p>
+            </div>
+            <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Kas Dana</p>
+              <p className="mt-1 text-xl font-bold text-[var(--accent)]">{formatRupiah(tabunganTotals.total_kas_dana || totalTabungan)}</p>
+            </div>
           </div>
           <div className="mt-2 surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga Aktif</p>
@@ -388,13 +429,13 @@ export default function TabunganPage() {
 
         {!inputPageMode ? (
           <>
-            <Card title="Input Pengeluaran Tabungan" subtitle="Gunakan untuk kebutuhan khusus (rehab, perbaikan, dll)">
+            <Card title="Input Kegiatan Pembangunan" subtitle="Potong saldo tabungan warga aktif sesuai nominal final per warga">
               <div className="grid gap-3 md:grid-cols-2">
                 <Input
-                  label="Judul Pengeluaran"
+                  label="Nama Kegiatan"
                   value={expenseTitle}
                   onChange={(e) => setExpenseTitle(e.target.value)}
-                  placeholder="Contoh: Rehab balai RT"
+                  placeholder="Contoh: Perbaikan drainase"
                 />
                 <Input
                   label="Tanggal"
@@ -403,12 +444,20 @@ export default function TabunganPage() {
                   onChange={(e) => setExpenseDate(e.target.value)}
                 />
                 <Input
-                  label="Nominal"
+                  label="Biaya Riil"
                   type="text"
                   inputMode="numeric"
                   value={formatRupiahInput(expenseAmount)}
                   onChange={(e) => setExpenseAmount(e.target.value)}
                   placeholder="Minimal 5000"
+                />
+                <Input
+                  label="Nominal Final per Warga"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatRupiahInput(expensePerWargaAmount)}
+                  onChange={(e) => setExpensePerWargaAmount(e.target.value)}
+                  placeholder="Contoh: 15.000"
                 />
                 <Input
                   label="Catatan"
@@ -417,6 +466,23 @@ export default function TabunganPage() {
                   placeholder="Opsional"
                 />
               </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-4">
+                <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">
+                  Warga aktif<br /><b>{expenseActiveWargaCount}</b>
+                </div>
+                <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">
+                  Hitungan/warga<br /><b>{formatRupiah(Math.ceil(expenseSuggestedPerWarga))}</b>
+                </div>
+                <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">
+                  Total potong<br /><b>{formatRupiah(expenseChargedTotal)}</b>
+                </div>
+                <div className={`rounded-xl border px-3 py-2 text-sm ${expenseSurplus >= 0 ? 'border-emerald-200 bg-emerald-50/80 text-emerald-900' : 'border-rose-200 bg-rose-50/80 text-rose-900'}`}>
+                  Selisih<br /><b>{expenseSurplus >= 0 ? '+' : '-'} {formatRupiah(Math.abs(expenseSurplus))}</b>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                Jika selisih positif, sistem otomatis membuat pos sisa kegiatan. Jika negatif, tampil sebagai kekurangan biaya kegiatan.
+              </p>
               <div className="mt-3">
                 <button
                   type="button"
@@ -424,7 +490,7 @@ export default function TabunganPage() {
                   onClick={submitPengeluaranTabungan}
                   disabled={busy}
                 >
-                  {busy ? 'Menyimpan...' : 'Catat Pengeluaran'}
+                  {busy ? 'Menyimpan...' : 'Proses Potong Saldo'}
                 </button>
               </div>
             </Card>

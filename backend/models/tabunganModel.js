@@ -39,6 +39,9 @@ export async function ensureTabunganTables() {
       title VARCHAR(120) NOT NULL,
       event_date DATE NOT NULL,
       total_amount NUMERIC(18, 2) NOT NULL CHECK (total_amount >= 5000),
+      per_warga_amount NUMERIC(18, 2) NOT NULL DEFAULT 0 CHECK (per_warga_amount >= 0),
+      charged_total NUMERIC(18, 2) NOT NULL DEFAULT 0 CHECK (charged_total >= 0),
+      surplus_amount NUMERIC(18, 2) NOT NULL DEFAULT 0,
       notes TEXT,
       status VARCHAR(20) NOT NULL DEFAULT 'OPEN'
         CHECK (status IN ('OPEN', 'POSTED', 'CANCELLED')),
@@ -49,6 +52,9 @@ export async function ensureTabunganTables() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE tab_events ADD COLUMN IF NOT EXISTS per_warga_amount NUMERIC(18, 2) NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE tab_events ADD COLUMN IF NOT EXISTS charged_total NUMERIC(18, 2) NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE tab_events ADD COLUMN IF NOT EXISTS surplus_amount NUMERIC(18, 2) NOT NULL DEFAULT 0`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tab_event_allocations (
@@ -109,6 +115,22 @@ export async function ensureTabunganTables() {
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS tab_event_allocations_event_idx ON tab_event_allocations (event_id)
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tab_cash_posts (
+      id UUID PRIMARY KEY,
+      event_id UUID REFERENCES tab_events(id) ON DELETE SET NULL,
+      post_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      direction VARCHAR(10) NOT NULL CHECK (direction IN ('CREDIT', 'DEBIT')),
+      amount NUMERIC(18, 2) NOT NULL CHECK (amount >= 0),
+      description TEXT NOT NULL,
+      created_by UUID NOT NULL REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS tab_cash_posts_date_idx ON tab_cash_posts (post_date DESC, created_at DESC)
   `);
 
   await pool.query(`
@@ -244,6 +266,16 @@ export async function listTabunganWargaSummary() {
   }));
 }
 
+export async function getTabunganCashSummary() {
+  await ensureTabunganTables();
+  const result = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE -amount END), 0) AS sisa_kas_kegiatan
+     FROM tab_cash_posts`
+  );
+  return { sisa_kas_kegiatan: Number(result.rows[0]?.sisa_kas_kegiatan || 0) };
+}
+
 export async function inputTabunganSetoran({ wargaId, amount, description, createdBy }) {
   const client = await pool.connect();
   try {
@@ -286,54 +318,38 @@ export async function inputTabunganSetoran({ wargaId, amount, description, creat
   }
 }
 
-export async function createTabunganEvent({ title, eventDate, totalAmount, notes, createdBy }) {
+export async function createTabunganEvent({ title, eventDate, totalAmount, perWargaAmount, notes, createdBy }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const eventId = randomUUID();
 
-    await client.query(
-      `INSERT INTO tab_events
-       (id, title, event_date, total_amount, notes, status, created_by, approved_by, approved_at)
-       VALUES ($1, $2, $3::date, $4, $5, 'POSTED', $6::uuid, $6::uuid, NOW())`,
-      [eventId, title, eventDate, totalAmount, notes || null, createdBy]
-    );
-
     const wargaRows = await client.query(
-      `WITH warga_role AS (
-         SELECT DISTINCT u.id
-         FROM users u
-         JOIN user_roles ur ON ur.user_id = u.id
-         JOIN roles r ON r.id = ur.role_id
-         WHERE LOWER(TRIM(r.name)) = 'warga'
-           AND ${ELIGIBLE_USERS_CLAUSE}
-       ),
-       eligible_all AS (
-         SELECT u.id
-         FROM users u
-         WHERE ${ELIGIBLE_USERS_CLAUSE}
-       ),
-       warga_final AS (
-         SELECT id FROM warga_role
-         UNION
-         SELECT id
-         FROM eligible_all
-         WHERE NOT EXISTS (SELECT 1 FROM warga_role)
-       )
-       SELECT id::text AS warga_id
-       FROM warga_final`
+      `SELECT sm.warga_id::text AS warga_id
+       FROM tab_savings_members sm
+       JOIN users u ON u.id = sm.warga_id
+       WHERE sm.is_active = TRUE
+       ORDER BY u.nama ASC`
     );
 
     const wargaIds = wargaRows.rows.map((r) => String(r.warga_id));
     if (!wargaIds.length) throw new Error('Data warga kosong');
 
-    const total = Number(totalAmount || 0);
-    const perWarga = Math.floor((total / wargaIds.length) * 100) / 100;
-    const remainder = Number((total - perWarga * wargaIds.length).toFixed(2));
+    const actualTotal = Number(totalAmount || 0);
+    const finalPerWarga = Number(perWargaAmount || 0);
+    if (!Number.isFinite(finalPerWarga) || finalPerWarga <= 0) throw new Error('Nominal final per warga tidak valid');
+    const chargedTotal = Number((finalPerWarga * wargaIds.length).toFixed(2));
+    const surplusAmount = Number((chargedTotal - actualTotal).toFixed(2));
 
-    for (let i = 0; i < wargaIds.length; i += 1) {
-      const wargaId = wargaIds[i];
-      const allocAmount = Number((perWarga + (i === wargaIds.length - 1 ? remainder : 0)).toFixed(2));
+    await client.query(
+      `INSERT INTO tab_events
+       (id, title, event_date, total_amount, per_warga_amount, charged_total, surplus_amount, notes, status, created_by, approved_by, approved_at)
+       VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, 'POSTED', $9::uuid, $9::uuid, NOW())`,
+      [eventId, title, eventDate, actualTotal, finalPerWarga, chargedTotal, surplusAmount, notes || null, createdBy]
+    );
+
+    for (const wargaId of wargaIds) {
+      const allocAmount = finalPerWarga;
 
       const saldoRow = await client.query(
         `SELECT COALESCE(total_balance, 0) AS total_balance
@@ -359,7 +375,7 @@ export async function createTabunganEvent({ title, eventDate, totalAmount, notes
           `INSERT INTO tab_ledger
            (id, warga_id, event_id, source_allocation_id, tx_type, direction, amount, description, status, created_by, approved_by, approved_at)
            VALUES ($1, $2::uuid, $3::uuid, $4::uuid, 'ALLOCATE', 'DEBIT', $5, $6, 'APPROVED', $7::uuid, $7::uuid, NOW())`,
-          [randomUUID(), wargaId, eventId, allocationId, covered, `Alokasi kebutuhan: ${title}`, createdBy]
+          [randomUUID(), wargaId, eventId, allocationId, covered, `Potongan kegiatan pembangunan: ${title}`, createdBy]
         );
 
         await client.query(
@@ -379,8 +395,16 @@ export async function createTabunganEvent({ title, eventDate, totalAmount, notes
       }
     }
 
+    if (surplusAmount > 0) {
+      await client.query(
+        `INSERT INTO tab_cash_posts (id, event_id, post_date, direction, amount, description, created_by)
+         VALUES ($1, $2::uuid, $3::date, 'CREDIT', $4, $5, $6::uuid)`,
+        [randomUUID(), eventId, eventDate, surplusAmount, `Sisa kegiatan ${title}`, createdBy]
+      );
+    }
+
     await client.query('COMMIT');
-    return { event_id: eventId };
+    return { event_id: eventId, warga_count: wargaIds.length, per_warga_amount: finalPerWarga, charged_total: chargedTotal, surplus_amount: surplusAmount };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -392,7 +416,7 @@ export async function createTabunganEvent({ title, eventDate, totalAmount, notes
 export async function getTabunganEventDetail(eventId) {
   const [eventRes, allocRes] = await Promise.all([
     pool.query(
-      `SELECT id::text AS id, title, event_date, total_amount, notes, status, created_at
+      `SELECT id::text AS id, title, event_date, total_amount, per_warga_amount, charged_total, surplus_amount, notes, status, created_at
        FROM tab_events
        WHERE id = $1::uuid`,
       [eventId]
