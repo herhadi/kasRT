@@ -640,6 +640,38 @@ export async function upsertTabunganMigrationRows({ rows, actorId, year = 2025 }
   }
 }
 
+export async function upsertTabunganClosingBalanceRows({ rows, actorId, year = 2025 }) {
+  await ensureMigration2025Tables(year);
+  const closingMonth = `${year}-12`;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const row of rows) {
+      const wargaId = String(row.warga_id || '').trim();
+      const amount = Number(row.closing_balance ?? row.amount ?? 0);
+      if (!wargaId || !Number.isFinite(amount) || amount < 0) continue;
+      await client.query(
+        `DELETE FROM mig_tabungan_ledger_${year}
+         WHERE warga_id = $1::uuid`,
+        [wargaId]
+      );
+      await client.query(
+        `INSERT INTO mig_tabungan_ledger_${year} (warga_id, month_key, amount, created_by, updated_at)
+         VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
+         ON CONFLICT (warga_id, month_key)
+         DO UPDATE SET amount = EXCLUDED.amount, created_by = EXCLUDED.created_by, updated_at = NOW()`,
+        [wargaId, closingMonth, amount, actorId]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function getTabunganMigrationSummary2025() {
   await ensureMigration2025Tables();
   const users = await pool.query(`SELECT u.id::text AS warga_id, u.nama FROM users u WHERE ${ELIGIBLE_USERS_CLAUSE} ORDER BY u.nama`);

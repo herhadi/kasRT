@@ -8,6 +8,7 @@ import {
   upsertKoperasiLoanProgress2025,
   upsertLingkunganMigrationRows,
   upsertSosialMigrationRows,
+  upsertTabunganClosingBalanceRows,
   upsertTabunganMigrationRows,
   upsertIuranWajib2025Rows,
   MIGRATION_MONTH_KEYS_FOR_YEAR,
@@ -396,7 +397,7 @@ export async function getMigration2025JimpitanSummary(_req, res) {
   try {
     const year = parseYearParam(_req);
     await ensureMigrationTablesForYear(year);
-    const users = await pool.query(`SELECT u.id::text AS warga_id, u.nama FROM users u ORDER BY u.nama`);
+    const users = await pool.query(`SELECT u.id::text AS warga_id, u.nama FROM users u WHERE ${ELIGIBLE_USERS_CLAUSE} ORDER BY u.nama`);
     const paidRows = await pool.query(`SELECT warga_id::text AS warga_id, COALESCE(SUM(amount),0) AS total_paid FROM mig_jimpitan_payments_${year} GROUP BY warga_id::text`);
     const paidMap = new Map(paidRows.rows.map((r) => [String(r.warga_id), Number(r.total_paid || 0)]));
     const ty = String(year);
@@ -457,7 +458,7 @@ export async function getMigration2025TabunganSummary(_req, res) {
   try {
     const year = parseYearParam(_req);
     await ensureMigrationTablesForYear(year);
-    const users = await pool.query(`SELECT u.id::text AS warga_id, u.nama FROM users u ORDER BY u.nama`);
+    const users = await pool.query(`SELECT u.id::text AS warga_id, u.nama FROM users u WHERE ${ELIGIBLE_USERS_CLAUSE} ORDER BY u.nama`);
     const agg = await pool.query(`SELECT warga_id::text AS warga_id, COALESCE(SUM(amount),0) AS saldo_akhir FROM mig_tabungan_ledger_${year} GROUP BY warga_id::text`);
     const map = new Map(agg.rows.map((r) => [String(r.warga_id), Number(r.saldo_akhir || 0)]));
     const out = users.rows.map((u) => {
@@ -482,13 +483,27 @@ export async function getMigration2025TabunganWargaDetail(req, res) {
     await ensureMigrationTablesForYear(year);
     const rs = await pool.query(
       `SELECT month_key, amount
-       FROM mig_tabungan_${year}
+       FROM mig_tabungan_ledger_${year}
        WHERE warga_id = $1::uuid
        ORDER BY month_key ASC`,
       [wargaId]
     );
     const data = { warga_id: wargaId, months: rs.rows.map((r) => ({ month: String(r.month_key), amount: Number(r.amount || 0) })) };
     return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function saveMigration2025TabunganClosingBalances(req, res) {
+  const actorId = String(req.user?.user_id || '').trim();
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!actorId) return res.status(401).json({ success: false, message: 'User tidak valid' });
+  if (!rows.length) return res.status(400).json({ success: false, message: 'rows wajib diisi' });
+  try {
+    const year = parseYearParam(req);
+    await upsertTabunganClosingBalanceRows({ rows, actorId, year });
+    return res.json({ success: true });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

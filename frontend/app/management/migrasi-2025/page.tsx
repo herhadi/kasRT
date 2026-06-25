@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import MigrationFormPanel from '@/components/migration/MigrationFormPanel';
 import MigrationSummaryPanel from '@/components/migration/MigrationSummaryPanel';
+import MigrationTabunganClosingBalanceForm from '@/components/migration/MigrationTabunganClosingBalanceForm';
 import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -75,8 +76,7 @@ const EXAMPLES: Record<ModuleKey, string> = {
   ),
   'tabungan-2025': JSON.stringify(
     [
-      { warga_id: 'UUID_WARGA', month: '2025-01', amount: 50000 },
-      { warga_id: 'UUID_WARGA', month: '2025-02', amount: -25000 }
+      { warga_id: 'UUID_WARGA', closing_balance: 1250000 }
     ],
     null,
     2
@@ -217,7 +217,10 @@ export default function Migration2025Page() {
       const rows = JSON.parse(rowsJson);
       if (!Array.isArray(rows)) throw new Error('Format JSON harus array');
       const moduleBase = String(moduleKey).split('-')[0];
-      await apiFetch(`/migration/${moduleBase}-${year}`, { method: 'POST', body: JSON.stringify({ rows }) });
+      const endpoint = moduleKey === 'tabungan-2025'
+        ? `/migration/tabungan-${year}/closing-balances`
+        : `/migration/${moduleBase}-${year}`;
+      await apiFetch(endpoint, { method: 'POST', body: JSON.stringify({ rows }) });
       setMessage('Data migrasi berhasil disimpan.');
       pushToast('Data migrasi berhasil disimpan.', 'success');
       await loadSummary();
@@ -394,24 +397,41 @@ export default function Migration2025Page() {
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
               {showFormMode && inputMode === 'form' ? (
                 <>
-                  <MigrationFormPanel
-                    moduleKey={moduleKey}
-                    year={year}
-                    wargaOptions={wargaOptions}
-                    selectedWargaId={selectedWargaId}
-                    onWargaChange={setSelectedWargaId}
-                    busy={busy}
-                    onBusyChange={setBusy}
-                    onSaved={loadSummary}
-                    onError={(msg) => {
-                      setError(msg);
-                      pushToast(msg, 'error');
-                    }}
-                    onSuccess={(msg) => {
-                      setMessage(msg);
-                      pushToast(msg, 'success');
-                    }}
-                  />
+                  {moduleKey === 'tabungan-2025' ? (
+                    <MigrationTabunganClosingBalanceForm
+                      year={year}
+                      busy={busy}
+                      onBusyChange={setBusy}
+                      onSaved={loadSummary}
+                      onError={(msg) => {
+                        setError(msg);
+                        pushToast(msg, 'error');
+                      }}
+                      onSuccess={(msg) => {
+                        setMessage(msg);
+                        pushToast(msg, 'success');
+                      }}
+                    />
+                  ) : (
+                    <MigrationFormPanel
+                      moduleKey={moduleKey}
+                      year={year}
+                      wargaOptions={wargaOptions}
+                      selectedWargaId={selectedWargaId}
+                      onWargaChange={setSelectedWargaId}
+                      busy={busy}
+                      onBusyChange={setBusy}
+                      onSaved={loadSummary}
+                      onError={(msg) => {
+                        setError(msg);
+                        pushToast(msg, 'error');
+                      }}
+                      onSuccess={(msg) => {
+                        setMessage(msg);
+                        pushToast(msg, 'success');
+                      }}
+                    />
+                  )}
                   {moduleKey === 'iuran-2025' ? (
                     <div className="mt-3 border-t border-[var(--line)] pt-3">
                       <Button variant="ghost" className="btn-action-blue" onClick={applyOpening2026} disabled={busy}>
@@ -491,7 +511,8 @@ export default function Migration2025Page() {
             </p>
           ) : null}
           {!cashOnlyMigrationModule ? <p className="mt-3 text-xs text-[var(--text-muted)]">
-            Catatan: bulan wajib format `2025-01` s.d. `2025-12`. Untuk iuran/internet/lingkungan/koperasi gunakan field `amount`.
+            Catatan: bulan wajib format `2025-01` s.d. `2025-12`. Untuk tabungan cukup isi saldo akhir Desember per warga.
+            Untuk iuran/internet/lingkungan/koperasi gunakan field `amount`.
             Untuk sosial gunakan `pemasukan` + `pengeluaran`. Untuk iuran wajib gunakan `target_amount` + `paid_amount`.
             Untuk koperasi loan gunakan: `loan_key`, `warga_id`, `principal_amount`, `tenor_months`, `paid_installments`, `interest_model`, `interest_rate_monthly`, `first_due_month`.
           </p> : null}
@@ -500,9 +521,9 @@ export default function Migration2025Page() {
           <ol className="list-decimal space-y-2 pl-5 text-sm text-[var(--text-primary)]">
             <li>Pilih modul migrasi yang ingin diinput.</li>
             <li>
-              Internet dan Lingkungan hanya membutuhkan saldo kas akhir Desember. Modul lain selain Koperasi Loan memakai tab <b>Form</b> (grid 12 bulan).
+              Internet dan Lingkungan hanya membutuhkan saldo kas akhir Desember. Tabungan memakai form saldo akhir Desember per warga/by name. Modul lain selain Koperasi Loan memakai tab <b>Form</b> (grid 12 bulan).
             </li>
-            <li>Untuk Internet/Lingkungan, isi saldo kas Desember lalu klik <b>Simpan Saldo Awal</b>. Untuk modul lain, isi form per warga atau rows JSON.</li>
+            <li>Untuk Internet/Lingkungan, isi saldo kas Desember lalu klik <b>Simpan Saldo Awal</b>. Untuk Tabungan, isi saldo akhir by name. Untuk modul lain, isi form per warga atau rows JSON.</li>
             <li>Klik <b>Refresh</b> untuk cek ringkasan hasil import.</li>
             <li>Ulangi untuk semua modul sampai data Desember 2025 lengkap.</li>
             <li>Khusus modul <b>Iuran Wajib</b>, klik <b>Apply Opening 2026</b> setelah data final.</li>

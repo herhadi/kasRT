@@ -33,6 +33,7 @@ import {
   saveMigration2025Lingkungan,
   saveMigration2025Sosial,
   saveMigration2025Tabungan,
+  saveMigration2025TabunganClosingBalances,
   saveMigrationModuleOpeningBalance
 } from '../controllers/migrationController.js';
 
@@ -92,10 +93,12 @@ router.post('/jimpitan-:year', asyncHandler(saveMigration2025Jimpitan));
 router.get('/tabungan-2025/summary', asyncHandler(getMigration2025TabunganSummary));
 router.get('/tabungan-2025/warga', asyncHandler(getMigration2025TabunganWargaDetail));
 router.post('/tabungan-2025', asyncHandler(saveMigration2025Tabungan));
+router.post('/tabungan-2025/closing-balances', asyncHandler(saveMigration2025TabunganClosingBalances));
 // year-aware routes
 router.get('/tabungan-:year/summary', asyncHandler(getMigration2025TabunganSummary));
 router.get('/tabungan-:year/warga', asyncHandler(getMigration2025TabunganWargaDetail));
 router.post('/tabungan-:year', asyncHandler(saveMigration2025Tabungan));
+router.post('/tabungan-:year/closing-balances', asyncHandler(saveMigration2025TabunganClosingBalances));
 
 router.get('/sosial-2025/summary', asyncHandler(getMigration2025SosialSummary));
 router.get('/sosial-2025/detail', asyncHandler(getMigration2025SosialDetail));
