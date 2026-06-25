@@ -420,13 +420,10 @@ export default function OperasionalInternetPage() {
             </div>
           ) : null}
         </Card>
-        <div
-          className="sticky z-40 gap-2 rounded-xl border border-sky-200 bg-sky-50 p-2 shadow-sm"
-          style={{ top: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
-        >
-          <div className="min-w-0 rounded-lg border border-sky-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-sky-950 md:px-3 md:py-2 md:text-sm">Kas<br /><b className={stickyValueClass(internetKas)}>{formatRupiah(internetKas)}</b></div>
-          <div className="min-w-0 rounded-lg border border-emerald-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-emerald-950 md:px-3 md:py-2 md:text-sm">Masuk<br /><b className={stickyValueClass(Number(summary?.pemasukan || 0))}>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
-          <div className="min-w-0 rounded-lg border border-rose-200 bg-white px-1.5 py-1.5 text-[12px] leading-[14px] text-rose-950 md:px-3 md:py-2 md:text-sm">Keluar<br /><b className={stickyValueClass(Number(summary?.pengeluaran || 0))}>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
+        <div className="ops-sticky-summary">
+          <div className="ops-sticky-item ops-sticky-item-sky">Kas<br /><b className={stickyValueClass(internetKas)}>{formatRupiah(internetKas)}</b></div>
+          <div className="ops-sticky-item ops-sticky-item-emerald">Masuk<br /><b className={stickyValueClass(Number(summary?.pemasukan || 0))}>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
+          <div className="ops-sticky-item ops-sticky-item-rose">Keluar<br /><b className={stickyValueClass(Number(summary?.pengeluaran || 0))}>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
         </div>
 
         {!iuranOnlyMode ? (

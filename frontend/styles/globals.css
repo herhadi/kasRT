@@ -224,6 +224,67 @@ html.dark .btn-action-green:hover {
   background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
 }
 
+.ops-sticky-summary {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #bae6fd;
+  background: #e0f2fe;
+  padding: 0.5rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+}
+
+.ops-sticky-item {
+  min-width: 0;
+  border-radius: 0.5rem;
+  border: 1px solid;
+  background: #ffffff;
+  padding: 0.375rem;
+  font-size: 12px;
+  line-height: 14px;
+}
+
+.ops-sticky-item-sky {
+  border-color: #bae6fd;
+  color: #082f49;
+}
+
+.ops-sticky-item-emerald {
+  border-color: #a7f3d0;
+  color: #022c22;
+}
+
+.ops-sticky-item-rose {
+  border-color: #fecdd3;
+  color: #4c0519;
+}
+
+.ops-sticky-item-amber {
+  border-color: #fde68a;
+  color: #451a03;
+}
+
+html.dark .ops-sticky-summary {
+  border-color: #0369a1;
+  background: #082f49;
+}
+
+html.dark .ops-sticky-item {
+  background: #f8fafc;
+}
+
+@media (min-width: 768px) {
+  .ops-sticky-item {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+}
+
 .card-status-paid {
   border-color: color-mix(in srgb, #10b981 55%, var(--line));
   background: color-mix(in srgb, #10b981 10%, var(--surface-strong));
