@@ -15,6 +15,7 @@ import tabunganRoutes from './routes/tabungan.js';
 import internetRoutes from './routes/internet.js';
 import lingkunganRoutes from './routes/lingkungan.js';
 import koperasiRoutes from './routes/koperasi.js';
+import membershipRequestRoutes from './routes/membershipRequest.js';
 import securityRoutes from './routes/security.js';
 import migrationRoutes from './routes/migration.js';
 import { ensureCoreMasterData } from './models/bootstrapModel.js';
@@ -24,6 +25,7 @@ import { ensureKoperasiTables } from './models/koperasiModel.js';
 import { ensureSecurityTables } from './models/securityModel.js';
 import { ensureAssetTables } from './models/assetModel.js';
 import { ensureAppSettingsTable } from './models/appSettingModel.js';
+import { ensureMembershipRequestTables } from './models/membershipRequestModel.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3005);
@@ -54,6 +56,7 @@ app.use('/tabungan', tabunganRoutes);
 app.use('/internet', internetRoutes);
 app.use('/lingkungan', lingkunganRoutes);
 app.use('/koperasi', koperasiRoutes);
+app.use('/membership', membershipRequestRoutes);
 app.use('/security', securityRoutes);
 app.use('/migration', migrationRoutes);
 
@@ -86,6 +89,7 @@ async function startServer() {
     await ensureInternetTables();
     await ensureLingkunganTables();
     await ensureKoperasiTables();
+    await ensureMembershipRequestTables();
     await ensureSecurityTables();
     await ensureAssetTables();
     await ensureAppSettingsTable();

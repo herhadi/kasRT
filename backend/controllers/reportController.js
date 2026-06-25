@@ -11,6 +11,7 @@ import {
   getTop10PenunggakIuranWajib,
   getTrenIuranWajib6Bulan,
   getIuranBulananByWarga,
+  getInternetBulananByWargaByMonthKey,
   getKoperasiBulananByWarga,
   getLingkunganBulananByWargaByMonthKey,
   getActiveLoanProgressByWarga,
@@ -22,6 +23,7 @@ import {
   isKoperasiMember
   ,getWargaFinancialSnapshot
 } from '../models/reportModel.js';
+import { getLatestMembershipRequestStatusMap } from '../models/membershipRequestModel.js';
 import { getDashboardAdminJimpitan } from '../models/jimpitanModel.js';
 import { getCacheJson, setCacheJson } from '../services/cacheService.js';
 
@@ -35,11 +37,12 @@ export async function dashboardWarga(req, res) {
   const user_id = req.user.user_id;
   const month = String(req.query.month || '').trim();
   const monthFilter = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
+  const refresh = String(req.query.refresh || '') === '1';
   const cacheMonth = monthFilter || 'current';
   const cacheKey = `dashboard:warga:${String(user_id)}:${cacheMonth}`;
 
   try {
-    const cached = await getCacheJson(cacheKey);
+    const cached = refresh ? null : await getCacheJson(cacheKey);
     if (cached) {
       return res.json(cached);
     }
@@ -47,6 +50,7 @@ export async function dashboardWarga(req, res) {
     const jimpitan_hari_ini = await getJimpitanHarianByWarga(user_id);
     const jimpitan_bulan_ini = await getJimpitanBulananByWarga(user_id, monthFilter);
     const iuranRows = await getIuranBulananByWarga(user_id, monthFilter);
+    const internetByMonthKey = await getInternetBulananByWargaByMonthKey(user_id, monthFilter);
     const lingkunganByMonthKey = await getLingkunganBulananByWargaByMonthKey(user_id, monthFilter);
     const koperasiByMonth = await getKoperasiBulananByWarga(user_id, monthFilter);
     const loanProgress = await getActiveLoanProgressByWarga(user_id);
@@ -64,6 +68,7 @@ export async function dashboardWarga(req, res) {
     const internetMember = await isInternetMember(user_id);
     const lingkunganMember = await isLingkunganMember(user_id);
     const koperasiMember = await isKoperasiMember(user_id);
+    const membershipRequests = await getLatestMembershipRequestStatusMap(user_id);
 
     iuranRows.forEach((row) => {
       const name = row.name;
@@ -110,6 +115,8 @@ export async function dashboardWarga(req, res) {
 
     const total_kontribusi_bulan_ini =
       jimpitan_bulan_ini + iuran_wajib_bulan_ini + total_optional_bulan_ini;
+    // Internet operasional mengacu ke month_key pada inet_payments.
+    internet_bulan_ini = Number(internetByMonthKey || 0);
     // Lingkungan operasional mengacu ke month_key pada lh_payments.
     lingkungan_bulan_ini = Number(lingkunganByMonthKey || 0);
     // Koperasi operasional bisa tercatat sebagai iuran biasa atau pembayaran angsuran.
@@ -144,13 +151,16 @@ export async function dashboardWarga(req, res) {
         internet_bulan_ini,
         internet_target_bulanan: INTERNET_TARGET_BULANAN,
         internet_is_member: internetMember,
+        internet_membership_request: membershipRequests.internet || null,
         internet_status,
         lingkungan_bulan_ini,
         koperasi_bulan_ini,
         lingkungan_target_bulanan: LINGKUNGAN_TARGET_BULANAN,
         lingkungan_is_member: lingkunganMember,
+        lingkungan_membership_request: membershipRequests.lingkungan || null,
         lingkungan_status,
         koperasi_is_member: koperasiMember,
+        koperasi_membership_request: membershipRequests.koperasi || null,
         koperasi_has_loan: Boolean(loanProgress),
         koperasi_loan_monthly_installment: loanProgress
           ? Math.round((Number(loanProgress.total_due_all || 0) / Math.max(Number(loanProgress.tenor_months || 1), 1)) * 100) / 100

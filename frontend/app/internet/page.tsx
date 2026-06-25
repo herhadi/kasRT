@@ -19,6 +19,7 @@ import PaginationControls from '@/components/pagination/PaginationControls';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
+import MembershipRequestPanel, { MembershipRequestItem } from '@/components/membership/MembershipRequestPanel';
 
 type InternetRow = {
   warga_id: string;
@@ -72,6 +73,7 @@ export default function OperasionalInternetPage() {
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
   const [members, setMembers] = useState<InternetMember[]>([]);
+  const [membershipRequests, setMembershipRequests] = useState<MembershipRequestItem[]>([]);
   const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
   const loadSequenceRef = useRef(0);
@@ -88,20 +90,24 @@ export default function OperasionalInternetPage() {
     if (!canAccess) return;
     const requestSequence = ++loadSequenceRef.current;
     setError('');
-    const [sumRes, memberRes, dashboardRes] = await Promise.all([
+    const [sumRes, memberRes, dashboardRes, requestRes] = await Promise.all([
       apiFetch<{ success: boolean; data: InternetSummary }>(`/internet/summary?month=${encodeURIComponent(month)}`),
       apiFetch<{ success: boolean; data: InternetMember[] }>(`/internet/members`),
-      apiFetch<{ success: boolean; data: DashboardKasSnapshot }>('/report/dashboard')
+      apiFetch<{ success: boolean; data: DashboardKasSnapshot }>('/report/dashboard'),
+      canWrite
+        ? apiFetch<{ success: boolean; data: MembershipRequestItem[] }>('/membership/requests?module_key=internet')
+        : Promise.resolve({ success: true, data: [] })
     ]);
     if (requestSequence !== loadSequenceRef.current) return;
     setSummary(sumRes.data || null);
     setInternetKas(Number(dashboardRes.data?.kas_umum?.kas_internet || 0));
     setMembers(memberRes.data || []);
+    setMembershipRequests(requestRes.data || []);
     setMemberMonthDrafts(Object.fromEntries((memberRes.data || []).map((member) => [member.warga_id, member.active_from_month || MEMBER_START_MONTH])));
     const yRes = await apiFetch<{ success: boolean; data: InternetYearlyHistory }>(`/internet/history?year=${encodeURIComponent(historyYear)}`);
     if (requestSequence !== loadSequenceRef.current) return;
     setYearlyHistory(yRes.data || null);
-  }, [canAccess, month, historyYear]);
+  }, [canAccess, canWrite, month, historyYear]);
 
   useEffect(() => {
     void loadAll().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data internet'));
@@ -274,6 +280,23 @@ export default function OperasionalInternetPage() {
       setBusy(false);
     }
   }
+  async function reviewMembershipRequest(requestId: string, status: 'APPROVED' | 'REJECTED') {
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      const res = await apiFetch<{ success: boolean; message?: string }>('/membership/review', {
+        method: 'POST',
+        body: JSON.stringify({ request_id: requestId, status })
+      });
+      setMessage(res.message || 'Request keanggotaan diproses.');
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal memproses request keanggotaan');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function resetAllMemberStartMonths() {
     if (!window.confirm('Atur bulan mulai iuran semua anggota Internet menjadi Januari 2026?')) return;
@@ -364,6 +387,15 @@ export default function OperasionalInternetPage() {
                 Reset Semua Mulai Januari 2026
               </Button>
             </div>
+          ) : null}
+          {canWrite ? (
+            <MembershipRequestPanel
+              title="Request Keanggotaan Internet"
+              requests={membershipRequests}
+              busy={busy}
+              onApprove={(requestId) => void reviewMembershipRequest(requestId, 'APPROVED')}
+              onReject={(requestId) => void reviewMembershipRequest(requestId, 'REJECTED')}
+            />
           ) : null}
           <Card title="Keanggotaan Internet" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran internet.">
             <div className="mb-3 flex w-full gap-2">

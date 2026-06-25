@@ -19,11 +19,13 @@ import PaginationControls from '@/components/pagination/PaginationControls';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
+import MembershipRequestPanel, { MembershipRequestItem } from '@/components/membership/MembershipRequestPanel';
 
 type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; surplus_amount: number; arrears_months: number; chargeable_months: number };
 type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
 type Yearly = { year: string; recap: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
 type LingkunganMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string; updated_by?: string };
+type DashboardKasSnapshot = { kas_umum?: { kas_lingkungan?: number } };
 const MEMBER_START_MONTH = '2026-01';
 
 function formatLocalMonth(offset = 0) {
@@ -38,6 +40,7 @@ export default function LingkunganPage() {
   const { user, loading } = useAuth();
   const [month, setMonth] = useState(() => formatLocalMonth(-1));
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [lingkunganKas, setLingkunganKas] = useState(0);
   const [yearly, setYearly] = useState<Yearly | null>(null);
   const [historyYear, setHistoryYear] = useState(() => String(new Date().getFullYear()));
   const [error, setError] = useState('');
@@ -52,6 +55,7 @@ export default function LingkunganPage() {
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
   const [members, setMembers] = useState<LingkunganMember[]>([]);
+  const [membershipRequests, setMembershipRequests] = useState<MembershipRequestItem[]>([]);
   const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
   const [historyYearMonth, setHistoryYearMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -66,17 +70,23 @@ export default function LingkunganPage() {
   const loadAll = useCallback(async () => {
     if (!canAccess) return;
     const yearForQuery = /^\d{4}$/.test(historyYear) ? historyYear : String(new Date().getFullYear());
-    const [s, y, m] = await Promise.all([
+    const [s, y, m, dashboardRes, requestRes] = await Promise.all([
       apiFetch<{ success: boolean; data: Summary }>(`/lingkungan/summary?month=${encodeURIComponent(month)}`),
       apiFetch<{ success: boolean; data: Yearly }>(`/lingkungan/history?year=${encodeURIComponent(yearForQuery)}`),
-      apiFetch<{ success: boolean; data: LingkunganMember[] }>(`/lingkungan/members`)
+      apiFetch<{ success: boolean; data: LingkunganMember[] }>(`/lingkungan/members`),
+      apiFetch<{ success: boolean; data: DashboardKasSnapshot }>('/report/dashboard'),
+      canWrite
+        ? apiFetch<{ success: boolean; data: MembershipRequestItem[] }>('/membership/requests?module_key=lingkungan')
+        : Promise.resolve({ success: true, data: [] })
     ]);
 
     setSummary(s.data || null);
+    setLingkunganKas(Number(dashboardRes.data?.kas_umum?.kas_lingkungan || 0));
     setYearly(y.data || null);
     setMembers(m.data || []);
+    setMembershipRequests(requestRes.data || []);
     setMemberMonthDrafts(Object.fromEntries((m.data || []).map((row) => [row.warga_id, row.active_from_month || MEMBER_START_MONTH])));
-  }, [canAccess, month, historyYear]);
+  }, [canAccess, canWrite, month, historyYear]);
 
   useEffect(() => { void loadAll().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data lingkungan')); }, [loadAll]);
   useEffect(() => {
@@ -208,6 +218,21 @@ export default function LingkunganPage() {
       setBusy(false);
     }
   }
+  async function reviewMembershipRequest(requestId: string, status: 'APPROVED' | 'REJECTED') {
+    try {
+      setBusy(true); setError(''); setMessage('');
+      const res = await apiFetch<{ success: boolean; message?: string }>('/membership/review', {
+        method: 'POST',
+        body: JSON.stringify({ request_id: requestId, status })
+      });
+      setMessage(res.message || 'Request keanggotaan diproses.');
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal memproses request keanggotaan');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (loading || !user) return <main className="min-h-screen" />;
   if (guideMode) return <><Navbar sticky={false} /><OperationalIuranGuide module="lingkungan" /></>;
@@ -236,6 +261,15 @@ export default function LingkunganPage() {
             <div className="md:col-span-2 flex items-end"><Button className="w-full" onClick={submitTariff} disabled={busy}>Simpan Tarif</Button></div>
           </div>
         </Card>
+        {canWrite ? (
+          <MembershipRequestPanel
+            title="Request Keanggotaan Lingkungan"
+            requests={membershipRequests}
+            busy={busy}
+            onApprove={(requestId) => void reviewMembershipRequest(requestId, 'APPROVED')}
+            onReject={(requestId) => void reviewMembershipRequest(requestId, 'REJECTED')}
+          />
+        ) : null}
         <Card title="Keanggotaan Lingkungan" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran lingkungan.">
           <div className="mb-3 flex w-full gap-2">
             {(['aktif', 'nonaktif'] as const).map((filter) => (
@@ -299,7 +333,7 @@ export default function LingkunganPage() {
         className="sticky z-40 gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm backdrop-blur"
         style={{ top: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
       >
-        <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Kas<br /><b>{formatRupiah(Number(summary?.total_kas || 0))}</b></div>
+        <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Kas<br /><b>{formatRupiah(Number(lingkunganKas || 0))}</b></div>
         <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Masuk<br /><b>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
         <div className="surface-muted min-w-0 rounded-lg border border-[var(--line)] px-1.5 py-1.5 text-[12px] leading-[14px] md:px-3 md:py-2 md:text-sm">Keluar<br /><b>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
       </div>

@@ -171,22 +171,38 @@ export async function getTelegramWebhookInfo(_req, res) {
     return res.status(400).json({ success: false, message: payload?.description || 'Gagal mengambil webhook info' });
   }
 
-  return res.json({ success: true, data: payload?.result || {} });
+  const backendUrl = String(process.env.BACKEND_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+  return res.json({
+    success: true,
+    data: payload?.result || {},
+    config: {
+      required_env: ['TELEGRAM_BOT_TOKEN', 'BACKEND_PUBLIC_URL'],
+      optional_env: ['TELEGRAM_WEBHOOK_SECRET', 'TELEGRAM_BOT_USERNAME'],
+      backend_public_url: backendUrl,
+      webhook_url_from_env: backendUrl ? `${backendUrl}/telegram/webhook` : '',
+      has_webhook_secret: Boolean(String(process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()),
+      has_bot_username: Boolean(normalizeBotUsername(process.env.TELEGRAM_BOT_USERNAME))
+    }
+  });
 }
 
-export async function setTelegramWebhook(_req, res) {
+export async function setTelegramWebhook(req, res) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const backendUrl = String(process.env.BACKEND_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+  const manualWebhookUrl = String(req.body?.webhook_url || '').trim().replace(/\/+$/, '');
   const webhookSecret = String(process.env.TELEGRAM_WEBHOOK_SECRET || '').trim();
 
   if (!token) {
     return res.status(400).json({ success: false, message: 'TELEGRAM_BOT_TOKEN belum diset' });
   }
-  if (!backendUrl) {
+  if (!backendUrl && !manualWebhookUrl) {
     return res.status(400).json({ success: false, message: 'BACKEND_PUBLIC_URL belum diset' });
   }
 
-  const webhookUrl = `${backendUrl}/telegram/webhook`;
+  const webhookUrl = manualWebhookUrl || `${backendUrl}/telegram/webhook`;
+  if (!/^https:\/\/.+\/telegram\/webhook$/.test(webhookUrl)) {
+    return res.status(400).json({ success: false, message: 'webhook_url harus HTTPS dan berakhir /telegram/webhook' });
+  }
   const body = new URLSearchParams();
   body.set('url', webhookUrl);
   if (webhookSecret) body.set('secret_token', webhookSecret);

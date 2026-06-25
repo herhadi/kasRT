@@ -31,13 +31,16 @@ export type DashboardWargaData = {
   internet_bulan_ini: number;
   internet_target_bulanan: number;
   internet_is_member: boolean;
+  internet_membership_request?: MembershipRequestStatus | null;
   internet_status: 'MENUNGGAK' | 'PAS' | 'LEBIH' | 'NON_MEMBER';
   lingkungan_bulan_ini: number;
   koperasi_bulan_ini: number;
   lingkungan_target_bulanan: number;
   lingkungan_is_member: boolean;
+  lingkungan_membership_request?: MembershipRequestStatus | null;
   lingkungan_status: 'MENUNGGAK' | 'PAS' | 'LEBIH' | 'NON_MEMBER';
   koperasi_is_member: boolean;
+  koperasi_membership_request?: MembershipRequestStatus | null;
   koperasi_has_loan: boolean;
   koperasi_loan_monthly_installment: number;
   koperasi_loan_paid_installments: number;
@@ -59,6 +62,14 @@ export type DashboardWargaData = {
     kas_internet: number;
     kas_koperasi: number;
   };
+};
+
+export type MembershipRequestStatus = {
+  id: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  note?: string;
+  created_at?: string;
+  reviewed_at?: string | null;
 };
 
 export type JimpitanListItem = {

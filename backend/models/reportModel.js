@@ -80,6 +80,21 @@ export async function getLingkunganBulananByWargaByMonthKey(userId, month = null
   return Number(result.rows[0]?.total || 0);
 }
 
+export async function getInternetBulananByWargaByMonthKey(userId, month = null) {
+  await ensureReportTables();
+  const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))
+    ? String(month)
+    : new Date().toISOString().slice(0, 7);
+  const result = await pool.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total
+     FROM inet_payments
+     WHERE warga_id = $1::uuid
+       AND month_key = $2`,
+    [userId, monthKey]
+  );
+  return Number(result.rows[0]?.total || 0);
+}
+
 export async function getKoperasiBulananByWarga(userId, month = null) {
   await ensureReportTables();
   const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))
