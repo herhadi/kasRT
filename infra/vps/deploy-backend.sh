@@ -84,6 +84,11 @@ fi
 
 for attempt in {1..30}; do
   if curl --fail --silent --show-error http://127.0.0.1:3005/ >/dev/null; then
+    # Bersihkan image lama yang tidak terpakai
+    echo "🧹 Membersihkan image Docker yang tidak terpakai..."
+    docker image prune -f -a --filter "until=24h"
+    docker builder prune -f
+    
     finished_at="$(date +%s)"
     echo "Deploy KasRT berhasil. Commit: $HEAD_SHA, durasi: $((finished_at - STARTED_AT))s"
     docker compose -f "$COMPOSE_FILE" ps

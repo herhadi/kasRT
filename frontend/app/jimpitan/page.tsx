@@ -493,7 +493,7 @@ export default function JimpitanPage() {
     const isOperationalHour = hour >= 21 || hour < 6;
 
     if (!isRoot && !isOperationalHour) {
-      pushToast('JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00 untuk non-admin.', 'warning');
+      pushToast('JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00', 'warning');
       return;
     }
     if (!isRoot && !canOperateToday) {

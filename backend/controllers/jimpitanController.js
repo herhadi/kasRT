@@ -187,7 +187,7 @@ export async function inputJimpitan(req, res) {
     if (debug) console.log('[JIMPITAN][INPUT] reject: outside operational time');
     return res.status(403).json({
       success: false,
-      message: 'JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00 untuk non-admin.'
+      message: 'JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00'
     });
   }
 
