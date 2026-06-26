@@ -35,10 +35,26 @@ const corsOrigins = String(process.env.CORS_ORIGINS || '')
   .filter(Boolean);
 
 app.use(cors({
+  // Allow requests with no origin (like mobile apps, curl)
   origin(origin, callback) {
     if (!origin || corsOrigins.length === 0 || corsOrigins.includes(origin)) {
       return callback(null, true);
     }
+
+    // Normalize the incoming origin
+    const normalizedOrigin = origin.replace(/\/$/, '');
+
+    // Cek apakah origin diizinkan
+    if (corsOrigins.length === 0 || corsOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+    
+    // Debug: log untuk troubleshooting
+    console.log('CORS blocked:', {
+      origin: normalizedOrigin,
+      allowed: corsOrigins
+    });
+
     return callback(new Error('Origin tidak diizinkan'));
   }
 }));
