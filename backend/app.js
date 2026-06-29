@@ -76,14 +76,6 @@ app.use('/membership', membershipRequestRoutes);
 app.use('/security', securityRoutes);
 app.use('/migration', migrationRoutes);
 
-app.get('/api/cron', (_req, res) => {
-  return res.json({
-    success: true,
-    message: 'Cron endpoint OK',
-    timestamp: new Date().toISOString()
-  });
-});
-
 app.get('/', (_req, res) => {
   res.json({
     success: true,

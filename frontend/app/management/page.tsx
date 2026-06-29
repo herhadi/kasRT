@@ -12,7 +12,6 @@ import { useAuth } from '@/lib/useAuth';
 
 type CronHealthStatus = {
   job_name: string;
-  health_job_name?: string;
   latest: CronHealthLog | null;
   logs?: CronHealthLog[];
   age_seconds: number | null;
@@ -103,7 +102,6 @@ export default function ManagementHomePage() {
   const [cronStatus, setCronStatus] = useState<CronHealthStatus | null>(null);
   const [cronError, setCronError] = useState('');
   const [loadingCron, setLoadingCron] = useState(false);
-  const [testingCron, setTestingCron] = useState(false);
   const [testingReminder, setTestingReminder] = useState(false);
   const [cronTestMessage, setCronTestMessage] = useState('');
   const [testShiftDay, setTestShiftDay] = useState('3');
@@ -118,8 +116,8 @@ export default function ManagementHomePage() {
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
-  const doneLog = cronStatus?.logs?.find((log) => ['DONE', 'TEST_REMINDER'].includes(log.status) && log.payload?.reminder_result);
-  const reminderResult = doneLog?.payload?.reminder_result;
+  const latestReminderLog = cronStatus?.logs?.find((log) => Boolean(log.payload?.reminder_result));
+  const reminderResult = latestReminderLog?.payload?.reminder_result;
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -193,23 +191,6 @@ export default function ManagementHomePage() {
       }
     } finally {
       setLoadingWaGateway(false);
-    }
-  }
-
-  async function testCronHealthEndpoint() {
-    setTestingCron(true);
-    setCronTestMessage('');
-    try {
-      const response = await fetch('/api/cron-health');
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || payload?.ok === false) {
-        throw new Error(payload?.message || payload?.ping_result?.message || 'Cron health test gagal');
-      }
-      setCronTestMessage('Endpoint cron-health berhasil terpanggil.');
-    } catch (error) {
-      setCronTestMessage(error instanceof Error ? error.message : 'Cron health test gagal');
-    } finally {
-      setTestingCron(false);
     }
   }
 
@@ -421,9 +402,6 @@ export default function ManagementHomePage() {
                   <option value="6">Jum&apos;at</option>
                   <option value="7">Sabtu</option>
                 </select>
-                <Button variant="ghost" onClick={testCronHealthEndpoint} disabled={testingCron}>
-                  {testingCron ? 'Test...' : 'Test Health'}
-                </Button>
                 <Button variant="ghost" onClick={testReminderEndpoint} disabled={testingReminder}>
                   {testingReminder ? 'Kirim...' : 'Test Reminder'}
                 </Button>
@@ -463,7 +441,7 @@ export default function ManagementHomePage() {
                   )}
                 </div>
                 <div>
-                  <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Riwayat Reminder / Health Check</p>
+                  <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Riwayat Reminder</p>
                   <div className="space-y-2">
                     {(cronStatus.logs || []).slice(0, 6).map((log) => (
                       <div key={log.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm">
@@ -528,6 +506,7 @@ function formatReminderStatus(result: NonNullable<CronHealthLog['payload']>['rem
     return result.current_time_wib ? `${result.message || 'Skipped'} (${result.current_time_wib} WIB)` : result.message || 'Skipped';
   }
   if (result.success === false) return result.message || 'Gagal';
+  if (result.reminder_type) return `${result.message || 'Tercatat'} (${result.reminder_type})`;
   return 'Diproses';
 }
 

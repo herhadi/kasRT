@@ -82,11 +82,9 @@ Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`create
 
 ## Reminder Otomatis Jimpitan
 
-- Untuk deployment frontend di Vercel, trigger dapat memakai Vercel Cron ke `GET /api/cron` (frontend).
-- Untuk deployment backend di VPS, gunakan cron Linux yang memanggil backend lokal pada pukul `20:45 WIB`; ini direkomendasikan karena presisi jadwalnya lebih baik.
+- Scheduler production memakai cron Linux di VPS/Debian yang memanggil backend lokal pada pukul `20:45 WIB`.
 - Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
-- Schedule Vercel: beberapa trigger di `20:15`, `20:30`, `20:45`, dan `21:00 WIB` sesuai `frontend/vercel.json`.
-- Catatan: Vercel Cron pada plan gratis bisa terlambat, jadi backend menerima window `20:15-21:15 WIB`.
+- Backend menerima window `20:15-21:15 WIB` sebagai guard agar reminder tidak terkirim terlalu awal/terlambat.
 - Backend memakai daily lock, jadi beberapa trigger cron tidak akan mengirim reminder dobel.
 - Telegram dan WA dipisah. Telegram tetap memakai bot resmi, sedangkan WA reminder memakai provider backend terpisah:
   - `off`

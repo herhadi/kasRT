@@ -4,13 +4,11 @@ import { allowRoles } from '../middleware/role.js';
 import { addWargaUser, editWargaUser, getUserManagementData, updateUserAdminRoles } from '../controllers/userAdminController.js';
 import { getMeetingAttendance, getMeetingNote, saveMeetingAttendance, saveMeetingNote } from '../controllers/meetingController.js';
 import { deleteTelegramWebhook, getTelegramWebhookInfo, setTelegramWebhook } from '../controllers/telegramController.js';
-import { cronHealthPing, cronHealthStatus } from '../controllers/cronHealthController.js';
+import { cronHealthStatus } from '../controllers/cronHealthController.js';
 import { confirmAssetRentalPaymentHandler, getAssetManagementData, recordAssetRental, saveAsset, updateAssetStatus } from '../controllers/assetController.js';
 import { getWaGatewayQr, getWaGatewayStatus, getWaReminderManagementConfig, updateWaReminderManagementConfig } from '../controllers/managementController.js';
 
 const router = express.Router();
-
-router.post('/cron/ping', asyncHandler(cronHealthPing));
 
 router.use(auth);
 
