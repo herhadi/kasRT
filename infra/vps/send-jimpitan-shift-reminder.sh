@@ -19,8 +19,13 @@ if [[ -z "${CRON_SECRET:-}" ]]; then
   exit 1
 fi
 
+echo "[$(TZ=Asia/Jakarta date '+%Y-%m-%d %H:%M:%S %Z')] Mulai kirim reminder jimpitan via ${BACKEND_URL%/}/jimpitan/send-shift-reminder"
+
 curl --fail-with-body --silent --show-error --max-time 60 \
   --request POST \
   --header "x-cron-secret: ${CRON_SECRET}" \
   --header "Content-Type: application/json" \
   "${BACKEND_URL%/}/jimpitan/send-shift-reminder"
+
+echo
+echo "[$(TZ=Asia/Jakarta date '+%Y-%m-%d %H:%M:%S %Z')] Selesai kirim reminder jimpitan"
