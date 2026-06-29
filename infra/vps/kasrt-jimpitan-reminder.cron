@@ -1,2 +1,5 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 CRON_TZ=Asia/Jakarta
+
 45 20 * * * root /srv/kasrt/app/infra/vps/send-jimpitan-shift-reminder.sh >> /var/log/kasrt-jimpitan-reminder.log 2>&1

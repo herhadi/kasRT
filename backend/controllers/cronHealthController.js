@@ -1,9 +1,16 @@
 import { getLatestCronHealthLog, insertCronHealthLog, listLatestCronHealthLogs } from '../models/cronHealthModel.js';
+import { listLatestJimpitanReminderLogs } from '../models/jimpitanModel.js';
 import { notifyRoles } from '../services/approvalNotifier.js';
 
 function parseJsonPayload(value) {
   if (!value || typeof value !== 'object') return null;
   return value;
+}
+
+function formatDateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
 }
 
 export async function cronHealthPing(req, res) {
@@ -41,9 +48,36 @@ export async function cronHealthPing(req, res) {
 }
 
 export async function cronHealthStatus(req, res) {
-  const jobName = String(req.query.job_name || 'vercel-cron').trim();
-  const latest = await getLatestCronHealthLog(jobName);
-  const logs = await listLatestCronHealthLogs(jobName, 20);
+  const jobName = String(req.query.job_name || 'kasrt-jimpitan-reminder').trim();
+  const healthJobName = String(req.query.health_job_name || 'vercel-cron').trim();
+  const healthLogs = await listLatestCronHealthLogs(healthJobName, 20);
+  const latestHealth = healthLogs[0] || await getLatestCronHealthLog(healthJobName);
+  const reminderRows = await listLatestJimpitanReminderLogs(20);
+  const reminderLogs = reminderRows.map((row) => {
+    const reminderDate = formatDateOnly(row.reminder_date);
+    return {
+      id: `jimpitan-reminder-${row.id}`,
+      job_name: jobName,
+      source: 'debian-cron-backend',
+      status: String(row.reminder_type || '').includes('_TEST_') ? 'TEST_REMINDER' : 'REMINDER_SENT',
+      message: `Reminder ${row.reminder_type} untuk ${reminderDate || '-'}`,
+      payload: {
+        reminder_result: {
+          success: true,
+          message: 'Reminder tercatat di backend',
+          total_target: row.total_recipients,
+          total_recipients: row.total_recipients,
+          reminder_date: reminderDate,
+          reminder_type: row.reminder_type
+        }
+      },
+      created_at: row.sent_at
+    };
+  });
+  const logs = [...reminderLogs, ...healthLogs]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 20);
+  const latest = logs[0] || latestHealth || null;
   const now = Date.now();
   const lastRunAt = latest?.created_at ? new Date(latest.created_at).getTime() : null;
   const ageSeconds = lastRunAt ? Math.max(0, Math.round((now - lastRunAt) / 1000)) : null;
@@ -52,6 +86,7 @@ export async function cronHealthStatus(req, res) {
     success: true,
     data: {
       job_name: jobName,
+      health_job_name: healthJobName,
       latest,
       logs,
       age_seconds: ageSeconds,

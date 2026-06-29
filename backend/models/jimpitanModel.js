@@ -549,6 +549,24 @@ export async function lockDailyJimpitanReminder(reminderDate, reminderType, tota
   return result.rows.length > 0;
 }
 
+export async function listLatestJimpitanReminderLogs(limit = 20) {
+  await ensureJimpitanReminderLogTable();
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
+  const result = await pool.query(
+    `SELECT
+       id::text,
+       reminder_date,
+       reminder_type,
+       sent_at,
+       total_recipients
+     FROM jimpitan_reminder_logs
+     ORDER BY sent_at DESC
+     LIMIT $1`,
+    [safeLimit]
+  );
+  return result.rows;
+}
+
 export async function updatePetugasShiftHari({ userId, shiftHari }) {
   await ensureJimpitanScheduleColumns();
 

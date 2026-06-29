@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/useAuth';
 
 type CronHealthStatus = {
   job_name: string;
+  health_job_name?: string;
   latest: CronHealthLog | null;
   logs?: CronHealthLog[];
   age_seconds: number | null;
@@ -44,6 +45,8 @@ type CronHealthLog = {
         wa_provider?: string;
         wa_queue_enabled?: boolean;
         current_time_wib?: string;
+        reminder_date?: string;
+        reminder_type?: string;
       };
       timestamp?: string;
     } | null;
@@ -400,8 +403,8 @@ export default function ManagementHomePage() {
         ) : null}
         {isRoot ? (
           <Card
-            title="Status Cron Vercel"
-            subtitle="Pantau kapan endpoint cron frontend terakhir terpanggil"
+            title="Status Reminder Jimpitan"
+            subtitle="Pantau eksekusi cron Debian dan log reminder backend"
             headerRight={
               <div className="flex flex-col gap-2 sm:flex-row">
                 <select
@@ -419,7 +422,7 @@ export default function ManagementHomePage() {
                   <option value="7">Sabtu</option>
                 </select>
                 <Button variant="ghost" onClick={testCronHealthEndpoint} disabled={testingCron}>
-                  {testingCron ? 'Test...' : 'Test Endpoint'}
+                  {testingCron ? 'Test...' : 'Test Health'}
                 </Button>
                 <Button variant="ghost" onClick={testReminderEndpoint} disabled={testingReminder}>
                   {testingReminder ? 'Kirim...' : 'Test Reminder'}
@@ -460,7 +463,7 @@ export default function ManagementHomePage() {
                   )}
                 </div>
                 <div>
-                  <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Riwayat Cron</p>
+                  <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Riwayat Reminder / Health Check</p>
                   <div className="space-y-2">
                     {(cronStatus.logs || []).slice(0, 6).map((log) => (
                       <div key={log.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm">
@@ -480,7 +483,7 @@ export default function ManagementHomePage() {
               </div>
             ) : (
               <p className="text-sm text-[var(--text-muted)]">
-                Belum ada catatan cron. Tunggu Vercel Cron berjalan, atau panggil endpoint frontend /api/cron secara manual.
+                Belum ada catatan reminder. Tunggu cron Debian berjalan, atau pakai Test Reminder.
               </p>
             )}
           </Card>
