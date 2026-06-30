@@ -21,8 +21,19 @@ export async function cronHealthStatus(req, res) {
         reminder_result: {
           success: true,
           message: 'Reminder tercatat di backend',
-          total_target: row.total_recipients,
+          total_target: row.total_target || row.total_recipients,
           total_recipients: row.total_recipients,
+          telegram_recipients: row.telegram_recipients,
+          telegram_sent: row.telegram_sent,
+          telegram_failed: row.telegram_failed,
+          telegram_errors: row.telegram_errors || [],
+          wa_recipients: row.wa_recipients,
+          wa_sent: row.wa_sent,
+          wa_failed: row.wa_failed,
+          wa_errors: row.wa_errors || [],
+          wa_enabled: row.wa_enabled,
+          wa_provider: row.wa_provider,
+          wa_queue_enabled: row.wa_queue_enabled,
           reminder_date: reminderDate,
           reminder_type: row.reminder_type
         }

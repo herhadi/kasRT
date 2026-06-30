@@ -31,6 +31,7 @@ import {
   saveJimpitanRouteOrder,
   setJimpitanExternalParticipantActive,
   topUpJimpitanSaldo,
+  updateJimpitanReminderDeliveryLog,
   updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
 import { delCache, getCacheJson, setCacheJson } from '../services/cacheService.js';
@@ -560,7 +561,7 @@ export async function sendJimpitanShiftReminder(req, res) {
   const jakartaTime = getJakartaTimeParts(now);
   const totalMinutes = jakartaTime.hour * 60 + jakartaTime.minute;
   const targetMinutes = 20 * 60 + 45;
-  const allowedEarlyMinutes = 30;
+  const allowedEarlyMinutes = 0;
   const allowedLateMinutes = 30;
   const isWithinWindow =
     Number.isFinite(totalMinutes) &&
@@ -571,7 +572,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     return res.json({
       success: true,
       skipped: true,
-      message: 'Di luar window reminder 20:15-21:15 WIB',
+      message: 'Di luar window reminder 20:45-21:15 WIB',
       current_time_wib: jakartaTime.hourMinute
     });
   }
@@ -596,15 +597,16 @@ export async function sendJimpitanShiftReminder(req, res) {
     const petugas = await listPetugasByShiftDay(shiftDay);
     const telegramRecipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
     const waRecipients = petugas.filter((row) => String(row.no_hp || '').trim() !== '');
-    const lockAcquired = await lockDailyJimpitanReminder(reminderDate, reminderType, Math.max(telegramRecipients.length, waRecipients.length));
+    const totalRecipients = Math.max(telegramRecipients.length, waRecipients.length);
+    const lock = await lockDailyJimpitanReminder(reminderDate, reminderType, totalRecipients);
 
-    if (!lockAcquired) {
+    if (!lock) {
       return res.json({
         success: true,
         skipped: true,
         message: 'Reminder hari ini sudah pernah dikirim',
         shift_day: shiftDay,
-        total_recipients: Math.max(telegramRecipients.length, waRecipients.length)
+        total_recipients: totalRecipients
       });
     }
 
@@ -661,11 +663,40 @@ export async function sendJimpitanShiftReminder(req, res) {
       useDelay: !testMode
     });
 
+    await updateJimpitanReminderDeliveryLog({
+      id: lock.id,
+      totalTarget: petugas.length,
+      totalRecipients,
+      telegramRecipients: telegramRecipients.length,
+      telegramSent,
+      telegramFailed,
+      telegramErrors: telegramErrors.slice(0, 5),
+      waRecipients: waRecipients.length,
+      waSent: waResult.sent,
+      waFailed: waResult.failed,
+      waErrors: waResult.errors.slice(0, 5),
+      waEnabled: waResult.enabled,
+      waProvider: waResult.provider,
+      waQueueEnabled: waStatus.queue
+    });
+
+    if (!testMode) {
+      await notifyRoles(
+        ['root'],
+        `✅ <b>Reminder Jimpitan Terkirim</b>\n` +
+          `Hari: <b>${targetLabel}</b>\n` +
+          `Petugas shift: <b>${petugas.length}</b>\n` +
+          `Telegram: <b>${telegramSent}/${telegramRecipients.length}</b> gagal <b>${telegramFailed}</b>\n` +
+          `WA: <b>${waResult.sent}/${waRecipients.length}</b> gagal <b>${waResult.failed}</b>\n` +
+          `Provider WA: <b>${waResult.provider || 'off'}</b>`
+      );
+    }
+
     return res.json({
       success: true,
       shift_day: shiftDay,
       total_target: petugas.length,
-      total_recipients: Math.max(telegramRecipients.length, waRecipients.length),
+      total_recipients: totalRecipients,
       telegram_recipients: telegramRecipients.length,
       telegram_sent: telegramSent,
       telegram_failed: telegramFailed,

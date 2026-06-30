@@ -39,6 +39,22 @@ export async function ensureJimpitanReminderLogTable() {
       UNIQUE (reminder_date, reminder_type)
     )
   `);
+
+  await pool.query(`
+    ALTER TABLE jimpitan_reminder_logs
+      ADD COLUMN IF NOT EXISTS total_target INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS telegram_recipients INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS telegram_sent INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS telegram_failed INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS telegram_errors JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS wa_recipients INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS wa_sent INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS wa_failed INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS wa_errors JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS wa_enabled BOOLEAN NULL,
+      ADD COLUMN IF NOT EXISTS wa_provider VARCHAR(30) NULL,
+      ADD COLUMN IF NOT EXISTS wa_queue_enabled BOOLEAN NULL
+  `);
 }
 
 export async function ensureJimpitanRouteOrderTable() {
@@ -543,10 +559,64 @@ export async function lockDailyJimpitanReminder(reminderDate, reminderType, tota
     `INSERT INTO jimpitan_reminder_logs (reminder_date, reminder_type, total_recipients)
      VALUES ($1::date, $2, $3)
      ON CONFLICT (reminder_date, reminder_type) DO NOTHING
-     RETURNING id`,
+     RETURNING id::text`,
     [reminderDate, reminderType, totalRecipients]
   );
-  return result.rows.length > 0;
+  return result.rows[0] || null;
+}
+
+export async function updateJimpitanReminderDeliveryLog({
+  id,
+  totalTarget,
+  totalRecipients,
+  telegramRecipients,
+  telegramSent,
+  telegramFailed,
+  telegramErrors,
+  waRecipients,
+  waSent,
+  waFailed,
+  waErrors,
+  waEnabled,
+  waProvider,
+  waQueueEnabled
+}) {
+  await ensureJimpitanReminderLogTable();
+  const result = await pool.query(
+    `UPDATE jimpitan_reminder_logs
+     SET total_target = $2,
+         total_recipients = $3,
+         telegram_recipients = $4,
+         telegram_sent = $5,
+         telegram_failed = $6,
+         telegram_errors = $7::jsonb,
+         wa_recipients = $8,
+         wa_sent = $9,
+         wa_failed = $10,
+         wa_errors = $11::jsonb,
+         wa_enabled = $12,
+         wa_provider = $13,
+         wa_queue_enabled = $14
+     WHERE id = $1
+     RETURNING id::text`,
+    [
+      id,
+      totalTarget,
+      totalRecipients,
+      telegramRecipients,
+      telegramSent,
+      telegramFailed,
+      JSON.stringify(telegramErrors || []),
+      waRecipients,
+      waSent,
+      waFailed,
+      JSON.stringify(waErrors || []),
+      waEnabled,
+      waProvider,
+      waQueueEnabled
+    ]
+  );
+  return result.rows[0] || null;
 }
 
 export async function listLatestJimpitanReminderLogs(limit = 20) {
@@ -558,7 +628,19 @@ export async function listLatestJimpitanReminderLogs(limit = 20) {
        reminder_date,
        reminder_type,
        sent_at,
-       total_recipients
+       total_target,
+       total_recipients,
+       telegram_recipients,
+       telegram_sent,
+       telegram_failed,
+       telegram_errors,
+       wa_recipients,
+       wa_sent,
+       wa_failed,
+       wa_errors,
+       wa_enabled,
+       wa_provider,
+       wa_queue_enabled
      FROM jimpitan_reminder_logs
      ORDER BY sent_at DESC
      LIMIT $1`,
