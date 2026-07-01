@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import Button from '@/components/ui/Button';
 import { formatRupiah } from '@/lib/helpers';
+import { CONTRIBUTION_EDIT_HOLD_LABEL, CONTRIBUTION_EDIT_HOLD_MS } from './constants';
 
 export type WargaContributionRow = {
   id: string;
@@ -20,7 +21,7 @@ export default function WargaContributionGrid({
   rows,
   onInput,
   onEdit,
-  holdMs = 2750
+  holdMs = CONTRIBUTION_EDIT_HOLD_MS
 }: {
   rows: WargaContributionRow[];
   onInput: (row: WargaContributionRow) => void;
@@ -73,7 +74,7 @@ export default function WargaContributionGrid({
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">{row.suggestionText}</p>
             ) : null}
             {row.canEdit ? (
-              <p className="mt-2 text-[10px] font-semibold text-[var(--text-muted)]">Tahan 2,75 detik untuk koreksi</p>
+              <p className="mt-2 text-[10px] font-semibold text-[var(--text-muted)]">Tahan {CONTRIBUTION_EDIT_HOLD_LABEL} untuk koreksi</p>
             ) : null}
             <Button
               variant="ghost"

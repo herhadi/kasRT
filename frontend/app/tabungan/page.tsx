@@ -11,6 +11,7 @@ import Input from '@/components/ui/Input';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import WargaContributionModal from '@/components/contribution/WargaContributionModal';
+import { CONTRIBUTION_EDIT_HOLD_LABEL, CONTRIBUTION_EDIT_HOLD_MS } from '@/components/contribution/constants';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -203,7 +204,7 @@ export default function TabunganPage() {
       suppressNextClickRef.current = true;
       setEditContributionMode(true);
       setSelected(row);
-    }, 2750);
+    }, CONTRIBUTION_EDIT_HOLD_MS);
   }
 
   async function submitSetoran(amount: number) {
@@ -478,7 +479,7 @@ export default function TabunganPage() {
                     {formatRupiah(Number(row.total_balance || 0))}
                   </p>
                   {row.last_credit?.id ? (
-                    <p className="mt-2 text-[10px] font-semibold text-[var(--text-muted)]">Tahan 2,75 detik untuk koreksi</p>
+                    <p className="mt-2 text-[10px] font-semibold text-[var(--text-muted)]">Tahan {CONTRIBUTION_EDIT_HOLD_LABEL} untuk koreksi</p>
                   ) : null}
                 </article>
               ))}
