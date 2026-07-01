@@ -19,6 +19,7 @@ import PaginationControls from '@/components/pagination/PaginationControls';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 
 type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; surplus_amount: number; arrears_months: number; chargeable_months: number; last_payment?: { id: string; amount: number; paid_at?: string; note?: string } | null };
 type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; opening_balances?: Array<{ id: string; tanggal: string; closing_year: number; opening_year: number; amount: number; description: string }>; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
@@ -266,7 +267,7 @@ export default function LingkunganPage() {
     return (
       <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar sticky={false} /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
-        <Card title="Input Iuran Lingkungan" subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`} headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
+        <Card title="Input Iuran Lingkungan" subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`} headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}>
           <WargaContributionSection
             rows={rowsForInput}
             selectedRow={selectedRow}
@@ -364,7 +365,7 @@ export default function LingkunganPage() {
 
   return (
     <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar sticky={false} /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
-      <Card title="Operasional Lingkungan" subtitle="Iuran lingkungan bulanan, tunggakan, dan pengeluaran" headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
+      <Card title="Operasional Lingkungan" subtitle="Iuran lingkungan bulanan, tunggakan, dan pengeluaran" headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}>
         {canWrite ? (
           <div className="mt-4 flex items-center justify-between gap-2">
             <Link href="/operasional/lingkungan/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
@@ -452,20 +453,16 @@ export default function LingkunganPage() {
         title="Riwayat Lingkungan"
         subtitle="Total pemasukan dan pengeluaran per bulan"
         headerRight={
-          <div className="w-full max-w-[220px]">
-            <Input
-              label="Tahun"
-              type="month"
-              value={historyYearMonth}
-              onChange={(e) => {
-                const v = String(e.target.value || '');
-                if (/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) {
-                  setHistoryYearMonth(v);
-                  setHistoryYear(v.slice(0, 4));
-                }
-              }}
-            />
-          </div>
+          <PeriodPickerCompact
+            label="Tahun"
+            value={historyYearMonth}
+            onChange={(value) => {
+              if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) {
+                setHistoryYearMonth(value);
+                setHistoryYear(value.slice(0, 4));
+              }
+            }}
+          />
         }
       >
         <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">

@@ -12,6 +12,7 @@ import FeedbackToast from '@/components/ui/FeedbackToast';
 import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import WargaContributionModal from '@/components/contribution/WargaContributionModal';
 import { CONTRIBUTION_EDIT_HOLD_MS } from '@/components/contribution/constants';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -393,17 +394,11 @@ export default function TabunganPage() {
           title="Tabungan Pembangunan"
           subtitle={`Setoran sukarela warga (minimal ${formatRupiah(minimumFee)})`}
           headerRight={(
-            <div className="w-full max-w-[220px]">
-              <label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-sky-700">
-                {inputPageMode ? 'Periode Input' : 'Periode Riwayat'}
-              </label>
-              <input
-                type="month"
-                value={historyMonth}
-                onChange={(e) => setHistoryMonth(e.target.value)}
-                className="period-picker-compact mt-1"
-              />
-            </div>
+            <PeriodPickerCompact
+              label={inputPageMode ? 'Periode Input' : 'Periode Riwayat'}
+              value={historyMonth}
+              onChange={setHistoryMonth}
+            />
           )}
         >
           {!inputPageMode && canWrite ? (

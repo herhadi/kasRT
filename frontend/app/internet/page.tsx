@@ -19,6 +19,7 @@ import PaginationControls from '@/components/pagination/PaginationControls';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 
 type InternetRow = {
   warga_id: string;
@@ -359,7 +360,7 @@ export default function OperasionalInternetPage() {
           <Card
             title="Input Iuran Internet"
             subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`}
-            headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
+            headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}
           >
             <WargaContributionSection
               rows={contributionRows}
@@ -454,7 +455,7 @@ export default function OperasionalInternetPage() {
         <Card
           title="Operasional Internet"
           subtitle="Iuran wajib internet bulanan"
-          headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
+          headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}
         >
           {canWrite ? (
             <div className="mt-4 flex items-center justify-between gap-2">
@@ -591,20 +592,16 @@ export default function OperasionalInternetPage() {
             title="Riwayat Internet"
             subtitle="Total pemasukan dan pengeluaran per bulan"
             headerRight={
-              <div className="w-full max-w-[220px]">
-                <Input
-                  label="Tahun"
-                  type="month"
-                  value={historyYearMonth}
-                  onChange={(e) => {
-                    const v = String(e.target.value || '');
-                    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) {
-                      setHistoryYearMonth(v);
-                      setHistoryYear(v.slice(0, 4));
-                    }
-                  }}
-                />
-              </div>
+              <PeriodPickerCompact
+                label="Tahun"
+                value={historyYearMonth}
+                onChange={(value) => {
+                  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) {
+                    setHistoryYearMonth(value);
+                    setHistoryYear(value.slice(0, 4));
+                  }
+                }}
+              />
             }
           >
             <div className="overflow-x-auto">
