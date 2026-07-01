@@ -73,16 +73,18 @@ export default function WargaContributionGrid({
             {row.suggestionText ? (
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">{row.suggestionText}</p>
             ) : null}
-            <Button
-              variant="ghost"
-              className="mt-3 w-full"
-              onMouseDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-              onClick={() => onInput(row)}
-              disabled={!canInput}
-            >
-              {canInput ? 'Input Iuran' : 'Sudah Diinput'}
-            </Button>
+            {!done ? (
+              <Button
+                variant="ghost"
+                className="mt-3 w-full"
+                onMouseDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onClick={() => onInput(row)}
+                disabled={!canInput}
+              >
+                {canInput ? 'Input Iuran' : 'Tidak Bisa Input'}
+              </Button>
+            ) : null}
           </article>
         );
       })}

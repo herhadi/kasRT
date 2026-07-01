@@ -384,15 +384,29 @@ export default function TabunganPage() {
       <Navbar sticky={false} />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         {inputPageMode ? <OperationalSubmenuHeader backHref="/operasional/tabungan" title="Kembali ke Operasional Pembangunan" /> : null}
+        <div className="ops-sticky-summary">
+          <div className="ops-sticky-item ops-sticky-item-sky">Kas Dana<br /><b className={stickyValueClass(tabunganTotals.total_kas_dana || totalTabungan)}>{formatRupiah(tabunganTotals.total_kas_dana || totalTabungan)}</b></div>
+          <div className="ops-sticky-item ops-sticky-item-emerald">Saldo Warga<br /><b className={stickyValueClass(tabunganTotals.total_saldo_warga || totalTabungan)}>{formatRupiah(tabunganTotals.total_saldo_warga || totalTabungan)}</b></div>
+          <div className="ops-sticky-item ops-sticky-item-amber">Sisa Kas<br /><b className={stickyValueClass(tabunganTotals.sisa_kas_kegiatan)}>{formatRupiah(tabunganTotals.sisa_kas_kegiatan)}</b></div>
+        </div>
         <Card
           title="Tabungan Pembangunan"
           subtitle={`Setoran sukarela warga (minimal ${formatRupiah(minimumFee)})`}
-          headerRight={(
-            <div className="w-full max-w-[220px]">
-              <Input label="Periode Riwayat" type="month" value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)} />
-            </div>
-          )}
         >
+          <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-3">
+            <label className="block text-xs font-bold uppercase tracking-[0.14em] text-sky-900">
+              {inputPageMode ? 'Periode Input Setoran' : 'Periode Riwayat'}
+            </label>
+            <input
+              type="month"
+              value={historyMonth}
+              onChange={(e) => setHistoryMonth(e.target.value)}
+              className="mt-2 w-full rounded-2xl border border-sky-300 bg-white px-4 py-3 text-base font-bold text-sky-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 md:max-w-sm"
+            />
+            <p className="mt-2 text-xs text-sky-800">
+              Periode ini menentukan status sudah/belum setoran, riwayat, dan data yang bisa dikoreksi.
+            </p>
+          </div>
           {!inputPageMode && canWrite ? (
             <div className="mb-3 flex items-center justify-between gap-2">
               <Link
@@ -452,12 +466,13 @@ export default function TabunganPage() {
                   if (statusFilter === 'sudah') return Number(monthlyCreditByWarga[String(row.warga_id)] || 0) > 0;
                   return Number(monthlyCreditByWarga[String(row.warga_id)] || 0) <= 0;
                 })
-                .map((row) => (
+                .map((row) => {
+                  const alreadyPaid = Number(monthlyCreditByWarga[String(row.warga_id)] || 0) > 0;
+                  const paidThisPeriod = Number(monthlyCreditByWarga[String(row.warga_id)] || 0);
+                  return (
                 <article
                   key={row.warga_id}
-                  className={`cursor-pointer rounded-2xl border p-4 ${
-                    Number(monthlyCreditByWarga[String(row.warga_id)] || 0) > 0 ? 'card-status-paid' : 'card-status-empty'
-                  }`}
+                  className={`rounded-2xl border p-4 ${alreadyPaid ? 'card-status-paid cursor-default' : 'card-status-empty cursor-pointer'}`}
                   onMouseDown={() => startHold(row)}
                   onMouseUp={clearHoldTimer}
                   onMouseLeave={clearHoldTimer}
@@ -469,26 +484,28 @@ export default function TabunganPage() {
                       suppressNextClickRef.current = false;
                       return;
                     }
+                    if (alreadyPaid) return;
                     setEditContributionMode(false);
                     setSelected(row);
                   }}
                 >
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{row.nama}</p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">Saldo Tabungan</p>
-                  <p className={`mt-1 text-lg font-bold ${Number(row.total_balance || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]'}`}>
-                    {formatRupiah(Number(row.total_balance || 0))}
+                  <p className={alreadyPaid ? 'mt-1 text-xs font-semibold text-emerald-700' : 'mt-1 text-xs font-semibold text-slate-600'}>
+                    {alreadyPaid ? 'Sudah setor' : 'Belum setor'} • {formatRupiah(paidThisPeriod)}
                   </p>
+                  <div className="mt-3 grid gap-1 text-xs text-[var(--text-muted)]">
+                    <p>Saldo Tabungan</p>
+                    <p className={`text-lg font-bold ${Number(row.total_balance || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]'}`}>
+                      {formatRupiah(Number(row.total_balance || 0))}
+                    </p>
+                    <p>Minimal setoran: {formatRupiah(minimumFee)}</p>
+                  </div>
                 </article>
-              ))}
+                  );
+                })}
             </div>
           ) : null}
         </Card>
-
-        <div className="ops-sticky-summary">
-          <div className="ops-sticky-item ops-sticky-item-sky">Kas Dana<br /><b className={stickyValueClass(tabunganTotals.total_kas_dana || totalTabungan)}>{formatRupiah(tabunganTotals.total_kas_dana || totalTabungan)}</b></div>
-          <div className="ops-sticky-item ops-sticky-item-emerald">Saldo Warga<br /><b className={stickyValueClass(tabunganTotals.total_saldo_warga || totalTabungan)}>{formatRupiah(tabunganTotals.total_saldo_warga || totalTabungan)}</b></div>
-          <div className="ops-sticky-item ops-sticky-item-amber">Sisa Kas<br /><b className={stickyValueClass(tabunganTotals.sisa_kas_kegiatan)}>{formatRupiah(tabunganTotals.sisa_kas_kegiatan)}</b></div>
-        </div>
 
         {!inputPageMode ? (
           <>
@@ -635,9 +652,7 @@ export default function TabunganPage() {
           { label: '5rb', amount: 5000 },
           { label: '10rb', amount: 10000 },
           { label: '20rb', amount: 20000 },
-          { label: '50rb', amount: 50000 },
-          { label: '100rb', amount: 100000 },
-          { label: '200rb', amount: 200000 }
+          { label: '50rb', amount: 50000 }
         ]}
         loading={busy}
         onClose={() => {

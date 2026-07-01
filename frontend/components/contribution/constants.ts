@@ -1,2 +1,2 @@
-export const CONTRIBUTION_EDIT_HOLD_MS = 2750;
+export const CONTRIBUTION_EDIT_HOLD_MS = 2000;
 export const CONTRIBUTION_EDIT_HOLD_LABEL = '2 detik';
