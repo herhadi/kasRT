@@ -148,10 +148,6 @@ body {
     flex-shrink: 1;
   }
 
-  .period-picker-compact {
-    max-width: none;
-  }
-
   .space-y-5 > :not([hidden]) ~ :not([hidden]) {
     margin-top: 0.875rem !important;
   }
@@ -269,8 +265,8 @@ html.dark .btn-action-green:hover {
 
 .period-picker-compact {
   width: 100%;
-  min-width: 9.75rem;
-  max-width: 13.75rem;
+  min-width: 8.5rem;
+  max-width: 10.75rem;
   border-radius: 0.875rem;
   border: 1px solid #7dd3fc;
   background: #f0f9ff;

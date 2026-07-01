@@ -8,7 +8,7 @@ type Props = {
 
 export default function PeriodPickerCompact({ label, value, onChange }: Props) {
   return (
-    <div className="w-full max-w-[220px]">
+    <div className="w-full max-w-[180px]">
       <label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-sky-700">
         {label}
       </label>

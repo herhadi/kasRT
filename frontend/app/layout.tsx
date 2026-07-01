@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'KasRT02',
-    statusBarStyle: 'default'
+    statusBarStyle: 'black-translucent'
   },
   icons: {
     icon: '/icons/kasrt-icon.svg',
@@ -21,7 +21,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0f766e'
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#1d4ed8' },
+    { media: '(prefers-color-scheme: dark)', color: '#050b18' }
+  ]
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -29,6 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="id" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
         <Script id="kasrt-theme-init" strategy="beforeInteractive">
           {`(function(){try{var key='kasrt_theme';var stored=localStorage.getItem(key);var root=document.documentElement;var prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;var mode=(stored==='dark'||stored==='light')?stored:(prefersDark?'dark':'light');root.classList.remove('light','dark');root.classList.add(mode);}catch(e){}})();`}

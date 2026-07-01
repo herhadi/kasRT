@@ -78,6 +78,7 @@ export default function TabunganPage() {
   const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [tariffValue, setTariffValue] = useState('');
   const PAGE_SIZE = 20;
+  const HISTORY_PAGE_SIZE = 10;
   const [tabunganTotals, setTabunganTotals] = useState({
     total_saldo_warga: 0,
     sisa_kas_kegiatan: 0,
@@ -174,8 +175,8 @@ export default function TabunganPage() {
   const inputRows = useMemo(() => rows, [rows]);
   const creditRows = useMemo(() => historyRows.filter((r) => r.direction === 'CREDIT'), [historyRows]);
   const debitRows = useMemo(() => historyRows.filter((r) => r.direction === 'DEBIT'), [historyRows]);
-  const historyPager = usePagination(creditRows, PAGE_SIZE);
-  const expensePager = usePagination(debitRows, PAGE_SIZE);
+  const historyPager = usePagination(creditRows, HISTORY_PAGE_SIZE);
+  const expensePager = usePagination(debitRows, HISTORY_PAGE_SIZE);
   const selectedLive = useMemo(
     () => (selected ? rows.find((r) => String(r.warga_id) === String(selected.warga_id)) || selected : null),
     [rows, selected]
