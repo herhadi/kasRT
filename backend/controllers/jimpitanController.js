@@ -562,7 +562,7 @@ export async function sendJimpitanShiftReminder(req, res) {
   const totalMinutes = jakartaTime.hour * 60 + jakartaTime.minute;
   const targetMinutes = 20 * 60 + 45;
   const allowedEarlyMinutes = 0;
-  const allowedLateMinutes = 30;
+  const allowedLateMinutes = 15;
   const isWithinWindow =
     Number.isFinite(totalMinutes) &&
     totalMinutes >= targetMinutes - allowedEarlyMinutes &&
@@ -572,7 +572,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     return res.json({
       success: true,
       skipped: true,
-      message: 'Di luar window reminder 20:45-21:15 WIB',
+      message: 'Di luar window reminder 20:30-21:00 WIB',
       current_time_wib: jakartaTime.hourMinute
     });
   }
@@ -582,7 +582,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     return res.status(500).json({ success: false, message: 'Gagal membaca hari operasional WIB' });
   }
   const reminderDate = jakartaTime.dateIso;
-  const reminderType = testMode ? `SHIFT_2045_TEST_${Date.now()}` : 'SHIFT_2045';
+  const reminderType = testMode ? `SHIFT_2030_TEST_${Date.now()}` : 'SHIFT_2030';
   const targetLabel = testMode
     ? getShiftDayLabel(shiftDay)
     : new Intl.DateTimeFormat('id-ID', {

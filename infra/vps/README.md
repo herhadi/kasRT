@@ -47,7 +47,7 @@ curl --fail-with-body http://127.0.0.1:3005/
 
 ## Cron reminder jimpitan
 
-Pasang file cron sistem agar berjalan tepat pukul `20:45 WIB`:
+Pasang file cron sistem agar berjalan tepat pukul `20:30 WIB`:
 
 ```bash
 sudo install -m 644 infra/vps/kasrt-jimpitan-reminder.cron /etc/cron.d/kasrt-jimpitan-reminder
@@ -63,7 +63,7 @@ sudo /srv/kasrt/app/infra/vps/send-jimpitan-shift-reminder.sh
 
 Tes manual di luar window akan mengembalikan `skipped`; itu normal. Untuk pengujian pengiriman, jalankan pada window `20:42-20:55 WIB`.
 
-Setelah cron VPS aktif, hapus konfigurasi `crons` dari `frontend/vercel.json` dan redeploy frontend agar trigger Vercel tidak duplikat.
+Scheduler reminder production hanya memakai cron Linux di VPS/Debian.
 
 ## GitHub Actions
 

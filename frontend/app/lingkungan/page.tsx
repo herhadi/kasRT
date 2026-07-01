@@ -322,33 +322,33 @@ export default function LingkunganPage() {
         <div className="ops-sticky-item ops-sticky-item-emerald">Masuk<br /><b className={stickyValueClass(Number(summary?.pemasukan || 0))}>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
         <div className="ops-sticky-item ops-sticky-item-rose">Keluar<br /><b className={stickyValueClass(Number(summary?.pengeluaran || 0))}>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
       </div>
-      <Card title="Saldo Awal Migrasi Lingkungan" subtitle="Riwayat dana awal dari input migrasi, dipisah dari pemasukan iuran bulanan">
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-            <thead>
-              <tr className="bg-[var(--surface-strong)]">
-                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
-                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
-                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
-                <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {openingPager.pagedItems.length === 0 ? (
-                <tr className="bg-[var(--surface)]"><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada saldo awal migrasi.</td></tr>
-              ) : openingPager.pagedItems.map((row) => (
-                <tr key={row.id} className="bg-[var(--surface)]">
-                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{formatTanggalDdMmYyyy(row.tanggal)}</td>
-                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.opening_year}</td>
-                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.description || '-'}</td>
-                  <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">{formatRupiah(Number(row.amount || 0))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Card title="Status Iuran Warga" subtitle="Hitungan tunggakan mengikuti tarif efektif per bulan">
+        <div className="mb-3 flex w-full gap-2">
+          {(['semua', 'belum', 'sudah'] as const).map((f) => (
+            <button key={f} type="button" onClick={() => { setFilter(f); pager.reset(); }} className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${filter === f ? 'opacity-100' : 'opacity-70'}`}>
+              {f === 'semua' ? `Semua (${summary?.rows?.length || 0})` : f === 'belum' ? `Belum (${(summary?.rows || []).filter((r) => r.arrears > 0).length})` : `Sudah (${(summary?.rows || []).filter((r) => r.arrears <= 0).length})`}
+            </button>
+          ))}
         </div>
-        <PaginationControls page={openingPager.page} totalPages={openingPager.totalPages} onPrev={openingPager.prev} onNext={openingPager.next} />
+        <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+          <thead><tr className="bg-[var(--surface-strong)]">
+            <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga</th>
+            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Bayar/Target</th>
+            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tunggakan Bulan</th>
+            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Tunggakan</th>
+          </tr></thead>
+          <tbody>{pager.pagedItems.map((row) => (
+            <tr key={row.warga_id} className="bg-[var(--surface)]">
+              <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">{row.nama}</td>
+              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{formatRupiah(row.paid_amount)} / {formatRupiah(row.target_amount)}</td>
+              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--text-primary)]">{row.arrears_months} dari {row.chargeable_months} bulan</td>
+              <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatRupiah(row.total_arrears)}</td>
+            </tr>
+          ))}</tbody>
+        </table></div>
+        <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
       </Card>
+      
       {canWrite ? (
         <Card title="Pengeluaran Lingkungan" subtitle="Riwayat biaya lingkungan">
           <div className="grid gap-3 md:grid-cols-4">
@@ -389,33 +389,7 @@ export default function LingkunganPage() {
           </div>
           <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
         </Card>
-      ) : null}
-      <Card title="Status Iuran Warga" subtitle="Hitungan tunggakan mengikuti tarif efektif per bulan">
-        <div className="mb-3 flex w-full gap-2">
-          {(['semua', 'belum', 'sudah'] as const).map((f) => (
-            <button key={f} type="button" onClick={() => { setFilter(f); pager.reset(); }} className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${filter === f ? 'opacity-100' : 'opacity-70'}`}>
-              {f === 'semua' ? `Semua (${summary?.rows?.length || 0})` : f === 'belum' ? `Belum (${(summary?.rows || []).filter((r) => r.arrears > 0).length})` : `Sudah (${(summary?.rows || []).filter((r) => r.arrears <= 0).length})`}
-            </button>
-          ))}
-        </div>
-        <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-          <thead><tr className="bg-[var(--surface-strong)]">
-            <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga</th>
-            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Bayar/Target</th>
-            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tunggakan Bulan</th>
-            <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Tunggakan</th>
-          </tr></thead>
-          <tbody>{pager.pagedItems.map((row) => (
-            <tr key={row.warga_id} className="bg-[var(--surface)]">
-              <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">{row.nama}</td>
-              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{formatRupiah(row.paid_amount)} / {formatRupiah(row.target_amount)}</td>
-              <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--text-primary)]">{row.arrears_months} dari {row.chargeable_months} bulan</td>
-              <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatRupiah(row.total_arrears)}</td>
-            </tr>
-          ))}</tbody>
-        </table></div>
-        <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
-      </Card>
+      ) : null}      
       <Card
         title="Riwayat Lingkungan"
         subtitle="Total pemasukan dan pengeluaran per bulan"
@@ -450,6 +424,33 @@ export default function LingkunganPage() {
             </tr>
           ))}</tbody>
         </table></div>
+      </Card>
+      <Card title="Saldo Awal Migrasi Lingkungan" subtitle="Riwayat dana awal dari input migrasi, dipisah dari pemasukan iuran bulanan">
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+            <thead>
+              <tr className="bg-[var(--surface-strong)]">
+                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
+                <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {openingPager.pagedItems.length === 0 ? (
+                <tr className="bg-[var(--surface)]"><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada saldo awal migrasi.</td></tr>
+              ) : openingPager.pagedItems.map((row) => (
+                <tr key={row.id} className="bg-[var(--surface)]">
+                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{formatTanggalDdMmYyyy(row.tanggal)}</td>
+                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.opening_year}</td>
+                  <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.description || '-'}</td>
+                  <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">{formatRupiah(Number(row.amount || 0))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <PaginationControls page={openingPager.page} totalPages={openingPager.totalPages} onPrev={openingPager.prev} onNext={openingPager.next} />
       </Card>
     </div></main>
   );

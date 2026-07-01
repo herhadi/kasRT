@@ -4,6 +4,7 @@ import {
   getTabunganYearlyBook,
   getTabunganDanaSummary,
   getTabunganEventDetail,
+  getLatestTabunganLedgerMonth,
   getTabunganMinimumFee,
   inputTabunganSetoran,
   listTabunganMembers,
@@ -18,15 +19,17 @@ import {
 export async function getTabunganSummary(_req, res) {
   try {
     const month = new Date().toISOString().slice(0, 7);
-    const [data, minimumFee, danaSummary] = await Promise.all([
+    const [data, minimumFee, danaSummary, latestHistoryMonth] = await Promise.all([
       listTabunganWargaSummary(),
       getTabunganMinimumFee(month),
-      getTabunganDanaSummary()
+      getTabunganDanaSummary(),
+      getLatestTabunganLedgerMonth()
     ]);
     return res.json({
       success: true,
       data,
       minimum_fee: minimumFee,
+      latest_history_month: latestHistoryMonth,
       ...danaSummary
     });
   } catch (error) {

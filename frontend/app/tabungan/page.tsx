@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
@@ -79,12 +79,14 @@ export default function TabunganPage() {
     sisa_kas_kegiatan: 0,
     total_kas_dana: 0
   });
+  const historyMonthInitializedRef = useRef(false);
 
   const loadSummary = useCallback(async () => {
     const result = await apiFetch<{
       success: boolean;
       data: TabunganWargaItem[];
       minimum_fee?: number;
+      latest_history_month?: string;
       total_saldo_warga?: number;
       sisa_kas_kegiatan?: number;
       total_kas_dana?: number;
@@ -96,6 +98,11 @@ export default function TabunganPage() {
       sisa_kas_kegiatan: Number(result.sisa_kas_kegiatan || 0),
       total_kas_dana: Number(result.total_kas_dana || 0)
     });
+    const latestHistoryMonth = String(result.latest_history_month || '');
+    if (!historyMonthInitializedRef.current && /^\d{4}-(0[1-9]|1[0-2])$/.test(latestHistoryMonth)) {
+      historyMonthInitializedRef.current = true;
+      setHistoryMonth(latestHistoryMonth);
+    }
   }, []);
 
   const loadSettings = useCallback(async () => {

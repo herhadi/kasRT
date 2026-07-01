@@ -514,6 +514,15 @@ export async function listTabunganLedgerByMonth({ month }) {
   return result.rows;
 }
 
+export async function getLatestTabunganLedgerMonth() {
+  await ensureTabunganTables();
+  const result = await pool.query(
+    `SELECT TO_CHAR(MAX(created_at), 'YYYY-MM') AS month
+     FROM tab_ledger`
+  );
+  return String(result.rows[0]?.month || '');
+}
+
 export async function closeTabunganYear({ year }) {
   await pool.query(
     `INSERT INTO tab_yearly_balances (id, year, warga_id, closing_balance, updated_at)
