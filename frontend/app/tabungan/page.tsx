@@ -500,6 +500,21 @@ export default function TabunganPage() {
                     </p>
                     <p>Minimal setoran: {formatRupiah(minimumFee)}</p>
                   </div>
+                  {!alreadyPaid ? (
+                    <button
+                      type="button"
+                      className="btn-action-blue mt-3 w-full rounded-xl px-3 py-2 text-sm font-semibold"
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setEditContributionMode(false);
+                        setSelected(row);
+                      }}
+                    >
+                      Input Iuran
+                    </button>
+                  ) : null}
                 </article>
                   );
                 })}
