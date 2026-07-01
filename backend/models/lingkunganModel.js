@@ -236,6 +236,29 @@ export async function getLingkunganSummary(month) {
      ORDER BY expense_date DESC, created_at DESC
      LIMIT 200`
   );
+  const latestPaymentRows = await pool.query(
+    `SELECT DISTINCT ON (p.warga_id)
+       p.warga_id::text AS warga_id,
+       p.id::text AS id,
+       p.amount,
+       p.paid_at::text AS paid_at,
+       p.note
+     FROM lh_payments p
+     WHERE p.month_key = $1
+     ORDER BY p.warga_id, p.created_at DESC, p.paid_at DESC`,
+    [month]
+  );
+  const latestPaymentMap = new Map(
+    latestPaymentRows.rows.map((r) => [
+      String(r.warga_id),
+      {
+        id: String(r.id),
+        amount: Number(r.amount || 0),
+        paid_at: String(r.paid_at || ''),
+        note: String(r.note || '')
+      }
+    ])
+  );
   return {
     rows: arrearsRows.rows.map((row) => ({
       warga_id: String(row.warga_id),
@@ -246,7 +269,8 @@ export async function getLingkunganSummary(month) {
       total_arrears: Number(row.total_arrears || 0),
       surplus_amount: Number(row.surplus_amount || 0),
       arrears_months: Number(row.arrears_months || 0),
-      chargeable_months: Number(row.chargeable_months || 0)
+      chargeable_months: Number(row.chargeable_months || 0),
+      last_payment: latestPaymentMap.get(String(row.warga_id)) || null
     })),
     active_fee: activeFee,
     tariffs,
@@ -300,6 +324,28 @@ export async function addLingkunganPayment({ wargaId, month, amount, paidAt, not
      VALUES ($1, $2::uuid, $3, $4, $5::date, $6, $7::uuid)`,
     [randomUUID(), wargaId, month, amount, paidAt, note || null, createdBy]
   );
+}
+export async function updateLingkunganPayment({ paymentId, amount, paidAt, note }) {
+  await ensureLingkunganTables();
+  const result = await pool.query(
+    `UPDATE lh_payments
+     SET amount = $2,
+         paid_at = COALESCE($3::date, paid_at),
+         note = $4
+     WHERE id = $1::uuid
+     RETURNING id::text, warga_id::text, month_key, amount, paid_at::text, note`,
+    [paymentId, amount, paidAt || null, note || null]
+  );
+  if (!result.rowCount) throw new Error('Data pembayaran lingkungan tidak ditemukan');
+  const row = result.rows[0];
+  return {
+    id: String(row.id),
+    warga_id: String(row.warga_id),
+    month: String(row.month_key),
+    amount: Number(row.amount || 0),
+    paid_at: String(row.paid_at || ''),
+    note: String(row.note || '')
+  };
 }
 export async function addLingkunganExpense({ date, amount, description, createdBy }) {
   await pool.query(

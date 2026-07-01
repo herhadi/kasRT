@@ -10,7 +10,8 @@ import {
   resetInternetMembersStartMonth,
   setInternetMemberActive,
   listInternetTariffs,
-  setInternetTariff
+  setInternetTariff,
+  updateInternetPayment
 } from '../models/internetModel.js';
 import { notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah } from '../services/telegramService.js';
@@ -42,6 +43,18 @@ export async function postInternetPaymentHandler(req, res) {
       `Nominal: <b>${formatRupiah(amount)}</b>`
   );
   return res.json({ success: true });
+}
+
+export async function patchInternetPaymentHandler(req, res) {
+  const paymentId = String(req.body.payment_id || '').trim();
+  const amount = Number(req.body.amount || 0);
+  const paidAt = String(req.body.paid_at || '').trim();
+  const note = String(req.body.note || '').trim();
+  if (!paymentId) return res.status(400).json({ success: false, message: 'payment_id wajib' });
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'amount invalid' });
+  if (paidAt && !/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(paidAt)) return res.status(400).json({ success: false, message: 'paid_at invalid' });
+  const data = await updateInternetPayment({ paymentId, amount, paidAt: paidAt || null, note });
+  return res.json({ success: true, data });
 }
 
 export async function postInternetExpenseHandler(req, res) {

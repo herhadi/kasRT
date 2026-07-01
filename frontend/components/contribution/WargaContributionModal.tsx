@@ -13,6 +13,8 @@ export default function WargaContributionModal({
   wargaNama,
   suggestionText,
   currentBalance,
+  editMode = false,
+  initialAmount,
   presets,
   loading,
   showManual = true,
@@ -23,6 +25,8 @@ export default function WargaContributionModal({
   wargaNama: string;
   suggestionText?: string;
   currentBalance?: number | null;
+  editMode?: boolean;
+  initialAmount?: number;
   presets: Preset[];
   loading: boolean;
   showManual?: boolean;
@@ -42,15 +46,20 @@ export default function WargaContributionModal({
     if (!open) {
       setManual('');
       setManualOpen(false);
+      return;
     }
-  }, [open]);
+    if (editMode && typeof initialAmount === 'number') {
+      setManual(String(initialAmount));
+      setManualOpen(true);
+    }
+  }, [open, editMode, initialAmount]);
 
   if (!open || !mounted) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm">
       <div className="glass-card w-full max-w-sm rounded-2xl p-5 md:p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Input Iuran</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">{editMode ? 'Koreksi Iuran' : 'Input Iuran'}</p>
         <h3 className="mt-1 text-lg font-bold text-[var(--text-primary)]">{wargaNama}</h3>
         {suggestionText ? <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">{suggestionText}</p> : null}
         {typeof currentBalance === 'number' ? (
@@ -59,19 +68,21 @@ export default function WargaContributionModal({
           </p>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-2 gap-4 px-1 py-2">
-          {presets.map((preset) => (
-            <Button
-              key={preset.amount}
-              variant="ghost"
-              className="quick-choice-btn btn-action-blue !min-h-[4.25rem] !px-4 !py-3 !text-base"
-              onClick={() => void onSubmit(preset.amount)}
-              disabled={loading}
-            >
-              {preset.label}
-            </Button>
-          ))}
-        </div>
+        {!editMode ? (
+          <div className="mt-4 grid grid-cols-2 gap-4 px-1 py-2">
+            {presets.map((preset) => (
+              <Button
+                key={preset.amount}
+                variant="ghost"
+                className="quick-choice-btn btn-action-blue !min-h-[4.25rem] !px-4 !py-3 !text-base"
+                onClick={() => void onSubmit(preset.amount)}
+                disabled={loading}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+        ) : null}
 
         {showManual ? (
           <div className="mt-5 space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-4">
@@ -80,7 +91,7 @@ export default function WargaContributionModal({
               className="text-sm font-semibold text-[var(--accent)]"
               onClick={() => setManualOpen((v) => !v)}
             >
-              {manualOpen ? '▾ Sembunyikan Nominal Lainnya' : '▸ Nominal Lainnya'}
+              {editMode ? 'Nominal Koreksi' : manualOpen ? '▾ Sembunyikan Nominal Lainnya' : '▸ Nominal Lainnya'}
             </button>
             {manualOpen ? (
               <>
@@ -94,7 +105,7 @@ export default function WargaContributionModal({
               placeholder="Contoh: 30.000"
             />
             <Button className="w-full !min-h-[3.5rem] !text-base" onClick={() => void onSubmit(parseRupiahInput(manual))} disabled={loading || !manual}>
-              Simpan Nominal
+              {editMode ? 'Simpan Koreksi' : 'Simpan Nominal'}
             </Button>
               </>
             ) : null}

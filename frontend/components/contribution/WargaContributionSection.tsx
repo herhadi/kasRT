@@ -8,7 +8,10 @@ type Props = {
   loading?: boolean;
   presets?: Array<{ label: string; amount: number }>;
   showManual?: boolean;
+  editMode?: boolean;
+  initialAmount?: number;
   onOpen: (row: WargaContributionRow) => void;
+  onEdit?: (row: WargaContributionRow) => void;
   onClose: () => void;
   onSubmit: (amount: number) => Promise<void>;
 };
@@ -19,7 +22,10 @@ export default function WargaContributionSection({
   loading = false,
   presets,
   showManual = true,
+  editMode = false,
+  initialAmount,
   onOpen,
+  onEdit,
   onClose,
   onSubmit
 }: Props) {
@@ -66,12 +72,14 @@ export default function WargaContributionSection({
               </button>
           ))}
         </div>
-        <WargaContributionGrid rows={filteredRows} onInput={onOpen} />
+        <WargaContributionGrid rows={filteredRows} onInput={onOpen} onEdit={onEdit} />
       </div>
       <WargaContributionModal
         open={Boolean(selectedRow)}
         wargaNama={selectedRow?.nama || '-'}
         suggestionText={selectedRow?.suggestionText}
+        editMode={editMode}
+        initialAmount={initialAmount}
         presets={
           presets || [
             { label: '30rb', amount: 30000 },

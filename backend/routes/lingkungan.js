@@ -8,6 +8,7 @@ import {
   getLingkunganTariffsHandler,
   postLingkunganMemberSetActiveHandler,
   postLingkunganExpenseHandler,
+  patchLingkunganPaymentHandler,
   postLingkunganPaymentHandler,
   postLingkunganTariffHandler
 } from '../controllers/lingkunganController.js';
@@ -20,6 +21,7 @@ router.get('/history', allowRoles('Admin Lingkungan', 'Ketua'), asyncHandler(get
 router.get('/tariffs', allowRoles('Admin Lingkungan', 'Ketua'), asyncHandler(getLingkunganTariffsHandler));
 router.get('/members', allowRoles('Admin Lingkungan', 'Ketua'), asyncHandler(getLingkunganMembersHandler));
 router.post('/payment', allowRoles('Admin Lingkungan'), asyncHandler(postLingkunganPaymentHandler));
+router.patch('/payment', allowRoles('Admin Lingkungan'), asyncHandler(patchLingkunganPaymentHandler));
 router.post('/expense', allowRoles('Admin Lingkungan'), asyncHandler(postLingkunganExpenseHandler));
 router.post('/tariff', allowRoles('Admin Lingkungan'), asyncHandler(postLingkunganTariffHandler));
 router.post('/members/set-active', allowRoles('Admin Lingkungan'), asyncHandler(postLingkunganMemberSetActiveHandler));

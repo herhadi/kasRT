@@ -12,6 +12,7 @@ import {
   getTabunganYearlyBookHandler,
   inputTabunganWarga,
   openTabunganYearHandler,
+  patchTabunganSetoran,
   postTabunganMemberSetActiveHandler,
   postTabunganTariffHandler
 } from '../controllers/tabunganController.js';
@@ -26,6 +27,7 @@ router.get('/history', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(ge
 router.get('/event-detail', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(getKebutuhanKhususDetail));
 router.get('/yearly-book', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(getTabunganYearlyBookHandler));
 router.post('/setor', allowRoles('Admin Pembangunan'), asyncHandler(inputTabunganWarga));
+router.patch('/setor', allowRoles('Admin Pembangunan'), asyncHandler(patchTabunganSetoran));
 router.post('/members/set-active', allowRoles('Admin Pembangunan'), asyncHandler(postTabunganMemberSetActiveHandler));
 router.post('/tariff', allowRoles('Admin Pembangunan'), asyncHandler(postTabunganTariffHandler));
 router.post('/kebutuhan-khusus', allowRoles('Admin Pembangunan'), asyncHandler(createKebutuhanKhusus));

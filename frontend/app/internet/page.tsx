@@ -30,6 +30,7 @@ type InternetRow = {
   surplus_amount: number;
   arrears_months: number;
   chargeable_months: number;
+  last_payment?: { id: string; amount: number; paid_at?: string; note?: string } | null;
 };
 type InternetSummary = {
   month: string;
@@ -85,6 +86,7 @@ export default function OperasionalInternetPage() {
   const [tariffValue, setTariffValue] = useState('');
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
+  const [editContributionMode, setEditContributionMode] = useState(false);
   const [members, setMembers] = useState<InternetMember[]>([]);
   const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
@@ -153,7 +155,10 @@ export default function OperasionalInternetPage() {
           ? `Surplus: ${formatRupiah(Number(r.surplus_amount || 0))}`
           : Number(r.total_arrears || 0) > 0
             ? `Kurang: ${formatRupiah(Number(r.total_arrears || 0))}`
-            : 'Lunas sampai periode ini'
+            : 'Lunas sampai periode ini',
+        canEdit: Boolean(r.last_payment?.id),
+        editId: r.last_payment?.id,
+        editAmount: Number(r.last_payment?.amount || 0)
       })),
     [summary]
   );
@@ -217,6 +222,32 @@ export default function OperasionalInternetPage() {
         setError(error instanceof Error ? error.message : 'Gagal menyinkronkan iuran internet');
         void loadAll().catch(() => undefined);
       });
+  }
+
+  async function submitPaymentCorrection(amount: number) {
+    const paymentId = selectedRow?.editId;
+    if (!paymentId || amount <= 0) return setError('Data koreksi tidak valid.');
+    try {
+      setBusy(true);
+      setError('');
+      await apiFetch('/internet/payment', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          payment_id: paymentId,
+          amount,
+          paid_at: expenseDate,
+          note: payNote
+        })
+      });
+      setMessage('Input iuran internet berhasil dikoreksi.');
+      setSelectedRow(null);
+      setEditContributionMode(false);
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal koreksi iuran internet');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function submitExpense() {
@@ -334,6 +365,8 @@ export default function OperasionalInternetPage() {
               rows={contributionRows}
               selectedRow={selectedRow}
               loading={busy}
+              editMode={editContributionMode}
+              initialAmount={selectedRow?.editAmount}
               presets={[
                 { label: '60rb', amount: 60000 },
                 { label: '120rb', amount: 120000 },
@@ -341,13 +374,26 @@ export default function OperasionalInternetPage() {
                 { label: '240rb', amount: 240000 }
               ]}
               onOpen={(row) => {
+                setEditContributionMode(false);
                 setSelectedWargaId(String(row.id));
                 setSelectedRow(row);
               }}
-              onClose={() => setSelectedRow(null)}
-              onSubmit={async (amount) => {
-                submitPayment(amount);
+              onEdit={(row) => {
+                setEditContributionMode(true);
+                setSelectedWargaId(String(row.id));
+                setSelectedRow(row);
+              }}
+              onClose={() => {
                 setSelectedRow(null);
+                setEditContributionMode(false);
+              }}
+              onSubmit={async (amount) => {
+                if (editContributionMode) {
+                  await submitPaymentCorrection(amount);
+                } else {
+                  submitPayment(amount);
+                  setSelectedRow(null);
+                }
               }}
             />
           </Card>

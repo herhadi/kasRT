@@ -13,14 +13,16 @@ import {
   listTabunganWargaSummary,
   openTabunganYear,
   setTabunganMemberActive,
-  setTabunganTariff
+  setTabunganTariff,
+  updateTabunganSetoran
 } from '../models/tabunganModel.js';
 
-export async function getTabunganSummary(_req, res) {
+export async function getTabunganSummary(req, res) {
   try {
-    const month = new Date().toISOString().slice(0, 7);
+    const queryMonth = String(req.query.month || '').trim();
+    const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(queryMonth) ? queryMonth : new Date().toISOString().slice(0, 7);
     const [data, minimumFee, danaSummary, latestHistoryMonth] = await Promise.all([
-      listTabunganWargaSummary(),
+      listTabunganWargaSummary(month),
       getTabunganMinimumFee(month),
       getTabunganDanaSummary(),
       getLatestTabunganLedgerMonth()
@@ -55,6 +57,20 @@ export async function inputTabunganWarga(req, res) {
   try {
     await inputTabunganSetoran({ wargaId, amount, description, createdBy: actor });
     return res.json({ success: true, message: 'Setoran tabungan berhasil dicatat' });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function patchTabunganSetoran(req, res) {
+  const ledgerId = String(req.body.ledger_id || '').trim();
+  const amount = Number(req.body.amount || 0);
+  const description = String(req.body.description || '').trim();
+  if (!ledgerId) return res.status(400).json({ success: false, message: 'ledger_id wajib' });
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
+  try {
+    const data = await updateTabunganSetoran({ ledgerId, amount, description: description || null });
+    return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

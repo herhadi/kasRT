@@ -20,7 +20,7 @@ import WargaContributionSection from '@/components/contribution/WargaContributio
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
 
-type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; surplus_amount: number; arrears_months: number; chargeable_months: number };
+type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; surplus_amount: number; arrears_months: number; chargeable_months: number; last_payment?: { id: string; amount: number; paid_at?: string; note?: string } | null };
 type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; opening_balances?: Array<{ id: string; tanggal: string; closing_year: number; opening_year: number; amount: number; description: string }>; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
 type Yearly = { year: string; recap: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
 type LingkunganMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string; updated_by?: string };
@@ -66,6 +66,7 @@ export default function LingkunganPage() {
   const [tariffValue, setTariffValue] = useState('');
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
+  const [editContributionMode, setEditContributionMode] = useState(false);
   const [members, setMembers] = useState<LingkunganMember[]>([]);
   const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
@@ -136,7 +137,10 @@ export default function LingkunganPage() {
         ? `Surplus: ${formatRupiah(Number(r.surplus_amount || 0))}`
         : Number(r.total_arrears || 0) > 0
           ? `Kurang: ${formatRupiah(Number(r.total_arrears || 0))}`
-          : 'Lunas sampai periode ini'
+          : 'Lunas sampai periode ini',
+      canEdit: Boolean(r.last_payment?.id),
+      editId: r.last_payment?.id,
+      editAmount: Number(r.last_payment?.amount || 0)
     })),
     [summary]
   );
@@ -189,6 +193,31 @@ export default function LingkunganPage() {
       });
   }
 
+  async function submitPaymentCorrection(amount: number) {
+    const paymentId = selectedRow?.editId;
+    if (!paymentId || amount <= 0) return setError('Data koreksi tidak valid.');
+    try {
+      setBusy(true);
+      setError('');
+      await apiFetch('/lingkungan/payment', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          payment_id: paymentId,
+          amount,
+          paid_at: expenseDate
+        })
+      });
+      setMessage('Input iuran lingkungan berhasil dikoreksi.');
+      setSelectedRow(null);
+      setEditContributionMode(false);
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal koreksi iuran lingkungan');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitExpense() {
     const amount = parseRupiahInput(expenseAmount);
     if (amount <= 0 || !expenseDesc.trim()) return setError('Nominal & keterangan wajib');
@@ -238,7 +267,36 @@ export default function LingkunganPage() {
       <main className="min-h-screen pb-10"><FeedbackToast error={error} message={message} /><Navbar sticky={false} /><div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <OperationalSubmenuHeader backHref="/operasional/lingkungan" title="Kembali ke Operasional Lingkungan" />
         <Card title="Input Iuran Lingkungan" subtitle={`Tarif bulan ${month}: ${formatRupiah(Number(summary?.monthly_fee || 0))}`} headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
-          <WargaContributionSection rows={rowsForInput} selectedRow={selectedRow} loading={busy} presets={[{ label: '20rb', amount: 20000 }, { label: '40rb', amount: 40000 }, { label: '60rb', amount: 60000 }, { label: '80rb', amount: 80000 }]} onOpen={(r) => { setSelectedWargaId(String(r.id)); setSelectedRow(r); }} onClose={() => setSelectedRow(null)} onSubmit={async (a) => { submitPayment(a); setSelectedRow(null); }} />
+          <WargaContributionSection
+            rows={rowsForInput}
+            selectedRow={selectedRow}
+            loading={busy}
+            editMode={editContributionMode}
+            initialAmount={selectedRow?.editAmount}
+            presets={[{ label: '20rb', amount: 20000 }, { label: '40rb', amount: 40000 }, { label: '60rb', amount: 60000 }, { label: '80rb', amount: 80000 }]}
+            onOpen={(r) => {
+              setEditContributionMode(false);
+              setSelectedWargaId(String(r.id));
+              setSelectedRow(r);
+            }}
+            onEdit={(r) => {
+              setEditContributionMode(true);
+              setSelectedWargaId(String(r.id));
+              setSelectedRow(r);
+            }}
+            onClose={() => {
+              setSelectedRow(null);
+              setEditContributionMode(false);
+            }}
+            onSubmit={async (a) => {
+              if (editContributionMode) {
+                await submitPaymentCorrection(a);
+              } else {
+                submitPayment(a);
+                setSelectedRow(null);
+              }
+            }}
+          />
         </Card>
       </div></main>
     );

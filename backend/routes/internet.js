@@ -9,6 +9,7 @@ import {
   postInternetMembersResetStartMonthHandler,
   postInternetMemberSetActiveHandler,
   postInternetExpenseHandler,
+  patchInternetPaymentHandler,
   postInternetPaymentHandler,
   postInternetTariffHandler
 } from '../controllers/internetController.js';
@@ -21,6 +22,7 @@ router.get('/history', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getIn
 router.get('/tariffs', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetTariffsHandler));
 router.get('/members', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetMembersHandler));
 router.post('/payment', allowRoles('Admin Internet'), asyncHandler(postInternetPaymentHandler));
+router.patch('/payment', allowRoles('Admin Internet'), asyncHandler(patchInternetPaymentHandler));
 router.post('/expense', allowRoles('Admin Internet'), asyncHandler(postInternetExpenseHandler));
 router.post('/tariff', allowRoles('Admin Internet'), asyncHandler(postInternetTariffHandler));
 router.post('/members/set-active', allowRoles('Admin Internet'), asyncHandler(postInternetMemberSetActiveHandler));

@@ -21,6 +21,7 @@ type TabunganWargaItem = {
   warga_id: string;
   nama: string;
   total_balance: number;
+  last_credit?: { id: string; amount: number; description?: string; created_at?: string } | null;
 };
 
 type TabunganMember = { warga_id: string; nama: string; is_active: boolean };
@@ -51,6 +52,7 @@ export default function TabunganPage() {
   const [rows, setRows] = useState<TabunganWargaItem[]>([]);
   const [historyRows, setHistoryRows] = useState<TabunganHistoryItem[]>([]);
   const [selected, setSelected] = useState<TabunganWargaItem | null>(null);
+  const [editContributionMode, setEditContributionMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -80,6 +82,8 @@ export default function TabunganPage() {
     total_kas_dana: 0
   });
   const historyMonthInitializedRef = useRef(false);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressNextClickRef = useRef(false);
 
   const loadSummary = useCallback(async () => {
     const result = await apiFetch<{
@@ -90,7 +94,7 @@ export default function TabunganPage() {
       total_saldo_warga?: number;
       sisa_kas_kegiatan?: number;
       total_kas_dana?: number;
-    }>('/tabungan/summary');
+    }>(`/tabungan/summary?month=${encodeURIComponent(historyMonth)}`);
     setRows(result.data || []);
     setMinimumFee(Number(result.minimum_fee || 5000));
     setTabunganTotals({
@@ -103,7 +107,7 @@ export default function TabunganPage() {
       historyMonthInitializedRef.current = true;
       setHistoryMonth(latestHistoryMonth);
     }
-  }, []);
+  }, [historyMonth]);
 
   const loadSettings = useCallback(async () => {
     const [memberResult, tariffResult] = await Promise.all([
@@ -166,8 +170,9 @@ export default function TabunganPage() {
     [rows, statusFilter, monthlyCreditByWarga]
   );
   const inputRows = useMemo(() => rows, [rows]);
+  const creditRows = useMemo(() => historyRows.filter((r) => r.direction === 'CREDIT'), [historyRows]);
   const debitRows = useMemo(() => historyRows.filter((r) => r.direction === 'DEBIT'), [historyRows]);
-  const historyPager = usePagination(historyRows, PAGE_SIZE);
+  const historyPager = usePagination(creditRows, PAGE_SIZE);
   const expensePager = usePagination(debitRows, PAGE_SIZE);
   const selectedLive = useMemo(
     () => (selected ? rows.find((r) => String(r.warga_id) === String(selected.warga_id)) || selected : null),
@@ -182,6 +187,24 @@ export default function TabunganPage() {
     historyPager.reset();
     expensePager.reset();
   }, [historyMonth]);
+
+  function clearHoldTimer() {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }
+
+  function startHold(row: TabunganWargaItem) {
+    clearHoldTimer();
+    if (!row.last_credit?.id) return;
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      suppressNextClickRef.current = true;
+      setEditContributionMode(true);
+      setSelected(row);
+    }, 2750);
+  }
 
   async function submitSetoran(amount: number) {
     if (!selected || !user || !token) return;
@@ -205,10 +228,43 @@ export default function TabunganPage() {
         })
       });
       setSelected(null);
+      setEditContributionMode(false);
       setMessage('Setoran tabungan berhasil dicatat.');
       await Promise.all([loadSummary(), loadHistory()]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan setoran tabungan');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitSetoranCorrection(amount: number) {
+    const ledgerId = selectedLive?.last_credit?.id || selected?.last_credit?.id;
+    if (!ledgerId || !Number.isFinite(amount) || amount <= 0) {
+      setError('Data koreksi setoran tidak valid.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      await apiFetch('/tabungan/setor', {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ledger_id: ledgerId,
+          amount,
+          description: `Koreksi setoran tabungan ${selectedLive?.nama || selected?.nama || ''}`.trim()
+        })
+      });
+      setSelected(null);
+      setEditContributionMode(false);
+      setMessage('Setoran tabungan berhasil dikoreksi.');
+      await Promise.all([loadSummary(), loadHistory()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal koreksi setoran tabungan');
     } finally {
       setBusy(false);
     }
@@ -401,13 +457,29 @@ export default function TabunganPage() {
                   className={`cursor-pointer rounded-2xl border p-4 ${
                     Number(monthlyCreditByWarga[String(row.warga_id)] || 0) > 0 ? 'card-status-paid' : 'card-status-empty'
                   }`}
-                  onClick={() => setSelected(row)}
+                  onMouseDown={() => startHold(row)}
+                  onMouseUp={clearHoldTimer}
+                  onMouseLeave={clearHoldTimer}
+                  onTouchStart={() => startHold(row)}
+                  onTouchEnd={clearHoldTimer}
+                  onTouchCancel={clearHoldTimer}
+                  onClick={() => {
+                    if (suppressNextClickRef.current) {
+                      suppressNextClickRef.current = false;
+                      return;
+                    }
+                    setEditContributionMode(false);
+                    setSelected(row);
+                  }}
                 >
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{row.nama}</p>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">Saldo Tabungan</p>
                   <p className={`mt-1 text-lg font-bold ${Number(row.total_balance || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]'}`}>
                     {formatRupiah(Number(row.total_balance || 0))}
                   </p>
+                  {row.last_credit?.id ? (
+                    <p className="mt-2 text-[10px] font-semibold text-[var(--text-muted)]">Tahan 2,75 detik untuk koreksi</p>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -487,7 +559,7 @@ export default function TabunganPage() {
                 </button>
               </div>
             </Card>
-            <Card title="Riwayat Tabungan" subtitle={`Mutasi periode ${historyMonth}`}>
+            <Card title="Riwayat Setoran Tabungan" subtitle={`Pemasukan/setoran periode ${historyMonth}`}>
               <div className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                   <thead>
@@ -499,9 +571,9 @@ export default function TabunganPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {historyRows.length === 0 ? (
+                    {creditRows.length === 0 ? (
                       <tr className="bg-[var(--surface)]">
-                        <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada riwayat pada periode ini.</td>
+                        <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada setoran pada periode ini.</td>
                       </tr>
                     ) : (
                       historyPager.pagedItems.map((row) => (
@@ -509,7 +581,7 @@ export default function TabunganPage() {
                           <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{new Date(row.created_at).toLocaleDateString('id-ID')}</td>
                           <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.nama}</td>
                           <td className="border-b border-[var(--line)] px-3 py-2 text-sm break-words whitespace-normal">{row.description || '-'}</td>
-                          <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold">{row.direction === 'CREDIT' ? '+' : '-'} {formatRupiah(Number(row.amount || 0))}</td>
+                          <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">+ {formatRupiah(Number(row.amount || 0))}</td>
                         </tr>
                       ))
                     )}
@@ -559,6 +631,8 @@ export default function TabunganPage() {
         open={Boolean(selectedLive)}
         wargaNama={selectedLive?.nama || '-'}
         currentBalance={selectedLive ? Number(selectedLive.total_balance || 0) : null}
+        editMode={editContributionMode}
+        initialAmount={Number(selectedLive?.last_credit?.amount || selected?.last_credit?.amount || 0)}
         presets={[
           { label: '5rb', amount: 5000 },
           { label: '10rb', amount: 10000 },
@@ -568,8 +642,11 @@ export default function TabunganPage() {
           { label: '200rb', amount: 200000 }
         ]}
         loading={busy}
-        onClose={() => setSelected(null)}
-        onSubmit={submitSetoran}
+        onClose={() => {
+          setSelected(null);
+          setEditContributionMode(false);
+        }}
+        onSubmit={editContributionMode ? submitSetoranCorrection : submitSetoran}
       />
     </main>
   );

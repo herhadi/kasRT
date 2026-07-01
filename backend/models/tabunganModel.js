@@ -246,23 +246,49 @@ export async function getTabunganMinimumFee(month) {
   return Number(result.rows[0]?.monthly_fee || TABUNGAN_MINIMUM_FEE);
 }
 
-export async function listTabunganWargaSummary() {
+export async function listTabunganWargaSummary(month = null) {
   await ensureTabunganMembersFromEligible();
+  const monthKey = typeof month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
+    ? month
+    : new Date().toISOString().slice(0, 7);
   const result = await pool.query(
     `SELECT
        u.id::text AS warga_id,
        u.nama,
-       COALESCE(sa.total_balance, 0) AS total_balance
+       COALESCE(sa.total_balance, 0) AS total_balance,
+       lp.id::text AS last_credit_id,
+       lp.amount AS last_credit_amount,
+       lp.description AS last_credit_description,
+       lp.created_at AS last_credit_created_at
      FROM tab_savings_members sm
      JOIN users u ON u.id = sm.warga_id
      LEFT JOIN tab_savings_accounts sa ON sa.warga_id = u.id
+     LEFT JOIN LATERAL (
+       SELECT l.id, l.amount, l.description, l.created_at
+       FROM tab_ledger l
+       WHERE l.warga_id = u.id
+         AND l.direction = 'CREDIT'
+         AND l.status = 'APPROVED'
+         AND DATE_TRUNC('month', l.created_at) = DATE_TRUNC('month', TO_DATE($1, 'YYYY-MM'))
+       ORDER BY l.created_at DESC
+       LIMIT 1
+     ) lp ON TRUE
      WHERE sm.is_active = TRUE
-     ORDER BY u.nama ASC`
+     ORDER BY u.nama ASC`,
+    [monthKey]
   );
   return result.rows.map((r) => ({
     warga_id: String(r.warga_id),
     nama: String(r.nama || ''),
-    total_balance: Number(r.total_balance || 0)
+    total_balance: Number(r.total_balance || 0),
+    last_credit: r.last_credit_id
+      ? {
+        id: String(r.last_credit_id),
+        amount: Number(r.last_credit_amount || 0),
+        description: String(r.last_credit_description || ''),
+        created_at: r.last_credit_created_at
+      }
+      : null
   }));
 }
 
@@ -334,6 +360,49 @@ export async function inputTabunganSetoran({ wargaId, amount, description, creat
     );
 
     await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateTabunganSetoran({ ledgerId, amount, description }) {
+  await ensureTabunganTables();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT id::text, warga_id::text, amount
+       FROM tab_ledger
+       WHERE id = $1::uuid
+         AND direction = 'CREDIT'
+         AND tx_type = 'DEPOSIT'
+         AND status = 'APPROVED'
+       FOR UPDATE`,
+      [ledgerId]
+    );
+    if (!existing.rowCount) throw new Error('Data setoran tabungan tidak ditemukan');
+    const row = existing.rows[0];
+    const oldAmount = Number(row.amount || 0);
+    const delta = Number(amount || 0) - oldAmount;
+    await client.query(
+      `UPDATE tab_ledger
+       SET amount = $2,
+           description = COALESCE($3, description)
+       WHERE id = $1::uuid`,
+      [ledgerId, amount, description || null]
+    );
+    await client.query(
+      `UPDATE tab_savings_accounts
+       SET total_balance = total_balance + $1,
+           updated_at = NOW()
+       WHERE warga_id = $2::uuid`,
+      [delta, row.warga_id]
+    );
+    await client.query('COMMIT');
+    return { id: String(row.id), warga_id: String(row.warga_id), amount: Number(amount || 0) };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
