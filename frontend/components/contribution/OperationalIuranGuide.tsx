@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
+import { CONTRIBUTION_EDIT_HOLD_LABEL } from './constants';
 
 type ModuleName = 'internet' | 'lingkungan';
 
@@ -64,6 +65,7 @@ export default function OperationalIuranGuide({ module }: { module: ModuleName }
             <li>Buka <Link href={config.inputPath} className="font-semibold text-[var(--accent)] underline">Input Iuran</Link>.</li>
             <li>Pilih <b>Periode</b>, mulai dari Januari 2026. Pastikan tarif periode tersebut sudah benar terlebih dahulu.</li>
             <li>Pilih warga, masukkan nominal yang benar, lalu simpan. Pembayaran dapat dicatat sebagian; kolom Bayar/Target dan Tunggakan akan memperlihatkan sisa tagihan.</li>
+            <li>Jika salah input, tahan card warga selama <b>{CONTRIBUTION_EDIT_HOLD_LABEL}</b> pada halaman Input Iuran. Modal koreksi akan terbuka dengan nominal terakhir pada periode tersebut.</li>
             <li>Gunakan filter <b>Belum</b> untuk menindaklanjuti warga yang masih memiliki tunggakan. Tunggakan total hanya dihitung sejak bulan mulai iuran anggota.</li>
           </ol>
         </Card>

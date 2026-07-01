@@ -11,7 +11,7 @@ import Input from '@/components/ui/Input';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import WargaContributionModal from '@/components/contribution/WargaContributionModal';
-import { CONTRIBUTION_EDIT_HOLD_LABEL, CONTRIBUTION_EDIT_HOLD_MS } from '@/components/contribution/constants';
+import { CONTRIBUTION_EDIT_HOLD_MS } from '@/components/contribution/constants';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
@@ -478,9 +478,6 @@ export default function TabunganPage() {
                   <p className={`mt-1 text-lg font-bold ${Number(row.total_balance || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]'}`}>
                     {formatRupiah(Number(row.total_balance || 0))}
                   </p>
-                  {row.last_credit?.id ? (
-                    <p className="mt-2 text-[10px] font-semibold text-[var(--text-muted)]">Tahan {CONTRIBUTION_EDIT_HOLD_LABEL} untuk koreksi</p>
-                  ) : null}
                 </article>
               ))}
             </div>

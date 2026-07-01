@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
+import { CONTRIBUTION_EDIT_HOLD_LABEL } from '@/components/contribution/constants';
 
 export default function TabunganPembangunanGuide() {
   return (
@@ -20,6 +21,9 @@ export default function TabunganPembangunanGuide() {
               <h2 className="font-bold">2. Input setoran warga</h2>
               <p className="mt-1 text-[var(--text-muted)]">
                 Buka <Link href="/operasional/tabungan/input" className="font-semibold text-[var(--accent)] underline">Input Tabungan</Link>, pilih warga, lalu masukkan nominal setoran. Saldo warga akan bertambah.
+              </p>
+              <p className="mt-1 text-[var(--text-muted)]">
+                Jika salah input setoran, tahan card warga selama <b>{CONTRIBUTION_EDIT_HOLD_LABEL}</b>. Modal koreksi akan terbuka dengan nominal setoran terakhir pada periode tersebut.
               </p>
             </section>
 
