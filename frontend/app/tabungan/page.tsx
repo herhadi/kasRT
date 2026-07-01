@@ -392,21 +392,20 @@ export default function TabunganPage() {
         <Card
           title="Tabungan Pembangunan"
           subtitle={`Setoran sukarela warga (minimal ${formatRupiah(minimumFee)})`}
+          headerRight={(
+            <div className="w-full max-w-[220px]">
+              <label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-sky-700">
+                {inputPageMode ? 'Periode Input' : 'Periode Riwayat'}
+              </label>
+              <input
+                type="month"
+                value={historyMonth}
+                onChange={(e) => setHistoryMonth(e.target.value)}
+                className="period-picker-compact mt-1"
+              />
+            </div>
+          )}
         >
-          <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-3">
-            <label className="block text-xs font-bold uppercase tracking-[0.14em] text-sky-900">
-              {inputPageMode ? 'Periode Input Setoran' : 'Periode Riwayat'}
-            </label>
-            <input
-              type="month"
-              value={historyMonth}
-              onChange={(e) => setHistoryMonth(e.target.value)}
-              className="mt-2 w-full rounded-2xl border border-sky-300 bg-white px-4 py-3 text-base font-bold text-sky-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 md:max-w-sm"
-            />
-            <p className="mt-2 text-xs text-sky-800">
-              Periode ini menentukan status sudah/belum setoran, riwayat, dan data yang bisa dikoreksi.
-            </p>
-          </div>
           {!inputPageMode && canWrite ? (
             <div className="mb-3 flex items-center justify-between gap-2">
               <Link

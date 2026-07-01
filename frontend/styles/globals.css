@@ -138,6 +138,20 @@ body {
     padding: 1rem !important;
   }
 
+  .glass-card > header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .glass-card > header > div:last-child {
+    width: 100%;
+    flex-shrink: 1;
+  }
+
+  .period-picker-compact {
+    max-width: none;
+  }
+
   .space-y-5 > :not([hidden]) ~ :not([hidden]) {
     margin-top: 0.875rem !important;
   }
@@ -251,6 +265,32 @@ html.dark .btn-action-green:hover {
 /* Reusable surface tone for inner rows/cards across pages */
 .surface-muted {
   background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
+}
+
+.period-picker-compact {
+  width: 100%;
+  min-width: 9.75rem;
+  max-width: 13.75rem;
+  border-radius: 0.875rem;
+  border: 1px solid #7dd3fc;
+  background: #f0f9ff;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #075985;
+  outline: none;
+  box-shadow: 0 1px 2px rgb(14 165 233 / 0.12);
+}
+
+.period-picker-compact:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgb(14 165 233 / 0.18);
+}
+
+html.dark .period-picker-compact {
+  border-color: #38bdf8;
+  background: #082f49;
+  color: #e0f2fe;
 }
 
 .ops-sticky-summary {
