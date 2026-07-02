@@ -816,10 +816,31 @@ export async function getDashboardAdminSosialByMonth(month) {
     []
   );
 
+  const openingBalanceRows = await pool.query(
+    `SELECT
+       'opening-sosial-' || closing_year::text AS id,
+       closing_year,
+       opening_year,
+       amount,
+       created_at,
+       updated_at
+     FROM module_opening_balances
+     WHERE module_key = 'sosial'
+     ORDER BY opening_year DESC, closing_year DESC`
+  );
+
   return {
     summary: summaryResult.rows[0] || {},
     incomes: incomeRows.rows,
-    expenses: expenseRows.rows
+    expenses: expenseRows.rows,
+    opening_balances: openingBalanceRows.rows.map((row) => ({
+      id: String(row.id),
+      closing_year: Number(row.closing_year || 0),
+      opening_year: Number(row.opening_year || 0),
+      amount: Number(row.amount || 0),
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }))
   };
 }
 

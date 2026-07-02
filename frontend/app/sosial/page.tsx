@@ -20,6 +20,7 @@ type SosialSummary = {
   pengeluaran_bulan: number;
   incomes: Array<{ id: string | number; amount: number; status: string; description: string; created_at: string; source_wallet_name?: string; created_by_nama?: string }>;
   expenses: Array<{ id: string | number; amount: number; status: string; description: string; created_at: string }>;
+  opening_balances?: Array<{ id: string; closing_year: number; opening_year: number; amount: number; created_at?: string; updated_at?: string }>;
 };
 type PendingApprovalSection = {
   key: string;
@@ -244,6 +245,36 @@ export default function SosialPage() {
                 onPrev={expensesPager.prev}
                 onNext={expensesPager.next}
               />
+            </div>
+          </div>
+
+          <div className="mt-4 border-t border-[var(--line)] pt-4">
+            <p className="text-sm font-bold text-[var(--text-primary)]">Info Migrasi Sosial</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Saldo kas akhir Desember dari menu migrasi dicatat sebagai saldo awal Sosial tahun berikutnya.
+            </p>
+            <div className="mt-3 space-y-2">
+              {(data?.opening_balances || []).length === 0 ? (
+                <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                  Belum ada saldo awal migrasi Sosial.
+                </div>
+              ) : (
+                (data?.opening_balances || []).map((row) => (
+                  <div key={row.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
+                          Saldo akhir Desember {row.closing_year}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          Menjadi saldo awal kas Sosial {row.opening_year}
+                        </p>
+                      </div>
+                      <p className="text-base font-bold text-emerald-700">{formatRupiah(Number(row.amount || 0))}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </Card>
