@@ -108,6 +108,7 @@ export default function LoginPage() {
               Masuk ke KasRT
             </h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">Gunakan nomor HP dan PIN Anda.</p>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">PIN awal ketik 123456</p>
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
               <Input label="Nomor HP" type="tel" placeholder="08xxxxxxxxxx" value={noHp} onChange={(e) => setNoHp(e.target.value)} />

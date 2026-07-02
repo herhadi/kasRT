@@ -4,7 +4,7 @@ dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import { getLimitStatus, reserveSendSlot } from './limiter.js';
-import { getWhatsAppQr, getWhatsAppStatus, resetWhatsAppSession, sendWhatsAppMessage, startWhatsApp } from './whatsapp.js';
+import { getWhatsAppQr, getWhatsAppStatus, sendWhatsAppMessage, startWhatsApp } from './whatsapp.js';
 
 const app = express();
 const port = Number(process.env.PORT || 3010);
@@ -66,22 +66,6 @@ app.get('/qr', requireGatewaySecret, (_req, res) => {
       status: getWhatsAppStatus()
     }
   });
-});
-
-app.post('/reset-session', requireGatewaySecret, async (_req, res) => {
-  try {
-    const status = await resetWhatsAppSession();
-    res.json({
-      success: true,
-      message: 'Session WA direset. Scan QR baru untuk menautkan nomor.',
-      data: status
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error?.message || 'Gagal reset session WA'
-    });
-  }
 });
 
 app.post('/send', requireGatewaySecret, async (req, res) => {
