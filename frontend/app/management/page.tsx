@@ -370,7 +370,8 @@ export default function ManagementHomePage() {
                   </div>
                 ) : null}
                 {waGatewayStatus?.data?.limits ? (
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <InfoLine label="Nomor Tertaut" value={formatWaNumber(waGatewayStatus.data.number)} />
                     <InfoLine label="Kuota Nomor Hari Ini" value={`${waGatewayStatus.data.limits.unique_targets}/${waGatewayStatus.data.limits.unique_limit}`} />
                     <InfoLine label="Sisa Nomor Unik" value={String(waGatewayStatus.data.limits.remaining_unique_targets)} />
                     <InfoLine label="Jeda Minimum" value={`${Math.round(waGatewayStatus.data.limits.min_interval_ms / 1000)} detik`} />
@@ -558,9 +559,16 @@ function formatGatewayStatus(status: WaGatewayStatus | null) {
   if (!status) return 'Belum dicek';
   if (!status.configured) return status.message || 'WA_GATEWAY_BASE_URL belum diset di backend';
   if (!status.success) return status.message || 'Gateway belum bisa diakses';
-  if (status.data?.connected) return `Connected (${status.data.number || 'nomor belum terbaca'})`;
+  if (status.data?.connected) return `Connected (${formatWaNumber(status.data.number)})`;
   if (status.data?.has_qr) return 'Menunggu scan QR';
   return `Belum connected (${status.data?.state || 'unknown'})`;
+}
+
+function formatWaNumber(value?: string | null) {
+  const digits = String(value || '').replace(/[^\d]/g, '');
+  if (!digits) return 'nomor belum terbaca';
+  if (digits.startsWith('62')) return `+${digits}`;
+  return digits;
 }
 
 function getShiftDayLabel(value: string) {

@@ -19,6 +19,11 @@ let lastDisconnectReason = null;
 let lastConnectedAt = null;
 let lastQrAt = null;
 
+function normalizeConnectedNumber(value) {
+  const raw = String(value || '').split(':')[0].split('@')[0].replace(/[^\d]/g, '');
+  return raw || null;
+}
+
 export async function startWhatsApp() {
   if (socket || connecting) return;
   connecting = true;
@@ -49,7 +54,7 @@ export async function startWhatsApp() {
         connectionState = 'connected';
         latestQr = null;
         latestQrDataUrl = null;
-        connectedNumber = socket?.user?.id || null;
+        connectedNumber = normalizeConnectedNumber(socket?.user?.id);
         lastConnectedAt = new Date().toISOString();
         lastDisconnectReason = null;
       }
