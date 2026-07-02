@@ -244,6 +244,41 @@ async function fetchWaGateway(path) {
   };
 }
 
+async function postWaGateway(path, body = {}) {
+  const baseUrl = String(process.env.WA_GATEWAY_BASE_URL || process.env.WA_GATEWAY_URL || '').trim().replace(/\/+$/, '');
+  const secret = String(process.env.WA_GATEWAY_SECRET || '').trim();
+  if (!baseUrl) {
+    return {
+      configured: false,
+      success: false,
+      message: 'WA_GATEWAY_BASE_URL belum diset'
+    };
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(secret ? { 'x-wa-gateway-secret': secret } : {})
+    },
+    body: JSON.stringify(body || {})
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.success === false) {
+    return {
+      configured: true,
+      success: false,
+      message: payload?.message || `WA gateway HTTP ${response.status}`
+    };
+  }
+  return {
+    configured: true,
+    success: true,
+    message: payload?.message || null,
+    data: payload?.data || payload
+  };
+}
+
 export async function getWaGatewayStatus(_req, res) {
   const result = await fetchWaGateway('/status');
   if (result.configured && result.success) {
@@ -261,6 +296,12 @@ export async function getWaGatewayStatus(_req, res) {
 
 export async function getWaGatewayQr(_req, res) {
   const result = await fetchWaGateway('/qr');
+  const statusCode = result.configured && !result.success ? 502 : 200;
+  return res.status(statusCode).json(result);
+}
+
+export async function resetWaGatewaySession(_req, res) {
+  const result = await postWaGateway('/reset-session');
   const statusCode = result.configured && !result.success ? 502 : 200;
   return res.status(statusCode).json(result);
 }

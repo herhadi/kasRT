@@ -5,6 +5,7 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import pino from 'pino';
+import { rm } from 'fs/promises';
 
 const AUTH_DIR = process.env.WA_AUTH_DIR || './auth';
 const logger = pino({ level: process.env.WA_LOG_LEVEL || 'silent' });
@@ -94,6 +95,37 @@ export function getWhatsAppQr() {
     qr_data_url: latestQrDataUrl,
     last_qr_at: lastQrAt
   };
+}
+
+export async function resetWhatsAppSession() {
+  const currentSocket = socket;
+  socket = null;
+  connecting = false;
+  latestQr = null;
+  latestQrDataUrl = null;
+  connectedNumber = null;
+  lastConnectedAt = null;
+  lastDisconnectReason = 'session_reset';
+  connectionState = 'resetting';
+
+  try {
+    if (currentSocket?.logout) {
+      await currentSocket.logout();
+    }
+  } catch {
+    // Session files are removed below; logout can fail when socket is already stale.
+  }
+
+  try {
+    currentSocket?.end?.();
+  } catch {
+    // Ignore stale socket cleanup errors.
+  }
+
+  await rm(AUTH_DIR, { recursive: true, force: true });
+  connectionState = 'starting';
+  await startWhatsApp();
+  return getWhatsAppStatus();
 }
 
 export async function sendWhatsAppMessage(target, message) {

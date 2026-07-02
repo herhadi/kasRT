@@ -122,6 +122,7 @@ export default function ManagementHomePage() {
   const [waGatewayStatus, setWaGatewayStatus] = useState<WaGatewayStatus | null>(null);
   const [waGatewayQr, setWaGatewayQr] = useState<WaGatewayQr | null>(null);
   const [loadingWaGateway, setLoadingWaGateway] = useState(false);
+  const [resettingWaGateway, setResettingWaGateway] = useState(false);
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
@@ -200,6 +201,27 @@ export default function ManagementHomePage() {
       }
     } finally {
       setLoadingWaGateway(false);
+    }
+  }
+
+  async function resetWaGatewaySession() {
+    if (!isRoot) return;
+    const confirmed = window.confirm('Reset session WA gateway? Nomor lama akan logout dan QR baru akan dibuat.');
+    if (!confirmed) return;
+
+    setResettingWaGateway(true);
+    setWaConfigMessage('');
+    try {
+      await apiFetch('/management/wa-gateway/reset-session', {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+      setWaConfigMessage('Session WA gateway direset. Scan QR baru untuk menautkan nomor.');
+      await loadWaGateway();
+    } catch (error) {
+      setWaConfigMessage(error instanceof Error ? error.message : 'Gagal reset session WA gateway');
+    } finally {
+      setResettingWaGateway(false);
     }
   }
 
@@ -350,9 +372,14 @@ export default function ManagementHomePage() {
                     <p className="text-sm font-semibold text-[var(--text-primary)]">Status Gateway Mandiri</p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">{formatGatewayStatus(waGatewayStatus)}</p>
                   </div>
-                  <Button variant="ghost" onClick={loadWaGateway} disabled={loadingWaGateway}>
-                    {loadingWaGateway ? 'Memuat...' : 'Refresh Gateway'}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" onClick={resetWaGatewaySession} disabled={resettingWaGateway || loadingWaGateway}>
+                      {resettingWaGateway ? 'Reset...' : 'Reset Session'}
+                    </Button>
+                    <Button variant="ghost" onClick={loadWaGateway} disabled={loadingWaGateway || resettingWaGateway}>
+                      {loadingWaGateway ? 'Memuat...' : 'Refresh Gateway'}
+                    </Button>
+                  </div>
                 </div>
                 {waGatewayQr?.data?.qr_data_url ? (
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
