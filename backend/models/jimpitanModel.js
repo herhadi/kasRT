@@ -620,7 +620,6 @@ export async function updateJimpitanReminderDeliveryLog({
 }
 
 export async function listLatestJimpitanReminderLogs(limit = 20) {
-  await ensureJimpitanReminderLogTable();
   const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
   const result = await pool.query(
     `SELECT
