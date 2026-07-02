@@ -6,8 +6,10 @@ on:
       - main
     paths:
       - backend/**
+      - wa-gateway/**
       - docker-compose.vps.yml
       - infra/vps/deploy-backend.sh
+      - infra/vps/deploy-wa-gateway.sh
       - .github/workflows/deploy-vps.yml
   workflow_dispatch:
 
@@ -36,6 +38,18 @@ jobs:
         run: |
           cd "$KASRT_DEPLOY_PATH"
           KASRT_PROJECT_DIR="$KASRT_DEPLOY_PATH" bash ./infra/vps/deploy-backend.sh
+
+      - name: Deploy WA gateway container
+        env:
+          DEPLOY_BRANCH: main
+          DEPLOY_LOG_DIR: ${{ env.KASRT_LOG_DIR }}
+        run: |
+          cd "$KASRT_DEPLOY_PATH"
+          if [ -f wa-gateway/.env ]; then
+            KASRT_PROJECT_DIR="$KASRT_DEPLOY_PATH" bash ./infra/vps/deploy-wa-gateway.sh
+          else
+            echo "wa-gateway/.env belum ada; skip deploy WA gateway."
+          fi
 
       - name: Show deploy logs on failure
         if: failure()

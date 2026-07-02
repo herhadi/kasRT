@@ -84,7 +84,7 @@ Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`create
 
 - Scheduler production memakai cron Linux di VPS/Debian yang memanggil backend lokal pada pukul `20:30 WIB`.
 - Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
-- Backend menerima window `20:30-21:15 WIB` sebagai guard agar reminder tidak terkirim terlalu awal/terlambat.
+- Backend menerima window `20:30-20:45 WIB` sebagai guard agar reminder tidak terkirim terlalu awal/terlambat.
 - Backend memakai daily lock, jadi beberapa trigger cron tidak akan mengirim reminder dobel.
 - Telegram dan WA dipisah. Telegram tetap memakai bot resmi, sedangkan WA reminder memakai provider backend terpisah:
   - `off`

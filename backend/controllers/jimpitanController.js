@@ -114,6 +114,19 @@ function getShiftDayLabel(shiftDay) {
   return labels[Number(shiftDay)] || `Hari ${shiftDay}`;
 }
 
+function getRandomWaGreeting(name) {
+  const cleanName = String(name || '').trim().split(/\s+/).slice(0, 2).join(' ') || 'Bapak/Ibu';
+  const greetings = [
+    `Halo ${cleanName}`,
+    `Hai ${cleanName}`,
+    `Selamat malam ${cleanName}`,
+    `Sugeng dalu ${cleanName}`,
+    `Yth. ${cleanName}`,
+    `Assalamualaikum ${cleanName}`
+  ];
+  return greetings[Math.floor(Math.random() * greetings.length)];
+}
+
 async function getShiftAccessContext(userId, roles, operationalDate) {
   const normalizedRoles = (roles || []).map((role) => String(role).trim().toLowerCase());
   const isRoot = normalizedRoles.includes('root');
@@ -560,7 +573,7 @@ export async function sendJimpitanShiftReminder(req, res) {
   const now = new Date();
   const jakartaTime = getJakartaTimeParts(now);
   const totalMinutes = jakartaTime.hour * 60 + jakartaTime.minute;
-  const targetMinutes = 20 * 60 + 45;
+  const targetMinutes = 20 * 60 + 30;
   const allowedEarlyMinutes = 0;
   const allowedLateMinutes = 15;
   const isWithinWindow =
@@ -572,7 +585,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     return res.json({
       success: true,
       skipped: true,
-      message: 'Di luar window reminder 20:30-21:00 WIB',
+      message: 'Di luar window reminder 20:30-20:45 WIB',
       current_time_wib: jakartaTime.hourMinute
     });
   }
@@ -641,24 +654,23 @@ export async function sendJimpitanShiftReminder(req, res) {
       }
     });
 
-    // WA message: plain text, tanpa tag HTML.
-    const waText =
-      (testMode ? `🧪 TESTING REMINDER JIMPITAN\n` : '') +
-      `⏰ PENGINGAT JIMPITAN RONDA\n` +
-      `------------------------------\n` +
-      `📅 Hari operasional:\n` +
-      `${targetLabel}\n\n` +
-      `🕘 Jam mulai:\n` +
-      `21:00 WIB\n\n` +
-      `📝 Catatan:\n` +
-      `Pengingat ini dikirim otomatis sebelum jam operasional.\n\n` +
-      `Silahkan login menggunakan nomor hp dengan password 1234\n` +
-      `👉 https://kas02.vercel.app/jimpitan\n\n` +
-      `🙏 Selamat bertugas...\n` +
-      `------------------------------` +
-      (testMode ? `\n🧪 TESTING - abaikan jika bukan jadwal operasional.` : '');
+    // WA message: plain text dan dibuat sedikit personal per penerima.
+    const buildWaText = (recipient) => {
+      const greeting = getRandomWaGreeting(recipient?.nama);
+      return (
+        (testMode ? `🧪 TESTING REMINDER JIMPITAN\n\n` : '') +
+        `${greeting}, ini pengingat jadwal jimpitan hari ini.\n\n` +
+        `Jadwal operasional:\n` +
+        `${targetLabel}\n` +
+        `Mulai pukul 21.00 WIB.\n\n` +
+        `Silakan cek daftar warga di aplikasi:\n` +
+        `https://kas02.vercel.app/jimpitan\n\n` +
+        `Terima kasih.` +
+        (testMode ? `\n\n🧪 TESTING - abaikan jika bukan jadwal operasional.` : '')
+      );
+    };
     const waStatus = await getWaReminderStatus();
-    const waResult = await sendWaReminderBatch(waRecipients, waText, {
+    const waResult = await sendWaReminderBatch(waRecipients, buildWaText, {
       // Test reminder jangan menunggu delay panjang agar mudah dicek dari UI.
       useDelay: !testMode
     });

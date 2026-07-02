@@ -246,6 +246,15 @@ async function fetchWaGateway(path) {
 
 export async function getWaGatewayStatus(_req, res) {
   const result = await fetchWaGateway('/status');
+  if (result.configured && result.success) {
+    const limits = await fetchWaGateway('/limits');
+    if (limits.success) {
+      result.data = {
+        ...(result.data || {}),
+        limits: limits.data
+      };
+    }
+  }
   const statusCode = result.configured && !result.success ? 502 : 200;
   return res.status(statusCode).json(result);
 }

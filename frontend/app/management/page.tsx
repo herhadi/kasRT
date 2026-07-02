@@ -81,6 +81,15 @@ type WaGatewayStatus = {
     last_qr_at?: string | null;
     last_connected_at?: string | null;
     last_disconnect_reason?: string | number | null;
+    limits?: {
+      date: string;
+      sent_count: number;
+      unique_targets: number;
+      unique_limit: number;
+      remaining_unique_targets: number;
+      min_interval_ms: number;
+      last_sent_at?: string | null;
+    };
   };
 };
 
@@ -358,6 +367,13 @@ export default function ManagementHomePage() {
                       <p className="mt-1">Buka WhatsApp, pilih Perangkat Tertaut, lalu scan QR ini.</p>
                       <p className="mt-1">Setelah connected, pilih provider `Gateway Mandiri` dan simpan.</p>
                     </div>
+                  </div>
+                ) : null}
+                {waGatewayStatus?.data?.limits ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <InfoLine label="Kuota Nomor Hari Ini" value={`${waGatewayStatus.data.limits.unique_targets}/${waGatewayStatus.data.limits.unique_limit}`} />
+                    <InfoLine label="Sisa Nomor Unik" value={String(waGatewayStatus.data.limits.remaining_unique_targets)} />
+                    <InfoLine label="Jeda Minimum" value={`${Math.round(waGatewayStatus.data.limits.min_interval_ms / 1000)} detik`} />
                   </div>
                 ) : null}
               </div>

@@ -3,6 +3,7 @@ dotenv.config();
 
 import express from 'express';
 import cors from 'cors';
+import { getLimitStatus, reserveSendSlot } from './limiter.js';
 import { getWhatsAppQr, getWhatsAppStatus, sendWhatsAppMessage, startWhatsApp } from './whatsapp.js';
 
 const app = express();
@@ -52,6 +53,10 @@ app.get('/status', requireGatewaySecret, (_req, res) => {
   res.json({ success: true, data: getWhatsAppStatus() });
 });
 
+app.get('/limits', requireGatewaySecret, async (_req, res) => {
+  res.json({ success: true, data: await getLimitStatus() });
+});
+
 app.get('/qr', requireGatewaySecret, (_req, res) => {
   const qr = getWhatsAppQr();
   res.json({
@@ -80,10 +85,12 @@ app.post('/send', requireGatewaySecret, async (req, res) => {
   }
 
   try {
+    const limits = await reserveSendSlot(target);
     const result = await sendWhatsAppMessage(target, message);
-    return res.json({ success: true, ...result });
+    return res.json({ success: true, ...result, limits });
   } catch (error) {
-    return res.status(503).json({
+    const status = Number(error?.status || 503);
+    return res.status(status).json({
       success: false,
       sent: false,
       message: error?.message || 'Gagal mengirim WA'

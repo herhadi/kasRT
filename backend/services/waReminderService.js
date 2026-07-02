@@ -146,9 +146,12 @@ export async function sendWaReminderBatch(recipients, message, options = {}) {
 
   for (let index = 0; index < validRecipients.length; index += 1) {
     const { row, target } = validRecipients[index];
+    const messageText = typeof message === 'function'
+      ? String(message(row, { target, index }) || '')
+      : String(message || '');
     try {
       if (provider === 'fonnte') {
-        const result = await sendFonnteMessage(target, message);
+        const result = await sendFonnteMessage(target, messageText);
         if (result?.sent === true) {
           sent += 1;
         } else {
@@ -156,7 +159,7 @@ export async function sendWaReminderBatch(recipients, message, options = {}) {
           errors.push({ nama: row?.nama || null, no_hp: row?.no_hp || null, message: result?.reason || 'Fonnte tidak mengirim' });
         }
       } else if (provider === 'http') {
-        const result = await sendHttpGatewayMessage(target, message, row);
+        const result = await sendHttpGatewayMessage(target, messageText, row);
         if (result?.sent === true) {
           sent += 1;
         } else {
