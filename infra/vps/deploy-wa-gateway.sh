@@ -88,7 +88,7 @@ if ! docker compose -f "$COMPOSE_FILE" ps --status running --services | grep -Fx
 fi
 
 for attempt in {1..30}; do
-  if curl --fail --silent --show-error http://127.0.0.1:3010/status >/dev/null; then
+  if curl --fail --silent --show-error http://127.0.0.1:3010/ >/dev/null; then
     finished_at="$(date +%s)"
     echo "Deploy WA Gateway KasRT berhasil. Commit: $HEAD_SHA, durasi: $((finished_at - STARTED_AT))s"
     docker compose -f "$COMPOSE_FILE" ps "$SERVICE"
