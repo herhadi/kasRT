@@ -66,12 +66,25 @@ git reset --hard "origin/$BRANCH"
 HEAD_SHA="$(git rev-parse --short HEAD)"
 
 COMPOSE_FILE="docker-compose.vps.yml"
-SERVICE="kasrt-backend"
+SERVICE="${KASRT_BACKEND_SERVICE:-}"
+AVAILABLE_SERVICES="$(docker compose -f "$COMPOSE_FILE" config --services)"
 
-if ! docker compose -f "$COMPOSE_FILE" config --services | grep -Fxq "$SERVICE"; then
-  echo "Service ${SERVICE} tidak ditemukan pada ${COMPOSE_FILE}." >&2
+if [[ -z "$SERVICE" ]]; then
+  if grep -Fxq "kasrt-backend" <<<"$AVAILABLE_SERVICES"; then
+    SERVICE="kasrt-backend"
+  elif grep -Fxq "app-kasrt-backend" <<<"$AVAILABLE_SERVICES"; then
+    SERVICE="app-kasrt-backend"
+  fi
+fi
+
+if [[ -z "$SERVICE" ]] || ! grep -Fxq "$SERVICE" <<<"$AVAILABLE_SERVICES"; then
+  echo "Service backend tidak ditemukan pada ${COMPOSE_FILE}." >&2
+  echo "Service tersedia:" >&2
+  printf '%s\n' "$AVAILABLE_SERVICES" >&2
   exit 1
 fi
+
+echo "Service backend: $SERVICE"
 
 docker compose -f "$COMPOSE_FILE" build "$SERVICE"
 docker compose -f "$COMPOSE_FILE" up --detach --no-deps --force-recreate "$SERVICE"
