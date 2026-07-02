@@ -1,6 +1,5 @@
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
-import { getWaReminderStatus, sendWaReminderBatch } from '../services/waReminderService.js';
 import {
   approvePendingTaggedTransfer,
   createTransfer,
@@ -112,19 +111,6 @@ function getShiftDayLabel(shiftDay) {
     7: 'Sabtu'
   };
   return labels[Number(shiftDay)] || `Hari ${shiftDay}`;
-}
-
-function getRandomWaGreeting(name) {
-  const cleanName = String(name || '').trim().split(/\s+/).slice(0, 2).join(' ') || 'Bapak/Ibu';
-  const greetings = [
-    `Halo ${cleanName}`,
-    `Hai ${cleanName}`,
-    `Selamat malam ${cleanName}`,
-    `Sugeng dalu ${cleanName}`,
-    `Yth. ${cleanName}`,
-    `Assalamualaikum ${cleanName}`
-  ];
-  return greetings[Math.floor(Math.random() * greetings.length)];
 }
 
 async function getShiftAccessContext(userId, roles, operationalDate) {
@@ -609,8 +595,7 @@ export async function sendJimpitanShiftReminder(req, res) {
   try {
     const petugas = await listPetugasByShiftDay(shiftDay);
     const telegramRecipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
-    const waRecipients = petugas.filter((row) => String(row.no_hp || '').trim() !== '');
-    const totalRecipients = Math.max(telegramRecipients.length, waRecipients.length);
+    const totalRecipients = telegramRecipients.length;
     const lock = await lockDailyJimpitanReminder(reminderDate, reminderType, totalRecipients);
 
     if (!lock) {
@@ -654,27 +639,6 @@ export async function sendJimpitanShiftReminder(req, res) {
       }
     });
 
-    // WA message: plain text dan dibuat sedikit personal per penerima.
-    const buildWaText = (recipient) => {
-      const greeting = getRandomWaGreeting(recipient?.nama);
-      return (
-        (testMode ? `🧪 TESTING REMINDER JIMPITAN\n\n` : '') +
-        `${greeting}, ini pengingat jadwal jimpitan hari ini.\n\n` +
-        `Jadwal operasional:\n` +
-        `${targetLabel}\n` +
-        `Mulai pukul 21.00 WIB.\n\n` +
-        `Silakan cek daftar warga di aplikasi:\n` +
-        `https://kas02.vercel.app/jimpitan\n\n` +
-        `Terima kasih.` +
-        (testMode ? `\n\n🧪 TESTING - abaikan jika bukan jadwal operasional.` : '')
-      );
-    };
-    const waStatus = await getWaReminderStatus();
-    const waResult = await sendWaReminderBatch(waRecipients, buildWaText, {
-      // Test reminder jangan menunggu delay panjang agar mudah dicek dari UI.
-      useDelay: !testMode
-    });
-
     await updateJimpitanReminderDeliveryLog({
       id: lock.id,
       totalTarget: petugas.length,
@@ -682,14 +646,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegramRecipients: telegramRecipients.length,
       telegramSent,
       telegramFailed,
-      telegramErrors: telegramErrors.slice(0, 5),
-      waRecipients: waRecipients.length,
-      waSent: waResult.sent,
-      waFailed: waResult.failed,
-      waErrors: waResult.errors.slice(0, 5),
-      waEnabled: waResult.enabled,
-      waProvider: waResult.provider,
-      waQueueEnabled: waStatus.queue
+      telegramErrors: telegramErrors.slice(0, 5)
     });
 
     if (!testMode) {
@@ -698,9 +655,7 @@ export async function sendJimpitanShiftReminder(req, res) {
         `✅ <b>Reminder Jimpitan Terkirim</b>\n` +
           `Hari: <b>${targetLabel}</b>\n` +
           `Petugas shift: <b>${petugas.length}</b>\n` +
-          `Telegram: <b>${telegramSent}/${telegramRecipients.length}</b> gagal <b>${telegramFailed}</b>\n` +
-          `WA: <b>${waResult.sent}/${waRecipients.length}</b> gagal <b>${waResult.failed}</b>\n` +
-          `Provider WA: <b>${waResult.provider || 'off'}</b>`
+          `Telegram: <b>${telegramSent}/${telegramRecipients.length}</b> gagal <b>${telegramFailed}</b>`
       );
     }
 
@@ -713,13 +668,6 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegram_sent: telegramSent,
       telegram_failed: telegramFailed,
       telegram_errors: telegramErrors.slice(0, 5),
-      wa_recipients: waRecipients.length,
-      wa_sent: waResult.sent,
-      wa_failed: waResult.failed,
-      wa_errors: waResult.errors.slice(0, 5),
-      wa_enabled: waResult.enabled,
-      wa_provider: waResult.provider,
-      wa_queue_enabled: waStatus.queue,
       test_mode: testMode,
       test_shift_day: testMode ? shiftDay : null
     });

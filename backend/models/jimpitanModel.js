@@ -46,14 +46,7 @@ export async function ensureJimpitanReminderLogTable() {
       ADD COLUMN IF NOT EXISTS telegram_recipients INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS telegram_sent INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS telegram_failed INTEGER NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS telegram_errors JSONB NOT NULL DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS wa_recipients INTEGER NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS wa_sent INTEGER NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS wa_failed INTEGER NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS wa_errors JSONB NOT NULL DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS wa_enabled BOOLEAN NULL,
-      ADD COLUMN IF NOT EXISTS wa_provider VARCHAR(30) NULL,
-      ADD COLUMN IF NOT EXISTS wa_queue_enabled BOOLEAN NULL
+      ADD COLUMN IF NOT EXISTS telegram_errors JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
 }
 
@@ -572,14 +565,7 @@ export async function updateJimpitanReminderDeliveryLog({
   telegramRecipients,
   telegramSent,
   telegramFailed,
-  telegramErrors,
-  waRecipients,
-  waSent,
-  waFailed,
-  waErrors,
-  waEnabled,
-  waProvider,
-  waQueueEnabled
+  telegramErrors
 }) {
   await ensureJimpitanReminderLogTable();
   const result = await pool.query(
@@ -589,14 +575,7 @@ export async function updateJimpitanReminderDeliveryLog({
          telegram_recipients = $4,
          telegram_sent = $5,
          telegram_failed = $6,
-         telegram_errors = $7::jsonb,
-         wa_recipients = $8,
-         wa_sent = $9,
-         wa_failed = $10,
-         wa_errors = $11::jsonb,
-         wa_enabled = $12,
-         wa_provider = $13,
-         wa_queue_enabled = $14
+         telegram_errors = $7::jsonb
      WHERE id = $1
      RETURNING id::text`,
     [
@@ -606,14 +585,7 @@ export async function updateJimpitanReminderDeliveryLog({
       telegramRecipients,
       telegramSent,
       telegramFailed,
-      JSON.stringify(telegramErrors || []),
-      waRecipients,
-      waSent,
-      waFailed,
-      JSON.stringify(waErrors || []),
-      waEnabled,
-      waProvider,
-      waQueueEnabled
+      JSON.stringify(telegramErrors || [])
     ]
   );
   return result.rows[0] || null;
@@ -632,14 +604,7 @@ export async function listLatestJimpitanReminderLogs(limit = 20) {
        telegram_recipients,
        telegram_sent,
        telegram_failed,
-       telegram_errors,
-       wa_recipients,
-       wa_sent,
-       wa_failed,
-       wa_errors,
-       wa_enabled,
-       wa_provider,
-       wa_queue_enabled
+       telegram_errors
      FROM jimpitan_reminder_logs
      ORDER BY sent_at DESC
      LIMIT $1`,

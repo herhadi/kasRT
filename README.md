@@ -43,19 +43,6 @@ Telegram:
 - `TELEGRAM_WEBHOOK_SECRET`
 - `BACKEND_PUBLIC_URL`
 
-WA reminder jimpitan:
-- `WA_REMINDER_PROVIDER`
-  - `off`: WA reminder mati.
-  - `fonnte`: kirim via Fonnte lama.
-  - `http`: kirim ke gateway WA mandiri yang terpisah.
-- Root bisa mengubah provider aktif dari `/management` pada card `WA Reminder Jimpitan`.
-- Pilihan dari UI disimpan di database (`app_settings`) dan akan mengalahkan fallback `WA_REMINDER_PROVIDER`.
-- `WA_GATEWAY_URL` (wajib jika `WA_REMINDER_PROVIDER=http`)
-- `WA_GATEWAY_BASE_URL` (opsional untuk UI `/management`, contoh `https://kasrt-wa-gateway.onrender.com`)
-- `WA_GATEWAY_SECRET` (opsional, dikirim sebagai header `x-wa-gateway-secret`)
-- `WA_REMINDER_MIN_DELAY_MS` dan `WA_REMINDER_MAX_DELAY_MS` untuk jeda acak antar nomor pada provider `http`.
-- `FONNTE_TOKEN` hanya dipakai jika `WA_REMINDER_PROVIDER=fonnte` atau provider dikosongkan dan token tersedia.
-
 Opsional performa:
 - `REDIS_URL` (contoh: `rediss://...`)
 
@@ -86,22 +73,8 @@ Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`create
 - Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
 - Backend menerima window `20:30-20:45 WIB` sebagai guard agar reminder tidak terkirim terlalu awal/terlambat.
 - Backend memakai daily lock, jadi beberapa trigger cron tidak akan mengirim reminder dobel.
-- Telegram dan WA dipisah. Telegram tetap memakai bot resmi, sedangkan WA reminder memakai provider backend terpisah:
-  - `off`
-  - `fonnte`
-  - `http` untuk gateway WA mandiri.
-- Root dapat mengubah provider WA dari `/management` tanpa deploy ulang.
-- Provider `http` mengirim serial dengan jeda acak agar reminder harian tidak menembak banyak nomor sekaligus.
-- Gateway mandiri ada di folder `wa-gateway` dan dapat dideploy sebagai service Render `kasrt-wa-gateway`.
-- Endpoint gateway:
-  - `GET /status`
-  - `GET /qr`
-  - `POST /send`
-- Backend membutuhkan:
-  - `WA_GATEWAY_URL=https://.../send`
-  - `WA_GATEWAY_BASE_URL=https://...`
-  - `WA_GATEWAY_SECRET` sama dengan env gateway.
-- QR login gateway bisa dicek dari `/management` oleh root.
+- Reminder otomatis hanya dikirim lewat Telegram bot resmi.
+- Integrasi WA otomatis dihapus untuk mengurangi risiko pembatasan nomor.
 - Frontend cron route meneruskan ke backend:
   - `POST /jimpitan/send-shift-reminder`
   - auth via `x-cron-secret` / bearer secret.

@@ -9,7 +9,6 @@ import {
   ,
   upsertMeetingAttendanceByMonth
 } from '../models/managementModel.js';
-import { getWaReminderStatus, updateWaReminderConfig } from '../services/waReminderService.js';
 
 export async function getUserManagementData(_req, res) {
   try {
@@ -160,107 +159,4 @@ export async function saveMeetingAttendance(req, res) {
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
-}
-
-export async function getWaReminderManagementConfig(_req, res) {
-  try {
-    const status = await getWaReminderStatus();
-    return res.json({
-      success: true,
-      data: {
-        provider: status.provider,
-        enabled: status.enabled,
-        queue_enabled: status.queue,
-        delay: status.delay,
-        updated_at: status.updated_at,
-        env: {
-          fonnte_configured: Boolean(String(process.env.FONNTE_TOKEN || '').trim()),
-          gateway_configured: Boolean(String(process.env.WA_GATEWAY_URL || process.env.WA_GATEWAY_BASE_URL || '').trim()),
-          gateway_send_configured: Boolean(String(process.env.WA_GATEWAY_URL || '').trim()),
-          gateway_base_configured: Boolean(String(process.env.WA_GATEWAY_BASE_URL || '').trim())
-        }
-      }
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-}
-
-export async function updateWaReminderManagementConfig(req, res) {
-  const actorId = String(req.user?.user_id || '').trim();
-  const provider = String(req.body.provider || '').trim().toLowerCase();
-
-  try {
-    const data = await updateWaReminderConfig({ provider, updatedBy: actorId || null });
-    const status = await getWaReminderStatus();
-    return res.json({
-      success: true,
-      data: {
-        ...data,
-        enabled: status.enabled,
-        queue_enabled: status.queue,
-        delay: status.delay,
-        env: {
-          fonnte_configured: Boolean(String(process.env.FONNTE_TOKEN || '').trim()),
-          gateway_configured: Boolean(String(process.env.WA_GATEWAY_URL || process.env.WA_GATEWAY_BASE_URL || '').trim()),
-          gateway_send_configured: Boolean(String(process.env.WA_GATEWAY_URL || '').trim()),
-          gateway_base_configured: Boolean(String(process.env.WA_GATEWAY_BASE_URL || '').trim())
-        }
-      }
-    });
-  } catch (error) {
-    return res.status(400).json({ success: false, message: error.message });
-  }
-}
-
-async function fetchWaGateway(path) {
-  const baseUrl = String(process.env.WA_GATEWAY_BASE_URL || process.env.WA_GATEWAY_URL || '').trim().replace(/\/+$/, '');
-  const secret = String(process.env.WA_GATEWAY_SECRET || '').trim();
-  if (!baseUrl) {
-    return {
-      configured: false,
-      success: false,
-      message: 'WA_GATEWAY_BASE_URL belum diset'
-    };
-  }
-
-  const response = await fetch(`${baseUrl}${path}`, {
-    headers: {
-      ...(secret ? { 'x-wa-gateway-secret': secret } : {})
-    }
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || payload?.success === false) {
-    return {
-      configured: true,
-      success: false,
-      message: payload?.message || `WA gateway HTTP ${response.status}`
-    };
-  }
-  return {
-    configured: true,
-    success: true,
-    data: payload?.data || payload
-  };
-}
-
-export async function getWaGatewayStatus(_req, res) {
-  const result = await fetchWaGateway('/status');
-  if (result.configured && result.success) {
-    const limits = await fetchWaGateway('/limits');
-    if (limits.success) {
-      result.data = {
-        ...(result.data || {}),
-        limits: limits.data
-      };
-    }
-  }
-  const statusCode = result.configured && !result.success ? 502 : 200;
-  return res.status(statusCode).json(result);
-}
-
-export async function getWaGatewayQr(_req, res) {
-  const result = await fetchWaGateway('/qr');
-  const statusCode = result.configured && !result.success ? 502 : 200;
-  return res.status(statusCode).json(result);
 }

@@ -61,20 +61,3 @@ services:
   #   envVars:
   #     - key: NODE_VERSION
   #       value: 25
-
-  - type: web
-    name: kasrt-wa-gateway
-    runtime: node
-    region: singapore
-    rootDir: wa-gateway
-    plan: free
-    buildCommand: npm install
-    startCommand: npm start
-    autoDeploy: true
-    envVars:
-      - key: NODE_VERSION
-        value: 25
-      - key: WA_GATEWAY_SECRET
-        sync: false
-      - key: WA_AUTH_DIR
-        value: ./auth

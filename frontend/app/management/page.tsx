@@ -36,13 +36,6 @@ type CronHealthLog = {
         telegram_sent?: number;
         telegram_failed?: number;
         telegram_errors?: Array<{ nama?: string | null; message?: string }>;
-        wa_recipients?: number;
-        wa_sent?: number;
-        wa_failed?: number;
-        wa_errors?: Array<{ nama?: string | null; no_hp?: string | null; message?: string }>;
-        wa_enabled?: boolean;
-        wa_provider?: string;
-        wa_queue_enabled?: boolean;
         current_time_wib?: string;
         reminder_date?: string;
         reminder_type?: string;
@@ -50,59 +43,6 @@ type CronHealthLog = {
       timestamp?: string;
     } | null;
     created_at: string;
-};
-
-type WaReminderConfig = {
-  provider: 'off' | 'fonnte' | 'http';
-  enabled: boolean;
-  queue_enabled: boolean;
-  delay: {
-    min: number;
-    max: number;
-  };
-  updated_at?: string | null;
-  env: {
-    fonnte_configured: boolean;
-    gateway_configured: boolean;
-    gateway_send_configured?: boolean;
-    gateway_base_configured?: boolean;
-  };
-};
-
-type WaGatewayStatus = {
-  configured: boolean;
-  success: boolean;
-  message?: string;
-  data?: {
-    connected: boolean;
-    state: string;
-    number?: string | null;
-    has_qr: boolean;
-    last_qr_at?: string | null;
-    last_connected_at?: string | null;
-    last_disconnect_reason?: string | number | null;
-    limits?: {
-      date: string;
-      sent_count: number;
-      unique_targets: number;
-      unique_limit: number;
-      remaining_unique_targets: number;
-      min_interval_ms: number;
-      last_sent_at?: string | null;
-    };
-  };
-};
-
-type WaGatewayQr = {
-  configured: boolean;
-  success: boolean;
-  message?: string;
-  data?: {
-    qr?: string | null;
-    qr_data_url?: string | null;
-    last_qr_at?: string | null;
-    status?: WaGatewayStatus['data'];
-  };
 };
 
 export default function ManagementHomePage() {
@@ -114,14 +54,6 @@ export default function ManagementHomePage() {
   const [testingReminder, setTestingReminder] = useState(false);
   const [cronTestMessage, setCronTestMessage] = useState('');
   const [testShiftDay, setTestShiftDay] = useState('3');
-  const [waConfig, setWaConfig] = useState<WaReminderConfig | null>(null);
-  const [waProvider, setWaProvider] = useState<WaReminderConfig['provider']>('off');
-  const [loadingWaConfig, setLoadingWaConfig] = useState(false);
-  const [savingWaConfig, setSavingWaConfig] = useState(false);
-  const [waConfigMessage, setWaConfigMessage] = useState('');
-  const [waGatewayStatus, setWaGatewayStatus] = useState<WaGatewayStatus | null>(null);
-  const [waGatewayQr, setWaGatewayQr] = useState<WaGatewayQr | null>(null);
-  const [loadingWaGateway, setLoadingWaGateway] = useState(false);
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
@@ -146,63 +78,6 @@ export default function ManagementHomePage() {
     }
   }
 
-  async function loadWaReminderConfig() {
-    if (!isRoot) return;
-    setLoadingWaConfig(true);
-    setWaConfigMessage('');
-    try {
-      const res = await apiFetch<{ success: boolean; data: WaReminderConfig }>('/management/wa-reminder');
-      setWaConfig(res.data);
-      setWaProvider(res.data.provider);
-    } catch (error) {
-      setWaConfigMessage(error instanceof Error ? error.message : 'Gagal memuat setting WA reminder');
-    } finally {
-      setLoadingWaConfig(false);
-    }
-  }
-
-  async function saveWaReminderConfig() {
-    setSavingWaConfig(true);
-    setWaConfigMessage('');
-    try {
-      const res = await apiFetch<{ success: boolean; data: WaReminderConfig }>('/management/wa-reminder', {
-        method: 'POST',
-        body: JSON.stringify({ provider: waProvider })
-      });
-      setWaConfig(res.data);
-      setWaProvider(res.data.provider);
-      setWaConfigMessage('Setting WA reminder tersimpan.');
-      await loadCronStatus();
-    } catch (error) {
-      setWaConfigMessage(error instanceof Error ? error.message : 'Gagal menyimpan setting WA reminder');
-    } finally {
-      setSavingWaConfig(false);
-    }
-  }
-
-  async function loadWaGateway() {
-    if (!isRoot) return;
-    setLoadingWaGateway(true);
-    try {
-      const [statusResult, qrResult] = await Promise.allSettled([
-        apiFetch<WaGatewayStatus>('/management/wa-gateway/status'),
-        apiFetch<WaGatewayQr>('/management/wa-gateway/qr')
-      ]);
-      if (statusResult.status === 'fulfilled') {
-        setWaGatewayStatus(statusResult.value);
-      } else {
-        setWaGatewayStatus({ configured: false, success: false, message: statusResult.reason?.message || 'Gagal memuat status gateway' });
-      }
-      if (qrResult.status === 'fulfilled') {
-        setWaGatewayQr(qrResult.value);
-      } else {
-        setWaGatewayQr({ configured: false, success: false, message: qrResult.reason?.message || 'Gagal memuat QR gateway' });
-      }
-    } finally {
-      setLoadingWaGateway(false);
-    }
-  }
-
   async function testReminderEndpoint() {
     setTestingReminder(true);
     setCronTestMessage('');
@@ -214,7 +89,7 @@ export default function ManagementHomePage() {
         throw new Error(reminder?.message || payload?.message || 'Test reminder gagal');
       }
       setCronTestMessage(
-        `Test reminder ${getShiftDayLabel(testShiftDay)} diproses. Petugas: ${reminder?.total_target ?? '-'}, Telegram: ${reminder?.telegram_recipients ?? '-'}, WA: ${reminder?.wa_sent ?? '-'}/${reminder?.wa_recipients ?? '-'}`
+        `Test reminder ${getShiftDayLabel(testShiftDay)} diproses. Petugas: ${reminder?.total_target ?? '-'}, Telegram: ${reminder?.telegram_recipients ?? '-'}`
       );
     } catch (error) {
       setCronTestMessage(error instanceof Error ? error.message : 'Test reminder gagal');
@@ -226,8 +101,6 @@ export default function ManagementHomePage() {
   useEffect(() => {
     if (!loading && user && isRoot) {
       void loadCronStatus();
-      void loadWaReminderConfig();
-      void loadWaGateway();
     }
   }, [loading, user?.id, isRoot]);
 
@@ -288,119 +161,6 @@ export default function ManagementHomePage() {
         </Card>
         {isRoot ? (
           <Card
-            title="WA Reminder Jimpitan"
-            subtitle="Pilih kanal WA untuk reminder harian. Telegram tetap berjalan terpisah."
-            headerRight={
-              <Button variant="ghost" onClick={loadWaReminderConfig} disabled={loadingWaConfig}>
-                {loadingWaConfig ? 'Memuat...' : 'Refresh'}
-              </Button>
-            }
-          >
-            <div className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className={`cursor-pointer rounded-2xl border px-4 py-4 transition ${waProvider === 'off' ? 'border-[var(--accent)] bg-[var(--surface-strong)]' : 'border-[var(--line)] bg-[var(--surface)]'}`}>
-                  <input
-                    type="radio"
-                    name="wa_provider"
-                    value="off"
-                    checked={waProvider === 'off'}
-                    onChange={() => setWaProvider('off')}
-                    className="sr-only"
-                  />
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Nonaktif</p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">WA tidak dikirim. Aman saat nomor/device bermasalah.</p>
-                </label>
-                <label className={`cursor-pointer rounded-2xl border px-4 py-4 transition ${waProvider === 'fonnte' ? 'border-[var(--accent)] bg-[var(--surface-strong)]' : 'border-[var(--line)] bg-[var(--surface)]'}`}>
-                  <input
-                    type="radio"
-                    name="wa_provider"
-                    value="fonnte"
-                    checked={waProvider === 'fonnte'}
-                    onChange={() => setWaProvider('fonnte')}
-                    className="sr-only"
-                  />
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Fonnte</p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">Pakai token Fonnte lama dari env backend.</p>
-                </label>
-                <label className={`cursor-pointer rounded-2xl border px-4 py-4 transition ${waProvider === 'http' ? 'border-[var(--accent)] bg-[var(--surface-strong)]' : 'border-[var(--line)] bg-[var(--surface)]'}`}>
-                  <input
-                    type="radio"
-                    name="wa_provider"
-                    value="http"
-                    checked={waProvider === 'http'}
-                    onChange={() => setWaProvider('http')}
-                    className="sr-only"
-                  />
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Gateway Mandiri</p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">Kirim ke service WA terpisah dengan queue dan jeda acak.</p>
-                </label>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <InfoLine label="Provider Aktif" value={waConfig ? formatWaConfigProvider(waConfig) : '-'} />
-                <InfoLine label="Fonnte Token" value={waConfig?.env.fonnte_configured ? 'Tersedia di env' : 'Belum diset'} />
-                <InfoLine label="Gateway Kirim" value={waConfig?.env.gateway_send_configured ? 'WA_GATEWAY_URL tersedia' : 'Belum diset'} />
-                <InfoLine label="Gateway Status" value={waConfig?.env.gateway_base_configured ? 'WA_GATEWAY_BASE_URL tersedia' : 'Belum diset'} />
-                <InfoLine label="Jeda Gateway" value={waConfig ? `${waConfig.delay.min / 1000}-${waConfig.delay.max / 1000} detik` : '-'} />
-              </div>
-
-              <div className="rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">Status Gateway Mandiri</p>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">{formatGatewayStatus(waGatewayStatus)}</p>
-                  </div>
-                  <Button variant="ghost" onClick={loadWaGateway} disabled={loadingWaGateway}>
-                    {loadingWaGateway ? 'Memuat...' : 'Refresh Gateway'}
-                  </Button>
-                </div>
-                {waGatewayQr?.data?.qr_data_url ? (
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={waGatewayQr.data.qr_data_url}
-                      alt="QR login WhatsApp gateway"
-                      className="h-44 w-44 rounded-2xl border border-[var(--line)] bg-white p-2"
-                    />
-                    <div className="text-sm text-[var(--text-muted)]">
-                      <p className="font-semibold text-[var(--text-primary)]">Scan QR dari WhatsApp</p>
-                      <p className="mt-1">Buka WhatsApp, pilih Perangkat Tertaut, lalu scan QR ini.</p>
-                      <p className="mt-1">Setelah connected, pilih provider `Gateway Mandiri` dan simpan.</p>
-                    </div>
-                  </div>
-                ) : null}
-                {waGatewayStatus?.data?.limits ? (
-                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <InfoLine label="Nomor Tertaut" value={formatWaNumber(waGatewayStatus.data.number)} />
-                    <InfoLine label="Kuota Nomor Hari Ini" value={`${waGatewayStatus.data.limits.unique_targets}/${waGatewayStatus.data.limits.unique_limit}`} />
-                    <InfoLine label="Sisa Nomor Unik" value={String(waGatewayStatus.data.limits.remaining_unique_targets)} />
-                    <InfoLine label="Jeda Minimum" value={`${Math.round(waGatewayStatus.data.limits.min_interval_ms / 1000)} detik`} />
-                  </div>
-                ) : null}
-              </div>
-
-              {waProvider === 'fonnte' && waConfig?.env.fonnte_configured === false ? (
-                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Fonnte dipilih, tapi `FONNTE_TOKEN` belum tersedia di env backend.
-                </p>
-              ) : null}
-              {waProvider === 'http' && waConfig?.env.gateway_send_configured === false ? (
-                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Gateway mandiri dipilih, tapi `WA_GATEWAY_URL` untuk kirim pesan belum tersedia di env backend.
-                </p>
-              ) : null}
-              {waConfigMessage ? <p className="text-sm text-[var(--text-muted)]">{waConfigMessage}</p> : null}
-
-              <div className="flex justify-end">
-                <Button onClick={saveWaReminderConfig} disabled={savingWaConfig || loadingWaConfig}>
-                  {savingWaConfig ? 'Menyimpan...' : 'Simpan Setting WA'}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ) : null}
-        {isRoot ? (
-          <Card
             title="Status Reminder Jimpitan"
             subtitle="Pantau eksekusi cron Debian dan log reminder backend"
             headerRight={
@@ -449,9 +209,6 @@ export default function ManagementHomePage() {
                       <InfoLine label="Petugas Shift" value={String(reminderResult.total_target ?? '-')} />
                       <InfoLine label="Telegram Terkirim" value={`${String(reminderResult.telegram_sent ?? reminderResult.telegram_recipients ?? '-')}/${String(reminderResult.telegram_recipients ?? '-')} (gagal ${String(reminderResult.telegram_failed ?? 0)})`} />
                       <InfoLine label="Error Telegram" value={formatTelegramError(reminderResult)} />
-                      <InfoLine label="Provider WA" value={formatWaProvider(reminderResult)} />
-                      <InfoLine label="WA Terkirim" value={`${String(reminderResult.wa_sent ?? '-')}/${String(reminderResult.wa_recipients ?? '-')} (gagal ${String(reminderResult.wa_failed ?? 0)})`} />
-                      <InfoLine label="Error WA" value={formatWaError(reminderResult)} />
                     </div>
                   ) : (
                     <p className="text-sm text-[var(--text-muted)]">Belum ada log cron yang membawa hasil reminder.</p>
@@ -468,7 +225,7 @@ export default function ManagementHomePage() {
                         </div>
                         {log.payload?.reminder_result ? (
                           <p className="mt-1 text-xs text-[var(--text-muted)]">
-                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_sent ?? log.payload.reminder_result.telegram_recipients ?? '-'}/{log.payload.reminder_result.telegram_recipients ?? '-'} | Error Telegram: {formatTelegramError(log.payload.reminder_result)} | Provider WA: {formatWaProvider(log.payload.reminder_result)} | WA: {log.payload.reminder_result.wa_sent ?? '-'}/{log.payload.reminder_result.wa_recipients ?? '-'} | Error WA: {formatWaError(log.payload.reminder_result)}
+                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_sent ?? log.payload.reminder_result.telegram_recipients ?? '-'}/{log.payload.reminder_result.telegram_recipients ?? '-'} | Error Telegram: {formatTelegramError(log.payload.reminder_result)}
                           </p>
                         ) : null}
                       </div>
@@ -527,48 +284,11 @@ function formatReminderStatus(result: NonNullable<CronHealthLog['payload']>['rem
   return 'Diproses';
 }
 
-function formatWaError(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
-  if (!result) return '-';
-  if (result.wa_enabled === false) return 'WA reminder nonaktif';
-  if (!result.wa_errors?.length) return '-';
-  const first = result.wa_errors[0];
-  return `${first.nama || first.no_hp || 'WA'}: ${first.message || 'WA gagal'}`;
-}
-
 function formatTelegramError(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
   if (!result) return '-';
   if (!result.telegram_errors?.length) return '-';
   const first = result.telegram_errors[0];
   return `${first.nama || 'Telegram'}: ${first.message || 'Telegram gagal'}`;
-}
-
-function formatWaProvider(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
-  if (!result) return '-';
-  const provider = result.wa_provider || (result.wa_enabled === false ? 'off' : 'fonnte');
-  return result.wa_queue_enabled ? `${provider} + queue` : provider;
-}
-
-function formatWaConfigProvider(config: WaReminderConfig) {
-  if (config.provider === 'off') return 'Nonaktif';
-  if (config.provider === 'fonnte') return 'Fonnte';
-  if (config.provider === 'http') return config.queue_enabled ? 'Gateway Mandiri + queue' : 'Gateway Mandiri';
-  return config.provider;
-}
-
-function formatGatewayStatus(status: WaGatewayStatus | null) {
-  if (!status) return 'Belum dicek';
-  if (!status.configured) return status.message || 'WA_GATEWAY_BASE_URL belum diset di backend';
-  if (!status.success) return status.message || 'Gateway belum bisa diakses';
-  if (status.data?.connected) return `Connected (${formatWaNumber(status.data.number)})`;
-  if (status.data?.has_qr) return 'Menunggu scan QR';
-  return `Belum connected (${status.data?.state || 'unknown'})`;
-}
-
-function formatWaNumber(value?: string | null) {
-  const digits = String(value || '').replace(/[^\d]/g, '');
-  if (!digits) return 'nomor belum terbaca';
-  if (digits.startsWith('62')) return `+${digits}`;
-  return digits;
 }
 
 function getShiftDayLabel(value: string) {
