@@ -252,16 +252,15 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-500">Operasional</p>
               <p className="text-xs text-gray-600">{operationalDate}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowSettings(true)}
+            <Link
+              href="/akun"
               className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--surface-strong)]"
               aria-label="Pengaturan akun"
               title="Pengaturan akun"
             >
-              <span className="text-xl leading-none">&#9881;</span>
-              <span>Pengaturan Akun</span>
-            </button>
+              <span className="text-xl leading-none">👤</span>
+              <span>Profil</span>
+            </Link>
           </div>
           <h1 className="mt-3 font-[var(--font-space-grotesk)] text-3xl font-bold">Halo, {user.nama}</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">Role: {user.roles.join(', ') || 'Warga'}</p>

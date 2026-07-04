@@ -63,7 +63,7 @@ export default function BottomNav() {
       { href: '/dashboard', label: 'Home', icon: '⌂', active: pathname === '/dashboard' },
       { href: '/operasional', label: 'Ops', icon: '◇', active: pathname?.startsWith('/operasional') },
       { href: '/approval', label: 'Inbox', icon: '✉', active: pathname?.startsWith('/approval'), badge: pendingCount },
-      { href: '/akun/keanggotaan', label: 'Akun', icon: '◉', active: pathname?.startsWith('/akun') }
+      { href: '/akun', label: 'Profil', icon: '👤', active: pathname === '/akun' || pathname?.startsWith('/akun/') }
     ],
     [pathname, pendingCount]
   );
