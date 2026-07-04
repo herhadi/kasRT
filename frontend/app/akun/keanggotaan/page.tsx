@@ -13,7 +13,7 @@ import type { DashboardWargaData, MembershipRequestStatus } from '@/types';
 import useToast from '@/lib/hooks/useToast';
 import { useAuth } from '@/lib/useAuth';
 
-type MembershipModuleKey = 'internet' | 'lingkungan' | 'koperasi';
+type MembershipModuleKey = 'internet' | 'lingkungan' | 'koperasi' | 'tabungan';
 
 type MembershipCard = {
   key: MembershipModuleKey;
@@ -98,6 +98,14 @@ export default function AkunKeanggotaanPage() {
         adminLabel: 'Admin Koperasi',
         isMember: Boolean(data.koperasi_is_member),
         request: data.koperasi_membership_request
+      },
+      {
+        key: 'tabungan',
+        title: 'Tabungan Pembangunan',
+        description: 'Akses informasi saldo tabungan pembangunan pribadi.',
+        adminLabel: 'Admin Pembangunan',
+        isMember: Boolean(data.tabungan_is_member),
+        request: data.tabungan_membership_request
       }
     ];
   }, [data]);

@@ -10,6 +10,7 @@ import {
 import { setInternetMemberActive } from '../models/internetModel.js';
 import { setLingkunganMemberActive } from '../models/lingkunganModel.js';
 import { setKoperasiMemberActive } from '../models/koperasiModel.js';
+import { setTabunganMemberActive } from '../models/tabunganModel.js';
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 
 function currentMonthKey() {
@@ -82,6 +83,8 @@ export async function reviewMembershipRequestHandler(req, res) {
       await setLingkunganMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate, activeFromMonth: currentMonthKey(), updatedBy: actor });
     } else if (reviewed.module_key === 'koperasi') {
       await setKoperasiMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate });
+    } else if (reviewed.module_key === 'tabungan') {
+      await setTabunganMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate, updatedBy: actor });
     }
   }
 

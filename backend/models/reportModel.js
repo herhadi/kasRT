@@ -191,6 +191,20 @@ export async function isKoperasiMember(userId) {
   return Boolean(result.rows[0]?.is_member);
 }
 
+export async function isTabunganMember(userId) {
+  await ensureReportTables();
+  const result = await pool.query(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM tab_savings_members sm
+       WHERE sm.warga_id = $1::uuid
+         AND sm.is_active = TRUE
+     ) AS is_member`,
+    [userId]
+  );
+  return Boolean(result.rows[0]?.is_member);
+}
+
 export async function getWargaFinancialSnapshot(userId) {
   await ensureReportTables();
   const tabunganMigrasi = await getTabunganMigrationBalanceByWarga({ wargaId: userId });

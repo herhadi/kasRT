@@ -1,11 +1,12 @@
 import { randomUUID } from 'crypto';
 import { pool } from '../db.js';
 
-const MODULES = ['internet', 'lingkungan', 'koperasi'];
+const MODULES = ['internet', 'lingkungan', 'koperasi', 'tabungan'];
 const MODULE_LABELS = {
   internet: 'Internet',
   lingkungan: 'Lingkungan',
-  koperasi: 'Koperasi'
+  koperasi: 'Koperasi',
+  tabungan: 'Tabungan Pembangunan'
 };
 
 export function normalizeMembershipModule(moduleKey) {
@@ -23,6 +24,7 @@ export function getMembershipAdminRoles(moduleKey) {
   if (module === 'internet') return ['Admin Internet', 'root'];
   if (module === 'lingkungan') return ['Admin Lingkungan', 'root'];
   if (module === 'koperasi') return ['Admin Koperasi', 'root'];
+  if (module === 'tabungan') return ['Admin Pembangunan', 'root'];
   return ['root'];
 }
 
@@ -30,7 +32,7 @@ export async function ensureMembershipRequestTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS membership_requests (
       id UUID PRIMARY KEY,
-      module_key VARCHAR(30) NOT NULL CHECK (module_key IN ('internet','lingkungan','koperasi')),
+      module_key VARCHAR(30) NOT NULL CHECK (module_key IN ('internet','lingkungan','koperasi','tabungan')),
       warga_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       request_type VARCHAR(20) NOT NULL DEFAULT 'ACTIVATE' CHECK (request_type IN ('ACTIVATE','DEACTIVATE')),
       status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','CANCELLED')),
@@ -43,6 +45,25 @@ export async function ensureMembershipRequestTables() {
     )
   `);
   await pool.query(`ALTER TABLE membership_requests ADD COLUMN IF NOT EXISTS request_type VARCHAR(20) NOT NULL DEFAULT 'ACTIVATE'`);
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        WHERE t.relname = 'membership_requests'
+          AND c.conname = 'membership_requests_module_key_check'
+      ) THEN
+        ALTER TABLE membership_requests DROP CONSTRAINT membership_requests_module_key_check;
+      END IF;
+    END $$;
+  `);
+  await pool.query(`
+    ALTER TABLE membership_requests
+      ADD CONSTRAINT membership_requests_module_key_check
+      CHECK (module_key IN ('internet','lingkungan','koperasi','tabungan'))
+  `);
   await pool.query(`
     DO $$
     BEGIN

@@ -205,6 +205,7 @@ export default function ApprovalPage() {
                 {hasAnyRole(user, ['Admin Internet', 'root']) ? <Link href="/approval/internet" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Internet</Link> : null}
                 {hasAnyRole(user, ['Admin Lingkungan', 'root']) ? <Link href="/approval/lingkungan" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Lingkungan</Link> : null}
                 {hasAnyRole(user, ['Admin Koperasi', 'root']) ? <Link href="/approval/koperasi" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Koperasi</Link> : null}
+                {hasAnyRole(user, ['Admin Pembangunan', 'root']) ? <Link href="/approval/tabungan" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Tabungan</Link> : null}
               </div>
             </div>
             <Button variant="ghost" className="text-sm px-3 py-1.5" onClick={() => void loadPending()} disabled={loadingList}>

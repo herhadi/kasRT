@@ -11,7 +11,7 @@ const router = express.Router();
 router.use(auth);
 
 router.post('/request', asyncHandler(createMyMembershipRequestHandler));
-router.get('/requests', allowRoles('Admin Internet', 'Admin Lingkungan', 'Admin Koperasi', 'Ketua', 'root'), asyncHandler(listMembershipRequestsHandler));
-router.post('/review', allowRoles('Admin Internet', 'Admin Lingkungan', 'Admin Koperasi', 'root'), asyncHandler(reviewMembershipRequestHandler));
+router.get('/requests', allowRoles('Admin Internet', 'Admin Lingkungan', 'Admin Koperasi', 'Admin Pembangunan', 'Ketua', 'root'), asyncHandler(listMembershipRequestsHandler));
+router.post('/review', allowRoles('Admin Internet', 'Admin Lingkungan', 'Admin Koperasi', 'Admin Pembangunan', 'root'), asyncHandler(reviewMembershipRequestHandler));
 
 export default router;

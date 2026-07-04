@@ -12,12 +12,13 @@ import { hasAnyRole } from '@/lib/auth';
 import { useAuth } from '@/lib/useAuth';
 import MembershipRequestPanel, { MembershipRequestItem } from '@/components/membership/MembershipRequestPanel';
 
-type ModuleKey = 'internet' | 'lingkungan' | 'koperasi';
+type ModuleKey = 'internet' | 'lingkungan' | 'koperasi' | 'tabungan';
 
 const META: Record<ModuleKey, { label: string; roles: string[]; backHref: string }> = {
   internet: { label: 'Internet', roles: ['Admin Internet', 'root'], backHref: '/operasional/internet' },
   lingkungan: { label: 'Lingkungan', roles: ['Admin Lingkungan', 'root'], backHref: '/operasional/lingkungan' },
-  koperasi: { label: 'Koperasi', roles: ['Admin Koperasi', 'root'], backHref: '/operasional/koperasi' }
+  koperasi: { label: 'Koperasi', roles: ['Admin Koperasi', 'root'], backHref: '/operasional/koperasi' },
+  tabungan: { label: 'Tabungan Pembangunan', roles: ['Admin Pembangunan', 'root'], backHref: '/operasional/tabungan' }
 };
 
 export default function MembershipApprovalPage({ moduleKey }: { moduleKey: ModuleKey }) {

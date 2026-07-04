@@ -17,6 +17,8 @@ import {
   setTabunganTariff,
   updateTabunganSetoran
 } from '../models/tabunganModel.js';
+import { notifyUser } from '../services/approvalNotifier.js';
+import { formatRupiah } from '../services/telegramService.js';
 
 export async function getTabunganSummary(req, res) {
   try {
@@ -58,7 +60,15 @@ export async function inputTabunganWarga(req, res) {
   }
 
   try {
-    await inputTabunganSetoran({ wargaId, amount, description, createdBy: actor });
+    const data = await inputTabunganSetoran({ wargaId, amount, description, createdBy: actor });
+    await notifyUser(
+      wargaId,
+      `✅ <b>Setoran Tabungan Pembangunan Dicatat</b>\n` +
+        `Nominal: <b>${formatRupiah(amount)}</b>\n` +
+        `Keterangan: ${description}\n` +
+        `Saldo saat ini: <b>${formatRupiah(data.total_balance)}</b>\n\n` +
+        `Ketik <b>/cek_tabungan</b> untuk cek saldo terbaru.`
+    );
     return res.json({ success: true, message: 'Setoran tabungan berhasil dicatat' });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -73,6 +83,15 @@ export async function patchTabunganSetoran(req, res) {
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
   try {
     const data = await updateTabunganSetoran({ ledgerId, amount, description: description || null });
+    await notifyUser(
+      data.warga_id,
+      `✏️ <b>Setoran Tabungan Pembangunan Dikoreksi</b>\n` +
+        `Nominal lama: <b>${formatRupiah(data.old_amount)}</b>\n` +
+        `Nominal baru: <b>${formatRupiah(data.amount)}</b>\n` +
+        `Selisih: <b>${formatRupiah(data.delta)}</b>\n` +
+        `Saldo saat ini: <b>${formatRupiah(data.total_balance)}</b>\n\n` +
+        `Ketik <b>/cek_tabungan</b> untuk cek saldo terbaru.`
+    );
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

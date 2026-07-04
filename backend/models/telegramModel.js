@@ -2,7 +2,7 @@ import { pool } from '../db.js';
 
 export async function findUserByTelegramChatId(chatId) {
   const result = await pool.query(
-    `SELECT nama
+    `SELECT id::text AS id, nama
      FROM users
      WHERE telegram_chat_id = $1
      LIMIT 1`,

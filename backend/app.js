@@ -35,6 +35,7 @@ const corsOrigins = String(process.env.CORS_ORIGINS || '')
   .filter(Boolean);
 
 app.use(cors({
+  exposedHeaders: ['X-Cache', 'X-Cache-Store'],
   // Allow requests with no origin (like mobile apps, curl)
   origin(origin, callback) {
     if (!origin || corsOrigins.length === 0 || corsOrigins.includes(origin)) {

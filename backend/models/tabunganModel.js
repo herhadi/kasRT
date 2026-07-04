@@ -330,6 +330,30 @@ export async function getTabunganDanaSummary() {
   };
 }
 
+export async function getTabunganBalanceByWarga({ wargaId }) {
+  await ensureTabunganTables();
+  const migrationBalance = await getTabunganMigrationBalanceByWarga({ wargaId });
+  const result = await pool.query(
+    `SELECT
+       COALESCE(sa.total_balance, 0) AS total_balance,
+       COALESCE(sm.is_active, FALSE) AS is_active
+     FROM users u
+     LEFT JOIN tab_savings_accounts sa ON sa.warga_id = u.id
+     LEFT JOIN tab_savings_members sm ON sm.warga_id = u.id
+     WHERE u.id = $1::uuid
+     LIMIT 1`,
+    [wargaId]
+  );
+  const row = result.rows[0] || {};
+  return {
+    warga_id: String(wargaId),
+    is_active: Boolean(row.is_active),
+    total_balance: Number(row.total_balance || 0) + Number(migrationBalance || 0),
+    current_balance: Number(row.total_balance || 0),
+    migration_balance: Number(migrationBalance || 0)
+  };
+}
+
 export async function getTabunganOpeningBalances({ year = 2025 } = {}) {
   await ensureTabunganTables();
   const tableName = `mig_tabungan_ledger_${Number(year) || 2025}`;
@@ -418,7 +442,20 @@ export async function inputTabunganSetoran({ wargaId, amount, description, creat
       [amount, wargaId]
     );
 
+    const balanceResult = await client.query(
+      `SELECT COALESCE(total_balance, 0) AS total_balance
+       FROM tab_savings_accounts
+       WHERE warga_id = $1::uuid`,
+      [wargaId]
+    );
+
     await client.query('COMMIT');
+    const migrationBalance = await getTabunganMigrationBalanceByWarga({ wargaId });
+    return {
+      warga_id: wargaId,
+      amount: Number(amount || 0),
+      total_balance: Number(balanceResult.rows[0]?.total_balance || 0) + Number(migrationBalance || 0)
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -460,8 +497,22 @@ export async function updateTabunganSetoran({ ledgerId, amount, description }) {
        WHERE warga_id = $2::uuid`,
       [delta, row.warga_id]
     );
+    const balanceResult = await client.query(
+      `SELECT COALESCE(total_balance, 0) AS total_balance
+       FROM tab_savings_accounts
+       WHERE warga_id = $1::uuid`,
+      [row.warga_id]
+    );
     await client.query('COMMIT');
-    return { id: String(row.id), warga_id: String(row.warga_id), amount: Number(amount || 0) };
+    const migrationBalance = await getTabunganMigrationBalanceByWarga({ wargaId: row.warga_id });
+    return {
+      id: String(row.id),
+      warga_id: String(row.warga_id),
+      amount: Number(amount || 0),
+      old_amount: oldAmount,
+      delta,
+      total_balance: Number(balanceResult.rows[0]?.total_balance || 0) + Number(migrationBalance || 0)
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

@@ -1,11 +1,12 @@
 import crypto from 'crypto';
-import { sendTelegramMessage } from '../services/telegramService.js';
+import { sendTelegramMessage, formatRupiah } from '../services/telegramService.js';
 import {
   clearTelegramChatByUserId,
   createTelegramActivationToken,
   findUserByTelegramChatId,
   linkTelegramChatWithCode
 } from '../models/telegramModel.js';
+import { getTabunganBalanceByWarga } from '../models/tabunganModel.js';
 
 function normalizeBotUsername(username) {
   if (!username) return '';
@@ -65,6 +66,29 @@ export async function telegramWebhook(req, res) {
   const text = String(update.text || '').trim();
   const chatId = String(update.chat.id);
   const startMatch = text.match(/^\/start(?:@\w+)?(?:\s+(.+))?$/i);
+  const command = text.split(/\s+/)[0]?.replace(/@\w+$/i, '').toLowerCase();
+
+  if (['/cek_tabungan', '/cek_tab', '/tabungan'].includes(command)) {
+    const userByChatId = await findUserByTelegramChatId(chatId);
+    if (!userByChatId) {
+      await sendTelegramMessage(
+        chatId,
+        'Akun Telegram ini belum terhubung dengan KasRT.\n\nSilakan aktivasi dari menu Profil/Akun di aplikasi KasRT terlebih dahulu.'
+      );
+      return res.json({ ok: true, status: 'tabungan_unlinked' });
+    }
+
+    const balance = await getTabunganBalanceByWarga({ wargaId: userByChatId.id });
+    await sendTelegramMessage(
+      chatId,
+      `📘 <b>Saldo Tabungan Pembangunan</b>\n` +
+        `Nama: <b>${userByChatId.nama}</b>\n` +
+        `Status anggota: <b>${balance.is_active ? 'Aktif' : 'Nonaktif'}</b>\n` +
+        `Saldo saat ini: <b>${formatRupiah(balance.total_balance)}</b>\n\n` +
+        `Saldo ini sudah termasuk saldo awal migrasi jika ada.`
+    );
+    return res.json({ ok: true, status: 'tabungan_balance_sent' });
+  }
 
   if (!startMatch) {
     return res.json({ ok: true, ignored: true });

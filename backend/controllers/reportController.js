@@ -20,7 +20,8 @@ import {
   getLaporanBulananByMonth,
   isInternetMember,
   isLingkunganMember,
-  isKoperasiMember
+  isKoperasiMember,
+  isTabunganMember
   ,getWargaFinancialSnapshot
 } from '../models/reportModel.js';
 import { getLatestMembershipRequestStatusMap } from '../models/membershipRequestModel.js';
@@ -70,6 +71,7 @@ export async function dashboardWarga(req, res) {
     const internetMember = await isInternetMember(user_id);
     const lingkunganMember = await isLingkunganMember(user_id);
     const koperasiMember = await isKoperasiMember(user_id);
+    const tabunganMember = await isTabunganMember(user_id);
     const membershipRequests = await getLatestMembershipRequestStatusMap(user_id);
 
     iuranRows.forEach((row) => {
@@ -163,6 +165,8 @@ export async function dashboardWarga(req, res) {
         lingkungan_status,
         koperasi_is_member: koperasiMember,
         koperasi_membership_request: membershipRequests.koperasi || null,
+        tabungan_is_member: tabunganMember,
+        tabungan_membership_request: membershipRequests.tabungan || null,
         koperasi_has_loan: Boolean(loanProgress),
         koperasi_loan_monthly_installment: loanProgress
           ? Math.round((Number(loanProgress.total_due_all || 0) / Math.max(Number(loanProgress.tenor_months || 1), 1)) * 100) / 100

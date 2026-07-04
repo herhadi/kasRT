@@ -41,6 +41,8 @@ export type DashboardWargaData = {
   lingkungan_status: 'MENUNGGAK' | 'PAS' | 'LEBIH' | 'NON_MEMBER';
   koperasi_is_member: boolean;
   koperasi_membership_request?: MembershipRequestStatus | null;
+  tabungan_is_member?: boolean;
+  tabungan_membership_request?: MembershipRequestStatus | null;
   koperasi_has_loan: boolean;
   koperasi_loan_monthly_installment: number;
   koperasi_loan_paid_installments: number;
