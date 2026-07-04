@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
@@ -376,9 +376,9 @@ export default function OperasionalSekretarisPage() {
               <thead>
                 <tr className="bg-[var(--surface-strong)]">
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Kas</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pemasukan</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pengeluaran</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Akhir</th>
+                  <th className="w-[44%] border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Saldo Akhir</th>
+                  <th className="w-[22%] border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pemasukan</th>
+                  <th className="w-[22%] border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Pengeluaran</th>
                 </tr>
               </thead>
               <tbody>
@@ -387,30 +387,32 @@ export default function OperasionalSekretarisPage() {
                 ) : (
                   <>
                     {sekretarisSummaryRows.map((r) => (
-                      <tr key={r.key} className="bg-[var(--surface)]">
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
-                          {r.expandable ? (
-                            <button type="button" className="inline-flex items-center gap-2" onClick={() => setShowBendaharaDetail((v) => !v)}>
-                              <span>{showBendaharaDetail ? '▾' : '▸'}</span>
-                              <span>{r.label}</span>
-                            </button>
-                          ) : r.label}
-                        </td>
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(r.pemasukan_bulan)}</td>
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(r.pengeluaran_bulan)}</td>
-                        <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${Number(r.saldo_akhir || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]'}`}>{formatRupiah(r.saldo_akhir)}</td>
-                      </tr>
+                      <Fragment key={r.key}>
+                        <tr className="bg-[var(--surface)]">
+                          <td className="border-b border-[var(--line)] px-3 py-2 text-left text-sm font-semibold text-[var(--text-primary)]">
+                            {r.expandable ? (
+                              <button type="button" className="inline-flex w-full items-center justify-start gap-2 text-left" onClick={() => setShowBendaharaDetail((v) => !v)}>
+                                <span>{showBendaharaDetail ? '▾' : '▸'}</span>
+                                <span>{r.label}</span>
+                              </button>
+                            ) : r.label}
+                          </td>
+                          <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-base font-bold ${Number(r.saldo_akhir || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]'}`}>{formatRupiah(r.saldo_akhir)}</td>
+                          <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(r.pemasukan_bulan)}</td>
+                          <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(r.pengeluaran_bulan)}</td>
+                        </tr>
+                        {r.expandable && showBendaharaDetail
+                          ? rekapGrouped.bendaharaDetail.map((detail) => (
+                              <tr key={detail.wallet_id} className="bg-[var(--surface)]">
+                                <td className="border-b border-[var(--line)] px-3 py-2 pl-8 text-left text-sm text-[var(--text-primary)]">{detail.wallet_name}</td>
+                                <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${Number(detail.saldo_akhir || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]'}`}>{formatRupiah(detail.saldo_akhir)}</td>
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(detail.pemasukan_bulan)}</td>
+                                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(detail.pengeluaran_bulan)}</td>
+                              </tr>
+                            ))
+                          : null}
+                      </Fragment>
                     ))}
-                    {showBendaharaDetail
-                      ? rekapGrouped.bendaharaDetail.map((r) => (
-                          <tr key={r.wallet_id} className="bg-[var(--surface)]">
-                            <td className="border-b border-[var(--line)] px-3 py-2 pl-8 text-sm text-[var(--text-primary)]">{r.wallet_name}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(r.pemasukan_bulan)}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(r.pengeluaran_bulan)}</td>
-                            <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(r.saldo_akhir)}</td>
-                          </tr>
-                        ))
-                      : null}
                   </>
                 )}
               </tbody>
