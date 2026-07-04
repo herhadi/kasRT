@@ -20,12 +20,12 @@ import {
 const router = express.Router();
 router.use(auth);
 
-router.get('/summary', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(getTabunganSummary));
-router.get('/members', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(getTabunganMembersHandler));
-router.get('/tariffs', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(getTabunganTariffsHandler));
-router.get('/history', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(getTabunganHistory));
-router.get('/event-detail', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(getKebutuhanKhususDetail));
-router.get('/yearly-book', allowRoles('Admin Pembangunan', 'Ketua'), asyncHandler(getTabunganYearlyBookHandler));
+router.get('/summary', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), asyncHandler(getTabunganSummary));
+router.get('/members', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), asyncHandler(getTabunganMembersHandler));
+router.get('/tariffs', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), asyncHandler(getTabunganTariffsHandler));
+router.get('/history', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), asyncHandler(getTabunganHistory));
+router.get('/event-detail', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), asyncHandler(getKebutuhanKhususDetail));
+router.get('/yearly-book', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), asyncHandler(getTabunganYearlyBookHandler));
 router.post('/setor', allowRoles('Admin Pembangunan'), asyncHandler(inputTabunganWarga));
 router.patch('/setor', allowRoles('Admin Pembangunan'), asyncHandler(patchTabunganSetoran));
 router.post('/members/set-active', allowRoles('Admin Pembangunan'), asyncHandler(postTabunganMemberSetActiveHandler));

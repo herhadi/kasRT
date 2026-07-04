@@ -87,8 +87,9 @@ export async function paymentLoanHandler(req, res) {
   return res.json({ success: true, data });
 }
 
-export async function koperasiSummaryHandler(_req, res) {
-  const data = await getKoperasiSummary();
+export async function koperasiSummaryHandler(req, res) {
+  const month = String(req.query.month || '').trim();
+  const data = await getKoperasiSummary(month);
   return res.json({ success: true, data });
 }
 

@@ -17,10 +17,10 @@ import {
 const router = express.Router();
 router.use(auth);
 
-router.get('/summary', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetSummaryHandler));
-router.get('/history', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetHistoryHandler));
-router.get('/tariffs', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetTariffsHandler));
-router.get('/members', allowRoles('Admin Internet', 'Ketua'), asyncHandler(getInternetMembersHandler));
+router.get('/summary', allowRoles('Admin Internet', 'Ketua', 'Sekretaris'), asyncHandler(getInternetSummaryHandler));
+router.get('/history', allowRoles('Admin Internet', 'Ketua', 'Sekretaris'), asyncHandler(getInternetHistoryHandler));
+router.get('/tariffs', allowRoles('Admin Internet', 'Ketua', 'Sekretaris'), asyncHandler(getInternetTariffsHandler));
+router.get('/members', allowRoles('Admin Internet', 'Ketua', 'Sekretaris'), asyncHandler(getInternetMembersHandler));
 router.post('/payment', allowRoles('Admin Internet'), asyncHandler(postInternetPaymentHandler));
 router.patch('/payment', allowRoles('Admin Internet'), asyncHandler(patchInternetPaymentHandler));
 router.post('/expense', allowRoles('Admin Internet'), asyncHandler(postInternetExpenseHandler));

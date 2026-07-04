@@ -16,10 +16,10 @@ import {
 const router = express.Router();
 router.use(auth);
 
-router.get('/summary', allowRoles('Admin Lingkungan', 'Ketua'), asyncHandler(getLingkunganSummaryHandler));
-router.get('/history', allowRoles('Admin Lingkungan', 'Ketua'), asyncHandler(getLingkunganHistoryHandler));
-router.get('/tariffs', allowRoles('Admin Lingkungan', 'Ketua'), asyncHandler(getLingkunganTariffsHandler));
-router.get('/members', allowRoles('Admin Lingkungan', 'Ketua'), asyncHandler(getLingkunganMembersHandler));
+router.get('/summary', allowRoles('Admin Lingkungan', 'Ketua', 'Sekretaris'), asyncHandler(getLingkunganSummaryHandler));
+router.get('/history', allowRoles('Admin Lingkungan', 'Ketua', 'Sekretaris'), asyncHandler(getLingkunganHistoryHandler));
+router.get('/tariffs', allowRoles('Admin Lingkungan', 'Ketua', 'Sekretaris'), asyncHandler(getLingkunganTariffsHandler));
+router.get('/members', allowRoles('Admin Lingkungan', 'Ketua', 'Sekretaris'), asyncHandler(getLingkunganMembersHandler));
 router.post('/payment', allowRoles('Admin Lingkungan'), asyncHandler(postLingkunganPaymentHandler));
 router.patch('/payment', allowRoles('Admin Lingkungan'), asyncHandler(patchLingkunganPaymentHandler));
 router.post('/expense', allowRoles('Admin Lingkungan'), asyncHandler(postLingkunganExpenseHandler));

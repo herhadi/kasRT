@@ -25,7 +25,13 @@ type RekapItem = {
 type KoperasiSummary = {
   kas_saldo: number;
   total_angsuran_masuk: number;
+  pemasukan_bulan?: number;
+  pengeluaran_bulan?: number;
   loans: Array<{ sisa_piutang: number }>;
+};
+type ModuleRecap = {
+  pemasukan_bulan: number;
+  pengeluaran_bulan: number;
 };
 type KasUmumSnapshot = {
   kas_bendahara: number;
@@ -60,6 +66,12 @@ export default function OperasionalSekretarisPage() {
   const [showBendaharaDetail, setShowBendaharaDetail] = useState(false);
   const [koperasi, setKoperasi] = useState<KoperasiSummary | null>(null);
   const [kasUmum, setKasUmum] = useState<KasUmumSnapshot | null>(null);
+  const [moduleRecap, setModuleRecap] = useState<Record<'pembangunan' | 'lingkungan' | 'internet' | 'koperasi', ModuleRecap>>({
+    pembangunan: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+    lingkungan: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+    internet: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+    koperasi: { pemasukan_bulan: 0, pengeluaran_bulan: 0 }
+  });
   const [historyMonth, setHistoryMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -109,33 +121,77 @@ export default function OperasionalSekretarisPage() {
           ),
           apiFetch<{ success: boolean; data: { kas_umum?: KasUmumSnapshot } }>(
             `/report/dashboard?month=${encodeURIComponent(month)}&refresh=1`
+          ),
+          apiFetch<{ success: boolean; data: { pemasukan?: number; pengeluaran?: number } }>(
+            `/internet/summary?month=${encodeURIComponent(month)}`
+          ),
+          apiFetch<{ success: boolean; data: { pemasukan?: number; pengeluaran?: number } }>(
+            `/lingkungan/summary?month=${encodeURIComponent(month)}`
+          ),
+          apiFetch<{ success: boolean; data: Array<{ direction: 'CREDIT' | 'DEBIT'; amount: number }> }>(
+            `/tabungan/history?month=${encodeURIComponent(month)}`
+          ),
+          apiFetch<{ success: boolean; data: KoperasiSummary }>(
+            `/koperasi/summary?month=${encodeURIComponent(month)}`
           )
         ])
-          .then(([rekapRes, dashboardRes]) => {
+          .then(([rekapRes, dashboardRes, internetRes, lingkunganRes, tabunganHistoryRes, koperasiRes]) => {
+            const tabunganRows = tabunganHistoryRes.data || [];
+            const pembangunanPemasukan = tabunganRows
+              .filter((row) => row.direction === 'CREDIT')
+              .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+            const pembangunanPengeluaran = tabunganRows
+              .filter((row) => row.direction === 'DEBIT')
+              .reduce((sum, row) => sum + Number(row.amount || 0), 0);
             setRekap(rekapRes.data || []);
             setKasUmum(dashboardRes.data?.kas_umum || null);
+            setKoperasi(koperasiRes.data || null);
+            setModuleRecap({
+              pembangunan: {
+                pemasukan_bulan: pembangunanPemasukan,
+                pengeluaran_bulan: pembangunanPengeluaran
+              },
+              lingkungan: {
+                pemasukan_bulan: Number(lingkunganRes.data?.pemasukan || 0),
+                pengeluaran_bulan: Number(lingkunganRes.data?.pengeluaran || 0)
+              },
+              internet: {
+                pemasukan_bulan: Number(internetRes.data?.pemasukan || 0),
+                pengeluaran_bulan: Number(internetRes.data?.pengeluaran || 0)
+              },
+              koperasi: {
+                pemasukan_bulan: Number(koperasiRes.data?.pemasukan_bulan || 0),
+                pengeluaran_bulan: Number(koperasiRes.data?.pengeluaran_bulan || 0)
+              }
+            });
           })
           .catch((e) => {
             setRekap([]);
             setKasUmum(null);
+            setKoperasi(null);
+            setModuleRecap({
+              pembangunan: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+              lingkungan: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+              internet: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+              koperasi: { pemasukan_bulan: 0, pengeluaran_bulan: 0 }
+            });
             setError(e instanceof Error ? e.message : 'Gagal memuat rekap keuangan');
           });
       } else {
         setRekap([]);
         setKasUmum(null);
-      }
-
-      if (canReadKoperasiSummary) {
-        await apiFetch<{ success: boolean; data: KoperasiSummary }>('/koperasi/summary')
-          .then((kopRes) => setKoperasi(kopRes.data || null))
-          .catch(() => setKoperasi(null));
-      } else {
         setKoperasi(null);
+        setModuleRecap({
+          pembangunan: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+          lingkungan: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+          internet: { pemasukan_bulan: 0, pengeluaran_bulan: 0 },
+          koperasi: { pemasukan_bulan: 0, pengeluaran_bulan: 0 }
+        });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat data sekretaris');
     }
-  }, [canAccess, canReadFinancialSummary, canReadKoperasiSummary, month]);
+  }, [canAccess, canReadFinancialSummary, month]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -169,33 +225,33 @@ export default function OperasionalSekretarisPage() {
       {
         key: 'pembangunan',
         label: 'Kas Tabungan Pembangunan',
-        pemasukan_bulan: 0,
-        pengeluaran_bulan: 0,
+        pemasukan_bulan: moduleRecap.pembangunan.pemasukan_bulan,
+        pengeluaran_bulan: moduleRecap.pembangunan.pengeluaran_bulan,
         saldo_akhir: Number(kasUmum?.kas_tabungan_pembangunan || 0)
       },
       {
         key: 'lingkungan',
         label: 'Kas Lingkungan',
-        pemasukan_bulan: 0,
-        pengeluaran_bulan: 0,
+        pemasukan_bulan: moduleRecap.lingkungan.pemasukan_bulan,
+        pengeluaran_bulan: moduleRecap.lingkungan.pengeluaran_bulan,
         saldo_akhir: Number(kasUmum?.kas_lingkungan || 0)
       },
       {
         key: 'internet',
         label: 'Kas Internet',
-        pemasukan_bulan: 0,
-        pengeluaran_bulan: 0,
+        pemasukan_bulan: moduleRecap.internet.pemasukan_bulan,
+        pengeluaran_bulan: moduleRecap.internet.pengeluaran_bulan,
         saldo_akhir: Number(kasUmum?.kas_internet || 0)
       },
       {
         key: 'koperasi',
         label: 'Kas Koperasi',
-        pemasukan_bulan: Number(koperasi?.total_angsuran_masuk || 0),
-        pengeluaran_bulan: 0,
+        pemasukan_bulan: moduleRecap.koperasi.pemasukan_bulan,
+        pengeluaran_bulan: moduleRecap.koperasi.pengeluaran_bulan,
         saldo_akhir: Number(kasUmum?.kas_koperasi ?? koperasi?.kas_saldo ?? 0)
       }
     ],
-    [kasUmum, koperasi, rekapGrouped.kasBendahara]
+    [kasUmum, koperasi, moduleRecap, rekapGrouped.kasBendahara]
   );
 
   useEffect(() => {

@@ -459,14 +459,20 @@ export async function findKoperasiLoanOwner(loanId) {
   return result.rows[0] || null;
 }
 
-export async function getKoperasiSummary() {
+export async function getKoperasiSummary(month = null) {
+  const monthKey = typeof month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
+    ? month
+    : new Date().toISOString().slice(0, 7);
   const [agg, loans] = await Promise.all([
     pool.query(
       `SELECT
         COALESCE(SUM(CASE WHEN direction='CREDIT' THEN amount ELSE 0 END),0) -
         COALESCE(SUM(CASE WHEN direction='DEBIT' THEN amount ELSE 0 END),0) AS kas_saldo,
-        COALESCE(SUM(CASE WHEN direction='CREDIT' AND tx_type='INSTALLMENT_PAYMENT' THEN amount ELSE 0 END),0) AS total_angsuran_masuk
-       FROM kop_ledger`
+        COALESCE(SUM(CASE WHEN direction='CREDIT' AND tx_type='INSTALLMENT_PAYMENT' THEN amount ELSE 0 END),0) AS total_angsuran_masuk,
+        COALESCE(SUM(CASE WHEN direction='CREDIT' AND TO_CHAR(tx_date, 'YYYY-MM') = $1 THEN amount ELSE 0 END),0) AS pemasukan_bulan,
+        COALESCE(SUM(CASE WHEN direction='DEBIT' AND TO_CHAR(tx_date, 'YYYY-MM') = $1 THEN amount ELSE 0 END),0) AS pengeluaran_bulan
+       FROM kop_ledger`,
+      [monthKey]
     ),
     pool.query(
       `SELECT l.id, u.nama, l.principal_amount, l.status,
@@ -482,6 +488,8 @@ export async function getKoperasiSummary() {
   return {
     kas_saldo: Number(agg.rows[0]?.kas_saldo || 0),
     total_angsuran_masuk: Number(agg.rows[0]?.total_angsuran_masuk || 0),
+    pemasukan_bulan: Number(agg.rows[0]?.pemasukan_bulan || 0),
+    pengeluaran_bulan: Number(agg.rows[0]?.pengeluaran_bulan || 0),
     loans: loans.rows.map((r) => ({
       ...r,
       principal_amount: Number(r.principal_amount || 0),
