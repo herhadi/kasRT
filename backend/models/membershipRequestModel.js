@@ -9,6 +9,9 @@ const MODULE_LABELS = {
   tabungan: 'Tabungan Pembangunan'
 };
 
+let membershipRequestTablesEnsured = false;
+let membershipRequestTablesEnsurePromise = null;
+
 export function normalizeMembershipModule(moduleKey) {
   const normalized = String(moduleKey || '').trim().toLowerCase();
   if (!MODULES.includes(normalized)) return '';
@@ -29,6 +32,24 @@ export function getMembershipAdminRoles(moduleKey) {
 }
 
 export async function ensureMembershipRequestTables() {
+  if (membershipRequestTablesEnsured) return;
+  if (membershipRequestTablesEnsurePromise) {
+    await membershipRequestTablesEnsurePromise;
+    return;
+  }
+
+  membershipRequestTablesEnsurePromise = ensureMembershipRequestTablesInner()
+    .then(() => {
+      membershipRequestTablesEnsured = true;
+    })
+    .finally(() => {
+      membershipRequestTablesEnsurePromise = null;
+    });
+
+  await membershipRequestTablesEnsurePromise;
+}
+
+async function ensureMembershipRequestTablesInner() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS membership_requests (
       id UUID PRIMARY KEY,
@@ -47,22 +68,32 @@ export async function ensureMembershipRequestTables() {
   await pool.query(`ALTER TABLE membership_requests ADD COLUMN IF NOT EXISTS request_type VARCHAR(20) NOT NULL DEFAULT 'ACTIVATE'`);
   await pool.query(`
     DO $$
+    DECLARE
+      constraint_definition TEXT;
     BEGIN
-      IF EXISTS (
+      SELECT pg_get_constraintdef(c.oid)
+        INTO constraint_definition
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      WHERE t.relname = 'membership_requests'
+        AND c.conname = 'membership_requests_module_key_check';
+
+      IF constraint_definition IS NOT NULL AND constraint_definition NOT ILIKE '%tabungan%' THEN
+        ALTER TABLE membership_requests DROP CONSTRAINT membership_requests_module_key_check;
+      END IF;
+
+      IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint c
         JOIN pg_class t ON t.oid = c.conrelid
         WHERE t.relname = 'membership_requests'
           AND c.conname = 'membership_requests_module_key_check'
       ) THEN
-        ALTER TABLE membership_requests DROP CONSTRAINT membership_requests_module_key_check;
+        ALTER TABLE membership_requests
+          ADD CONSTRAINT membership_requests_module_key_check
+          CHECK (module_key IN ('internet','lingkungan','koperasi','tabungan'));
       END IF;
     END $$;
-  `);
-  await pool.query(`
-    ALTER TABLE membership_requests
-      ADD CONSTRAINT membership_requests_module_key_check
-      CHECK (module_key IN ('internet','lingkungan','koperasi','tabungan'))
   `);
   await pool.query(`
     DO $$
