@@ -3,6 +3,7 @@ import Script from 'next/script';
 import '../styles/globals.css';
 import AuthProvider from '@/components/providers/AuthProvider';
 import PwaRegister from '@/components/pwa/PwaRegister';
+import BottomNav from '@/components/layout/BottomNav';
 
 export const metadata: Metadata = {
   title: 'KasRT 02/04',
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </Script>
       </head>
       <body className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <BottomNav />
+        </AuthProvider>
         <PwaRegister />
       </body>
     </html>

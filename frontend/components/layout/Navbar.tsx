@@ -28,13 +28,13 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
   }, []);
   
   const canSeeApproval = hasAnyRole(user, [
-    'Ketua', 'Sekretaris', 'Bendahara', 'Admin Jimpitan',
+    'Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'Admin Jimpitan',
     'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
     'Admin Internet', 'Admin Koperasi', 'Admin Keamanan', 'root'
   ]);
   const canManageUsers = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
   const canSeeOps = hasAnyRole(user, [
-    'Bendahara', 'Ketua', 'Sekretaris', 'Admin Jimpitan',
+    'Bendahara', 'Ketua', 'Plt Ketua', 'Sekretaris', 'Admin Jimpitan',
     'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
     'Admin Internet', 'Admin Koperasi', 'Admin Keamanan', 'root'
   ]);
@@ -157,7 +157,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
   return (
     <header className={`${sticky ? 'sticky top-0 z-50' : 'relative z-30'} border-b border-[var(--line)] bg-[var(--surface-strong)] shadow-sm backdrop-blur`}>
       <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-0 flex items-center justify-between md:mb-3">
           <div>
             <h1 className="font-[var(--font-space-grotesk)] text-xl font-bold text-[var(--text-primary)]">KasRT</h1>
             <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
@@ -180,7 +180,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
           </div>
         </div>
 
-        <div ref={navScrollerRef} className="w-full overflow-x-auto md:overflow-visible">
+        <div ref={navScrollerRef} className="hidden w-full overflow-x-auto md:block md:overflow-visible">
           <nav className="flex w-full min-w-max items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 md:min-w-0 md:gap-2 md:p-1.5">
             {menus
               .filter(menu => 

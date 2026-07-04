@@ -374,7 +374,7 @@ export default function DashboardPage() {
               </CompactPanel>
             ) : null}
 
-            <Card title="Jadwal Petugas Ronda/Jimpitan" subtitle="Pengambilan jimpitan mulai jam 21:30">
+            <Card title="Jadwal Petugas Ronda/Jimpitan" subtitle="Pengambilan jimpitan mulai jam 21:00">
               <div className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                   <thead>

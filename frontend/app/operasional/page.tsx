@@ -66,6 +66,12 @@ const moduleLinks = [
     title: 'Operasional Keamanan',
     description: 'Laporan kondisi lingkungan, isu keamanan, dan tindak lanjut status.',
     roles: ['Admin Keamanan']
+  },
+  {
+    href: '/management',
+    title: 'Manajemen',
+    description: 'Pengaturan user, struktur, Telegram, aset, dan migrasi data.',
+    roles: ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']
   }
 ];
 
@@ -76,6 +82,7 @@ export default function OperasionalHomePage() {
   const canSeeOps = hasAnyRole(user, [
     'Bendahara',
     'Ketua',
+    'Plt Ketua',
     'Sekretaris',
     'Admin Jimpitan',
     'Admin Pembangunan',
@@ -89,7 +96,11 @@ export default function OperasionalHomePage() {
 
   const isRoot = hasExactRole(user, 'root');
   const isKetua = hasExactRole(user, 'Ketua');
+  const canManageUsers = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
   const ownModule = moduleLinks.find((module) => module.roles.some((role) => hasExactRole(user, role)));
+  const visibleModules = isRoot || isKetua
+    ? moduleLinks
+    : moduleLinks.filter((module) => module.roles.some((role) => hasExactRole(user, role)));
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -97,12 +108,12 @@ export default function OperasionalHomePage() {
 
   useEffect(() => {
     if (loading || !user || !canSeeOps) return;
-    if (!isRoot && !isKetua && ownModule) {
+    if (!isRoot && !isKetua && !canManageUsers && ownModule) {
       router.replace(ownModule.href);
     }
-  }, [loading, user, canSeeOps, isRoot, isKetua, ownModule, router]);
+  }, [loading, user, canSeeOps, isRoot, isKetua, canManageUsers, ownModule, router]);
 
-  if (loading || !user || (!isRoot && !isKetua && ownModule)) return <main className="min-h-screen" />;
+  if (loading || !user || (!isRoot && !isKetua && !canManageUsers && ownModule)) return <main className="min-h-screen" />;
 
   if (!canSeeOps) {
     return (
@@ -123,7 +134,7 @@ export default function OperasionalHomePage() {
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
         <Card title={isRoot ? 'Operasional Root' : 'Operasional Ketua'} subtitle={isRoot ? 'Akses CRUD semua modul' : 'Monitoring lintas modul'}>
           <div className="grid gap-3 md:grid-cols-2">
-            {moduleLinks.map((module) => (
+            {visibleModules.map((module) => (
               <Link key={module.href} href={module.href} className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{module.title}</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">{module.description}</p>
