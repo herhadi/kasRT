@@ -115,8 +115,6 @@ export default function OperasionalHomePage() {
 
   const isRoot = hasExactRole(user, 'root');
   const isKetua = hasExactRole(user, 'Ketua');
-  const canManageUsers = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
-  const ownModule = moduleLinks.find((module) => module.roles.some((role) => hasExactRole(user, role)));
   const visibleModules = isRoot || isKetua
     ? moduleLinks
     : moduleLinks.filter((module) => module.roles.some((role) => hasExactRole(user, role)));
@@ -125,14 +123,7 @@ export default function OperasionalHomePage() {
     if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
 
-  useEffect(() => {
-    if (loading || !user || !canSeeOps) return;
-    if (!isRoot && !isKetua && !canManageUsers && ownModule) {
-      router.replace(ownModule.href);
-    }
-  }, [loading, user, canSeeOps, isRoot, isKetua, canManageUsers, ownModule, router]);
-
-  if (loading || !user || (!isRoot && !isKetua && !canManageUsers && ownModule)) return <main className="min-h-screen" />;
+  if (loading || !user) return <main className="min-h-screen" />;
 
   if (!canSeeOps) {
     return (
@@ -151,7 +142,10 @@ export default function OperasionalHomePage() {
     <main className="min-h-screen pb-10">
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
-        <Card title={isRoot ? 'Operasional Root' : 'Operasional Ketua'} subtitle={isRoot ? 'Akses CRUD semua modul' : 'Monitoring lintas modul'}>
+        <Card
+          title={isRoot ? 'Operasional Root' : isKetua ? 'Operasional Ketua' : 'Operasional'}
+          subtitle={isRoot ? 'Akses CRUD semua modul' : isKetua ? 'Monitoring lintas modul' : 'Pilih menu operasional sesuai akses role'}
+        >
           <div className="grid gap-3 md:grid-cols-2">
             {visibleModules.map((module) => (
               <Link key={module.href} href={module.href} className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-4">

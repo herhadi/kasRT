@@ -34,6 +34,7 @@ export default function BottomNav() {
   const isAdminInternet = hasExactRole(user, 'Admin Internet');
   const isAdminLingkungan = hasExactRole(user, 'Admin Lingkungan');
   const isAdminKoperasi = hasExactRole(user, 'Admin Koperasi');
+  const isAdminPembangunan = hasExactRole(user, 'Admin Pembangunan');
   const isRoot = hasExactRole(user, 'root');
   const canSeeOps = hasAnyRole(user, [
     'Bendahara', 'Ketua', 'Plt Ketua', 'Sekretaris', 'Admin Jimpitan',
@@ -58,7 +59,8 @@ export default function BottomNav() {
         const membershipModules = [
           ...(isAdminInternet || isRoot ? ['internet'] : []),
           ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
-          ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
+          ...(isAdminKoperasi || isRoot ? ['koperasi'] : []),
+          ...(isAdminPembangunan || isRoot ? ['tabungan'] : [])
         ];
         const membershipCounts = await Promise.all(
           membershipModules.map((moduleKey) =>
@@ -76,7 +78,7 @@ export default function BottomNav() {
     void loadPendingCount();
     const interval = window.setInterval(() => void loadPendingCount(), 30000);
     return () => window.clearInterval(interval);
-  }, [canSeeInbox, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isRoot, user]);
+  }, [canSeeInbox, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isAdminPembangunan, isRoot, user]);
 
   const items = useMemo(
     () => [
