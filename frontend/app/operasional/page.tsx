@@ -56,6 +56,25 @@ const moduleLinks = [
     roles: ['Admin Jimpitan']
   },
   {
+    href: '/jimpitan',
+    title: 'Jimpitan',
+    description: 'Input dan pantau jimpitan warga.',
+    roles: [
+      'Ketua',
+      'Plt Ketua',
+      'Sekretaris',
+      'Bendahara',
+      'Admin Jimpitan',
+      'Admin Pembangunan',
+      'Admin Lingkungan',
+      'Admin Sosial',
+      'Admin Internet',
+      'Admin Koperasi',
+      'Admin Keamanan',
+      'root'
+    ]
+  },
+  {
     href: '/operasional/koperasi',
     title: 'Operasional Koperasi',
     description: 'Pinjaman koperasi, simulasi bunga flat/menurun, dan draft pembiayaan.',

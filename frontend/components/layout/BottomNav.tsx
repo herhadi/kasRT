@@ -35,6 +35,11 @@ export default function BottomNav() {
   const isAdminLingkungan = hasExactRole(user, 'Admin Lingkungan');
   const isAdminKoperasi = hasExactRole(user, 'Admin Koperasi');
   const isRoot = hasExactRole(user, 'root');
+  const canSeeOps = hasAnyRole(user, [
+    'Bendahara', 'Ketua', 'Plt Ketua', 'Sekretaris', 'Admin Jimpitan',
+    'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
+    'Admin Internet', 'Admin Koperasi', 'Admin Keamanan', 'root'
+  ]);
   const canSeeInbox = hasAnyRole(user, [
     'Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'Admin Jimpitan',
     'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
@@ -76,11 +81,17 @@ export default function BottomNav() {
   const items = useMemo(
     () => [
       { href: '/dashboard', label: 'Home', icon: 'home' as const, tone: 'blue', active: pathname === '/dashboard' },
-      { href: '/operasional', label: 'Ops', icon: 'ops' as const, tone: 'emerald', active: pathname?.startsWith('/operasional') },
+      {
+        href: canSeeOps ? '/operasional' : '/jimpitan',
+        label: canSeeOps ? 'Ops' : 'Jimpitan',
+        icon: 'ops' as const,
+        tone: 'emerald',
+        active: canSeeOps ? pathname?.startsWith('/operasional') : pathname?.startsWith('/jimpitan')
+      },
       { href: '/approval', label: 'Inbox', icon: 'inbox' as const, tone: 'amber', active: pathname?.startsWith('/approval'), badge: pendingCount },
       { href: '/akun', label: 'Profil', icon: 'profile' as const, tone: 'violet', active: pathname === '/akun' || pathname?.startsWith('/akun/') }
     ],
-    [pathname, pendingCount]
+    [canSeeOps, pathname, pendingCount]
   );
 
   if (!user || pathname === '/login' || pathname === '/akun/ganti-pin' || user.must_change_pin) return null;
