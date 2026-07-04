@@ -66,6 +66,7 @@ export type DashboardWargaData = {
 
 export type MembershipRequestStatus = {
   id: string;
+  request_type?: 'ACTIVATE' | 'DEACTIVATE';
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   note?: string;
   created_at?: string;

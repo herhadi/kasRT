@@ -3,6 +3,7 @@ import Button from '@/components/ui/Button';
 export type MembershipRequestItem = {
   id: string;
   warga_id: string;
+  request_type?: 'ACTIVATE' | 'DEACTIVATE';
   nama: string;
   no_hp?: string | null;
   created_at?: string;
@@ -27,7 +28,7 @@ export default function MembershipRequestPanel({
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-bold text-amber-950">{title}</p>
-          <p className="text-xs text-amber-800">Warga yang meminta diaktifkan sebagai anggota.</p>
+          <p className="text-xs text-amber-800">Warga yang meminta aktivasi atau nonaktif keanggotaan.</p>
         </div>
         <span className="inline-flex w-fit rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-amber-900">
           {requests.length} pending
@@ -42,7 +43,9 @@ export default function MembershipRequestPanel({
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-sm font-bold text-[var(--text-primary)]">{request.nama}</p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">{request.no_hp || '-'}{request.note ? ` • ${request.note}` : ''}</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    {request.no_hp || '-'} • {request.request_type === 'DEACTIVATE' ? 'Ajukan Nonaktif' : 'Minta Aktif'}{request.note ? ` • ${request.note}` : ''}
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:flex">
                   <Button className="w-full sm:w-auto" onClick={() => onApprove(request.id)} disabled={busy}>Approve</Button>

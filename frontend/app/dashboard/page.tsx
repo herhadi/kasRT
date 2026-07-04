@@ -307,7 +307,7 @@ export default function DashboardPage() {
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
                 <Metric title="Iuran Wajib Bulan Ini" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
-                <Metric title="Saldo Tabungan Pribadi" value={formatRupiah(wargaData.tabungan_saldo)} tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'} />
+                <Metric title="Saldo Tabungan Pembangunan" value={formatRupiah(wargaData.tabungan_saldo)} tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'} />
                 {wargaData.internet_is_member ? (
                   <Metric title="Iuran Internet Bulan Ini" value={formatRupiah(wargaData.internet_bulan_ini)} />
                 ) : null}
@@ -324,7 +324,7 @@ export default function DashboardPage() {
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 <Metric title="Kas Bendahara" value={formatRupiah(wargaData.kas_umum.kas_bendahara)} tone={wargaData.kas_umum.kas_bendahara < 0 ? 'danger' : 'accent'} />
                 <Metric title="Kas Sosial" value={formatRupiah(wargaData.kas_umum.kas_sosial)} tone={wargaData.kas_umum.kas_sosial < 0 ? 'danger' : 'accent'} />
-                <Metric title="Kas Tabungan Pembangunan" value={formatRupiah(wargaData.kas_umum.kas_tabungan_pembangunan)} tone={wargaData.kas_umum.kas_tabungan_pembangunan < 0 ? 'danger' : 'accent'} />
+                <Metric title="Kas Tab Pembangunan" value={formatRupiah(wargaData.kas_umum.kas_tabungan_pembangunan)} tone={wargaData.kas_umum.kas_tabungan_pembangunan < 0 ? 'danger' : 'accent'} />
                 <Metric title="Kas Lingkungan" value={formatRupiah(wargaData.kas_umum.kas_lingkungan)} tone={wargaData.kas_umum.kas_lingkungan < 0 ? 'danger' : 'accent'} />
                 <Metric title="Kas Internet" value={formatRupiah(wargaData.kas_umum.kas_internet)} tone={wargaData.kas_umum.kas_internet < 0 ? 'danger' : 'accent'} />
                 <Metric title="Kas Koperasi" value={formatRupiah(wargaData.kas_umum.kas_koperasi)} tone={wargaData.kas_umum.kas_koperasi < 0 ? 'danger' : 'accent'} />
@@ -374,7 +374,7 @@ export default function DashboardPage() {
               </CompactPanel>
             ) : null}
 
-            <Card title="Jadwal Petugas Jimpitan" subtitle="Akses bersama untuk seluruh warga (Ahad - Sabtu)">
+            <Card title="Jadwal Petugas Ronda/Jimpitan" subtitle="Pengambilan jimpitan mulai jam 21:30">
               <div className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                   <thead>

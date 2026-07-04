@@ -26,17 +26,26 @@ export async function createMyMembershipRequestHandler(req, res) {
   const moduleKey = normalizeMembershipModule(req.body.module_key);
   const actor = String(req.user.user_id || '').trim();
   const note = String(req.body.note || '').trim();
+  const requestType = String(req.body.request_type || 'ACTIVATE').trim().toUpperCase();
   if (!moduleKey) return res.status(400).json({ success: false, message: 'module_key invalid' });
-  const data = await createMembershipRequest({ moduleKey, wargaId: actor, requestedBy: actor, note });
+  if (!['ACTIVATE', 'DEACTIVATE'].includes(requestType)) return res.status(400).json({ success: false, message: 'request_type invalid' });
+  const data = await createMembershipRequest({ moduleKey, wargaId: actor, requestedBy: actor, note, requestType });
   const label = getMembershipModuleLabel(moduleKey);
+  const actionLabel = requestType === 'DEACTIVATE' ? 'Nonaktif Keanggotaan' : 'Keanggotaan';
   await notifyRoles(
     getMembershipAdminRoles(moduleKey),
-    `📝 <b>Request Keanggotaan ${label}</b>\n` +
+    `📝 <b>Request ${actionLabel} ${label}</b>\n` +
       `Warga: <b>${req.user.nama || actor}</b>\n` +
       `Status: <b>PENDING</b>\n\n` +
       `Silakan review di menu Approval ${label}.`
   );
-  return res.json({ success: true, data, message: `Permintaan keanggotaan ${label} dikirim ke admin.` });
+  return res.json({
+    success: true,
+    data,
+    message: requestType === 'DEACTIVATE'
+      ? `Permintaan nonaktif ${label} dikirim ke admin.`
+      : `Permintaan keanggotaan ${label} dikirim ke admin.`
+  });
 }
 
 export async function listMembershipRequestsHandler(req, res) {
@@ -65,13 +74,14 @@ export async function reviewMembershipRequestHandler(req, res) {
   const reviewed = await reviewMembershipRequest({ requestId, status, reviewedBy: actor });
   if (!reviewed) return res.status(404).json({ success: false, message: 'Request tidak ditemukan atau sudah diproses' });
 
+  const shouldActivate = reviewed.request_type !== 'DEACTIVATE';
   if (status === 'APPROVED') {
     if (reviewed.module_key === 'internet') {
-      await setInternetMemberActive({ wargaId: reviewed.warga_id, isActive: true, activeFromMonth: currentMonthKey(), updatedBy: actor });
+      await setInternetMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate, activeFromMonth: currentMonthKey(), updatedBy: actor });
     } else if (reviewed.module_key === 'lingkungan') {
-      await setLingkunganMemberActive({ wargaId: reviewed.warga_id, isActive: true, activeFromMonth: currentMonthKey(), updatedBy: actor });
+      await setLingkunganMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate, activeFromMonth: currentMonthKey(), updatedBy: actor });
     } else if (reviewed.module_key === 'koperasi') {
-      await setKoperasiMemberActive({ wargaId: reviewed.warga_id, isActive: true });
+      await setKoperasiMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate });
     }
   }
 
@@ -79,8 +89,12 @@ export async function reviewMembershipRequestHandler(req, res) {
   await notifyUser(
     reviewed.warga_id,
     status === 'APPROVED'
-      ? `✅ Request keanggotaan <b>${label}</b> disetujui.`
-      : `❌ Request keanggotaan <b>${label}</b> ditolak.`
+      ? reviewed.request_type === 'DEACTIVATE'
+        ? `✅ Request nonaktif <b>${label}</b> disetujui.`
+        : `✅ Request keanggotaan <b>${label}</b> disetujui.`
+      : reviewed.request_type === 'DEACTIVATE'
+        ? `❌ Request nonaktif <b>${label}</b> ditolak.`
+        : `❌ Request keanggotaan <b>${label}</b> ditolak.`
   );
 
   return res.json({ success: true, data: reviewed, message: `Request ${label} berhasil diproses.` });

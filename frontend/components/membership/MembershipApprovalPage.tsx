@@ -82,7 +82,7 @@ export default function MembershipApprovalPage({ moduleKey }: { moduleKey: Modul
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
         <Card
           title={`Approval Keanggotaan ${meta.label}`}
-          subtitle="Approve request warga yang ingin diaktifkan sebagai anggota modul ini"
+          subtitle="Approve request warga untuk aktif atau nonaktif dari anggota modul ini"
           headerRight={
             <Button variant="ghost" onClick={() => void loadRequests()} disabled={loadingList || busy}>
               {loadingList ? 'Memuat...' : 'Refresh'}

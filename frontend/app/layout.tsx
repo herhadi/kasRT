@@ -5,8 +5,8 @@ import AuthProvider from '@/components/providers/AuthProvider';
 import PwaRegister from '@/components/pwa/PwaRegister';
 
 export const metadata: Metadata = {
-  title: 'KasRT Modern',
-  description: 'Dashboard kas RT modern berbasis Next.js',
+  title: 'KasRT 02/04',
+  description: 'Dashboard kas RT berbasis Next.js',
   manifest: '/manifest.webmanifest',
   applicationName: 'KasRT02',
   appleWebApp: {

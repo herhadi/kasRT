@@ -26,9 +26,10 @@ type MembershipCard = {
 
 function requestStatusLabel(request?: MembershipRequestStatus | null) {
   if (!request) return 'Belum ada pengajuan';
+  const action = request.request_type === 'DEACTIVATE' ? 'nonaktif' : 'aktif';
   if (request.status === 'PENDING') return 'Menunggu approval';
-  if (request.status === 'APPROVED') return 'Disetujui';
-  if (request.status === 'REJECTED') return 'Ditolak';
+  if (request.status === 'APPROVED') return `Pengajuan ${action} disetujui`;
+  if (request.status === 'REJECTED') return `Pengajuan ${action} ditolak`;
   return 'Dibatalkan';
 }
 
@@ -101,12 +102,12 @@ export default function AkunKeanggotaanPage() {
     ];
   }, [data]);
 
-  async function requestMembership(moduleKey: MembershipModuleKey) {
+  async function requestMembership(moduleKey: MembershipModuleKey, requestType: 'ACTIVATE' | 'DEACTIVATE') {
     try {
       setBusyModule(moduleKey);
       const res = await apiFetch<{ success: boolean; message?: string }>('/membership/request', {
         method: 'POST',
-        body: JSON.stringify({ module_key: moduleKey })
+        body: JSON.stringify({ module_key: moduleKey, request_type: requestType })
       });
       pushToast(res.message || 'Permintaan keanggotaan dikirim.', 'success');
       await loadData();
@@ -146,6 +147,8 @@ export default function AkunKeanggotaanPage() {
             {modules.map((item) => {
               const pending = item.request?.status === 'PENDING';
               const rejected = item.request?.status === 'REJECTED';
+              const pendingDeactivate = pending && item.request?.request_type === 'DEACTIVATE';
+              const pendingActivate = pending && item.request?.request_type !== 'DEACTIVATE';
               return (
                 <article key={item.key} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -166,21 +169,34 @@ export default function AkunKeanggotaanPage() {
                       <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${requestStatusClass(item.request)}`}>
                         {requestStatusLabel(item.request)}
                       </div>
-                      {!item.isMember ? (
+                      {item.isMember ? (
                         <Button
+                          variant="ghost"
                           className="mt-2 w-full"
-                          disabled={busyModule === item.key || pending}
-                          onClick={() => void requestMembership(item.key)}
+                          disabled={busyModule === item.key || pendingDeactivate}
+                          onClick={() => void requestMembership(item.key, 'DEACTIVATE')}
                         >
                           {busyModule === item.key
                             ? 'Mengirim...'
-                            : pending
+                            : pendingDeactivate
+                              ? 'Menunggu Nonaktif'
+                              : 'Ajukan Nonaktif'}
+                        </Button>
+                      ) : (
+                        <Button
+                          className="mt-2 w-full"
+                          disabled={busyModule === item.key || pendingActivate}
+                          onClick={() => void requestMembership(item.key, 'ACTIVATE')}
+                        >
+                          {busyModule === item.key
+                            ? 'Mengirim...'
+                            : pendingActivate
                               ? 'Menunggu Approval'
                               : rejected
                                 ? 'Ajukan Ulang'
                                 : 'Minta Aktif'}
                         </Button>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 </article>

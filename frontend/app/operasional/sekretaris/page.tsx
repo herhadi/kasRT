@@ -14,8 +14,6 @@ import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, normalizeDateInputValue } from '@/lib/helpers';
 import useToast from '@/lib/hooks/useToast';
 import { useAuth } from '@/lib/useAuth';
-import usePagination from '@/lib/hooks/usePagination';
-import PaginationControls from '@/components/pagination/PaginationControls';
 
 type RekapItem = {
   wallet_id: string;
@@ -28,6 +26,13 @@ type KoperasiSummary = {
   kas_saldo: number;
   total_angsuran_masuk: number;
   loans: Array<{ sisa_piutang: number }>;
+};
+type KasUmumSnapshot = {
+  kas_bendahara: number;
+  kas_tabungan_pembangunan: number;
+  kas_lingkungan: number;
+  kas_internet: number;
+  kas_koperasi: number;
 };
 type AttendanceItem = { warga_id: string; nama: string; hadir: boolean };
 type ManagementUserLite = { id: string; nama: string; roles?: string[] };
@@ -54,6 +59,7 @@ export default function OperasionalSekretarisPage() {
   const [saving, setSaving] = useState(false);
   const [showBendaharaDetail, setShowBendaharaDetail] = useState(false);
   const [koperasi, setKoperasi] = useState<KoperasiSummary | null>(null);
+  const [kasUmum, setKasUmum] = useState<KasUmumSnapshot | null>(null);
   const [historyMonth, setHistoryMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -97,16 +103,26 @@ export default function OperasionalSekretarisPage() {
       if (ketua?.nama) setChairName(String(ketua.nama));
 
       if (canReadFinancialSummary) {
-        await apiFetch<{ success: boolean; data: RekapItem[] }>(
-          `/report/rekap-keuangan?month=${encodeURIComponent(month)}`
-        )
-          .then((rekapRes) => setRekap(rekapRes.data || []))
+        await Promise.all([
+          apiFetch<{ success: boolean; data: RekapItem[] }>(
+            `/report/rekap-keuangan?month=${encodeURIComponent(month)}`
+          ),
+          apiFetch<{ success: boolean; data: { kas_umum?: KasUmumSnapshot } }>(
+            `/report/dashboard?month=${encodeURIComponent(month)}&refresh=1`
+          )
+        ])
+          .then(([rekapRes, dashboardRes]) => {
+            setRekap(rekapRes.data || []);
+            setKasUmum(dashboardRes.data?.kas_umum || null);
+          })
           .catch((e) => {
             setRekap([]);
+            setKasUmum(null);
             setError(e instanceof Error ? e.message : 'Gagal memuat rekap keuangan');
           });
       } else {
         setRekap([]);
+        setKasUmum(null);
       }
 
       if (canReadKoperasiSummary) {
@@ -140,7 +156,47 @@ export default function OperasionalSekretarisPage() {
     );
     return { bendaharaDetail, kasBendahara, others };
   }, [rekap]);
-  const rekapPager = usePagination(rekapGrouped.others, 20);
+  const sekretarisSummaryRows = useMemo(
+    () => [
+      {
+        key: 'bendahara',
+        label: 'Kas Bendahara',
+        pemasukan_bulan: rekapGrouped.kasBendahara.pemasukan_bulan,
+        pengeluaran_bulan: rekapGrouped.kasBendahara.pengeluaran_bulan,
+        saldo_akhir: Number(kasUmum?.kas_bendahara ?? rekapGrouped.kasBendahara.saldo_akhir),
+        expandable: true
+      },
+      {
+        key: 'pembangunan',
+        label: 'Kas Tabungan Pembangunan',
+        pemasukan_bulan: 0,
+        pengeluaran_bulan: 0,
+        saldo_akhir: Number(kasUmum?.kas_tabungan_pembangunan || 0)
+      },
+      {
+        key: 'lingkungan',
+        label: 'Kas Lingkungan',
+        pemasukan_bulan: 0,
+        pengeluaran_bulan: 0,
+        saldo_akhir: Number(kasUmum?.kas_lingkungan || 0)
+      },
+      {
+        key: 'internet',
+        label: 'Kas Internet',
+        pemasukan_bulan: 0,
+        pengeluaran_bulan: 0,
+        saldo_akhir: Number(kasUmum?.kas_internet || 0)
+      },
+      {
+        key: 'koperasi',
+        label: 'Kas Koperasi',
+        pemasukan_bulan: Number(koperasi?.total_angsuran_masuk || 0),
+        pengeluaran_bulan: 0,
+        saldo_akhir: Number(kasUmum?.kas_koperasi ?? koperasi?.kas_saldo ?? 0)
+      }
+    ],
+    [kasUmum, koperasi, rekapGrouped.kasBendahara]
+  );
 
   useEffect(() => {
     if (!canAccess) return;
@@ -151,10 +207,6 @@ export default function OperasionalSekretarisPage() {
       .then((res) => setHistoryText(String(res.data?.notes || '')))
       .catch(() => setHistoryText(''));
   }, [canAccess, historyMonth]);
-  useEffect(() => {
-    rekapPager.reset();
-  }, [month, rekapGrouped.others.length]);
-
   async function saveNote() {
     try {
       setSaving(true);
@@ -330,21 +382,25 @@ export default function OperasionalSekretarisPage() {
                 </tr>
               </thead>
               <tbody>
-                {rekap.length === 0 ? (
+                {!kasUmum && rekap.length === 0 ? (
                   <tr className="bg-[var(--surface)]"><td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada data rekap.</td></tr>
                 ) : (
                   <>
-                    <tr className="bg-[var(--surface)]">
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
-                        <button type="button" className="inline-flex items-center gap-2" onClick={() => setShowBendaharaDetail((v) => !v)}>
-                          <span>{showBendaharaDetail ? '▾' : '▸'}</span>
-                          <span>Kas Bendahara</span>
-                        </button>
-                      </td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(rekapGrouped.kasBendahara.pemasukan_bulan)}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(rekapGrouped.kasBendahara.pengeluaran_bulan)}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(rekapGrouped.kasBendahara.saldo_akhir)}</td>
-                    </tr>
+                    {sekretarisSummaryRows.map((r) => (
+                      <tr key={r.key} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                          {r.expandable ? (
+                            <button type="button" className="inline-flex items-center gap-2" onClick={() => setShowBendaharaDetail((v) => !v)}>
+                              <span>{showBendaharaDetail ? '▾' : '▸'}</span>
+                              <span>{r.label}</span>
+                            </button>
+                          ) : r.label}
+                        </td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(r.pemasukan_bulan)}</td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(r.pengeluaran_bulan)}</td>
+                        <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${Number(r.saldo_akhir || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]'}`}>{formatRupiah(r.saldo_akhir)}</td>
+                      </tr>
+                    ))}
                     {showBendaharaDetail
                       ? rekapGrouped.bendaharaDetail.map((r) => (
                           <tr key={r.wallet_id} className="bg-[var(--surface)]">
@@ -355,24 +411,10 @@ export default function OperasionalSekretarisPage() {
                           </tr>
                         ))
                       : null}
-                    {rekapPager.pagedItems.map((r) => (
-                      <tr key={r.wallet_id} className="bg-[var(--surface)]">
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{r.wallet_name}</td>
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-emerald-600">{formatRupiah(r.pemasukan_bulan)}</td>
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-rose-500">{formatRupiah(r.pengeluaran_bulan)}</td>
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(r.saldo_akhir)}</td>
-                      </tr>
-                    ))}
                   </>
                 )}
               </tbody>
             </table>
-            <PaginationControls
-              page={rekapPager.page}
-              totalPages={rekapPager.totalPages}
-              onPrev={rekapPager.prev}
-              onNext={rekapPager.next}
-            />
           </div>
         </Card>
         ) : null}
