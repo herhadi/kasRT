@@ -150,6 +150,16 @@ body {
   padding: 0.42rem;
 }
 
+.pwa-install-banner {
+  bottom: 0.75rem;
+}
+
+@media (max-width: 767px) {
+  .pwa-install-banner {
+    bottom: calc(5.85rem + env(safe-area-inset-bottom));
+  }
+}
+
 .mobile-bottom-nav-item {
   position: relative;
   display: inline-flex;

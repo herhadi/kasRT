@@ -61,7 +61,7 @@ export default function PwaRegister() {
   if (!installPrompt || isStandalone) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-[80] mx-auto max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 shadow-xl backdrop-blur">
+    <div className="pwa-install-banner fixed inset-x-3 z-[95] mx-auto max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 shadow-xl backdrop-blur">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-[var(--text-primary)]">Install KasRT02</p>
