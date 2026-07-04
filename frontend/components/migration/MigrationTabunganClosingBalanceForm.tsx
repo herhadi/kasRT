@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
-import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
+import { formatRupiah } from '@/lib/helpers';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
 
@@ -21,6 +21,24 @@ type Props = {
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
 };
+
+function parseSignedRupiahInput(value: string | number) {
+  const raw = String(value ?? '').trim();
+  const negative = raw.startsWith('-');
+  const digits = raw.replace(/\D+/g, '');
+  if (!digits) return 0;
+  const amount = Number(digits);
+  return negative ? -amount : amount;
+}
+
+function formatSignedRupiahInput(value: string | number) {
+  const raw = String(value ?? '').trim();
+  const negative = raw.startsWith('-');
+  const digits = raw.replace(/\D+/g, '');
+  if (!digits) return negative ? '-' : '';
+  const formatted = new Intl.NumberFormat('id-ID').format(Number(digits));
+  return negative ? `-${formatted}` : formatted;
+}
 
 export default function MigrationTabunganClosingBalanceForm({
   year = 2025,
@@ -75,9 +93,9 @@ export default function MigrationTabunganClosingBalanceForm({
 
   async function saveRow(row: Row) {
     const wargaId = String(row.warga_id || '').trim();
-    const amount = parseRupiahInput(drafts[wargaId] || '0');
+    const amount = parseSignedRupiahInput(drafts[wargaId] || '0');
     if (!wargaId) return onError('Warga tidak valid');
-    if (!Number.isFinite(amount) || amount < 0) return onError('Saldo akhir tidak valid');
+    if (!Number.isFinite(amount)) return onError('Saldo akhir tidak valid');
 
     try {
       onBusyChange(true);
@@ -100,10 +118,10 @@ export default function MigrationTabunganClosingBalanceForm({
       .map((row) => {
         const wargaId = String(row.warga_id || '').trim();
         const current = Number(row[saldoKey] || 0);
-        const draft = parseRupiahInput(drafts[wargaId] || '0');
+        const draft = parseSignedRupiahInput(drafts[wargaId] || '0');
         return { warga_id: wargaId, closing_balance: draft, changed: draft !== current };
       })
-      .filter((row) => row.warga_id && row.changed && Number.isFinite(row.closing_balance) && row.closing_balance >= 0);
+      .filter((row) => row.warga_id && row.changed && Number.isFinite(row.closing_balance));
 
     if (!payload.length) {
       onError('Belum ada perubahan saldo yang valid.');
@@ -131,7 +149,7 @@ export default function MigrationTabunganClosingBalanceForm({
       <div className="rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-3">
         <p className="text-sm font-bold text-[var(--text-primary)]">Saldo Akhir Desember {year} by Name</p>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Isi saldo akhir tiap warga. Sistem menyimpan angka ini sebagai saldo closing Desember {year}, lalu menjadi dasar saldo awal tabungan {year + 1}.
+          Isi saldo akhir tiap warga. Saldo minus diperbolehkan untuk warga yang posisi tabungannya defisit. Sistem menyimpan angka ini sebagai saldo closing Desember {year}, lalu menjadi dasar saldo awal tabungan {year + 1}.
         </p>
       </div>
 
@@ -166,12 +184,12 @@ export default function MigrationTabunganClosingBalanceForm({
               return (
                 <tr key={wargaId} className="bg-[var(--surface)]">
                   <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">{row.nama}</td>
-                  <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-muted)]">{formatRupiah(savedAmount)}</td>
+                  <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm ${savedAmount < 0 ? 'font-semibold text-rose-600' : 'text-[var(--text-muted)]'}`}>{formatRupiah(savedAmount)}</td>
                   <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
                     <input
                       type="text"
-                      inputMode="numeric"
-                      value={formatRupiahInput(drafts[wargaId] || '0')}
+                      inputMode="text"
+                      value={formatSignedRupiahInput(drafts[wargaId] || '0')}
                       onChange={(event) => setDrafts((current) => ({ ...current, [wargaId]: event.target.value }))}
                       className="w-full min-w-[160px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                     />

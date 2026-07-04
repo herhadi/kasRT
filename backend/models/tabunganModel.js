@@ -326,6 +326,36 @@ export async function getTabunganDanaSummary() {
   };
 }
 
+export async function getTabunganOpeningBalances({ year = 2025 } = {}) {
+  await ensureTabunganTables();
+  const tableName = `mig_tabungan_ledger_${Number(year) || 2025}`;
+  const exists = await pool.query(`SELECT to_regclass($1) AS table_name`, [`public.${tableName}`]);
+  if (!exists.rows[0]?.table_name) return [];
+
+  const result = await pool.query(
+    `SELECT
+       m.warga_id::text AS warga_id,
+       u.nama,
+       COALESCE(SUM(m.amount), 0) AS amount,
+       MAX(m.updated_at) AS updated_at
+     FROM ${tableName} m
+     JOIN users u ON u.id = m.warga_id
+     GROUP BY m.warga_id::text, u.nama
+     ORDER BY u.nama ASC`
+  );
+
+  const closingYear = Number(year) || 2025;
+  return result.rows.map((row) => ({
+    id: `${closingYear}-${row.warga_id}`,
+    warga_id: String(row.warga_id),
+    tanggal: row.updated_at || `${closingYear}-12-31`,
+    closing_year: closingYear,
+    opening_year: closingYear + 1,
+    amount: Number(row.amount || 0),
+    description: `Saldo awal migrasi tabungan ${row.nama || row.warga_id} dari Desember ${closingYear}`
+  }));
+}
+
 export async function inputTabunganSetoran({ wargaId, amount, description, createdBy }) {
   const client = await pool.connect();
   try {

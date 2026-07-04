@@ -16,7 +16,7 @@ import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
+import { formatRupiah, formatRupiahInput, formatTanggalDdMmYyyy, parseRupiahInput } from '@/lib/helpers';
 import usePagination from '@/lib/hooks/usePagination';
 
 type TabunganWargaItem = {
@@ -39,6 +39,15 @@ type TabunganHistoryItem = {
   description: string;
   status: string;
   created_at: string;
+};
+
+type TabunganOpeningBalance = {
+  id: string;
+  tanggal: string;
+  closing_year: number;
+  opening_year: number;
+  amount: number;
+  description: string;
 };
 
 function stickyValueClass(value: number) {
@@ -84,6 +93,7 @@ export default function TabunganPage() {
     sisa_kas_kegiatan: 0,
     total_kas_dana: 0
   });
+  const [openingBalances, setOpeningBalances] = useState<TabunganOpeningBalance[]>([]);
   const historyMonthInitializedRef = useRef(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressNextClickRef = useRef(false);
@@ -97,6 +107,7 @@ export default function TabunganPage() {
       total_saldo_warga?: number;
       sisa_kas_kegiatan?: number;
       total_kas_dana?: number;
+      opening_balances?: TabunganOpeningBalance[];
     }>(`/tabungan/summary?month=${encodeURIComponent(historyMonth)}`);
     setRows(result.data || []);
     setMinimumFee(Number(result.minimum_fee || 5000));
@@ -105,6 +116,7 @@ export default function TabunganPage() {
       sisa_kas_kegiatan: Number(result.sisa_kas_kegiatan || 0),
       total_kas_dana: Number(result.total_kas_dana || 0)
     });
+    setOpeningBalances(result.opening_balances || []);
     const latestHistoryMonth = String(result.latest_history_month || '');
     if (!historyMonthInitializedRef.current && /^\d{4}-(0[1-9]|1[0-2])$/.test(latestHistoryMonth)) {
       historyMonthInitializedRef.current = true;
@@ -177,6 +189,7 @@ export default function TabunganPage() {
   const debitRows = useMemo(() => historyRows.filter((r) => r.direction === 'DEBIT'), [historyRows]);
   const historyPager = usePagination(creditRows, HISTORY_PAGE_SIZE);
   const expensePager = usePagination(debitRows, HISTORY_PAGE_SIZE);
+  const openingPager = usePagination(openingBalances, HISTORY_PAGE_SIZE);
   const selectedLive = useMemo(
     () => (selected ? rows.find((r) => String(r.warga_id) === String(selected.warga_id)) || selected : null),
     [rows, selected]
@@ -190,6 +203,9 @@ export default function TabunganPage() {
     historyPager.reset();
     expensePager.reset();
   }, [historyMonth]);
+  useEffect(() => {
+    openingPager.reset();
+  }, [openingBalances.length]);
 
   function clearHoldTimer() {
     if (holdTimerRef.current) {
@@ -645,6 +661,40 @@ export default function TabunganPage() {
                 </table>
               </div>
               <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
+            </Card>
+            <Card title="Saldo Awal Migrasi Tabungan" subtitle="Riwayat saldo awal per warga dari input migrasi, dipisah dari setoran bulanan">
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                  <thead>
+                    <tr className="bg-[var(--surface-strong)]">
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openingPager.pagedItems.length === 0 ? (
+                      <tr className="bg-[var(--surface)]">
+                        <td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada saldo awal migrasi tabungan.</td>
+                      </tr>
+                    ) : openingPager.pagedItems.map((row) => {
+                      const amount = Number(row.amount || 0);
+                      return (
+                        <tr key={row.id} className="bg-[var(--surface)]">
+                          <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{formatTanggalDdMmYyyy(row.tanggal)}</td>
+                          <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.opening_year}</td>
+                          <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.description || '-'}</td>
+                          <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${amount < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                            {formatRupiah(amount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <PaginationControls page={openingPager.page} totalPages={openingPager.totalPages} onPrev={openingPager.prev} onNext={openingPager.next} />
             </Card>
           </>
         ) : null}

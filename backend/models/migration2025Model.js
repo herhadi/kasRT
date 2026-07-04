@@ -649,7 +649,7 @@ export async function upsertTabunganClosingBalanceRows({ rows, actorId, year = 2
     for (const row of rows) {
       const wargaId = String(row.warga_id || '').trim();
       const amount = Number(row.closing_balance ?? row.amount ?? 0);
-      if (!wargaId || !Number.isFinite(amount) || amount < 0) continue;
+      if (!wargaId || !Number.isFinite(amount)) continue;
       await client.query(
         `DELETE FROM mig_tabungan_ledger_${year}
          WHERE warga_id = $1::uuid`,
