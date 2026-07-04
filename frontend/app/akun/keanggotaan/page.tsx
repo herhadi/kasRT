@@ -103,6 +103,14 @@ export default function AkunKeanggotaanPage() {
   }, [data]);
 
   async function requestMembership(moduleKey: MembershipModuleKey, requestType: 'ACTIVATE' | 'DEACTIVATE') {
+    const moduleLabel = modules.find((item) => item.key === moduleKey)?.title || moduleKey;
+    const ok = window.confirm(
+      requestType === 'DEACTIVATE'
+        ? `Ajukan nonaktif keanggotaan ${moduleLabel}? Setelah disetujui admin, modul ini tidak tampil lagi di dashboard Anda.`
+        : `Ajukan aktif keanggotaan ${moduleLabel}? Permintaan akan dikirim ke admin untuk approval.`
+    );
+    if (!ok) return;
+
     try {
       setBusyModule(moduleKey);
       const res = await apiFetch<{ success: boolean; message?: string }>('/membership/request', {
