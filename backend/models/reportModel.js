@@ -3,7 +3,7 @@ import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 import { ensureInternetTables } from './internetModel.js';
 import { ensureLingkunganTables } from './lingkunganModel.js';
 import { ensureKoperasiTables } from './koperasiModel.js';
-import { ensureTabunganTables, getTabunganDanaSummary } from './tabunganModel.js';
+import { ensureTabunganTables, getTabunganDanaSummary, getTabunganMigrationBalanceByWarga } from './tabunganModel.js';
 import { listFinanceWallets } from './bendaharaModel.js';
 
 let reportTablesEnsured = false;
@@ -193,6 +193,7 @@ export async function isKoperasiMember(userId) {
 
 export async function getWargaFinancialSnapshot(userId) {
   await ensureReportTables();
+  const tabunganMigrasi = await getTabunganMigrationBalanceByWarga({ wargaId: userId });
   const result = await pool.query(
     `WITH iuran_target AS (
        SELECT 30000::numeric AS target
@@ -267,12 +268,12 @@ export async function getWargaFinancialSnapshot(userId) {
      SELECT
        GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) AS iuran_tunggakan_bulan_ini,
        CASE WHEN GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) > 0 THEN 1 ELSE 0 END AS iuran_tunggakan_bulan_count,
-       COALESCE((SELECT saldo FROM tabungan LIMIT 1), 0) AS tabungan_saldo,
+       COALESCE((SELECT saldo FROM tabungan LIMIT 1), 0) + $2::numeric AS tabungan_saldo,
        (SELECT total_arrears FROM internet_arrears) AS internet_tunggakan_total,
        (SELECT months_arrears FROM internet_arrears) AS internet_tunggakan_bulan_count,
        (SELECT total_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_total,
        (SELECT months_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_bulan_count`,
-    [userId]
+    [userId, tabunganMigrasi]
   );
   return result.rows[0] || {};
 }

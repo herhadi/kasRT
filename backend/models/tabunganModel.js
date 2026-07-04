@@ -248,6 +248,7 @@ export async function getTabunganMinimumFee(month) {
 
 export async function listTabunganWargaSummary(month = null) {
   await ensureTabunganMembersFromEligible();
+  const migrationBalanceMap = await getTabunganMigrationBalanceByWarga();
   const monthKey = typeof month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
     ? month
     : new Date().toISOString().slice(0, 7);
@@ -280,7 +281,7 @@ export async function listTabunganWargaSummary(month = null) {
   return result.rows.map((r) => ({
     warga_id: String(r.warga_id),
     nama: String(r.nama || ''),
-    total_balance: Number(r.total_balance || 0),
+    total_balance: Number(r.total_balance || 0) + Number(migrationBalanceMap.get(String(r.warga_id)) || 0),
     last_credit: r.last_credit_id
       ? {
         id: String(r.last_credit_id),
@@ -304,21 +305,23 @@ export async function getTabunganCashSummary() {
 
 export async function getTabunganDanaSummary() {
   await ensureTabunganMembersFromEligible();
+  const migrationBalanceMap = await getTabunganMigrationBalanceByWarga();
   const result = await pool.query(
     `SELECT
-       COALESCE((
-         SELECT SUM(COALESCE(sa.total_balance, 0))
-         FROM tab_savings_members sm
-         LEFT JOIN tab_savings_accounts sa ON sa.warga_id = sm.warga_id
-         WHERE sm.is_active = TRUE
-       ), 0) AS total_saldo_warga,
-       COALESCE((
-         SELECT SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE -amount END)
-         FROM tab_cash_posts
-       ), 0) AS sisa_kas_kegiatan`
+       sm.warga_id::text AS warga_id,
+       COALESCE(sa.total_balance, 0) AS total_balance
+     FROM tab_savings_members sm
+     LEFT JOIN tab_savings_accounts sa ON sa.warga_id = sm.warga_id
+     WHERE sm.is_active = TRUE`
   );
-  const totalSaldoWarga = Number(result.rows[0]?.total_saldo_warga || 0);
-  const sisaKasKegiatan = Number(result.rows[0]?.sisa_kas_kegiatan || 0);
+  const cashResult = await pool.query(
+    `SELECT COALESCE(SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE -amount END), 0) AS sisa_kas_kegiatan
+     FROM tab_cash_posts`
+  );
+  const totalMigrasiWarga = result.rows.reduce((sum, row) => sum + Number(migrationBalanceMap.get(String(row.warga_id)) || 0), 0);
+  const totalLiveSaldoWarga = result.rows.reduce((sum, row) => sum + Number(row.total_balance || 0), 0);
+  const totalSaldoWarga = totalLiveSaldoWarga + totalMigrasiWarga;
+  const sisaKasKegiatan = Number(cashResult.rows[0]?.sisa_kas_kegiatan || 0);
   return {
     total_saldo_warga: totalSaldoWarga,
     sisa_kas_kegiatan: sisaKasKegiatan,
@@ -354,6 +357,31 @@ export async function getTabunganOpeningBalances({ year = 2025 } = {}) {
     amount: Number(row.amount || 0),
     description: `Saldo awal migrasi tabungan ${row.nama || row.warga_id} dari Desember ${closingYear}`
   }));
+}
+
+export async function getTabunganMigrationBalanceByWarga({ year = 2025, wargaId = '' } = {}) {
+  await ensureTabunganTables();
+  const tableName = `mig_tabungan_ledger_${Number(year) || 2025}`;
+  const exists = await pool.query(`SELECT to_regclass($1) AS table_name`, [`public.${tableName}`]);
+  if (!exists.rows[0]?.table_name) return wargaId ? 0 : new Map();
+
+  const params = [];
+  let where = '';
+  if (wargaId) {
+    params.push(wargaId);
+    where = 'WHERE warga_id = $1::uuid';
+  }
+
+  const result = await pool.query(
+    `SELECT warga_id::text AS warga_id, COALESCE(SUM(amount), 0) AS amount
+     FROM ${tableName}
+     ${where}
+     GROUP BY warga_id::text`,
+    params
+  );
+
+  if (wargaId) return Number(result.rows[0]?.amount || 0);
+  return new Map(result.rows.map((row) => [String(row.warga_id), Number(row.amount || 0)]));
 }
 
 export async function inputTabunganSetoran({ wargaId, amount, description, createdBy }) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
@@ -37,7 +38,6 @@ export default function DashboardPage() {
   const [savingPin, setSavingPin] = useState(false);
   const [activatingTelegram, setActivatingTelegram] = useState(false);
   const [switchingTelegram, setSwitchingTelegram] = useState(false);
-  const [requestingMembership, setRequestingMembership] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [lingkunganPrevMonthAmount, setLingkunganPrevMonthAmount] = useState(0);
 
@@ -239,23 +239,6 @@ export default function DashboardPage() {
     }
   }
 
-  async function requestMembership(moduleKey: 'internet' | 'lingkungan' | 'koperasi') {
-    try {
-      setRequestingMembership(moduleKey);
-      const res = await apiFetch<{ success: boolean; message?: string; data?: unknown }>('/membership/request', {
-        method: 'POST',
-        body: JSON.stringify({ module_key: moduleKey })
-      });
-      pushToast(res.message || 'Permintaan keanggotaan dikirim.', 'success');
-      const wargaResult = await apiFetch<{ success: boolean; data: DashboardWargaData }>(`/report/dashboard?month=${encodeURIComponent(selectedMonth)}&refresh=1`);
-      setWargaData(wargaResult.data);
-    } catch (e) {
-      pushToast(e instanceof Error ? e.message : 'Gagal mengirim permintaan keanggotaan', 'error');
-    } finally {
-      setRequestingMembership('');
-    }
-  }
-
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={error} />
@@ -325,33 +308,15 @@ export default function DashboardPage() {
                 <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
                 <Metric title="Iuran Wajib Bulan Ini" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
                 <Metric title="Saldo Tabungan Pribadi" value={formatRupiah(wargaData.tabungan_saldo)} tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'} />
-                <MembershipMetric
-                  title="Internet"
-                  isMember={wargaData.internet_is_member}
-                  paidLabel="Iuran Internet Bulan Ini"
-                  paidValue={formatRupiah(wargaData.internet_bulan_ini)}
-                  request={wargaData.internet_membership_request}
-                  busy={requestingMembership === 'internet'}
-                  onRequest={() => void requestMembership('internet')}
-                />
-                <MembershipMetric
-                  title="Lingkungan"
-                  isMember={wargaData.lingkungan_is_member}
-                  paidLabel={`Iuran Lingkungan Periode ${lingkunganPrevPeriod}`}
-                  paidValue={formatRupiah(lingkunganPrevMonthAmount)}
-                  request={wargaData.lingkungan_membership_request}
-                  busy={requestingMembership === 'lingkungan'}
-                  onRequest={() => void requestMembership('lingkungan')}
-                />
-                <MembershipMetric
-                  title="Koperasi"
-                  isMember={wargaData.koperasi_is_member}
-                  paidLabel="Iuran Koperasi Bulan Ini"
-                  paidValue={formatRupiah(wargaData.koperasi_bulan_ini)}
-                  request={wargaData.koperasi_membership_request}
-                  busy={requestingMembership === 'koperasi'}
-                  onRequest={() => void requestMembership('koperasi')}
-                />
+                {wargaData.internet_is_member ? (
+                  <Metric title="Iuran Internet Bulan Ini" value={formatRupiah(wargaData.internet_bulan_ini)} />
+                ) : null}
+                {wargaData.lingkungan_is_member ? (
+                  <Metric title={`Iuran Lingkungan Periode ${lingkunganPrevPeriod}`} value={formatRupiah(lingkunganPrevMonthAmount)} />
+                ) : null}
+                {wargaData.koperasi_is_member ? (
+                  <Metric title="Iuran Koperasi Bulan Ini" value={formatRupiah(wargaData.koperasi_bulan_ini)} />
+                ) : null}
               </section>
             </Card>
 
@@ -517,6 +482,26 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="space-y-2 border-t border-[var(--line)] pt-4">
+                <p className="text-sm font-semibold">Keanggotaan</p>
+                <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">Keanggotaan Saya</p>
+                      <p className="mt-1 text-xs text-[var(--text-muted)]">
+                        Lihat status Internet, Lingkungan, dan Koperasi. Ajukan aktif dari halaman khusus agar dashboard tetap ringkas.
+                      </p>
+                    </div>
+                    <Link
+                      href="/akun/keanggotaan"
+                      className="btn-action-blue inline-flex min-h-[2.5rem] items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold"
+                      onClick={() => setShowSettings(false)}
+                    >
+                      Buka Keanggotaan
+                    </Link>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2 border-t border-[var(--line)] pt-4">
                 <p className="text-sm font-semibold">Ganti PIN</p>
                 <Input
                   label="PIN Lama"
@@ -567,52 +552,6 @@ function Metric({ title, value, tone = 'accent' }: { title: string; value: strin
       <p className="text-xs font-semibold text-[var(--text-muted)]">{title}</p>
       <p className={`metric-value mt-1 text-xl font-bold ${toneClass}`}>{value}</p>
     </article>
-  );
-}
-
-function MembershipMetric({
-  title,
-  isMember,
-  paidLabel,
-  paidValue,
-  request,
-  busy,
-  onRequest
-}: {
-  title: string;
-  isMember: boolean;
-  paidLabel: string;
-  paidValue: string;
-  request?: DashboardWargaData['internet_membership_request'];
-  busy?: boolean;
-  onRequest: () => void;
-}) {
-  if (isMember) {
-    return <Metric title={paidLabel} value={paidValue} />;
-  }
-
-  const pending = request?.status === 'PENDING';
-  const rejected = request?.status === 'REJECTED';
-
-  return (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm">
-      <p className="text-sm font-semibold text-amber-950">{title}</p>
-      <p className="mt-1 text-xs text-amber-800">
-        {pending
-          ? 'Permintaan aktif sudah dikirim dan menunggu approval admin.'
-          : rejected
-            ? 'Permintaan sebelumnya ditolak. Anda bisa mengirim ulang jika masih diperlukan.'
-            : 'Anda belum tercatat sebagai anggota aktif.'}
-      </p>
-      <button
-        type="button"
-        onClick={onRequest}
-        disabled={busy || pending}
-        className="mt-3 inline-flex min-h-[2.5rem] w-full items-center justify-center rounded-xl border border-amber-300 bg-white/80 px-3 py-2 text-xs font-bold text-amber-900 shadow-sm transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {busy ? 'Mengirim...' : pending ? 'Menunggu Approval' : 'Minta Aktif'}
-      </button>
-    </div>
   );
 }
 
