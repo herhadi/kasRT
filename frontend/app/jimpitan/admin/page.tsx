@@ -22,6 +22,12 @@ type ExternalParticipant = {
   keterangan?: string | null;
   is_active: boolean;
 };
+type JimpitanMember = {
+  warga_id: string;
+  nama: string;
+  no_hp?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+};
 type SetorHistoryItem = {
   id: number;
   amount: number;
@@ -48,6 +54,8 @@ export default function JimpitanAdminPage() {
   const [setorHistoryLoading, setSetorHistoryLoading] = useState(false);
   const [setorHistory, setSetorHistory] = useState<SetorHistoryItem[]>([]);
   const [externalParticipants, setExternalParticipants] = useState<ExternalParticipant[]>([]);
+  const [members, setMembers] = useState<JimpitanMember[]>([]);
+  const [memberFilter, setMemberFilter] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [donaturNama, setDonaturNama] = useState('');
   const [donaturNoHp, setDonaturNoHp] = useState('');
   const [donaturKeterangan, setDonaturKeterangan] = useState('');
@@ -91,6 +99,12 @@ export default function JimpitanAdminPage() {
     setExternalParticipants(result.data || []);
   }, [isAdminJimpitan]);
 
+  const loadMembers = useCallback(async () => {
+    if (!isAdminJimpitan) return;
+    const result = await apiFetch<{ success: boolean; data: JimpitanMember[] }>('/jimpitan/members');
+    setMembers(result.data || []);
+  }, [isAdminJimpitan]);
+
   useEffect(() => {
     if (loading) return;
     if (!user) {
@@ -101,16 +115,31 @@ export default function JimpitanAdminPage() {
       router.replace('/jimpitan');
       return;
     }
-    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants()]).catch((error) => {
+    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, pushToast]);
+  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, pushToast]);
 
   const setorHistoryPager = usePagination(setorHistory, 20);
+  const filteredMembers = members.filter((member) => member.status === memberFilter);
 
   useEffect(() => {
     setorHistoryPager.reset();
   }, [setorHistory.length]);
+
+  async function updateMemberStatus(member: JimpitanMember, status: JimpitanMember['status']) {
+    if (member.status === status) return;
+    try {
+      await apiFetch('/jimpitan/members/status', {
+        method: 'POST',
+        body: JSON.stringify({ warga_id: member.warga_id, status })
+      });
+      await loadMembers();
+      pushToast(`Status jimpitan ${member.nama} berhasil diubah.`, 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal mengubah status peserta jimpitan', 'error');
+    }
+  }
 
   async function handleTopup() {
     const wargaId = String(topupWargaId || '').trim();
@@ -244,6 +273,65 @@ export default function JimpitanAdminPage() {
             Kembali ke Input
           </Link>
         </div>
+
+        {isAdminJimpitan ? (
+          <Card title="Pengaturan Warga Jimpitan" subtitle="Atur warga yang wajib ikut jimpitan bulanan. Donatur dikelola pada bagian terpisah.">
+            <div className="mb-3 grid grid-cols-2 gap-2 md:max-w-sm">
+              {(['ACTIVE', 'INACTIVE'] as const).map((status) => {
+                const label = status === 'ACTIVE' ? 'Aktif' : 'Nonaktif';
+                const count = members.filter((member) => member.status === status).length;
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setMemberFilter(status)}
+                    className={`rounded-xl border px-3 py-2 text-xs font-bold ${
+                      memberFilter === status
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                        : 'border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)]'
+                    }`}
+                  >
+                    {label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nama</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.length === 0 ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Tidak ada peserta pada status ini.</td>
+                    </tr>
+                  ) : filteredMembers.map((member) => (
+                    <tr key={member.warga_id} className="bg-[var(--surface)]">
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                        {member.nama}
+                        {member.no_hp ? <span className="block text-xs font-normal text-[var(--text-muted)]">{member.no_hp}</span> : null}
+                      </td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
+                        {member.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+                      </td>
+                      <td className="border-b border-[var(--line)] px-3 py-2">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <button type="button" className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700" onClick={() => void updateMemberStatus(member, 'ACTIVE')}>Aktif</button>
+                          <button type="button" className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700" onClick={() => void updateMemberStatus(member, 'INACTIVE')}>Nonaktif</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : null}
 
         <Card title="Top Up Saldo Warga" subtitle="Kelola top up tanpa mengganggu alur input harian">
           <div className="grid gap-3 md:grid-cols-3">

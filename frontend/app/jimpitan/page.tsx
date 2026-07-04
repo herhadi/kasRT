@@ -209,7 +209,7 @@ export default function JimpitanPage() {
       await apiFetch('/jimpitan/input', {
         method: 'POST',
         body: JSON.stringify(
-          selected.target_type === 'DONATUR'
+          selected.target_type === 'DONATUR' && selected.external_participant_id
             ? { target_type: 'DONATUR', external_participant_id: selected.external_participant_id || String(selected.id).replace(/^DONATUR:/, ''), nominal }
             : { target_type: 'WARGA', warga_id: selected.id, nominal }
         )

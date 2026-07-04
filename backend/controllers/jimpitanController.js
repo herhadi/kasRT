@@ -21,6 +21,7 @@ import {
   isValidJimpitanShiftDay,
   listPetugasByShiftDay,
   listJimpitanByOperationalDate,
+  listJimpitanMembers,
   getJimpitanDailyRecapByMonth,
   listJimpitanWeeklySchedule,
   listJimpitanExternalParticipants,
@@ -28,6 +29,7 @@ import {
   lockDailyJimpitanReminder,
   resetBulananJimpitanSaldo,
   saveJimpitanRouteOrder,
+  setJimpitanMemberStatus,
   setJimpitanExternalParticipantActive,
   topUpJimpitanSaldo,
   updateJimpitanReminderDeliveryLog,
@@ -427,6 +429,29 @@ export async function getJimpitanExternalParticipants(_req, res) {
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getJimpitanMembers(_req, res) {
+  try {
+    const data = await listJimpitanMembers();
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function updateJimpitanMemberStatus(req, res) {
+  const wargaId = String(req.body.warga_id || '').trim();
+  const status = String(req.body.status || '').trim().toUpperCase();
+  const updatedBy = String(req.user.user_id || '').trim();
+  if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
+  if (!['ACTIVE', 'INACTIVE'].includes(status)) return res.status(400).json({ success: false, message: 'status tidak valid' });
+  try {
+    const data = await setJimpitanMemberStatus({ wargaId, status, updatedBy });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
   }
 }
 

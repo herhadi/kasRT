@@ -318,9 +318,10 @@ export async function getTabunganDanaSummary() {
     `SELECT COALESCE(SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE -amount END), 0) AS sisa_kas_kegiatan
      FROM tab_cash_posts`
   );
-  const totalMigrasiWarga = result.rows.reduce((sum, row) => sum + Number(migrationBalanceMap.get(String(row.warga_id)) || 0), 0);
-  const totalLiveSaldoWarga = result.rows.reduce((sum, row) => sum + Number(row.total_balance || 0), 0);
-  const totalSaldoWarga = totalLiveSaldoWarga + totalMigrasiWarga;
+  const totalSaldoWarga = result.rows.reduce((sum, row) => {
+    const saldoWarga = Number(row.total_balance || 0) + Number(migrationBalanceMap.get(String(row.warga_id)) || 0);
+    return sum + Math.max(saldoWarga, 0);
+  }, 0);
   const sisaKasKegiatan = Number(cashResult.rows[0]?.sisa_kas_kegiatan || 0);
   return {
     total_saldo_warga: totalSaldoWarga,

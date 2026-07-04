@@ -9,6 +9,7 @@ import {
   editNominalJimpitan,
   getJimpitanSchedule,
   getJimpitanExternalParticipants,
+  getJimpitanMembers,
   getDailyRecapJimpitan,
   getMyJimpitanRouteOrder,
   getSetorHistoryJimpitanAdmin,
@@ -19,6 +20,7 @@ import {
   saveMyJimpitanRouteOrder,
   sendJimpitanShiftReminder,
   updateJimpitanExternalParticipantStatus,
+  updateJimpitanMemberStatus,
   setPetugasShift,
   setorJimpitan,
   topUpJimpitan
@@ -109,6 +111,21 @@ router.get(
   auth,
   allowRoles('Admin Jimpitan', 'root'),
   asyncHandler(getJimpitanExternalParticipants)
+);
+
+router.get(
+  '/members',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  asyncHandler(getJimpitanMembers)
+);
+
+router.post(
+  '/members/status',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  validateRequiredFields(['warga_id', 'status']),
+  asyncHandler(updateJimpitanMemberStatus)
 );
 
 router.post(

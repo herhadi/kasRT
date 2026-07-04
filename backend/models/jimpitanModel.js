@@ -92,16 +92,93 @@ export async function ensureJimpitanExternalParticipantsTable() {
   `);
 }
 
+export async function ensureJimpitanMembersTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jimpitan_members (
+      warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by UUID REFERENCES users(id)
+    )
+  `);
+  await pool.query(`UPDATE jimpitan_members SET status = 'ACTIVE' WHERE status = 'DONATUR'`);
+  await pool.query(`
+    DO $$
+    DECLARE constraint_name text;
+    BEGIN
+      SELECT c.conname INTO constraint_name
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      WHERE t.relname = 'jimpitan_members'
+        AND c.contype = 'c'
+        AND pg_get_constraintdef(c.oid) LIKE '%status%';
+      IF constraint_name IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE jimpitan_members DROP CONSTRAINT ' || quote_ident(constraint_name);
+      END IF;
+      ALTER TABLE jimpitan_members
+        ADD CONSTRAINT jimpitan_members_status_check CHECK (status IN ('ACTIVE','INACTIVE'));
+    END $$;
+  `);
+}
+
 export async function ensureJimpitanScheduleColumns() {
   await ensureJimpitanShiftDaysTable();
   await ensureJimpitanReminderLogTable();
   await ensureJimpitanRouteOrderTable();
   await ensureJimpitanExternalParticipantsTable();
+  await ensureJimpitanMembersTable();
 
   await pool.query(`
     ALTER TABLE users
       ADD COLUMN IF NOT EXISTS jimpitan_shift_hari SMALLINT
   `);
+}
+
+export async function ensureJimpitanMembersFromEligible() {
+  await ensureJimpitanScheduleColumns();
+  await pool.query(
+    `INSERT INTO jimpitan_members (warga_id, status)
+     SELECT u.id, 'ACTIVE'
+     FROM users u
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
+     ON CONFLICT (warga_id) DO NOTHING`
+  );
+}
+
+export async function listJimpitanMembers() {
+  await ensureJimpitanMembersFromEligible();
+  const result = await pool.query(
+    `SELECT u.id::text AS warga_id, u.nama, u.no_hp, jm.status, jm.updated_at
+     FROM jimpitan_members jm
+     JOIN users u ON u.id = jm.warga_id
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
+     ORDER BY
+       CASE jm.status WHEN 'ACTIVE' THEN 1 ELSE 2 END,
+       u.nama ASC`
+  );
+  return result.rows.map((row) => ({
+    warga_id: String(row.warga_id),
+    nama: String(row.nama || ''),
+    no_hp: row.no_hp || '',
+    status: String(row.status || 'ACTIVE'),
+    updated_at: row.updated_at
+  }));
+}
+
+export async function setJimpitanMemberStatus({ wargaId, status, updatedBy }) {
+  await ensureJimpitanMembersFromEligible();
+  const nextStatus = String(status || '').trim().toUpperCase();
+  if (!['ACTIVE', 'INACTIVE'].includes(nextStatus)) throw new Error('status tidak valid');
+  const result = await pool.query(
+    `INSERT INTO jimpitan_members (warga_id, status, updated_by, updated_at)
+     VALUES ($1::uuid, $2, $3::uuid, NOW())
+     ON CONFLICT (warga_id)
+     DO UPDATE SET status = EXCLUDED.status, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+     RETURNING warga_id::text, status, updated_at`,
+    [wargaId, nextStatus, updatedBy]
+  );
+  return result.rows[0] || null;
 }
 
 export async function getUserJimpitanShiftHari(userId) {
@@ -332,7 +409,7 @@ export async function listWargaTotalsInBatch(batchId) {
 }
 
 export async function listJimpitanByOperationalDate(operationalDate) {
-  await ensureJimpitanScheduleColumns();
+  await ensureJimpitanMembersFromEligible();
   const wargaResult = await pool.query(
     `WITH daily_nominal AS (
        SELECT
@@ -384,8 +461,10 @@ export async function listJimpitanByOperationalDate(operationalDate) {
        COALESCE(dn.nominal_hari_ini, 0) AS nominal_hari_ini,
        p.nama AS petugas,
        dli.detail_status,
-       dli.batch_status
+       dli.batch_status,
+       jm.status AS jimpitan_member_status
      FROM users u
+     JOIN jimpitan_members jm ON jm.warga_id = u.id
      LEFT JOIN daily_nominal dn ON dn.warga_id = u.id
      LEFT JOIN daily_petugas dp ON dp.warga_id = u.id
      LEFT JOIN daily_latest_input dli ON dli.warga_id = u.id
@@ -393,6 +472,7 @@ export async function listJimpitanByOperationalDate(operationalDate) {
      LEFT JOIN monthly_topup mt ON mt.warga_id = u.id
      LEFT JOIN users p ON p.id::text = dp.petugas_id::text
      WHERE ${ELIGIBLE_USERS_CLAUSE}
+       AND jm.status = 'ACTIVE'
      ORDER BY u.nama ASC`,
     [operationalDate]
   );
@@ -456,7 +536,10 @@ export async function listJimpitanByOperationalDate(operationalDate) {
      ORDER BY ep.nama ASC`,
     [operationalDate]
   );
-  return [...wargaResult.rows.map((row) => ({ ...row, target_type: 'WARGA' })), ...externalResult.rows];
+  return [
+    ...wargaResult.rows.map((row) => ({ ...row, target_type: 'WARGA' })),
+    ...externalResult.rows
+  ];
 }
 
 export async function listJimpitanExternalParticipants() {
