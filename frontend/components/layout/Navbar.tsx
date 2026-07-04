@@ -91,7 +91,8 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
         const membershipModules = [
           ...(isAdminInternet || isRoot ? ['internet'] : []),
           ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
-          ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
+          ...(isAdminKoperasi || isRoot ? ['koperasi'] : []),
+          ...(isAdminPembangunan || isRoot ? ['tabungan'] : [])
         ];
         const membershipCounts = await Promise.all(
           membershipModules.map((moduleKey) =>
@@ -107,7 +108,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     const kickoff = window.setTimeout(() => { void loadPendingCount(); }, 0);
     const interval = window.setInterval(() => { void loadPendingCount(); }, 30000);
     return () => { window.clearTimeout(kickoff); window.clearInterval(interval); };
-  }, [canSeeApproval, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isRoot, user]);
+  }, [canSeeApproval, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isAdminPembangunan, isRoot, user]);
 
   useEffect(() => {
     const scroller = navScrollerRef.current;
