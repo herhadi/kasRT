@@ -11,6 +11,7 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { useAuth } from '@/lib/useAuth';
 import { JimpitanScheduleData } from '@/types';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 
 type SecRow = {
   id: string;
@@ -241,8 +242,7 @@ export default function OperasionalKeamananPage() {
           </Card>
         ) : null}
 
-        <Card title="Riwayat Laporan Keamanan" subtitle="Filter per bulan">
-          <div className="mb-3 w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>
+        <Card title="Riwayat Laporan Keamanan" subtitle="Filter per bulan" headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}>
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
               <thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Tanggal</th><th className="px-3 py-2 text-left text-xs">Kategori</th><th className="px-3 py-2 text-left text-xs">Lokasi</th><th className="px-3 py-2 text-left text-xs">Ringkasan</th><th className="px-3 py-2 text-left text-xs">Pelapor</th><th className="px-3 py-2 text-left text-xs">Status</th></tr></thead>

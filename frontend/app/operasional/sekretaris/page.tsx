@@ -14,6 +14,7 @@ import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, normalizeDateInputValue } from '@/lib/helpers';
 import useToast from '@/lib/hooks/useToast';
 import { useAuth } from '@/lib/useAuth';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 
 type RekapItem = {
   wallet_id: string;
@@ -425,7 +426,7 @@ export default function OperasionalSekretarisPage() {
         <Card
           title="Operasional Sekretaris"
           subtitle="Rekap keuangan bulanan dan notulen rapat"
-          headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
+          headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}
         >
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
@@ -543,9 +544,7 @@ export default function OperasionalSekretarisPage() {
           </Link>
         </Card>
         <Card title="Riwayat Notulen" subtitle="Arsip notulen per bulan">
-          <div className="w-full max-w-[220px]">
-            <Input label="Periode Riwayat" type="month" value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)} />
-          </div>
+          <PeriodPickerCompact label="Periode Riwayat" value={historyMonth} onChange={setHistoryMonth} />
           <textarea
             className="mt-3 min-h-[130px] w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--text-primary)]"
             value={historyText}

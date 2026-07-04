@@ -13,6 +13,7 @@ import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 
 type SosialSummary = {
   saldo_total: number;
@@ -139,7 +140,7 @@ export default function SosialPage() {
         <Card
           title="Operasional Sosial"
           subtitle="Ringkasan dan riwayat pengeluaran sosial"
-          headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
+          headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}
         >
           {canSubmit ? (
             <div className="mb-4 grid gap-3 md:grid-cols-4">

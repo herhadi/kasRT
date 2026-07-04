@@ -10,6 +10,7 @@ import FeedbackToast from '@/components/ui/FeedbackToast';
 import ToastStack from '@/components/ui/ToastStack';
 import { apiFetch } from '@/lib/api';
 import useToast from '@/lib/hooks/useToast';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 
 type AttendanceItem = { warga_id: string; nama: string; status: 'HADIR' | 'IJIN' | 'TIDAK_HADIR' };
 
@@ -132,7 +133,7 @@ export default function PresensiSekretarisPage() {
         <Card
           title="Input Presensi Rapat Bulanan"
           subtitle={`Periode ${month}`}
-          headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}
+          headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}
         >
           <div className="mb-3 grid grid-cols-4 gap-2">
             <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Hadir: <b>{attendance.filter((a) => a.status === 'HADIR').length}</b></div>

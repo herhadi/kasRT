@@ -44,8 +44,10 @@ export async function dashboardWarga(req, res) {
   try {
     const cached = refresh ? null : await getCacheJson(cacheKey);
     if (cached) {
+      res.set('X-Cache', 'HIT');
       return res.json(cached);
     }
+    res.set('X-Cache', refresh ? 'BYPASS' : 'MISS');
 
     const jimpitan_hari_ini = await getJimpitanHarianByWarga(user_id);
     const jimpitan_bulan_ini = await getJimpitanBulananByWarga(user_id, monthFilter);
@@ -186,7 +188,8 @@ export async function dashboardWarga(req, res) {
         }
       }
     };
-    await setCacheJson(cacheKey, payload, 60);
+    const cacheSaved = await setCacheJson(cacheKey, payload, 60);
+    res.set('X-Cache-Store', cacheSaved ? 'OK' : 'SKIP');
     return res.json(payload);
   } catch (err) {
     console.error(err);

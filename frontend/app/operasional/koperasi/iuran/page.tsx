@@ -11,6 +11,7 @@ import { apiFetch } from '@/lib/api';
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import WargaContributionSection from '@/components/contribution/WargaContributionSection';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 
 type Row = {
   warga_id: string;
@@ -72,7 +73,7 @@ export default function KoperasiIuranPage() {
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <OperationalSubmenuHeader backHref="/operasional/koperasi" title="Kembali ke Operasional Koperasi" />
-        <Card title="Input Iuran Wajib Koperasi" subtitle="Untuk anggota koperasi aktif" headerRight={<div className="w-full max-w-[220px]"><Input label="Periode" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>}>
+        <Card title="Input Iuran Wajib Koperasi" subtitle="Untuk anggota koperasi aktif" headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}>
           <div className="mb-4 grid gap-3 md:grid-cols-3">
             <Input label="Nominal Iuran Wajib/Bulan" type="text" inputMode="numeric" value={formatRupiahInput(fee)} onChange={(e) => setFee(e.target.value)} />
             <div className="md:col-span-2 flex items-end"><Button onClick={saveFee} disabled={busy}>Simpan Nominal</Button></div>
