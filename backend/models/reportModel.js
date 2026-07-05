@@ -327,14 +327,14 @@ async function getMyTabunganContributionDetail({ userId, untilMonth }) {
     ),
     pool.query(
       `SELECT
-         TO_CHAR(created_at, 'YYYY-MM') AS month_key,
+         month_key,
          COALESCE(SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE 0 END), 0) AS credit,
          COALESCE(SUM(CASE WHEN direction = 'DEBIT' THEN amount ELSE 0 END), 0) AS debit
        FROM tab_ledger
        WHERE warga_id = $1::uuid
          AND status = 'APPROVED'
-         AND created_at < (TO_DATE($2, 'YYYY-MM') + INTERVAL '1 month')
-       GROUP BY TO_CHAR(created_at, 'YYYY-MM')`,
+         AND month_key <= $2
+       GROUP BY month_key`,
       [userId, untilMonth]
     )
   ]);

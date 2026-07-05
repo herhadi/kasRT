@@ -252,6 +252,7 @@ export default function TabunganPage() {
         body: JSON.stringify({
           warga_id: selected.warga_id,
           amount,
+          month_key: historyMonth,
           description: `Setoran tabungan ${formatPeriodLabel(historyMonth)}`
         })
       });
@@ -284,6 +285,7 @@ export default function TabunganPage() {
         body: JSON.stringify({
           ledger_id: ledgerId,
           amount,
+          month_key: historyMonth,
           description: `Koreksi setoran tabungan ${formatPeriodLabel(historyMonth)}`
         })
       });

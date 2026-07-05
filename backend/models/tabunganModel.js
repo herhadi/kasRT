@@ -81,6 +81,7 @@ export async function ensureTabunganTables() {
       tx_type VARCHAR(20) NOT NULL
         CHECK (tx_type IN ('DEPOSIT', 'WITHDRAW', 'ALLOCATE', 'SETTLEMENT', 'ADJUSTMENT')),
       direction VARCHAR(10) NOT NULL CHECK (direction IN ('CREDIT', 'DEBIT')),
+      month_key VARCHAR(7),
       amount NUMERIC(18, 2) NOT NULL CHECK (amount >= 0),
       description TEXT,
       status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
@@ -91,6 +92,30 @@ export async function ensureTabunganTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE tab_ledger ADD COLUMN IF NOT EXISTS month_key VARCHAR(7)`);
+  await pool.query(`
+    UPDATE tab_ledger
+    SET month_key = COALESCE(
+      CASE
+        WHEN LOWER(COALESCE(description, '')) LIKE '%januari 2026%' THEN '2026-01'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%februari 2026%' THEN '2026-02'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%maret 2026%' THEN '2026-03'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%april 2026%' THEN '2026-04'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%mei 2026%' THEN '2026-05'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%juni 2026%' THEN '2026-06'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%juli 2026%' THEN '2026-07'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%agustus 2026%' THEN '2026-08'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%september 2026%' THEN '2026-09'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%oktober 2026%' THEN '2026-10'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%november 2026%' THEN '2026-11'
+        WHEN LOWER(COALESCE(description, '')) LIKE '%desember 2026%' THEN '2026-12'
+        ELSE NULL
+      END,
+      TO_CHAR(created_at, 'YYYY-MM')
+    )
+    WHERE month_key IS NULL
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS tab_ledger_month_warga_idx ON tab_ledger (month_key, warga_id)`);
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS tab_ledger_warga_idx ON tab_ledger (warga_id, created_at DESC)
@@ -270,7 +295,7 @@ export async function listTabunganWargaSummary(month = null) {
        WHERE l.warga_id = u.id
          AND l.direction = 'CREDIT'
          AND l.status = 'APPROVED'
-         AND DATE_TRUNC('month', l.created_at) = DATE_TRUNC('month', TO_DATE($1, 'YYYY-MM'))
+         AND l.month_key = $1
        ORDER BY l.created_at DESC
        LIMIT 1
      ) lp ON TRUE
@@ -409,7 +434,7 @@ export async function getTabunganMigrationBalanceByWarga({ year = 2025, wargaId 
   return new Map(result.rows.map((row) => [String(row.warga_id), Number(row.amount || 0)]));
 }
 
-export async function inputTabunganSetoran({ wargaId, amount, description, createdBy }) {
+export async function inputTabunganSetoran({ wargaId, amount, description, monthKey, createdBy }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -429,9 +454,9 @@ export async function inputTabunganSetoran({ wargaId, amount, description, creat
 
     await client.query(
       `INSERT INTO tab_ledger
-       (id, warga_id, tx_type, direction, amount, description, status, created_by, approved_by, approved_at)
-       VALUES ($1, $2::uuid, 'DEPOSIT', 'CREDIT', $3, $4, 'APPROVED', $5::uuid, $5::uuid, NOW())`,
-      [randomUUID(), wargaId, amount, description, createdBy]
+       (id, warga_id, tx_type, direction, month_key, amount, description, status, created_by, approved_by, approved_at)
+       VALUES ($1, $2::uuid, 'DEPOSIT', 'CREDIT', $3, $4, $5, 'APPROVED', $6::uuid, $6::uuid, NOW())`,
+      [randomUUID(), wargaId, monthKey, amount, description, createdBy]
     );
 
     await client.query(
@@ -464,7 +489,7 @@ export async function inputTabunganSetoran({ wargaId, amount, description, creat
   }
 }
 
-export async function updateTabunganSetoran({ ledgerId, amount, description }) {
+export async function updateTabunganSetoran({ ledgerId, amount, description, monthKey }) {
   await ensureTabunganTables();
   const client = await pool.connect();
   try {
@@ -486,9 +511,10 @@ export async function updateTabunganSetoran({ ledgerId, amount, description }) {
     await client.query(
       `UPDATE tab_ledger
        SET amount = $2,
-           description = COALESCE($3, description)
+           description = COALESCE($3, description),
+           month_key = COALESCE($4, month_key)
        WHERE id = $1::uuid`,
-      [ledgerId, amount, description || null]
+      [ledgerId, amount, description || null, monthKey || null]
     );
     await client.query(
       `UPDATE tab_savings_accounts
@@ -576,9 +602,9 @@ export async function createTabunganEvent({ title, eventDate, totalAmount, perWa
       if (covered > 0) {
         await client.query(
           `INSERT INTO tab_ledger
-           (id, warga_id, event_id, source_allocation_id, tx_type, direction, amount, description, status, created_by, approved_by, approved_at)
-           VALUES ($1, $2::uuid, $3::uuid, $4::uuid, 'ALLOCATE', 'DEBIT', $5, $6, 'APPROVED', $7::uuid, $7::uuid, NOW())`,
-          [randomUUID(), wargaId, eventId, allocationId, covered, `Potongan kegiatan pembangunan: ${title}`, createdBy]
+           (id, warga_id, event_id, source_allocation_id, tx_type, direction, month_key, amount, description, status, created_by, approved_by, approved_at)
+           VALUES ($1, $2::uuid, $3::uuid, $4::uuid, 'ALLOCATE', 'DEBIT', TO_CHAR($5::date, 'YYYY-MM'), $6, $7, 'APPROVED', $8::uuid, $8::uuid, NOW())`,
+          [randomUUID(), wargaId, eventId, allocationId, eventDate, covered, `Potongan kegiatan pembangunan: ${title}`, createdBy]
         );
 
         await client.query(
@@ -667,10 +693,11 @@ export async function listTabunganLedgerByMonth({ month }) {
          l.amount,
          l.description,
          l.status,
-         l.created_at
+         l.created_at,
+         l.month_key
        FROM tab_ledger l
        JOIN users u ON u.id = l.warga_id
-       WHERE DATE_TRUNC('month', l.created_at) = DATE_TRUNC('month', TO_DATE($1, 'YYYY-MM'))
+       WHERE l.month_key = $1
        ORDER BY l.created_at DESC`,
       [month]
     )
@@ -684,10 +711,11 @@ export async function listTabunganLedgerByMonth({ month }) {
          l.amount,
          l.description,
          l.status,
-         l.created_at
+         l.created_at,
+         l.month_key
        FROM tab_ledger l
        JOIN users u ON u.id = l.warga_id
-       WHERE DATE_TRUNC('month', l.created_at) = DATE_TRUNC('month', CURRENT_DATE)
+       WHERE l.month_key = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
        ORDER BY l.created_at DESC`
     );
   return result.rows;
@@ -696,7 +724,7 @@ export async function listTabunganLedgerByMonth({ month }) {
 export async function getLatestTabunganLedgerMonth() {
   await ensureTabunganTables();
   const result = await pool.query(
-    `SELECT TO_CHAR(MAX(created_at), 'YYYY-MM') AS month
+    `SELECT MAX(month_key) AS month
      FROM tab_ledger`
   );
   return String(result.rows[0]?.month || '');

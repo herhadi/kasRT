@@ -48,9 +48,11 @@ export async function inputTabunganWarga(req, res) {
   const wargaId = String(req.body.warga_id || '').trim();
   const amount = Number(req.body.amount || 0);
   const description = String(req.body.description || '').trim();
+  const monthKey = String(req.body.month_key || '').trim();
   const actor = String(req.user.user_id || '').trim();
 
   if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id tidak valid' });
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) return res.status(400).json({ success: false, message: 'month_key tidak valid' });
   const minimumFee = await getTabunganMinimumFee(new Date().toISOString().slice(0, 7));
   if (!Number.isFinite(amount) || amount < minimumFee) {
     return res.status(400).json({ success: false, message: `amount minimal ${minimumFee}` });
@@ -60,7 +62,7 @@ export async function inputTabunganWarga(req, res) {
   }
 
   try {
-    const data = await inputTabunganSetoran({ wargaId, amount, description, createdBy: actor });
+    const data = await inputTabunganSetoran({ wargaId, amount, description, monthKey, createdBy: actor });
     await notifyUser(
       wargaId,
       `✅ <b>Setoran Tabungan Pembangunan Dicatat</b>\n` +
@@ -79,10 +81,12 @@ export async function patchTabunganSetoran(req, res) {
   const ledgerId = String(req.body.ledger_id || '').trim();
   const amount = Number(req.body.amount || 0);
   const description = String(req.body.description || '').trim();
+  const monthKey = String(req.body.month_key || '').trim();
   if (!ledgerId) return res.status(400).json({ success: false, message: 'ledger_id wajib' });
+  if (monthKey && !/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) return res.status(400).json({ success: false, message: 'month_key tidak valid' });
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
   try {
-    const data = await updateTabunganSetoran({ ledgerId, amount, description: description || null });
+    const data = await updateTabunganSetoran({ ledgerId, amount, description: description || null, monthKey: monthKey || null });
     await notifyUser(
       data.warga_id,
       `✏️ <b>Setoran Tabungan Pembangunan Dikoreksi</b>\n` +
