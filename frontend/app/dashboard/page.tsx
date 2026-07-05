@@ -164,21 +164,17 @@ export default function DashboardPage() {
         koperasi: 0
       };
     }
-    const iuranWajibTarget = Number(wargaData.target_iuran_wajib || 0);
     const internetTarget = Number(wargaData.internet_target_bulanan || 0);
     const lingkunganTarget = Number(wargaData.lingkungan_target_bulanan || 0);
-    const koperasiTarget = Number(wargaData.koperasi_loan_monthly_installment || 0);
     return {
-      iuranWajib: Number(wargaData.iuran_wajib_bulan_ini || 0) - iuranWajibTarget,
+      iuranWajib: 0,
       internet: Number(wargaData.internet_tunggakan_total || 0) > 0
         ? -Number(wargaData.internet_tunggakan_total || 0)
         : Number(wargaData.internet_bulan_ini || 0) - internetTarget,
       lingkungan: Number(wargaData.lingkungan_tunggakan_total || 0) > 0
         ? -Number(wargaData.lingkungan_tunggakan_total || 0)
         : Number(wargaData.lingkungan_bulan_ini || 0) - lingkunganTarget,
-      koperasi: koperasiTarget > 0
-        ? Number(wargaData.koperasi_bulan_ini || 0) - koperasiTarget
-        : Number(wargaData.koperasi_bulan_ini || 0)
+      koperasi: 0
     };
   }, [wargaData]);
 
@@ -517,7 +513,7 @@ export default function DashboardPage() {
               </div>
               <button
                 type="button"
-                className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
                 onClick={() => {
                   setDetailData(null);
                   setDetailError('');

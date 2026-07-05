@@ -16,7 +16,7 @@ import type { UserSession } from '@/types';
 
 export default function AkunPage() {
   const router = useRouter();
-  const { user, loading, refreshUser } = useAuth();
+  const { user, loading, refreshUser, logout } = useAuth();
   const { toasts, pushToast } = useToast();
 
   const [profileNama, setProfileNama] = useState('');
@@ -139,6 +139,11 @@ export default function AkunPage() {
     }
   }
 
+  function logoutFromApp() {
+    logout();
+    router.push('/login');
+  }
+
   if (loading || !user) return <main className="min-h-screen" />;
 
   return (
@@ -235,6 +240,17 @@ export default function AkunPage() {
           <Button className="mt-3 w-full md:w-auto" onClick={savePin} disabled={savingPin}>
             {savingPin ? 'Menyimpan...' : 'Simpan PIN'}
           </Button>
+        </Card>
+
+        <Card title="Keluar dari Aplikasi" subtitle="Gunakan tombol ini jika memakai perangkat bersama">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm text-[var(--text-muted)]">
+              Anda akan keluar dari sesi KasRT di perangkat ini.
+            </p>
+            <Button variant="danger" className="w-full md:w-auto" onClick={logoutFromApp}>
+              Keluar
+            </Button>
+          </div>
         </Card>
       </div>
     </main>

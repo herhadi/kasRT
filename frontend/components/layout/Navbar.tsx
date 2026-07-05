@@ -175,7 +175,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
                 <span>{pendingCount} menunggu approval</span>
               </div>
             )}
-            <Button variant="danger" onClick={() => { logout(); router.push('/login'); }}>
+            <Button variant="danger" className="hidden md:inline-flex" onClick={() => { logout(); router.push('/login'); }}>
               Keluar
             </Button>
           </div>
