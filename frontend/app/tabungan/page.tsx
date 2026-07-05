@@ -54,6 +54,15 @@ function stickyValueClass(value: number) {
   return Number(value || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]';
 }
 
+function formatPeriodLabel(monthKey: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) return monthKey;
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString('id-ID', {
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
 export default function TabunganPage() {
   const { user, token, loading: authLoading } = useAuth();
   const pathname = usePathname();
@@ -243,7 +252,7 @@ export default function TabunganPage() {
         body: JSON.stringify({
           warga_id: selected.warga_id,
           amount,
-          description: `Setoran tabungan ${selected.nama}`
+          description: `Setoran tabungan ${formatPeriodLabel(historyMonth)}`
         })
       });
       setSelected(null);
@@ -275,7 +284,7 @@ export default function TabunganPage() {
         body: JSON.stringify({
           ledger_id: ledgerId,
           amount,
-          description: `Koreksi setoran tabungan ${selectedLive?.nama || selected?.nama || ''}`.trim()
+          description: `Koreksi setoran tabungan ${formatPeriodLabel(historyMonth)}`
         })
       });
       setSelected(null);

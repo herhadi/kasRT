@@ -205,6 +205,198 @@ export async function isTabunganMember(userId) {
   return Boolean(result.rows[0]?.is_member);
 }
 
+function normalizeMonthKey(month) {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || '')) ? String(month) : new Date().toISOString().slice(0, 7);
+}
+
+function addMonth(monthKey, delta = 1) {
+  const [year, month] = monthKey.split('-').map(Number);
+  const date = new Date(year, month - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function buildMonthRange(startMonth, endMonth) {
+  const start = normalizeMonthKey(startMonth);
+  const end = normalizeMonthKey(endMonth);
+  const months = [];
+  let current = start;
+  while (current <= end && months.length < 240) {
+    months.push(current);
+    current = addMonth(current, 1);
+  }
+  return months;
+}
+
+export async function getMyContributionDetail({ userId, moduleKey, untilMonth }) {
+  await ensureReportTables();
+  const module = String(moduleKey || '').trim().toLowerCase();
+  const endMonth = normalizeMonthKey(untilMonth);
+  if (module === 'internet') return getMyRecurringContributionDetail({ userId, moduleKey: 'internet', untilMonth: endMonth });
+  if (module === 'lingkungan') return getMyRecurringContributionDetail({ userId, moduleKey: 'lingkungan', untilMonth: endMonth });
+  if (module === 'tabungan') return getMyTabunganContributionDetail({ userId, untilMonth: endMonth });
+  throw new Error('module invalid');
+}
+
+async function getMyRecurringContributionDetail({ userId, moduleKey, untilMonth }) {
+  const isInternet = moduleKey === 'internet';
+  const memberTable = isInternet ? 'inet_members' : 'lh_members';
+  const tariffTable = isInternet ? 'inet_tariffs' : 'lh_tariffs';
+  const paymentTable = isInternet ? 'inet_payments' : 'lh_payments';
+  const label = isInternet ? 'Internet' : 'Lingkungan';
+
+  const memberRes = await pool.query(
+    `SELECT is_active, active_from_month
+     FROM ${memberTable}
+     WHERE warga_id = $1::uuid
+     LIMIT 1`,
+    [userId]
+  );
+  const member = memberRes.rows[0] || {};
+  const startMonth = normalizeMonthKey(member.active_from_month || '2026-01');
+  const months = buildMonthRange(startMonth, untilMonth);
+  const [tariffRes, paymentRes] = await Promise.all([
+    pool.query(
+      `SELECT effective_month, monthly_fee
+       FROM ${tariffTable}
+       WHERE effective_month <= $1
+       ORDER BY effective_month ASC`,
+      [untilMonth]
+    ),
+    pool.query(
+      `SELECT month_key, COALESCE(SUM(amount), 0) AS paid
+       FROM ${paymentTable}
+       WHERE warga_id = $1::uuid
+         AND month_key BETWEEN $2 AND $3
+       GROUP BY month_key`,
+      [userId, startMonth, untilMonth]
+    ),
+  ]);
+
+  const tariffs = tariffRes.rows.map((row) => ({
+    effective_month: String(row.effective_month),
+    monthly_fee: Number(row.monthly_fee || 0)
+  }));
+  const paidMap = new Map(paymentRes.rows.map((row) => [String(row.month_key), Number(row.paid || 0)]));
+  const rows = months.map((month) => {
+    const tariff = [...tariffs].reverse().find((item) => item.effective_month <= month);
+    const target = Number(tariff?.monthly_fee || 0);
+    const paid = Number(paidMap.get(month) || 0);
+    const kurang = Math.max(target - paid, 0);
+    return {
+      kind: 'MONTH',
+      period: month,
+      description: `Iuran ${label} ${month}`,
+      target,
+      paid,
+      debit: 0,
+      credit: paid,
+      balance: paid - target,
+      status: target <= 0 ? 'INFO' : kurang <= 0 ? (paid > target ? 'LEBIH' : 'LUNAS') : 'TUNGGAK',
+      arrears: kurang
+    };
+  });
+
+  return {
+    module_key: moduleKey,
+    label,
+    is_member: Boolean(member.is_active),
+    start_month: startMonth,
+    until_month: untilMonth,
+    opening_rows: [],
+    rows,
+    summary: {
+      total_target: rows.reduce((sum, row) => sum + Number(row.target || 0), 0),
+      total_paid: rows.reduce((sum, row) => sum + Number(row.paid || 0), 0),
+      total_arrears: rows.reduce((sum, row) => sum + Number(row.arrears || 0), 0),
+      arrears_months: rows.filter((row) => row.status === 'TUNGGAK').length
+    }
+  };
+}
+
+async function getMyTabunganContributionDetail({ userId, untilMonth }) {
+  const startMonth = '2026-01';
+  const migrationBalance = await getTabunganMigrationBalanceByWarga({ wargaId: userId });
+  const months = buildMonthRange(startMonth, untilMonth);
+  const [tariffRes, ledgerRes] = await Promise.all([
+    pool.query(
+      `SELECT effective_month, monthly_fee
+       FROM tab_savings_tariffs
+       WHERE effective_month <= $1
+       ORDER BY effective_month ASC`,
+      [untilMonth]
+    ),
+    pool.query(
+      `SELECT
+         TO_CHAR(created_at, 'YYYY-MM') AS month_key,
+         COALESCE(SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE 0 END), 0) AS credit,
+         COALESCE(SUM(CASE WHEN direction = 'DEBIT' THEN amount ELSE 0 END), 0) AS debit
+       FROM tab_ledger
+       WHERE warga_id = $1::uuid
+         AND status = 'APPROVED'
+         AND created_at < (TO_DATE($2, 'YYYY-MM') + INTERVAL '1 month')
+       GROUP BY TO_CHAR(created_at, 'YYYY-MM')`,
+      [userId, untilMonth]
+    )
+  ]);
+  const tariffs = tariffRes.rows.map((row) => ({
+    effective_month: String(row.effective_month),
+    monthly_fee: Number(row.monthly_fee || 0)
+  }));
+  const ledgerMap = new Map(ledgerRes.rows.map((row) => [String(row.month_key), {
+    credit: Number(row.credit || 0),
+    debit: Number(row.debit || 0)
+  }]));
+  let runningBalance = Number(migrationBalance || 0);
+  const rows = months.map((month) => {
+    const tariff = [...tariffs].reverse().find((item) => item.effective_month <= month);
+    const target = Number(tariff?.monthly_fee || 0);
+    const movement = ledgerMap.get(month) || { credit: 0, debit: 0 };
+    runningBalance += Number(movement.credit || 0) - Number(movement.debit || 0);
+    const kurang = Math.max(target - Number(movement.credit || 0), 0);
+    return {
+      kind: 'MONTH',
+      period: month,
+      description: `Tabungan Pembangunan ${month}`,
+      target,
+      paid: Number(movement.credit || 0),
+      debit: Number(movement.debit || 0),
+      credit: Number(movement.credit || 0),
+      balance: runningBalance,
+      status: target <= 0 ? 'INFO' : kurang <= 0 ? (Number(movement.credit || 0) > target ? 'LEBIH' : 'LUNAS') : 'TUNGGAK',
+      arrears: kurang
+    };
+  });
+
+  return {
+    module_key: 'tabungan',
+    label: 'Tabungan Pembangunan',
+    is_member: await isTabunganMember(userId),
+    start_month: startMonth,
+    until_month: untilMonth,
+    opening_rows: [{
+      kind: 'OPENING',
+      period: '2025-12',
+      description: 'Saldo awal migrasi Desember 2025',
+      target: 0,
+      paid: Number(migrationBalance || 0),
+      debit: 0,
+      credit: Number(migrationBalance || 0),
+      balance: Number(migrationBalance || 0),
+      status: 'MIGRASI',
+      arrears: 0
+    }],
+    rows,
+    summary: {
+      total_target: rows.reduce((sum, row) => sum + Number(row.target || 0), 0),
+      total_paid: rows.reduce((sum, row) => sum + Number(row.paid || 0), 0),
+      total_debit: rows.reduce((sum, row) => sum + Number(row.debit || 0), 0),
+      ending_balance: runningBalance,
+      total_arrears: rows.reduce((sum, row) => sum + Number(row.arrears || 0), 0),
+      arrears_months: rows.filter((row) => row.status === 'TUNGGAK').length
+    }
+  };
+}
+
 export async function getWargaFinancialSnapshot(userId) {
   await ensureReportTables();
   const tabunganMigrasi = await getTabunganMigrationBalanceByWarga({ wargaId: userId });

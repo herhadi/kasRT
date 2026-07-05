@@ -14,6 +14,7 @@ import {
   getInternetBulananByWargaByMonthKey,
   getKoperasiBulananByWarga,
   getLingkunganBulananByWargaByMonthKey,
+  getMyContributionDetail,
   getActiveLoanProgressByWarga,
   getJimpitanBulananByWarga,
   getJimpitanHarianByWarga,
@@ -33,6 +34,22 @@ const IURAN_WAJIB_TARGET = 30000;
 const INTERNET_TARGET_BULANAN = 60000;
 const LINGKUNGAN_TARGET_BULANAN = Number(process.env.LINGKUNGAN_TARGET_BULANAN || 60000);
 const PEMBANGUNAN_MINIMAL_BULANAN = 5000;
+
+export async function myContributionDetail(req, res) {
+  try {
+    const moduleKey = String(req.query.module || '').trim().toLowerCase();
+    const month = String(req.query.month || '').trim();
+    const untilMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : new Date().toISOString().slice(0, 7);
+    const data = await getMyContributionDetail({
+      userId: req.user.user_id,
+      moduleKey,
+      untilMonth
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message || 'Gagal memuat detail iuran' });
+  }
+}
 
 export async function dashboardWarga(req, res) {
   const user_id = req.user.user_id;

@@ -67,7 +67,7 @@ export async function inputTabunganWarga(req, res) {
         `Nominal: <b>${formatRupiah(amount)}</b>\n` +
         `Keterangan: ${description}\n` +
         `Saldo saat ini: <b>${formatRupiah(data.total_balance)}</b>\n\n` +
-        `Ketik <b>/cek_tabungan</b> untuk cek saldo terbaru.`
+        `Ketik <b>/cek_tab</b> untuk cek saldo terbaru.`
     );
     return res.json({ success: true, message: 'Setoran tabungan berhasil dicatat' });
   } catch (error) {
@@ -90,7 +90,7 @@ export async function patchTabunganSetoran(req, res) {
         `Nominal baru: <b>${formatRupiah(data.amount)}</b>\n` +
         `Selisih: <b>${formatRupiah(data.delta)}</b>\n` +
         `Saldo saat ini: <b>${formatRupiah(data.total_balance)}</b>\n\n` +
-        `Ketik <b>/cek_tabungan</b> untuk cek saldo terbaru.`
+        `Ketik <b>/cek_tab</b> untuk cek saldo terbaru.`
     );
     return res.json({ success: true, data });
   } catch (error) {

@@ -11,6 +11,7 @@ import {
   dashboardAdminPembangunan,
   rekapKeuanganBulanan,
   dashboardWarga,
+  myContributionDetail,
   laporanBulanan
 } from '../controllers/reportController.js';
 import { asyncHandler } from '../middleware/auth.js';
@@ -27,6 +28,12 @@ router.get(
   '/laporan-bulanan',
   auth,
   asyncHandler(laporanBulanan)
+);
+
+router.get(
+  '/my-contribution-detail',
+  auth,
+  asyncHandler(myContributionDetail)
 );
 
 router.get(

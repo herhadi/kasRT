@@ -19,6 +19,36 @@ import { useAuth } from '@/lib/useAuth';
 import { DashboardWargaData, JimpitanScheduleData, UserSession } from '@/types';
 
 type AdminPanelData = Record<string, number | string>;
+type ContributionDetailModule = 'tabungan' | 'internet' | 'lingkungan';
+type ContributionDetailRow = {
+  kind: 'OPENING' | 'MONTH';
+  period: string;
+  description: string;
+  target: number;
+  paid: number;
+  debit: number;
+  credit: number;
+  balance: number;
+  status: string;
+  arrears: number;
+};
+type ContributionDetailData = {
+  module_key: ContributionDetailModule;
+  label: string;
+  is_member: boolean;
+  start_month: string;
+  until_month: string;
+  opening_rows: ContributionDetailRow[];
+  rows: ContributionDetailRow[];
+  summary: {
+    total_target?: number;
+    total_paid?: number;
+    total_debit?: number;
+    ending_balance?: number;
+    total_arrears?: number;
+    arrears_months?: number;
+  };
+};
 
 export default function DashboardPage() {
   const { user, loading, refreshUser } = useAuth();
@@ -41,6 +71,9 @@ export default function DashboardPage() {
   const [switchingTelegram, setSwitchingTelegram] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [lingkunganPrevMonthAmount, setLingkunganPrevMonthAmount] = useState(0);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailData, setDetailData] = useState<ContributionDetailData | null>(null);
+  const [detailError, setDetailError] = useState('');
 
   const adminEndpoint = useMemo(() => {
     if (!user) return null;
@@ -212,6 +245,22 @@ export default function DashboardPage() {
     }
   }
 
+  async function openContributionDetail(moduleKey: ContributionDetailModule) {
+    try {
+      setDetailLoading(true);
+      setDetailError('');
+      setDetailData(null);
+      const res = await apiFetch<{ success: boolean; data: ContributionDetailData }>(
+        `/report/my-contribution-detail?module=${encodeURIComponent(moduleKey)}&month=${encodeURIComponent(selectedMonth)}`
+      );
+      setDetailData(res.data);
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : 'Gagal memuat detail iuran');
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
   async function refreshTelegramStatus() {
     try {
       const meResult = await apiFetch<{ success: boolean; user: UserSession }>('/auth/me');
@@ -299,12 +348,17 @@ export default function DashboardPage() {
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
                 <Metric title="Iuran Wajib Bulan Ini" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
-                <Metric title="Saldo Tabungan Pembangunan" value={formatRupiah(wargaData.tabungan_saldo)} tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'} />
+                <Metric
+                  title="Saldo Tabungan Pembangunan"
+                  value={formatRupiah(wargaData.tabungan_saldo)}
+                  tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'}
+                  onClick={() => void openContributionDetail('tabungan')}
+                />
                 {wargaData.internet_is_member ? (
-                  <Metric title="Iuran Internet Bulan Ini" value={formatRupiah(wargaData.internet_bulan_ini)} />
+                  <Metric title="Iuran Internet Bulan Ini" value={formatRupiah(wargaData.internet_bulan_ini)} onClick={() => void openContributionDetail('internet')} />
                 ) : null}
                 {wargaData.lingkungan_is_member ? (
-                  <Metric title={`Iuran Lingkungan Periode ${lingkunganPrevPeriod}`} value={formatRupiah(lingkunganPrevMonthAmount)} />
+                  <Metric title={`Iuran Lingkungan Periode ${lingkunganPrevPeriod}`} value={formatRupiah(lingkunganPrevMonthAmount)} onClick={() => void openContributionDetail('lingkungan')} />
                 ) : null}
                 {wargaData.koperasi_is_member ? (
                   <Metric title="Iuran Koperasi Bulan Ini" value={formatRupiah(wargaData.koperasi_bulan_ini)} />
@@ -419,6 +473,42 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {(detailLoading || detailData || detailError) ? (
+        <div className="fixed inset-0 z-[70] flex items-end bg-black/45 p-3 md:items-center md:justify-center">
+          <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Detail Informasi Pribadi</p>
+                <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">
+                  {detailData?.label || 'Memuat detail'}
+                </h2>
+                {detailData ? (
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    Periode {formatMonthKey(detailData.start_month)} sampai {formatMonthKey(detailData.until_month)}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                onClick={() => {
+                  setDetailData(null);
+                  setDetailError('');
+                  setDetailLoading(false);
+                }}
+              >
+                Tutup
+              </button>
+            </div>
+            <div className="max-h-[calc(88vh-5rem)] overflow-y-auto p-4">
+              {detailLoading ? <p className="text-sm text-[var(--text-muted)]">Memuat detail...</p> : null}
+              {detailError ? <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{detailError}</p> : null}
+              {detailData ? <ContributionDetailView data={detailData} /> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showSettings ? (
         <div className="fixed inset-0 z-[80] overflow-y-auto bg-black/75 p-4" onClick={() => setShowSettings(false)}>
           <div
@@ -531,7 +621,7 @@ export default function DashboardPage() {
   );
 }
 
-function Metric({ title, value, tone = 'accent' }: { title: string; value: string; tone?: 'accent' | 'success' | 'danger' }) {
+function Metric({ title, value, tone = 'accent', onClick }: { title: string; value: string; tone?: 'accent' | 'success' | 'danger'; onClick?: () => void }) {
   const toneClass =
     tone === 'danger'
       ? 'text-red-600 dark:text-red-400'
@@ -539,12 +629,114 @@ function Metric({ title, value, tone = 'accent' }: { title: string; value: strin
       ? 'text-emerald-600 dark:text-emerald-400'
       : 'text-[var(--accent)]';
 
-  return (
-    <article className="glass-card rounded-2xl p-4">
-      <p className="text-xs font-semibold text-[var(--text-muted)]">{title}</p>
+  const className = onClick
+    ? 'glass-card group relative overflow-hidden rounded-2xl border border-[var(--accent)]/35 p-4 text-left ring-1 ring-[var(--accent)]/10 transition hover:-translate-y-0.5 hover:border-[var(--accent)]/60 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 active:translate-y-0'
+    : 'glass-card rounded-2xl p-4 text-left';
+  const content = (
+    <>
+      {onClick ? (
+        <span className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/10 text-sm font-bold text-[var(--accent)] transition group-hover:bg-[var(--accent)] group-hover:text-white">
+          ›
+        </span>
+      ) : null}
+      <p className={`text-xs font-semibold text-[var(--text-muted)] ${onClick ? 'pr-8' : ''}`}>{title}</p>
       <p className={`metric-value mt-1 text-xl font-bold ${toneClass}`}>{value}</p>
+      {onClick ? (
+        <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-[var(--accent)]/10 px-2 py-1 text-[11px] font-bold text-[var(--accent)]">
+          Lihat detail
+        </p>
+      ) : null}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" className={className} onClick={onClick}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <article className={className}>
+      {content}
     </article>
   );
+}
+
+function formatMonthKey(monthKey: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(monthKey || ''))) return monthKey || '-';
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+}
+
+function ContributionDetailView({ data }: { data: ContributionDetailData }) {
+  const allRows = [...(data.opening_rows || []), ...(data.rows || [])];
+  const arrearsRows = (data.rows || []).filter((row) => row.status === 'TUNGGAK');
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
+        <Line label="Total Target" value={formatRupiah(Number(data.summary.total_target || 0))} />
+        <Line label="Total Bayar" value={formatRupiah(Number(data.summary.total_paid || 0))} />
+        <Line label="Tunggakan" value={`${Number(data.summary.arrears_months || 0)} bulan`} />
+        <Line label={data.module_key === 'tabungan' ? 'Saldo Akhir' : 'Kurang'} value={formatRupiah(Number(data.module_key === 'tabungan' ? data.summary.ending_balance || 0 : data.summary.total_arrears || 0))} />
+      </div>
+
+      {arrearsRows.length ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+          <p className="font-bold">Periode yang masih tunggak</p>
+          <p className="mt-1 text-xs leading-5">
+            {arrearsRows.map((row) => `${formatMonthKey(row.period)} (${formatRupiah(row.arrears)})`).join(' · ')}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100">
+          Tidak ada periode tunggakan sampai {formatMonthKey(data.until_month)}.
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+          <thead>
+            <tr className="bg-[var(--surface-strong)]">
+              <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
+              <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Target</th>
+              <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Masuk</th>
+              <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keluar</th>
+              <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Kurang/Saldo</th>
+              <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allRows.map((row) => (
+              <tr key={`${row.kind}-${row.period}`} className="bg-[var(--surface)]">
+                <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
+                  <p className="font-semibold text-[var(--text-primary)]">{formatMonthKey(row.period)}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{row.description}</p>
+                </td>
+                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{row.target ? formatRupiah(row.target) : '-'}</td>
+                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{row.credit ? formatRupiah(row.credit) : '-'}</td>
+                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{row.debit ? formatRupiah(row.debit) : '-'}</td>
+                <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${Number(data.module_key === 'tabungan' ? row.balance : row.arrears) < 0 ? 'text-red-600' : ''}`}>
+                  {data.module_key === 'tabungan' ? formatRupiah(row.balance) : row.arrears ? formatRupiah(row.arrears) : '-'}
+                </td>
+                <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold">{formatContributionStatus(row.status)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function formatContributionStatus(status: string) {
+  if (status === 'TUNGGAK') return 'Tunggak';
+  if (status === 'LUNAS') return 'Lunas';
+  if (status === 'LEBIH') return 'Lebih';
+  if (status === 'MIGRASI') return 'Migrasi';
+  return status || '-';
 }
 
 function CompactPanel({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {

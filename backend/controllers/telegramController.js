@@ -39,6 +39,23 @@ async function resolveBotUsername() {
   }
 }
 
+function buildTelegramHelpMessage({ linkedUser = null } = {}) {
+  const greeting = linkedUser
+    ? `Halo <b>${linkedUser.nama}</b>.`
+    : 'Halo. Akun Telegram ini belum terhubung dengan KasRT.';
+
+  return (
+    `${greeting}\n\n` +
+    `📚 <b>Bantuan Command KasRT</b>\n` +
+    `Gunakan command berikut untuk cek informasi pribadi:\n\n` +
+    `• <b>/cek_tab</b> — cek saldo Tabungan Pembangunan\n` +
+    `• <b>/cek_inet</b> — cek status iuran Internet <i>(segera)</i>\n` +
+    `• <b>/cek_ling</b> — cek status iuran Lingkungan <i>(segera)</i>\n` +
+    `• <b>/cek_koperasi</b> — cek informasi Koperasi <i>(segera)</i>\n\n` +
+    `Jika belum terhubung, aktifkan Telegram dari menu Profil/Akun di aplikasi KasRT.`
+  );
+}
+
 export async function telegramWebhook(req, res) {
   const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
   const incomingSecret = req.headers['x-telegram-bot-api-secret-token'];
@@ -68,7 +85,13 @@ export async function telegramWebhook(req, res) {
   const startMatch = text.match(/^\/start(?:@\w+)?(?:\s+(.+))?$/i);
   const command = text.split(/\s+/)[0]?.replace(/@\w+$/i, '').toLowerCase();
 
-  if (['/cek_tabungan', '/cek_tab', '/tabungan'].includes(command)) {
+  if (command === '/help') {
+    const userByChatId = await findUserByTelegramChatId(chatId);
+    await sendTelegramMessage(chatId, buildTelegramHelpMessage({ linkedUser: userByChatId }));
+    return res.json({ ok: true, status: 'help_sent' });
+  }
+
+  if (command === '/cek_tab') {
     const userByChatId = await findUserByTelegramChatId(chatId);
     if (!userByChatId) {
       await sendTelegramMessage(
@@ -82,12 +105,20 @@ export async function telegramWebhook(req, res) {
     await sendTelegramMessage(
       chatId,
       `📘 <b>Saldo Tabungan Pembangunan</b>\n` +
-        `Nama: <b>${userByChatId.nama}</b>\n` +
-        `Status anggota: <b>${balance.is_active ? 'Aktif' : 'Nonaktif'}</b>\n` +
+      `Nama: <b>${userByChatId.nama}</b>\n` +
+      `Status anggota: <b>${balance.is_active ? 'Aktif' : 'Nonaktif'}</b>\n` +
         `Saldo saat ini: <b>${formatRupiah(balance.total_balance)}</b>\n\n` +
-        `Saldo ini sudah termasuk saldo awal migrasi jika ada.`
+        `Gunakan <b>/cek_tab</b> kapan saja untuk mengecek saldo terbaru.`
     );
     return res.json({ ok: true, status: 'tabungan_balance_sent' });
+  }
+
+  if (command?.startsWith('/') && command !== '/start') {
+    await sendTelegramMessage(
+      chatId,
+      `Command <b>${command}</b> belum tersedia.\n\nKetik <b>/help</b> untuk melihat daftar command yang bisa digunakan.`
+    );
+    return res.json({ ok: true, status: 'unknown_command' });
   }
 
   if (!startMatch) {
