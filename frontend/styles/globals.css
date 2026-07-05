@@ -154,9 +154,34 @@ body {
   bottom: 0.75rem;
 }
 
+.dashboard-detail-modal {
+  bottom: 0;
+  align-items: flex-end;
+}
+
+.dashboard-detail-modal > div {
+  max-height: calc(88vh - env(safe-area-inset-bottom));
+}
+
+.dashboard-detail-modal-body {
+  max-height: calc(88vh - 5rem - env(safe-area-inset-bottom));
+}
+
 @media (max-width: 767px) {
   .pwa-install-banner {
     bottom: calc(5.85rem + env(safe-area-inset-bottom));
+  }
+
+  .dashboard-detail-modal {
+    bottom: calc(5.85rem + env(safe-area-inset-bottom));
+  }
+
+  .dashboard-detail-modal > div {
+    max-height: calc(100vh - 6.75rem - env(safe-area-inset-bottom));
+  }
+
+  .dashboard-detail-modal-body {
+    max-height: calc(100vh - 11.75rem - env(safe-area-inset-bottom));
   }
 }
 

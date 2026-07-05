@@ -474,8 +474,8 @@ export default function DashboardPage() {
       </div>
 
       {(detailLoading || detailData || detailError) ? (
-        <div className="fixed inset-0 z-[70] flex items-end bg-black/45 p-3 md:items-center md:justify-center">
-          <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-2xl">
+        <div className="dashboard-detail-modal fixed inset-x-0 top-0 z-[70] flex bg-black/45 p-3 md:inset-0 md:items-center md:justify-center">
+          <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Detail Informasi Pribadi</p>
@@ -500,7 +500,7 @@ export default function DashboardPage() {
                 Tutup
               </button>
             </div>
-            <div className="max-h-[calc(88vh-5rem)] overflow-y-auto p-4">
+            <div className="dashboard-detail-modal-body overflow-y-auto p-4">
               {detailLoading ? <p className="text-sm text-[var(--text-muted)]">Memuat detail...</p> : null}
               {detailError ? <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{detailError}</p> : null}
               {detailData ? <ContributionDetailView data={detailData} /> : null}
@@ -672,18 +672,19 @@ function formatMonthKey(monthKey: string) {
 
 function ContributionDetailView({ data }: { data: ContributionDetailData }) {
   const allRows = [...(data.opening_rows || []), ...(data.rows || [])];
+  const isTabungan = data.module_key === 'tabungan';
   const arrearsRows = (data.rows || []).filter((row) => row.status === 'TUNGGAK');
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
-        <Line label="Total Target" value={formatRupiah(Number(data.summary.total_target || 0))} />
-        <Line label="Total Bayar" value={formatRupiah(Number(data.summary.total_paid || 0))} />
-        <Line label="Tunggakan" value={`${Number(data.summary.arrears_months || 0)} bulan`} />
-        <Line label={data.module_key === 'tabungan' ? 'Saldo Akhir' : 'Kurang'} value={formatRupiah(Number(data.module_key === 'tabungan' ? data.summary.ending_balance || 0 : data.summary.total_arrears || 0))} />
-      </div>
-
-      {arrearsRows.length ? (
+      {isTabungan ? (
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--text-primary)]">
+          <p className="font-bold">Ringkasan Tabungan</p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            Total setoran {formatRupiah(Number(data.summary.total_paid || 0))} · Saldo akhir {formatRupiah(Number(data.summary.ending_balance || 0))}
+          </p>
+        </div>
+      ) : arrearsRows.length ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
           <p className="font-bold">Periode yang masih tunggak</p>
           <p className="mt-1 text-xs leading-5">
@@ -703,25 +704,18 @@ function ContributionDetailView({ data }: { data: ContributionDetailData }) {
               <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
               <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Target</th>
               <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Masuk</th>
-              <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keluar</th>
-              <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Kurang/Saldo</th>
               <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status</th>
             </tr>
           </thead>
           <tbody>
             {allRows.map((row) => (
               <tr key={`${row.kind}-${row.period}`} className="bg-[var(--surface)]">
-                <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
-                  <p className="font-semibold text-[var(--text-primary)]">{formatMonthKey(row.period)}</p>
-                  <p className="text-xs text-[var(--text-muted)]">{row.description}</p>
-                </td>
+                <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">{formatMonthKey(row.period)}</td>
                 <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{row.target ? formatRupiah(row.target) : '-'}</td>
                 <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{row.credit ? formatRupiah(row.credit) : '-'}</td>
-                <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{row.debit ? formatRupiah(row.debit) : '-'}</td>
-                <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${Number(data.module_key === 'tabungan' ? row.balance : row.arrears) < 0 ? 'text-red-600' : ''}`}>
-                  {data.module_key === 'tabungan' ? formatRupiah(row.balance) : row.arrears ? formatRupiah(row.arrears) : '-'}
+                <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold">
+                  {isTabungan && row.kind === 'OPENING' ? 'Saldo awal' : formatContributionStatus(row.status, isTabungan)}
                 </td>
-                <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold">{formatContributionStatus(row.status)}</td>
               </tr>
             ))}
           </tbody>
@@ -731,7 +725,12 @@ function ContributionDetailView({ data }: { data: ContributionDetailData }) {
   );
 }
 
-function formatContributionStatus(status: string) {
+function formatContributionStatus(status: string, isTabungan = false) {
+  if (isTabungan) {
+    if (status === 'BELUM_SETOR' || status === 'TUNGGAK') return 'Belum setor';
+    if (status === 'LUNAS') return 'Sudah setor';
+    if (status === 'LEBIH') return 'Setoran lebih';
+  }
   if (status === 'TUNGGAK') return 'Tunggak';
   if (status === 'LUNAS') return 'Lunas';
   if (status === 'LEBIH') return 'Lebih';

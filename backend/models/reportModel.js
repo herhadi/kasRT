@@ -352,18 +352,18 @@ async function getMyTabunganContributionDetail({ userId, untilMonth }) {
     const target = Number(tariff?.monthly_fee || 0);
     const movement = ledgerMap.get(month) || { credit: 0, debit: 0 };
     runningBalance += Number(movement.credit || 0) - Number(movement.debit || 0);
-    const kurang = Math.max(target - Number(movement.credit || 0), 0);
+    const credit = Number(movement.credit || 0);
     return {
       kind: 'MONTH',
       period: month,
       description: `Tabungan Pembangunan ${month}`,
       target,
-      paid: Number(movement.credit || 0),
+      paid: credit,
       debit: Number(movement.debit || 0),
-      credit: Number(movement.credit || 0),
+      credit,
       balance: runningBalance,
-      status: target <= 0 ? 'INFO' : kurang <= 0 ? (Number(movement.credit || 0) > target ? 'LEBIH' : 'LUNAS') : 'TUNGGAK',
-      arrears: kurang
+      status: credit <= 0 ? 'BELUM_SETOR' : target > 0 && credit > target ? 'LEBIH' : 'LUNAS',
+      arrears: 0
     };
   });
 
@@ -391,8 +391,8 @@ async function getMyTabunganContributionDetail({ userId, untilMonth }) {
       total_paid: rows.reduce((sum, row) => sum + Number(row.paid || 0), 0),
       total_debit: rows.reduce((sum, row) => sum + Number(row.debit || 0), 0),
       ending_balance: runningBalance,
-      total_arrears: rows.reduce((sum, row) => sum + Number(row.arrears || 0), 0),
-      arrears_months: rows.filter((row) => row.status === 'TUNGGAK').length
+      total_arrears: 0,
+      arrears_months: 0
     }
   };
 }
