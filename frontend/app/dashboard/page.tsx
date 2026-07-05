@@ -70,7 +70,6 @@ export default function DashboardPage() {
   const [activatingTelegram, setActivatingTelegram] = useState(false);
   const [switchingTelegram, setSwitchingTelegram] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [lingkunganPrevMonthAmount, setLingkunganPrevMonthAmount] = useState(0);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailData, setDetailData] = useState<ContributionDetailData | null>(null);
   const [detailError, setDetailError] = useState('');
@@ -127,7 +126,6 @@ export default function DashboardPage() {
         refreshUser(meResult.user);
         setWargaData(wargaResult.data);
         setScheduleData(scheduleResult.data);
-        setLingkunganPrevMonthAmount(0);
 
         if (adminEndpoint) {
           const adminResult = await apiFetch<{ success: boolean; data: AdminPanelData }>(adminEndpoint);
@@ -136,15 +134,6 @@ export default function DashboardPage() {
           setAdminData(null);
         }
 
-        if (wargaResult.data?.lingkungan_is_member) {
-          const [y, m] = selectedMonth.split('-').map(Number);
-          const prevDate = new Date(y, (m || 1) - 2, 1);
-          const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-          const prevMonthResult = await apiFetch<{ success: boolean; data: DashboardWargaData }>(
-            `/report/dashboard?month=${encodeURIComponent(prevMonth)}`
-          );
-          setLingkunganPrevMonthAmount(Number(prevMonthResult?.data?.lingkungan_bulan_ini || 0));
-        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Gagal memuat dashboard');
       }
@@ -162,16 +151,36 @@ export default function DashboardPage() {
     }));
   }, [scheduleData]);
 
-  const lingkunganPrevPeriod = useMemo(() => {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const prevDate = new Date(y, (m || 1) - 2, 1);
-    return `${prevDate.getFullYear()}${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-  }, [selectedMonth]);
-
   const optionalRows = useMemo(
     () => (wargaData?.optional_contributions || []).filter((item) => item.is_mandatory === false && Number(item.amount || 0) > 0),
     [wargaData]
   );
+  const personalObligations = useMemo(() => {
+    if (!wargaData) {
+      return {
+        iuranWajib: 0,
+        internet: 0,
+        lingkungan: 0,
+        koperasi: 0
+      };
+    }
+    const iuranWajibTarget = Number(wargaData.target_iuran_wajib || 0);
+    const internetTarget = Number(wargaData.internet_target_bulanan || 0);
+    const lingkunganTarget = Number(wargaData.lingkungan_target_bulanan || 0);
+    const koperasiTarget = Number(wargaData.koperasi_loan_monthly_installment || 0);
+    return {
+      iuranWajib: Number(wargaData.iuran_wajib_bulan_ini || 0) - iuranWajibTarget,
+      internet: Number(wargaData.internet_tunggakan_total || 0) > 0
+        ? -Number(wargaData.internet_tunggakan_total || 0)
+        : Number(wargaData.internet_bulan_ini || 0) - internetTarget,
+      lingkungan: Number(wargaData.lingkungan_tunggakan_total || 0) > 0
+        ? -Number(wargaData.lingkungan_tunggakan_total || 0)
+        : Number(wargaData.lingkungan_bulan_ini || 0) - lingkunganTarget,
+      koperasi: koperasiTarget > 0
+        ? Number(wargaData.koperasi_bulan_ini || 0) - koperasiTarget
+        : Number(wargaData.koperasi_bulan_ini || 0)
+    };
+  }, [wargaData]);
 
   if (loading || !user) return <main className="min-h-screen" />;
 
@@ -347,7 +356,11 @@ export default function DashboardPage() {
             >
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
-                <Metric title="Iuran Wajib Bulan Ini" value={formatRupiah(wargaData.iuran_wajib_bulan_ini)} />
+                <Metric
+                  title="Kewajiban Iuran Wajib"
+                  value={formatRupiah(personalObligations.iuranWajib)}
+                  tone={personalObligations.iuranWajib < 0 ? 'danger' : 'accent'}
+                />
                 <Metric
                   title="Saldo Tabungan Pembangunan"
                   value={formatRupiah(wargaData.tabungan_saldo)}
@@ -355,13 +368,27 @@ export default function DashboardPage() {
                   onClick={() => void openContributionDetail('tabungan')}
                 />
                 {wargaData.internet_is_member ? (
-                  <Metric title="Iuran Internet Bulan Ini" value={formatRupiah(wargaData.internet_bulan_ini)} onClick={() => void openContributionDetail('internet')} />
+                  <Metric
+                    title="Kewajiban Internet"
+                    value={formatRupiah(personalObligations.internet)}
+                    tone={personalObligations.internet < 0 ? 'danger' : 'accent'}
+                    onClick={() => void openContributionDetail('internet')}
+                  />
                 ) : null}
                 {wargaData.lingkungan_is_member ? (
-                  <Metric title={`Iuran Lingkungan Periode ${lingkunganPrevPeriod}`} value={formatRupiah(lingkunganPrevMonthAmount)} onClick={() => void openContributionDetail('lingkungan')} />
+                  <Metric
+                    title="Kewajiban Lingkungan"
+                    value={formatRupiah(personalObligations.lingkungan)}
+                    tone={personalObligations.lingkungan < 0 ? 'danger' : 'accent'}
+                    onClick={() => void openContributionDetail('lingkungan')}
+                  />
                 ) : null}
                 {wargaData.koperasi_is_member ? (
-                  <Metric title="Iuran Koperasi Bulan Ini" value={formatRupiah(wargaData.koperasi_bulan_ini)} />
+                  <Metric
+                    title="Kewajiban Koperasi"
+                    value={formatRupiah(personalObligations.koperasi)}
+                    tone={personalObligations.koperasi < 0 ? 'danger' : 'accent'}
+                  />
                 ) : null}
               </section>
             </Card>
