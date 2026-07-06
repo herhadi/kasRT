@@ -239,6 +239,39 @@ export default function UserManagementPage() {
       <FeedbackToast error={error} message={message} />
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+        <Card title="Edit Warga" subtitle="Perbarui data warga, dan reset PIN ke default bila diperlukan">
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="space-y-2 text-sm font-semibold">
+              <span>Nama Warga</span>
+              <select
+                className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--text-primary)]"
+                value={selectedUserId}
+                onChange={(event) => setSelectedUserId(event.target.value)}
+              >
+                {wargaOptions.map((row) => (
+                  <option key={String(row.id)} value={String(row.id)}>
+                    {row.nama} ({row.no_hp || '-'})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Input label="Nomor HP" value={editNoHp} onChange={(e) => setEditNoHp(e.target.value)} />
+            <div className="flex items-end">
+              <Button className="w-full" onClick={saveWargaEdit} disabled={savingEditUser || !selectedUserId}>
+                {savingEditUser ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </Button>
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button variant="ghost" className="w-full md:w-auto" onClick={resetPinDefault} disabled={resettingPin || !selectedUserId}>
+              {resettingPin ? 'Reset PIN...' : 'Reset PIN ke Default'}
+            </Button>
+          </div>
+          <p className="mt-3 text-xs text-[var(--text-muted)]">
+            Reset PIN akan mengatur PIN ke default `1234` dan user wajib ganti PIN saat login berikutnya.
+          </p>
+        </Card>
+
         <Card title="Manajemen Warga" subtitle="Tambah warga baru dan tunjuk role admin sesuai kebutuhan">
           <div className="grid gap-3 md:grid-cols-4">
             <Input label="Nama Warga" value={newNama} onChange={(e) => setNewNama(e.target.value)} placeholder="Nama lengkap" />
@@ -333,39 +366,7 @@ export default function UserManagementPage() {
               </tbody>
             </table>
           </div>
-        </Card>
-        <Card title="Edit Warga" subtitle="Perbarui data warga, dan reset PIN ke default bila diperlukan">
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="space-y-2 text-sm font-semibold">
-              <span>Nama Warga</span>
-              <select
-                className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--text-primary)]"
-                value={selectedUserId}
-                onChange={(event) => setSelectedUserId(event.target.value)}
-              >
-                {wargaOptions.map((row) => (
-                  <option key={String(row.id)} value={String(row.id)}>
-                    {row.nama} ({row.no_hp || '-'})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Input label="Nomor HP" value={editNoHp} onChange={(e) => setEditNoHp(e.target.value)} />
-            <div className="flex items-end">
-              <Button className="w-full" onClick={saveWargaEdit} disabled={savingEditUser || !selectedUserId}>
-                {savingEditUser ? 'Menyimpan...' : 'Simpan Perubahan'}
-              </Button>
-            </div>
-          </div>
-          <div className="mt-3 flex justify-end">
-            <Button variant="ghost" className="w-full md:w-auto" onClick={resetPinDefault} disabled={resettingPin || !selectedUserId}>
-              {resettingPin ? 'Reset PIN...' : 'Reset PIN ke Default'}
-            </Button>
-          </div>
-          <p className="mt-3 text-xs text-[var(--text-muted)]">
-            Reset PIN akan mengatur PIN ke default `1234` dan user wajib ganti PIN saat login berikutnya.
-          </p>
-        </Card>
+        </Card>        
       </div>
     </main>
   );
