@@ -210,10 +210,10 @@ export default function JimpitanAdminPage() {
         method: 'POST',
         body: JSON.stringify({ warga_id: wargaId, nominal, month_key: topupPeriod })
       });
+      const wargaName = wargaOptions.find((row) => String(row.id) === wargaId)?.nama || 'warga';
       setTopupNominal('');
-      await loadWargaOptions();
-      await loadTopupHistory();
-      pushToast('Top up saldo berhasil.', 'success');
+      pushToast(`Top up ${wargaName} ${formatRupiah(nominal)} periode ${topupPeriod} berhasil.`, 'success');
+      await Promise.allSettled([loadWargaOptions(), loadTopupHistory()]);
     } catch (error) {
       pushToast(error instanceof Error ? error.message : 'Top up gagal', 'error');
     } finally {
