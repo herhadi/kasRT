@@ -31,7 +31,7 @@ export default function WargaContributionModal({
   loading: boolean;
   showManual?: boolean;
   onClose: () => void;
-  onSubmit: (amount: number) => Promise<void>;
+  onSubmit: (amount: number) => Promise<void> | void;
 }) {
   const [manual, setManual] = useState('');
   const [mounted, setMounted] = useState(false);

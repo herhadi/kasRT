@@ -194,6 +194,7 @@ export default function BendaharaPage() {
   }>(null);
   const speechBaseTextRef = useRef('');
   const speechPressedRef = useRef(false);
+  const iuranSyncRef = useRef<Promise<void>>(Promise.resolve());
   const iuranPageMode = pathname === '/operasional/iuran' || pathname === '/operasional/bendahara/iuran';
   const bendaharaMode = pathname === '/operasional/bendahara' || pathname === '/operasional' || pathname === '/bendahara';
   const sekretarisMode = pathname === '/operasional/sekretaris';
@@ -595,58 +596,49 @@ export default function BendaharaPage() {
     void loadMeetingHistory();
   }, [isSekretaris, loadMeetingHistory]);
 
-  async function submitSetorIuran(amountInput: number): Promise<boolean> {
+  function submitSetorIuran(amountInput: number): boolean {
     const amount = Number(amountInput || 0);
-    console.info('[BENDAHARA][IURAN] submit:start', {
-      warga_id: selectedWarga,
-      amount,
-      month: selectedMonth
-    });
     if (!selectedWarga || !Number.isFinite(amount) || amount <= 0) {
-      console.warn('[BENDAHARA][IURAN] submit:invalid-payload', {
-        warga_id: selectedWarga,
-        amount
-      });
       setError('Pilih warga dan isi nominal setoran iuran yang valid.');
       return false;
     }
-    try {
-      setBusy(true);
-      setError('');
-      setMessage('');
-      await apiFetch('/bendahara/setor-iuran-wajib', {
+    const wargaId = selectedWarga;
+    const monthKey = selectedMonth;
+    setError('');
+    setMessage('Setoran iuran disimpan lokal. Menyinkronkan di latar belakang…');
+    setIuranStatus((prev) => {
+      const idx = prev.findIndex((r) => String(r.warga_id) === String(wargaId));
+      if (idx < 0) {
+        const wargaNama = warga.find((w) => String(w.id) === String(wargaId))?.nama || 'Warga';
+        return [...prev, { warga_id: String(wargaId), nama: wargaNama, paid_amount: amount }];
+      }
+      const next = [...prev];
+      next[idx] = { ...next[idx], paid_amount: Number(next[idx].paid_amount || 0) + amount };
+      return next;
+    });
+    setToast({ type: 'success', text: 'Setoran iuran disimpan lokal.' });
+
+    iuranSyncRef.current = iuranSyncRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await apiFetch('/bendahara/setor-iuran-wajib', {
         method: 'POST',
         body: JSON.stringify({
-          warga_id: selectedWarga,
+          warga_id: wargaId,
           amount,
-          tanggal: `${selectedMonth}-01`
+          tanggal: `${monthKey}-01`
         })
       });
-      console.info('[BENDAHARA][IURAN] submit:api-ok');
-      setIuranStatus((prev) => {
-        const idx = prev.findIndex((r) => String(r.warga_id) === String(selectedWarga));
-        if (idx < 0) {
-          const wargaNama = warga.find((w) => String(w.id) === String(selectedWarga))?.nama || 'Warga';
-          return [...prev, { warga_id: String(selectedWarga), nama: wargaNama, paid_amount: amount }];
-        }
-        const next = [...prev];
-        next[idx] = { ...next[idx], paid_amount: Number(next[idx].paid_amount || 0) + amount };
-        return next;
+        setMessage('Setoran iuran wajib berhasil disinkronkan.');
+        setToast({ type: 'success', text: 'Setoran iuran berhasil disinkronkan.' });
+        void Promise.all([loadReport(), loadMaster()]).catch(() => undefined);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Gagal menyinkronkan setoran iuran wajib');
+        setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal menyinkronkan setoran iuran wajib' });
+        void Promise.all([loadReport(), loadMaster()]).catch(() => undefined);
       });
-      setMessage('Setoran iuran wajib berhasil dicatat.');
-      setToast({ type: 'success', text: 'Setoran iuran berhasil dicatat.' });
-      await loadReport();
-      await loadMaster();
-      console.info('[BENDAHARA][IURAN] submit:done');
-      return true;
-    } catch (e) {
-      console.error('[BENDAHARA][IURAN] submit:error', e);
-      setError(e instanceof Error ? e.message : 'Gagal menyimpan setoran iuran wajib');
-      setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal menyimpan setoran iuran wajib' });
-      return false;
-    } finally {
-      setBusy(false);
-    }
+    return true;
   }
 
   async function submitIuranTariff() {
@@ -910,8 +902,8 @@ export default function BendaharaPage() {
                 setSelectedWargaCard(row);
               }}
               onClose={() => setSelectedWargaCard(null)}
-              onSubmit={async (amount) => {
-                const ok = await submitSetorIuran(amount);
+              onSubmit={(amount) => {
+                const ok = submitSetorIuran(amount);
                 if (ok) setSelectedWargaCard(null);
               }}
             />
@@ -1282,8 +1274,8 @@ export default function BendaharaPage() {
                       setSelectedWargaCard(row);
                     }}
                     onClose={() => setSelectedWargaCard(null)}
-                    onSubmit={async (amount) => {
-                      const ok = await submitSetorIuran(amount);
+                    onSubmit={(amount) => {
+                      const ok = submitSetorIuran(amount);
                       if (ok) setSelectedWargaCard(null);
                     }}
                   />

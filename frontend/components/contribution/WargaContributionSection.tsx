@@ -13,7 +13,7 @@ type Props = {
   onOpen: (row: WargaContributionRow) => void;
   onEdit?: (row: WargaContributionRow) => void;
   onClose: () => void;
-  onSubmit: (amount: number) => Promise<void>;
+  onSubmit: (amount: number) => Promise<void> | void;
 };
 
 export default function WargaContributionSection({

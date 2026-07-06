@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
@@ -31,6 +31,7 @@ export default function KoperasiIuranPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const paymentSyncRef = useRef<Promise<void>>(Promise.resolve());
 
   async function load() {
     const res = await apiFetch<{ success: boolean; data: { monthly_fee: number; rows: Row[] } }>(`/koperasi/iuran/summary?month=${month}`);
@@ -86,33 +87,51 @@ export default function KoperasiIuranPage() {
             presets={selectedDetail ? [{ label: `Simpan ${formatRupiah(Math.max(0, Number(selectedDetail.target_amount || 0) - Number(selectedDetail.paid_amount || 0)))}`, amount: Math.max(0, Number(selectedDetail.target_amount || 0) - Number(selectedDetail.paid_amount || 0)) }] : []}
             onOpen={setSelected}
             onClose={() => setSelected(null)}
-            onSubmit={async (amount) => {
+            onSubmit={(amount) => {
               const row = rows.find((r) => String(r.warga_id) === String(selected?.id));
               if (!row) throw new Error('Data warga tidak ditemukan.');
               const dueNow = Math.max(0, Number(row.target_amount || 0) - Number(row.paid_amount || 0));
               if (dueNow <= 0) throw new Error('Iuran bulan ini sudah lunas.');
-              if (row.loan_id) {
-                await apiFetch('/koperasi/loan/payment', {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    loan_id: String(row.loan_id),
-                    amount: dueNow,
-                    paid_date: `${month}-01`,
-                    description: `Iuran wajib koperasi ${month}`
-                  })
-                });
-              } else {
-                await apiFetch('/koperasi/iuran/payment', {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    warga_id: String(row.warga_id),
-                    amount: dueNow,
-                    paid_date: `${month}-01`
-                  })
-                });
-              }
+              const targetRow = row;
+              const payMonth = month;
+              setError('');
+              setMessage('Iuran koperasi disimpan lokal. Menyinkronkan di latar belakang…');
               setSelected(null);
-              await load();
+              setRows((current) => current.map((item) => (
+                String(item.warga_id) === String(targetRow.warga_id)
+                  ? { ...item, paid_amount: Number(item.paid_amount || 0) + dueNow, arrears: Math.max(Number(item.target_amount || 0) - (Number(item.paid_amount || 0) + dueNow), 0) }
+                  : item
+              )));
+              paymentSyncRef.current = paymentSyncRef.current
+                .catch(() => undefined)
+                .then(async () => {
+                  if (targetRow.loan_id) {
+                    await apiFetch('/koperasi/loan/payment', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        loan_id: String(targetRow.loan_id),
+                        amount: dueNow,
+                        paid_date: `${payMonth}-01`,
+                        description: `Iuran wajib koperasi ${payMonth}`
+                      })
+                    });
+                  } else {
+                    await apiFetch('/koperasi/iuran/payment', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        warga_id: String(targetRow.warga_id),
+                        amount: dueNow,
+                        paid_date: `${payMonth}-01`
+                      })
+                    });
+                  }
+                  setMessage('Iuran koperasi berhasil disinkronkan.');
+                  void load().catch(() => undefined);
+                })
+                .catch((e) => {
+                  setError(e instanceof Error ? e.message : 'Gagal menyinkronkan iuran koperasi');
+                  void load().catch(() => undefined);
+                });
             }}
           />
         </Card>

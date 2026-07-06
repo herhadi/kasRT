@@ -106,6 +106,7 @@ export default function TabunganPage() {
   const historyMonthInitializedRef = useRef(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressNextClickRef = useRef(false);
+  const setoranSyncRef = useRef<Promise<void>>(Promise.resolve());
 
   const loadSummary = useCallback(async () => {
     const result = await apiFetch<{
@@ -234,37 +235,63 @@ export default function TabunganPage() {
     }, CONTRIBUTION_EDIT_HOLD_MS);
   }
 
-  async function submitSetoran(amount: number) {
+  function submitSetoran(amount: number) {
     if (!selected || !user || !token) return;
     if (!Number.isFinite(amount) || amount < minimumFee) {
       setError(`Nominal minimal ${formatRupiah(minimumFee)}`);
       return;
     }
-    try {
-      setBusy(true);
-      setError('');
-      setMessage('');
-      await apiFetch('/tabungan/setor', {
+    const target = selected;
+    const monthKey = historyMonth;
+    const description = `Setoran tabungan ${formatPeriodLabel(monthKey)}`;
+    setError('');
+    setMessage('Setoran disimpan lokal. Menyinkronkan di latar belakang…');
+    setSelected(null);
+    setEditContributionMode(false);
+    setRows((current) => current.map((row) => (
+      row.warga_id === target.warga_id
+        ? { ...row, total_balance: Number(row.total_balance || 0) + amount, last_credit: { id: `local-${Date.now()}`, amount, description, created_at: new Date().toISOString() } }
+        : row
+    )));
+    setTabunganTotals((current) => ({
+      ...current,
+      total_saldo_warga: Number(current.total_saldo_warga || 0) + amount,
+      total_kas_dana: Number(current.total_kas_dana || 0) + amount
+    }));
+    setHistoryRows((current) => [{
+      id: `local-${Date.now()}`,
+      warga_id: target.warga_id,
+      nama: target.nama,
+      tx_type: 'DEPOSIT',
+      direction: 'CREDIT',
+      amount,
+      description,
+      status: 'SYNCING',
+      created_at: new Date().toISOString()
+    }, ...current]);
+
+    setoranSyncRef.current = setoranSyncRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await apiFetch('/tabungan/setor', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          warga_id: selected.warga_id,
+          warga_id: target.warga_id,
           amount,
-          month_key: historyMonth,
-          description: `Setoran tabungan ${formatPeriodLabel(historyMonth)}`
+          month_key: monthKey,
+          description
         })
       });
-      setSelected(null);
-      setEditContributionMode(false);
-      setMessage('Setoran tabungan berhasil dicatat.');
-      await Promise.all([loadSummary(), loadHistory()]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal menyimpan setoran tabungan');
-    } finally {
-      setBusy(false);
-    }
+        setMessage('Setoran tabungan berhasil disinkronkan.');
+        void Promise.all([loadSummary(), loadHistory()]).catch(() => undefined);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Gagal menyinkronkan setoran tabungan');
+        void Promise.all([loadSummary(), loadHistory()]).catch(() => undefined);
+      });
   }
 
   async function submitSetoranCorrection(amount: number) {
