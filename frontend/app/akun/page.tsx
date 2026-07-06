@@ -149,7 +149,7 @@ export default function AkunPage() {
   return (
     <main className="min-h-screen pb-10">
       <ToastStack toasts={toasts} />
-      <Navbar sticky={false} />
+      <Navbar />
 
       <div className="mx-auto mt-6 w-full max-w-4xl space-y-5 px-4 md:px-6">
         <section className="glass-card rounded-3xl p-5">
