@@ -301,6 +301,20 @@ export default function ApprovalPage() {
               ))}
             </div>
           </Card>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card title="Pembayaran" subtitle="Riwayat notifikasi iuran dan setoran">
+              <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-sm text-[var(--text-muted)]">
+                Belum ada pesan pembayaran. Nantinya bagian ini akan berisi info seperti iuran diterima, setoran tabungan tercatat, atau pembayaran koperasi.
+              </div>
+            </Card>
+
+            <Card title="Pengingat" subtitle="Info penting yang perlu ditindaklanjuti">
+              <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-sm text-[var(--text-muted)]">
+                Belum ada pengingat. Nantinya bagian ini bisa menampilkan tunggakan aktif, saldo minus, atau informasi jatuh tempo.
+              </div>
+            </Card>
+          </div>
         </div>
       </main>
     );
