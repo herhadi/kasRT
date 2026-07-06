@@ -338,10 +338,10 @@ export default function JimpitanAdminPage() {
                         {member.no_hp ? <span className="block text-xs font-normal text-[var(--text-muted)]">{member.no_hp}</span> : null}
                       </td>
                       <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${
+                        <span className={`text-sm font-bold ${
                           member.status === 'ACTIVE'
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : 'border-red-200 bg-red-50 text-red-700'
+                            ? 'text-emerald-700'
+                            : 'text-red-700'
                         }`}>
                           {member.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
                         </span>
@@ -424,21 +424,45 @@ export default function JimpitanAdminPage() {
               </div>
             </div>
             {externalParticipants.length ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {externalParticipants.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => void toggleDonaturStatus(item)}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                      item.is_active
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-200 bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    {item.nama} {item.is_active ? 'Aktif' : 'Nonaktif'}
-                  </button>
-                ))}
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                  <thead>
+                    <tr className="bg-[var(--surface-strong)]">
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nama</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {externalParticipants.map((item) => (
+                      <tr key={item.id} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                          {item.nama}
+                          {item.no_hp ? <span className="block text-xs font-normal text-[var(--text-muted)]">{item.no_hp}</span> : null}
+                          {item.keterangan ? <span className="block text-xs font-normal text-[var(--text-muted)]">{item.keterangan}</span> : null}
+                        </td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
+                          <span className={`text-sm font-bold ${item.is_active ? 'text-emerald-700' : 'text-red-700'}`}>
+                            {item.is_active ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                        </td>
+                        <td className="border-b border-[var(--line)] px-3 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => void toggleDonaturStatus(item)}
+                            className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold ${
+                              item.is_active
+                                ? 'border-red-200 bg-red-50 text-red-700'
+                                : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            }`}
+                          >
+                            {item.is_active ? 'Nonaktif' : 'Aktifkan'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <p className="mt-4 text-sm text-[var(--text-muted)]">Belum ada donatur jimpitan.</p>
