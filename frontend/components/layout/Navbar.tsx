@@ -161,12 +161,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
         <div className="mb-0 flex items-center justify-between md:mb-3">
           <div>
             <h1 className="font-[var(--font-space-grotesk)] text-xl font-bold text-[var(--text-primary)]">KasRT</h1>
-            <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-              <span>{user.nama}</span>
-              <span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]">
-                {user.roles}
-              </span>
-            </div>
+            <p className="text-xs font-medium text-[var(--text-muted)]">Kas warga RT 02 / RW 04</p>
           </div>
           <div className="flex items-center gap-3">
             {canSeeApproval && pendingCount > 0 && (

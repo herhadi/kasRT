@@ -528,25 +528,20 @@ export default function JimpitanPage() {
 
       <Navbar sticky={false} />
 
-      <div
-        className="sticky z-40 border-b border-[var(--line)] bg-[var(--surface-strong)]/95 backdrop-blur-lg px-4 py-3 md:px-6"
-        style={{ top: 0 }}
-      >
-        <div className="mx-auto max-w-6xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">Operasional</p>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">{operationalDate}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <p className="text-[10px] font-medium text-[var(--text-muted)]">Pendapatan</p>
-                <p className="text-lg font-bold text-blue-600">{formatRupiah(recapData.totalSemuaTunai)}</p>
-              </div>
-            </div>
-          </div>
+      <div className="mx-auto mt-4 w-full max-w-6xl space-y-3 px-4 md:px-6">
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+          <p className="text-xs text-[var(--text-muted)]">Operasional</p>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">{operationalDate}</p>
+        </div>
 
-          <div className="mt-3 mb-1 grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="ops-sticky-summary">
+          <div className="ops-sticky-item ops-sticky-item-sky">Masuk<br /><b>{formatRupiah(recapData.totalSemuaTunai)}</b></div>
+          <div className="ops-sticky-item ops-sticky-item-emerald">Setor Saya<br /><b>{formatRupiah(recapData.totalTunaiSaya)}</b></div>
+          <div className="ops-sticky-item ops-sticky-item-rose">Belum<br /><b>{recapData.belum} warga</b></div>
+        </div>
+
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+          <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
             {(['semua', 'belum', 'lunas', 'kosong'] as FilterStatus[]).map((f) => (
               <button
                 key={f}
@@ -564,8 +559,8 @@ export default function JimpitanPage() {
               </button>
             ))}
           </div>
+        </div>
       </div>
-    </div>
 
       {/* Buttons placed above the card warga list */}
       <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
