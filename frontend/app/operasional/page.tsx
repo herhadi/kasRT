@@ -14,6 +14,25 @@ function hasExactRole(user: { roles?: string[] } | null, roleName: string) {
 
 const moduleLinks = [
   {
+    href: '/jimpitan',
+    title: 'Jimpitan',
+    description: 'Input dan pantau jimpitan warga.',
+    roles: [
+      'Ketua',
+      'Plt Ketua',
+      'Sekretaris',
+      'Bendahara',
+      'Admin Jimpitan',
+      'Admin Pembangunan',
+      'Admin Lingkungan',
+      'Admin Sosial',
+      'Admin Internet',
+      'Admin Koperasi',
+      'Admin Keamanan',
+      'root'
+    ]
+  },
+  {
     href: '/operasional/sekretaris',
     title: 'Operasional Sekretaris',
     description: 'Rekap bulanan, notulen, dan monitoring organisasi.',
@@ -54,25 +73,6 @@ const moduleLinks = [
     title: 'Operasional Jimpitan',
     description: 'Jadwal petugas, top up, dan setor ke bendahara.',
     roles: ['Admin Jimpitan']
-  },
-  {
-    href: '/jimpitan',
-    title: 'Jimpitan',
-    description: 'Input dan pantau jimpitan warga.',
-    roles: [
-      'Ketua',
-      'Plt Ketua',
-      'Sekretaris',
-      'Bendahara',
-      'Admin Jimpitan',
-      'Admin Pembangunan',
-      'Admin Lingkungan',
-      'Admin Sosial',
-      'Admin Internet',
-      'Admin Koperasi',
-      'Admin Keamanan',
-      'root'
-    ]
   },
   {
     href: '/operasional/koperasi',

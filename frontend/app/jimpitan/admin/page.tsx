@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
@@ -40,6 +40,7 @@ type SetorHistoryItem = {
 
 export default function JimpitanAdminPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading } = useAuth();
   const [wargaOptions, setWargaOptions] = useState<WargaOption[]>([]);
   const [topupWargaId, setTopupWargaId] = useState('');
@@ -64,6 +65,7 @@ export default function JimpitanAdminPage() {
 
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
   const isKetua = hasAnyRole(user, ['Ketua']);
+  const settingMode = pathname === '/operasional/jimpitan/setting';
 
   const pushToast = useCallback((message: string, kind: 'success' | 'error' | 'warning' = 'success') => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -121,11 +123,19 @@ export default function JimpitanAdminPage() {
   }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, pushToast]);
 
   const setorHistoryPager = usePagination(setorHistory, 20);
-  const filteredMembers = members.filter((member) => member.status === memberFilter);
+  const filteredMembers = useMemo(
+    () => members.filter((member) => member.status === memberFilter),
+    [members, memberFilter]
+  );
+  const memberPager = usePagination(filteredMembers, 10);
 
   useEffect(() => {
     setorHistoryPager.reset();
   }, [setorHistory.length]);
+
+  useEffect(() => {
+    memberPager.reset();
+  }, [memberFilter, filteredMembers.length]);
 
   async function updateMemberStatus(member: JimpitanMember, status: JimpitanMember['status']) {
     if (member.status === status) return;
@@ -264,17 +274,28 @@ export default function JimpitanAdminPage() {
         <div className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Admin Jimpitan</p>
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Menu Khusus Admin</h2>
+            <h2 className="text-lg font-bold text-[var(--text-primary)]">{settingMode ? 'Pengaturan Jimpitan' : 'Menu Khusus Admin'}</h2>
           </div>
-          <Link
-            href="/jimpitan"
-            className="btn-action-blue link-action px-3 py-2"
-          >
-            Kembali ke Input
-          </Link>
+          <div className="flex flex-wrap justify-end gap-2">
+            {settingMode ? (
+              <Link href="/operasional/jimpitan" className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                Kembali
+              </Link>
+            ) : isAdminJimpitan ? (
+              <Link href="/operasional/jimpitan/setting" className="btn-action-blue link-action px-3 py-2">
+                ⚙️ Pengaturan
+              </Link>
+            ) : null}
+            <Link
+              href="/jimpitan"
+              className="btn-action-blue link-action px-3 py-2"
+            >
+              Kembali ke Input
+            </Link>
+          </div>
         </div>
 
-        {isAdminJimpitan ? (
+        {settingMode && isAdminJimpitan ? (
           <Card title="Pengaturan Warga Jimpitan" subtitle="Atur warga yang wajib ikut jimpitan bulanan. Donatur dikelola pada bagian terpisah.">
             <div className="mb-3 grid grid-cols-2 gap-2 md:max-w-sm">
               {(['ACTIVE', 'INACTIVE'] as const).map((status) => {
@@ -310,19 +331,25 @@ export default function JimpitanAdminPage() {
                     <tr className="bg-[var(--surface)]">
                       <td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Tidak ada peserta pada status ini.</td>
                     </tr>
-                  ) : filteredMembers.map((member) => (
+                  ) : memberPager.pagedItems.map((member) => (
                     <tr key={member.warga_id} className="bg-[var(--surface)]">
                       <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
                         {member.nama}
                         {member.no_hp ? <span className="block text-xs font-normal text-[var(--text-muted)]">{member.no_hp}</span> : null}
                       </td>
                       <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
-                        {member.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${
+                          member.status === 'ACTIVE'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-red-200 bg-red-50 text-red-700'
+                        }`}>
+                          {member.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+                        </span>
                       </td>
                       <td className="border-b border-[var(--line)] px-3 py-2">
                         <div className="flex flex-wrap justify-end gap-2">
                           <button type="button" className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700" onClick={() => void updateMemberStatus(member, 'ACTIVE')}>Aktif</button>
-                          <button type="button" className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700" onClick={() => void updateMemberStatus(member, 'INACTIVE')}>Nonaktif</button>
+                          <button type="button" className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700" onClick={() => void updateMemberStatus(member, 'INACTIVE')}>Nonaktif</button>
                         </div>
                       </td>
                     </tr>
@@ -330,42 +357,45 @@ export default function JimpitanAdminPage() {
                 </tbody>
               </table>
             </div>
+            <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
           </Card>
         ) : null}
 
-        <Card title="Top Up Saldo Warga" subtitle="Kelola top up tanpa mengganggu alur input harian">
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="space-y-2 text-sm font-semibold">
-              <span>Pilih Warga</span>
-              <select
-                className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
-                value={topupWargaId}
-                onChange={(event) => setTopupWargaId(event.target.value)}
-              >
-                {wargaOptions.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.nama}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Input
-              label="Nominal"
-              type="text"
-              inputMode="numeric"
-              value={formatRupiahInput(topupNominal)}
-              onChange={(event) => setTopupNominal(event.target.value)}
-              placeholder="Contoh: 50.000"
-            />
-            <div className="flex items-end">
-              <Button className="w-full" onClick={handleTopup} disabled={topupLoading}>
-                {topupLoading ? 'Menyimpan...' : 'Simpan Top Up'}
-              </Button>
+        {!settingMode ? (
+          <Card title="Top Up Saldo Warga" subtitle="Kelola top up tanpa mengganggu alur input harian">
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="space-y-2 text-sm font-semibold">
+                <span>Pilih Warga</span>
+                <select
+                  className="w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3"
+                  value={topupWargaId}
+                  onChange={(event) => setTopupWargaId(event.target.value)}
+                >
+                  {wargaOptions.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.nama}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Input
+                label="Nominal"
+                type="text"
+                inputMode="numeric"
+                value={formatRupiahInput(topupNominal)}
+                onChange={(event) => setTopupNominal(event.target.value)}
+                placeholder="Contoh: 50.000"
+              />
+              <div className="flex items-end">
+                <Button className="w-full" onClick={handleTopup} disabled={topupLoading}>
+                  {topupLoading ? 'Menyimpan...' : 'Simpan Top Up'}
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        ) : null}
 
-        <Card title="Setor Kas ke Bendahara" subtitle="Ajukan serah-terima kas jimpitan. Bendahara akan approve saat uang fisik diterima.">
+        {!settingMode ? <Card title="Setor Kas ke Bendahara" subtitle="Ajukan serah-terima kas jimpitan. Bendahara akan approve saat uang fisik diterima.">
           <div className="grid gap-3 md:grid-cols-3">
             <Input
               label="Periode Rekap (YYYY-MM)"
@@ -379,9 +409,9 @@ export default function JimpitanAdminPage() {
               </Button>
             </div>
           </div>
-        </Card>
+        </Card> : null}
 
-        {isAdminJimpitan ? (
+        {settingMode && isAdminJimpitan ? (
           <Card title="Donatur Jimpitan" subtitle="Kelola donatur non-warga yang ikut daftar input jimpitan harian">
             <div className="grid gap-3 md:grid-cols-4">
               <Input label="Nama Donatur" value={donaturNama} onChange={(event) => setDonaturNama(event.target.value)} />
@@ -416,7 +446,7 @@ export default function JimpitanAdminPage() {
           </Card>
         ) : null}
 
-        <Card title="Riwayat Setor ke Bendahara" subtitle="Jejak pengajuan setor kas jimpitan oleh Admin Jimpitan">
+        {!settingMode ? <Card title="Riwayat Setor ke Bendahara" subtitle="Jejak pengajuan setor kas jimpitan oleh Admin Jimpitan">
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
               <thead>
@@ -455,7 +485,7 @@ export default function JimpitanAdminPage() {
               onNext={setorHistoryPager.next}
             />
           </div>
-        </Card>
+        </Card> : null}
       </div>
     </main>
   );
