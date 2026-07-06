@@ -38,6 +38,10 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
     'Admin Internet', 'Admin Koperasi', 'Admin Keamanan', 'root'
   ]);
+  const canSeeTransactionApprovals = hasAnyRole(user, [
+    'Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara',
+    'Admin Jimpitan', 'Admin Sosial', 'root'
+  ]);
   const isBendahara = hasExactRole(user, 'Bendahara');
   const isAdminJimpitan = hasExactRole(user, 'Admin Jimpitan');
   const isAdminPembangunan = hasExactRole(user, 'Admin Pembangunan');
@@ -84,30 +88,56 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
       return () => window.clearTimeout(resetTimer);
     }
     if (!user) return;
-    
+
+    let disposed = false;
+    let loadingCount = false;
+
     const loadPendingCount = async () => {
+      if (loadingCount || disposed) return;
+      loadingCount = true;
       try {
-        const result = await apiFetch<{ success: boolean; data: { total_pending: number } }>('/approval/pending');
+        const approvalPending = canSeeTransactionApprovals
+          ? apiFetch<{ success: boolean; data: { total_pending: number } }>('/approval/pending')
+              .then((res) => Number(res.data?.total_pending || 0))
+              .catch(() => 0)
+          : Promise.resolve(0);
         const membershipModules = [
           ...(isAdminInternet || isRoot ? ['internet'] : []),
           ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
           ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
         ];
-        const membershipCounts = await Promise.all(
-          membershipModules.map((moduleKey) =>
+        const [approvalCount, ...membershipCounts] = await Promise.all([
+          approvalPending,
+          ...membershipModules.map((moduleKey) =>
             apiFetch<{ success: boolean; data: unknown[] }>(`/membership/requests?module_key=${moduleKey}`)
               .then((res) => Number(res.data?.length || 0))
               .catch(() => 0)
           )
-        );
-        setPendingCount(Number(result.data?.total_pending || 0) + membershipCounts.reduce((sum, count) => sum + count, 0));
-      } catch { setPendingCount(0); }
+        ]);
+        if (!disposed) setPendingCount(approvalCount + membershipCounts.reduce((sum, count) => sum + count, 0));
+      } catch {
+        if (!disposed) setPendingCount(0);
+      } finally {
+        loadingCount = false;
+      }
     };
-    
-    const kickoff = window.setTimeout(() => { void loadPendingCount(); }, 0);
-    const interval = window.setInterval(() => { void loadPendingCount(); }, 30000);
-    return () => { window.clearTimeout(kickoff); window.clearInterval(interval); };
-  }, [canSeeApproval, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isAdminPembangunan, isRoot, user]);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void loadPendingCount();
+    };
+    const handleFocus = () => {
+      void loadPendingCount();
+    };
+
+    void loadPendingCount();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [canSeeApproval, canSeeTransactionApprovals, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isRoot, user]);
 
   useEffect(() => {
     const scroller = navScrollerRef.current;

@@ -54,9 +54,20 @@ export default function BendaharaApprovalPage() {
 
   useEffect(() => {
     if (!loading && user && canApproveBendahara) {
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') void loadData();
+      };
+      const handleFocus = () => {
+        void loadData();
+      };
+
       void loadData();
-      const interval = window.setInterval(() => void loadData(), 20000);
-      return () => window.clearInterval(interval);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
+      };
     }
   }, [loading, user, canApproveBendahara, loadData]);
 

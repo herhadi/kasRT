@@ -27,7 +27,7 @@ export async function getPendingApprovals(req, res) {
   const roles = req.user?.roles || [];
 
   const canApproveJimpitan = hasAnyRole(roles, ['Admin Jimpitan', 'root']);
-  const canApproveFinance = hasAnyRole(roles, ['Ketua', 'Sekretaris', 'root']);
+  const canApproveFinance = hasAnyRole(roles, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
   const canApproveSetorHandover = hasAnyRole(roles, ['Bendahara', 'root']);
   const canApproveSosialReceipt = hasAnyRole(roles, ['Admin Sosial', 'root']);
 
@@ -87,7 +87,7 @@ export async function getApprovalHistory(req, res) {
   const roles = req.user?.roles || [];
 
   const canApproveJimpitan = hasAnyRole(roles, ['Admin Jimpitan', 'root']);
-  const canApproveFinance = hasAnyRole(roles, ['Ketua', 'Sekretaris', 'root']);
+  const canApproveFinance = hasAnyRole(roles, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
   const canApproveSetorHandover = hasAnyRole(roles, ['Bendahara', 'root']);
   const canSeeSocialReceiptHistory = hasAnyRole(roles, ['Admin Sosial', 'Ketua', 'Sekretaris', 'root']);
 

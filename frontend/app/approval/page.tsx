@@ -75,6 +75,15 @@ export default function ApprovalPage() {
     'Admin Keamanan',
     'root'
   ]);
+  const canSeeTransactionApprovals = hasAnyRole(user, [
+    'Ketua',
+    'Plt Ketua',
+    'Sekretaris',
+    'Bendahara',
+    'Admin Jimpitan',
+    'Admin Sosial',
+    'root'
+  ]);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -82,6 +91,11 @@ export default function ApprovalPage() {
 
   const loadPending = useCallback(async () => {
     if (!canSeeApproval) return;
+    if (!canSeeTransactionApprovals) {
+      setSections([]);
+      setTotalPending(0);
+      return;
+    }
 
     try {
       setLoadingList(true);
@@ -97,11 +111,18 @@ export default function ApprovalPage() {
     } finally {
       setLoadingList(false);
     }
-  }, [canSeeApproval]);
+  }, [canSeeApproval, canSeeTransactionApprovals]);
 
   const loadHistory = useCallback(
     async (page: number) => {
       if (!canSeeApproval) return;
+      if (!canSeeTransactionApprovals) {
+        setHistoryItems([]);
+        setHistoryPage(1);
+        setHistoryTotalPages(1);
+        setHistoryTotal(0);
+        return;
+      }
 
       try {
         setLoadingHistory(true);
@@ -130,7 +151,7 @@ export default function ApprovalPage() {
         setLoadingHistory(false);
       }
     },
-    [canSeeApproval]
+    [canSeeApproval, canSeeTransactionApprovals]
   );
 
   const loadWargaInbox = useCallback(async () => {
@@ -160,18 +181,23 @@ export default function ApprovalPage() {
       return () => window.clearTimeout(resetTimer);
     }
 
-    const kickoff = window.setTimeout(() => {
+    const refreshInbox = () => {
       void loadPending();
       void loadHistory(1);
-    }, 0);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshInbox();
+    };
+    const handleFocus = () => {
+      refreshInbox();
+    };
 
-    const interval = window.setInterval(() => {
-      void loadPending();
-    }, 20000);
-
+    refreshInbox();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
     return () => {
-      window.clearTimeout(kickoff);
-      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [canSeeApproval, loadPending, loadHistory]);
 

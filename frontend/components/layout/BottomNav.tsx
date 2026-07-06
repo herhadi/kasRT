@@ -36,6 +36,10 @@ export default function BottomNav() {
   const isAdminLingkungan = hasExactRole(user, 'Admin Lingkungan');
   const isAdminKoperasi = hasExactRole(user, 'Admin Koperasi');
   const isAdminPembangunan = hasExactRole(user, 'Admin Pembangunan');
+  const canSeeTransactionApprovals = hasAnyRole(user, [
+    'Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara',
+    'Admin Jimpitan', 'Admin Sosial', 'root'
+  ]);
   const isRoot = hasExactRole(user, 'root');
   const canSeeOps = hasAnyRole(user, [
     'Bendahara', 'Ketua', 'Plt Ketua', 'Sekretaris', 'Admin Jimpitan',
@@ -54,10 +58,16 @@ export default function BottomNav() {
       return;
     }
 
+    let disposed = false;
+    let loadingCount = false;
+
     const loadPendingCount = async () => {
+      if (loadingCount || disposed) return;
+      loadingCount = true;
       try {
         if (!canSeeInbox) {
           const result = await apiFetch<{ success: boolean; data: DashboardWargaData }>('/report/dashboard');
+          if (disposed) return;
           const data = result.data;
           const requests = [
             data?.internet_membership_request,
@@ -68,29 +78,48 @@ export default function BottomNav() {
           return;
         }
 
-        const result = await apiFetch<{ success: boolean; data: { total_pending: number } }>('/approval/pending');
+        const approvalPending = canSeeTransactionApprovals
+          ? apiFetch<{ success: boolean; data: { total_pending: number } }>('/approval/pending')
+              .then((res) => Number(res.data?.total_pending || 0))
+              .catch(() => 0)
+          : Promise.resolve(0);
         const membershipModules = [
           ...(isAdminInternet || isRoot ? ['internet'] : []),
           ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
           ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
         ];
-        const membershipCounts = await Promise.all(
-          membershipModules.map((moduleKey) =>
+        const [approvalCount, ...membershipCounts] = await Promise.all([
+          approvalPending,
+          ...membershipModules.map((moduleKey) =>
             apiFetch<{ success: boolean; data: unknown[] }>(`/membership/requests?module_key=${moduleKey}`)
               .then((res) => Number(res.data?.length || 0))
               .catch(() => 0)
           )
-        );
-        setPendingCount(Number(result.data?.total_pending || 0) + membershipCounts.reduce((sum, count) => sum + count, 0));
+        ]);
+        if (!disposed) setPendingCount(approvalCount + membershipCounts.reduce((sum, count) => sum + count, 0));
       } catch {
-        setPendingCount(0);
+        if (!disposed) setPendingCount(0);
+      } finally {
+        loadingCount = false;
       }
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void loadPendingCount();
+    };
+    const handleFocus = () => {
+      void loadPendingCount();
+    };
+
     void loadPendingCount();
-    const interval = window.setInterval(() => void loadPendingCount(), 30000);
-    return () => window.clearInterval(interval);
-  }, [canSeeInbox, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isAdminPembangunan, isRoot, user]);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [canSeeInbox, canSeeTransactionApprovals, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isRoot, user]);
 
   const items = useMemo(
     () => [

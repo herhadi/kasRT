@@ -51,9 +51,20 @@ export default function MembershipApprovalPage({ moduleKey }: { moduleKey: Modul
 
   useEffect(() => {
     if (!loading && user && canApprove) {
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') void loadRequests();
+      };
+      const handleFocus = () => {
+        void loadRequests();
+      };
+
       void loadRequests();
-      const interval = window.setInterval(() => void loadRequests(), 20000);
-      return () => window.clearInterval(interval);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
+      };
     }
   }, [loading, user, canApprove, loadRequests]);
 
