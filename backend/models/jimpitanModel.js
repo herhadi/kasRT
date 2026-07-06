@@ -217,7 +217,6 @@ export async function getUserJimpitanShiftHari(userId) {
 }
 
 async function getCurrentMonthSaldoByWarga(client, wargaId, referenceDate = null) {
-  await ensureJimpitanTopupsTable();
   const refDateParam = referenceDate ? `${referenceDate}` : null;
   const result = await client.query(
     `WITH bulan_ref AS (
@@ -823,6 +822,7 @@ export async function listJimpitanTopups({ monthKey, limit = 100 } = {}) {
 }
 
 export async function editNominalJimpitanByAdmin({ wargaId, nominalBaru, tanggalOperasional }) {
+  await ensureJimpitanTopupsTable();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

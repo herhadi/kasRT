@@ -144,10 +144,10 @@ export default function JimpitanAdminPage() {
       router.replace('/jimpitan');
       return;
     }
-    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers(), loadTopupHistory()]).catch((error) => {
+    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, loadTopupHistory, pushToast]);
+  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, pushToast]);
 
   const setorHistoryPager = usePagination(setorHistory, 20);
   const filteredMembers = useMemo(
@@ -213,7 +213,11 @@ export default function JimpitanAdminPage() {
       const wargaName = wargaOptions.find((row) => String(row.id) === wargaId)?.nama || 'warga';
       setTopupNominal('');
       pushToast(`Top up ${wargaName} ${formatRupiah(nominal)} periode ${topupPeriod} berhasil.`, 'success');
-      await Promise.allSettled([loadWargaOptions(), loadTopupHistory()]);
+      void Promise.allSettled([loadWargaOptions(), loadTopupHistory()]).then((results) => {
+        if (results.some((result) => result.status === 'rejected')) {
+          pushToast('Top up tersimpan, tetapi refresh riwayat gagal. Silakan muat ulang jika data belum tampil.', 'warning');
+        }
+      });
     } catch (error) {
       pushToast(error instanceof Error ? error.message : 'Top up gagal', 'error');
     } finally {
