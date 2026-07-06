@@ -11,9 +11,38 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatTanggalIndonesia } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
-import { ApprovalHistoryItem, PendingApprovalItem, PendingApprovalSection } from '@/types';
+import { ApprovalHistoryItem, DashboardWargaData, MembershipRequestStatus, PendingApprovalItem, PendingApprovalSection } from '@/types';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
+
+type InboxModuleKey = 'internet' | 'lingkungan' | 'koperasi';
+
+const INBOX_MODULES: Array<{
+  key: InboxModuleKey;
+  title: string;
+  adminLabel: string;
+}> = [
+  { key: 'internet', title: 'Internet', adminLabel: 'Admin Internet' },
+  { key: 'lingkungan', title: 'Lingkungan', adminLabel: 'Admin Lingkungan' },
+  { key: 'koperasi', title: 'Koperasi', adminLabel: 'Admin Koperasi' }
+];
+
+function inboxRequestLabel(request?: MembershipRequestStatus | null) {
+  if (!request) return 'Belum ada pengajuan';
+  const action = request.request_type === 'DEACTIVATE' ? 'nonaktif' : 'aktif';
+  if (request.status === 'PENDING') return `Menunggu persetujuan ${action}`;
+  if (request.status === 'APPROVED') return `Pengajuan ${action} disetujui`;
+  if (request.status === 'REJECTED') return `Pengajuan ${action} ditolak`;
+  return `Pengajuan ${action} dibatalkan`;
+}
+
+function inboxRequestClass(request?: MembershipRequestStatus | null) {
+  if (!request) return 'border-slate-200 bg-slate-50 text-slate-700';
+  if (request.status === 'PENDING') return 'border-amber-200 bg-amber-50 text-amber-800';
+  if (request.status === 'APPROVED') return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+  if (request.status === 'REJECTED') return 'border-rose-200 bg-rose-50 text-rose-800';
+  return 'border-slate-200 bg-slate-50 text-slate-700';
+}
 
 export default function ApprovalPage() {
   const { user, loading } = useAuth();
@@ -29,9 +58,12 @@ export default function ApprovalPage() {
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [wargaInboxData, setWargaInboxData] = useState<DashboardWargaData | null>(null);
+  const [loadingInbox, setLoadingInbox] = useState(false);
 
   const canSeeApproval = hasAnyRole(user, [
     'Ketua',
+    'Plt Ketua',
     'Sekretaris',
     'Bendahara',
     'Admin Jimpitan',
@@ -101,6 +133,20 @@ export default function ApprovalPage() {
     [canSeeApproval]
   );
 
+  const loadWargaInbox = useCallback(async () => {
+    if (canSeeApproval || !user) return;
+    try {
+      setLoadingInbox(true);
+      setMessage('');
+      const result = await apiFetch<{ success: boolean; data: DashboardWargaData }>('/report/dashboard?refresh=1');
+      setWargaInboxData(result.data);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Gagal memuat inbox');
+    } finally {
+      setLoadingInbox(false);
+    }
+  }, [canSeeApproval, user]);
+
   useEffect(() => {
     if (!canSeeApproval) {
       const resetTimer = window.setTimeout(() => {
@@ -128,6 +174,12 @@ export default function ApprovalPage() {
       window.clearInterval(interval);
     };
   }, [canSeeApproval, loadPending, loadHistory]);
+
+  useEffect(() => {
+    if (!loading && user && !canSeeApproval) {
+      void loadWargaInbox();
+    }
+  }, [loading, user, canSeeApproval, loadWargaInbox]);
 
   async function approveItem(item: PendingApprovalItem) {
     const actionKey = `${item.kind}-${item.id}`;
@@ -189,23 +241,87 @@ export default function ApprovalPage() {
 
   if (loading || !user) return <main className="min-h-screen" />;
 
+  if (!canSeeApproval) {
+    const inboxItems = INBOX_MODULES.map((item) => {
+      const isMember = Boolean(wargaInboxData?.[`${item.key}_is_member` as keyof DashboardWargaData]);
+      const request = wargaInboxData?.[`${item.key}_membership_request` as keyof DashboardWargaData] as MembershipRequestStatus | null | undefined;
+      return { ...item, isMember, request };
+    });
+    const pendingCount = inboxItems.filter((item) => item.request?.status === 'PENDING').length;
+
+    return (
+      <main className="min-h-screen pb-10">
+        <FeedbackToast error={message} />
+        <Navbar />
+
+        <div className="mx-auto mt-6 w-full max-w-4xl space-y-5 px-4 md:px-6">
+          <Card
+            title="Inbox"
+            subtitle={`${pendingCount} pengajuan menunggu persetujuan`}
+            headerRight={
+              <Button variant="ghost" className="text-sm px-3 py-1.5" onClick={() => void loadWargaInbox()} disabled={loadingInbox}>
+                {loadingInbox ? 'Memuat...' : 'Refresh'}
+              </Button>
+            }
+          >
+            <p className="text-sm text-[var(--text-muted)]">
+              Pantau status pengajuan aktif/nonaktif keanggotaan. Jika ingin mengajukan baru, buka halaman Keanggotaan Saya.
+            </p>
+            <Link href="/akun/keanggotaan" className="btn-action-blue link-action mt-3 inline-flex px-3 py-2 text-sm">
+              Buka Keanggotaan Saya
+            </Link>
+          </Card>
+
+          <Card title="Status Pengajuan" subtitle="Ringkasan inbox pribadi warga">
+            <div className="grid gap-3">
+              {inboxItems.map((item) => (
+                <article key={item.key} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-base font-bold text-[var(--text-primary)]">{item.title}</h2>
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${
+                          item.isMember
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                            : 'border-slate-200 bg-slate-50 text-slate-700'
+                        }`}>
+                          {item.isMember ? 'Aktif' : 'Belum Aktif'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--text-muted)]">Diproses oleh {item.adminLabel}.</p>
+                    </div>
+                    <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${inboxRequestClass(item.request)}`}>
+                      {inboxRequestLabel(item.request)}
+                      {item.request?.created_at ? (
+                        <span className="mt-1 block font-normal opacity-80">{formatTanggalIndonesia(item.request.created_at)}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={message && !message.includes('berhasil') ? message : ''} message={message && message.includes('berhasil') ? message : ''} />
       <Navbar />
 
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
-        <Card title="Approval Center" subtitle={`${totalPending} transaksi pending`}>
+        <Card title="Inbox Persetujuan" subtitle={`${totalPending} transaksi menunggu persetujuan`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm text-[var(--text-muted)]">
-                Total pending transaksi: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
+                Total transaksi menunggu: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {hasAnyRole(user, ['Admin Internet', 'root']) ? <Link href="/approval/internet" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Internet</Link> : null}
-                {hasAnyRole(user, ['Admin Lingkungan', 'root']) ? <Link href="/approval/lingkungan" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Lingkungan</Link> : null}
-                {hasAnyRole(user, ['Admin Koperasi', 'root']) ? <Link href="/approval/koperasi" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Koperasi</Link> : null}
-                {hasAnyRole(user, ['Admin Pembangunan', 'root']) ? <Link href="/approval/tabungan" className="btn-action-blue link-action px-3 py-1.5 text-xs">Approval Tabungan</Link> : null}
+                {hasAnyRole(user, ['Admin Internet', 'root']) ? <Link href="/approval/internet" className="btn-action-blue link-action px-3 py-1.5 text-xs">Keanggotaan Internet</Link> : null}
+                {hasAnyRole(user, ['Admin Lingkungan', 'root']) ? <Link href="/approval/lingkungan" className="btn-action-blue link-action px-3 py-1.5 text-xs">Keanggotaan Lingkungan</Link> : null}
+                {hasAnyRole(user, ['Admin Koperasi', 'root']) ? <Link href="/approval/koperasi" className="btn-action-blue link-action px-3 py-1.5 text-xs">Keanggotaan Koperasi</Link> : null}
               </div>
             </div>
             <Button variant="ghost" className="text-sm px-3 py-1.5" onClick={() => void loadPending()} disabled={loadingList}>
@@ -214,15 +330,9 @@ export default function ApprovalPage() {
           </div>
         </Card>
 
-        {!canSeeApproval ? (
-          <Card title="Tidak Ada Akses" subtitle="Role Anda tidak termasuk approver saat ini">
-            <p className="text-sm text-[var(--text-muted)]">Approval hanya untuk admin terkait, Bendahara, Ketua, Sekretaris, atau root.</p>
-          </Card>
-        ) : null}
-
         {canSeeApproval && sections.length === 0 && !loadingList ? (
           <Card title="Tidak Ada Pending" subtitle="Semua transaksi yang bisa Anda approve sudah selesai">
-            <p className="text-sm text-[var(--text-muted)]">Belum ada transaksi baru yang membutuhkan approval.</p>
+            <p className="text-sm text-[var(--text-muted)]">Belum ada transaksi baru yang membutuhkan persetujuan.</p>
           </Card>
         ) : null}
 
@@ -235,12 +345,12 @@ export default function ApprovalPage() {
           />
         ))}
 
-        <Card title="Riwayat Approval" subtitle={`Total ${historyTotal} transaksi`}>
+        <Card title="Riwayat Persetujuan" subtitle={`Total ${historyTotal} transaksi`}>
           <div className="space-y-2">
             {loadingHistory ? <p className="text-sm text-[var(--text-muted)]">Memuat riwayat...</p> : null}
 
             {!loadingHistory && historyItems.length === 0 ? (
-              <p className="text-sm text-[var(--text-muted)]">Belum ada riwayat approval untuk role Anda.</p>
+              <p className="text-sm text-[var(--text-muted)]">Belum ada riwayat persetujuan untuk role Anda.</p>
             ) : null}
 
             {historyItems.map((item) => (

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { useAuth } from '@/lib/useAuth';
+import type { DashboardWargaData, MembershipRequestStatus } from '@/types';
 
 type NavIconName = 'home' | 'ops' | 'inbox' | 'profile';
 
@@ -48,19 +49,30 @@ export default function BottomNav() {
   ]);
 
   useEffect(() => {
-    if (!user || !canSeeInbox) {
+    if (!user) {
       setPendingCount(0);
       return;
     }
 
     const loadPendingCount = async () => {
       try {
+        if (!canSeeInbox) {
+          const result = await apiFetch<{ success: boolean; data: DashboardWargaData }>('/report/dashboard');
+          const data = result.data;
+          const requests = [
+            data?.internet_membership_request,
+            data?.lingkungan_membership_request,
+            data?.koperasi_membership_request
+          ].filter(Boolean) as MembershipRequestStatus[];
+          setPendingCount(requests.filter((request) => request.status === 'PENDING').length);
+          return;
+        }
+
         const result = await apiFetch<{ success: boolean; data: { total_pending: number } }>('/approval/pending');
         const membershipModules = [
           ...(isAdminInternet || isRoot ? ['internet'] : []),
           ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
-          ...(isAdminKoperasi || isRoot ? ['koperasi'] : []),
-          ...(isAdminPembangunan || isRoot ? ['tabungan'] : [])
+          ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
         ];
         const membershipCounts = await Promise.all(
           membershipModules.map((moduleKey) =>

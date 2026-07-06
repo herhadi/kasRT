@@ -10,7 +10,6 @@ import {
 import { setInternetMemberActive } from '../models/internetModel.js';
 import { setLingkunganMemberActive } from '../models/lingkunganModel.js';
 import { setKoperasiMemberActive } from '../models/koperasiModel.js';
-import { setTabunganMemberActive } from '../models/tabunganModel.js';
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 
 function currentMonthKey() {
@@ -29,6 +28,7 @@ export async function createMyMembershipRequestHandler(req, res) {
   const note = String(req.body.note || '').trim();
   const requestType = String(req.body.request_type || 'ACTIVATE').trim().toUpperCase();
   if (!moduleKey) return res.status(400).json({ success: false, message: 'module_key invalid' });
+  if (moduleKey === 'tabungan') return res.status(400).json({ success: false, message: 'Keanggotaan tabungan diatur langsung oleh Admin Pembangunan.' });
   if (!['ACTIVATE', 'DEACTIVATE'].includes(requestType)) return res.status(400).json({ success: false, message: 'request_type invalid' });
   const data = await createMembershipRequest({ moduleKey, wargaId: actor, requestedBy: actor, note, requestType });
   const label = getMembershipModuleLabel(moduleKey);
@@ -52,6 +52,7 @@ export async function createMyMembershipRequestHandler(req, res) {
 export async function listMembershipRequestsHandler(req, res) {
   const moduleKey = normalizeMembershipModule(req.query.module_key);
   if (!moduleKey) return res.status(400).json({ success: false, message: 'module_key invalid' });
+  if (moduleKey === 'tabungan') return res.json({ success: true, data: [] });
   if (!userHasAnyRole(req, getMembershipAdminRoles(moduleKey))) {
     return res.status(403).json({ success: false, message: 'Akses request modul ini ditolak' });
   }
@@ -68,6 +69,7 @@ export async function reviewMembershipRequestHandler(req, res) {
 
   const pending = await getPendingMembershipRequestById(requestId);
   if (!pending) return res.status(404).json({ success: false, message: 'Request tidak ditemukan atau sudah diproses' });
+  if (pending.module_key === 'tabungan') return res.status(400).json({ success: false, message: 'Keanggotaan tabungan diatur langsung oleh Admin Pembangunan.' });
   if (!userHasAnyRole(req, getMembershipAdminRoles(pending.module_key))) {
     return res.status(403).json({ success: false, message: 'Akses approval modul ini ditolak' });
   }
@@ -83,8 +85,6 @@ export async function reviewMembershipRequestHandler(req, res) {
       await setLingkunganMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate, activeFromMonth: currentMonthKey(), updatedBy: actor });
     } else if (reviewed.module_key === 'koperasi') {
       await setKoperasiMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate });
-    } else if (reviewed.module_key === 'tabungan') {
-      await setTabunganMemberActive({ wargaId: reviewed.warga_id, isActive: shouldActivate, updatedBy: actor });
     }
   }
 

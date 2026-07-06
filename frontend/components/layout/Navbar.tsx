@@ -91,8 +91,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
         const membershipModules = [
           ...(isAdminInternet || isRoot ? ['internet'] : []),
           ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
-          ...(isAdminKoperasi || isRoot ? ['koperasi'] : []),
-          ...(isAdminPembangunan || isRoot ? ['tabungan'] : [])
+          ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
         ];
         const membershipCounts = await Promise.all(
           membershipModules.map((moduleKey) =>
@@ -151,7 +150,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: jimpitanMenuHref, label: 'Jimpitan', icon: '💰' },
     { ...opsMenu, opsOnly: true },
-    { href: approvalMenuHref, label: 'Approval', icon: '✅', gated: true },
+    { href: approvalMenuHref, label: 'Inbox', icon: '✉️', gated: true },
     { href: '/management', label: 'Manajemen', icon: '🛠️', managerOnly: true }
   ];
 
@@ -167,7 +166,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
             {canSeeApproval && pendingCount > 0 && (
               <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
                 <span>⏳</span>
-                <span>{pendingCount} menunggu approval</span>
+                <span>{pendingCount} menunggu persetujuan</span>
               </div>
             )}
             <Button variant="danger" className="hidden md:inline-flex" onClick={() => { logout(); router.push('/login'); }}>
