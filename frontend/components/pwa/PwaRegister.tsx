@@ -7,6 +7,9 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
 
+const PWA_INSTALL_DISMISSED_AT_KEY = 'kasrt_pwa_install_dismissed_at';
+const PWA_INSTALL_DISMISS_DELAY_MS = 60 * 60 * 1000;
+
 export default function PwaRegister() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -32,6 +35,8 @@ export default function PwaRegister() {
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
+      const dismissedAt = Number(window.localStorage.getItem(PWA_INSTALL_DISMISSED_AT_KEY) || 0);
+      if (dismissedAt && Date.now() - dismissedAt < PWA_INSTALL_DISMISS_DELAY_MS) return;
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
 
@@ -58,6 +63,11 @@ export default function PwaRegister() {
     }
   }
 
+  function dismissInstallPrompt() {
+    window.localStorage.setItem(PWA_INSTALL_DISMISSED_AT_KEY, String(Date.now()));
+    setInstallPrompt(null);
+  }
+
   if (!installPrompt || isStandalone) return null;
 
   return (
@@ -71,7 +81,7 @@ export default function PwaRegister() {
           <button
             type="button"
             className="rounded-xl border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]"
-            onClick={() => setInstallPrompt(null)}
+            onClick={dismissInstallPrompt}
           >
             Nanti
           </button>
