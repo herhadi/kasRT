@@ -341,7 +341,7 @@ export default function DashboardPage() {
               }
             >
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
-                <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} />
+                {wargaData.jimpitan_is_member ? <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} /> : null}
                 <Metric
                   title="Kewajiban Iuran Wajib"
                   value={formatRupiah(personalObligations.iuranWajib)}
@@ -401,9 +401,15 @@ export default function DashboardPage() {
             <section className="grid gap-3 lg:grid-cols-1">
               <CompactPanel title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
                 <div className="space-y-2 text-sm">
-                  <Line label="Target Jimpitan" value={formatRupiah(wargaData.target_jimpitan_bulanan)} />
+                  {wargaData.jimpitan_is_member ? <Line label="Target Jimpitan" value={formatRupiah(wargaData.target_jimpitan_bulanan)} /> : null}
                   <Line label="Target Iuran Wajib" value={formatRupiah(wargaData.target_iuran_wajib)} />
-                  <Line label="Target Dasar" value={formatRupiah(wargaData.target_kontribusi_dasar)} />
+                  <Line
+                    label="Target Dasar"
+                    value={formatRupiah(
+                      Number(wargaData.target_iuran_wajib || 0) +
+                        (wargaData.jimpitan_is_member ? Number(wargaData.target_jimpitan_bulanan || 0) : 0)
+                    )}
+                  />
                 </div>
               </CompactPanel>
             </section>

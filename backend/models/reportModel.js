@@ -4,6 +4,7 @@ import { ensureInternetTables } from './internetModel.js';
 import { ensureLingkunganTables } from './lingkunganModel.js';
 import { ensureKoperasiTables } from './koperasiModel.js';
 import { ensureTabunganTables, getTabunganDanaSummary, getTabunganMigrationBalanceByWarga } from './tabunganModel.js';
+import { ensureJimpitanTopupsTable } from './jimpitanModel.js';
 import { listFinanceWallets } from './bendaharaModel.js';
 
 let reportTablesEnsured = false;
@@ -31,17 +32,45 @@ export async function getJimpitanHarianByWarga(userId) {
 }
 
 export async function getJimpitanBulananByWarga(userId, month = null) {
+  await ensureJimpitanTopupsTable();
   const monthDate = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))
     ? `${month}-01`
     : null;
   const result = await pool.query(
-    `SELECT COALESCE(SUM(nominal), 0) AS total
-     FROM jimpitan_details
-     WHERE warga_id = $1
-     AND DATE_TRUNC('month', tanggal) = DATE_TRUNC('month', COALESCE($2::date, CURRENT_DATE))`,
+    `WITH month_ref AS (
+       SELECT DATE_TRUNC('month', COALESCE($2::date, CURRENT_DATE)) AS month_start
+     ),
+     detail AS (
+       SELECT COALESCE(SUM(nominal), 0) AS total
+       FROM jimpitan_details jd
+       CROSS JOIN month_ref mr
+       WHERE jd.warga_id = $1
+         AND DATE_TRUNC('month', jd.tanggal) = mr.month_start
+     ),
+     topup AS (
+       SELECT COALESCE(SUM(nominal), 0) AS total
+       FROM jimpitan_topups jt
+       CROSS JOIN month_ref mr
+       WHERE jt.warga_id = $1
+         AND jt.month_key = TO_CHAR(mr.month_start, 'YYYY-MM')
+     )
+     SELECT (SELECT total FROM detail) + (SELECT total FROM topup) AS total`,
     [userId, monthDate]
   );
   return Number(result.rows[0]?.total || 0);
+}
+
+export async function isJimpitanMember(userId) {
+  const result = await pool.query(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM jimpitan_members jm
+       WHERE jm.warga_id = $1::uuid
+         AND jm.status = 'ACTIVE'
+     ) AS is_member`,
+    [userId]
+  );
+  return Boolean(result.rows[0]?.is_member);
 }
 
 export async function getIuranBulananByWarga(userId, month = null) {

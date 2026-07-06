@@ -92,6 +92,27 @@ export async function ensureJimpitanExternalParticipantsTable() {
   `);
 }
 
+export async function ensureJimpitanTopupsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jimpitan_topups (
+      id BIGSERIAL PRIMARY KEY,
+      warga_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      nominal NUMERIC(18, 2) NOT NULL CHECK (nominal > 0),
+      admin_id UUID REFERENCES users(id),
+      note TEXT,
+      month_key VARCHAR(7),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`ALTER TABLE jimpitan_topups ADD COLUMN IF NOT EXISTS month_key VARCHAR(7)`);
+  await pool.query(`
+    UPDATE jimpitan_topups
+    SET month_key = TO_CHAR(created_at, 'YYYY-MM')
+    WHERE month_key IS NULL
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS jimpitan_topups_month_idx ON jimpitan_topups (month_key, warga_id)`);
+}
+
 export async function ensureJimpitanMembersTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS jimpitan_members (
@@ -196,6 +217,7 @@ export async function getUserJimpitanShiftHari(userId) {
 }
 
 async function getCurrentMonthSaldoByWarga(client, wargaId, referenceDate = null) {
+  await ensureJimpitanTopupsTable();
   const refDateParam = referenceDate ? `${referenceDate}` : null;
   const result = await client.query(
     `WITH bulan_ref AS (
@@ -213,7 +235,7 @@ async function getCurrentMonthSaldoByWarga(client, wargaId, referenceDate = null
        FROM jimpitan_topups jt
        CROSS JOIN bulan_ref br
        WHERE jt.warga_id = $1
-         AND DATE_TRUNC('month', jt.created_at::date) = br.month_start
+         AND jt.month_key = TO_CHAR(br.month_start, 'YYYY-MM')
      )
      SELECT (SELECT total FROM total_detail) + (SELECT total FROM total_topup) AS saldo_bulan_ini`,
     [wargaId, refDateParam]
@@ -451,7 +473,7 @@ export async function listJimpitanByOperationalDate(operationalDate) {
          jt.warga_id,
          COALESCE(SUM(jt.nominal), 0) AS total_topup_bulan_ini
        FROM jimpitan_topups jt
-       WHERE DATE_TRUNC('month', jt.created_at::date) = DATE_TRUNC('month', $1::date)
+       WHERE jt.month_key = TO_CHAR($1::date, 'YYYY-MM')
        GROUP BY jt.warga_id
      )
      SELECT
@@ -738,7 +760,8 @@ export async function saveJimpitanRouteOrder({ userId, operationalDate, orderedW
   );
 }
 
-export async function topUpJimpitanSaldo({ wargaId, nominal, adminId, note = null }) {
+export async function topUpJimpitanSaldo({ wargaId, nominal, monthKey, adminId, note = null }) {
+  await ensureJimpitanTopupsTable();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -757,12 +780,12 @@ export async function topUpJimpitanSaldo({ wargaId, nominal, adminId, note = nul
     );
 
     await client.query(
-      `INSERT INTO jimpitan_topups (warga_id, nominal, admin_id, note)
-       VALUES ($1, $2, $3, $4)`,
-      [wargaId, nominal, adminId, note]
+      `INSERT INTO jimpitan_topups (warga_id, nominal, month_key, admin_id, note)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [wargaId, nominal, monthKey, adminId, note]
     );
 
-    const saldoBulanIni = await getCurrentMonthSaldoByWarga(client, wargaId);
+    const saldoBulanIni = await getCurrentMonthSaldoByWarga(client, wargaId, `${monthKey}-01`);
 
     await client.query('COMMIT');
     return saldoBulanIni;
@@ -772,6 +795,31 @@ export async function topUpJimpitanSaldo({ wargaId, nominal, adminId, note = nul
   } finally {
     client.release();
   }
+}
+
+export async function listJimpitanTopups({ monthKey, limit = 100 } = {}) {
+  await ensureJimpitanTopupsTable();
+  const validMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(monthKey || '')) ? String(monthKey) : new Date().toISOString().slice(0, 7);
+  const safeLimit = Math.min(Math.max(Number(limit || 100), 1), 500);
+  const result = await pool.query(
+    `SELECT
+       jt.id::text AS id,
+       jt.warga_id::text AS warga_id,
+       u.nama,
+       jt.month_key,
+       jt.nominal,
+       jt.note,
+       jt.created_at,
+       au.nama AS admin_name
+     FROM jimpitan_topups jt
+     JOIN users u ON u.id = jt.warga_id
+     LEFT JOIN users au ON au.id = jt.admin_id
+     WHERE jt.month_key = $1
+     ORDER BY jt.created_at DESC
+     LIMIT $2`,
+    [validMonth, safeLimit]
+  );
+  return result.rows;
 }
 
 export async function editNominalJimpitanByAdmin({ wargaId, nominalBaru, tanggalOperasional }) {

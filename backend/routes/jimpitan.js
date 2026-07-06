@@ -13,6 +13,7 @@ import {
   getDailyRecapJimpitan,
   getMyJimpitanRouteOrder,
   getSetorHistoryJimpitanAdmin,
+  getJimpitanTopupHistory,
   healthCheck,
   inputJimpitan,
   listJimpitan,
@@ -55,8 +56,15 @@ router.post(
   '/topup',
   auth,
   allowRoles('Admin Jimpitan', 'root'),
-  validateRequiredFields(['warga_id', 'nominal']),
+  validateRequiredFields(['warga_id', 'nominal', 'month_key']),
   asyncHandler(topUpJimpitan)
+);
+
+router.get(
+  '/topups',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  asyncHandler(getJimpitanTopupHistory)
 );
 
 router.post(

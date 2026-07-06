@@ -13,6 +13,7 @@ import { formatRupiah, formatRupiahInput, formatTanggalIndonesia, parseRupiahInp
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
+import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 
 type WargaOption = { id: string; nama: string; no_hp?: string };
 type ExternalParticipant = {
@@ -37,6 +38,16 @@ type SetorHistoryItem = {
   approved_at?: string | null;
   target_wallet_name?: string | null;
 };
+type TopupHistoryItem = {
+  id: string;
+  warga_id: string;
+  nama: string;
+  month_key: string;
+  nominal: number;
+  note?: string | null;
+  created_at: string;
+  admin_name?: string | null;
+};
 
 export default function JimpitanAdminPage() {
   const router = useRouter();
@@ -45,7 +56,10 @@ export default function JimpitanAdminPage() {
   const [wargaOptions, setWargaOptions] = useState<WargaOption[]>([]);
   const [topupWargaId, setTopupWargaId] = useState('');
   const [topupNominal, setTopupNominal] = useState('');
+  const [topupPeriod, setTopupPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [topupLoading, setTopupLoading] = useState(false);
+  const [topupHistoryLoading, setTopupHistoryLoading] = useState(false);
+  const [topupHistory, setTopupHistory] = useState<TopupHistoryItem[]>([]);
   const [setorPeriod, setSetorPeriod] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -107,6 +121,19 @@ export default function JimpitanAdminPage() {
     setMembers(result.data || []);
   }, [isAdminJimpitan]);
 
+  const loadTopupHistory = useCallback(async () => {
+    if (!isAdminJimpitan) return;
+    setTopupHistoryLoading(true);
+    try {
+      const result = await apiFetch<{ success: boolean; data: TopupHistoryItem[] }>(
+        `/jimpitan/topups?month=${encodeURIComponent(topupPeriod)}&limit=100`
+      );
+      setTopupHistory(result.data || []);
+    } finally {
+      setTopupHistoryLoading(false);
+    }
+  }, [isAdminJimpitan, topupPeriod]);
+
   useEffect(() => {
     if (loading) return;
     if (!user) {
@@ -117,10 +144,10 @@ export default function JimpitanAdminPage() {
       router.replace('/jimpitan');
       return;
     }
-    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers()]).catch((error) => {
+    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers(), loadTopupHistory()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, pushToast]);
+  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, loadTopupHistory, pushToast]);
 
   const setorHistoryPager = usePagination(setorHistory, 20);
   const filteredMembers = useMemo(
@@ -128,6 +155,7 @@ export default function JimpitanAdminPage() {
     [members, memberFilter]
   );
   const memberPager = usePagination(filteredMembers, 10);
+  const topupHistoryPager = usePagination(topupHistory, 10);
 
   useEffect(() => {
     setorHistoryPager.reset();
@@ -136,6 +164,18 @@ export default function JimpitanAdminPage() {
   useEffect(() => {
     memberPager.reset();
   }, [memberFilter, filteredMembers.length]);
+
+  useEffect(() => {
+    topupHistoryPager.reset();
+  }, [topupHistory.length, topupPeriod]);
+
+  useEffect(() => {
+    if (!loading && user && isAdminJimpitan && !settingMode) {
+      void loadTopupHistory().catch((error) => {
+        pushToast(error instanceof Error ? error.message : 'Gagal memuat riwayat top up', 'error');
+      });
+    }
+  }, [loading, user, isAdminJimpitan, settingMode, loadTopupHistory, pushToast]);
 
   async function updateMemberStatus(member: JimpitanMember, status: JimpitanMember['status']) {
     if (member.status === status) return;
@@ -168,10 +208,11 @@ export default function JimpitanAdminPage() {
       setTopupLoading(true);
       await apiFetch('/jimpitan/topup', {
         method: 'POST',
-        body: JSON.stringify({ warga_id: wargaId, nominal })
+        body: JSON.stringify({ warga_id: wargaId, nominal, month_key: topupPeriod })
       });
       setTopupNominal('');
       await loadWargaOptions();
+      await loadTopupHistory();
       pushToast('Top up saldo berhasil.', 'success');
     } catch (error) {
       pushToast(error instanceof Error ? error.message : 'Top up gagal', 'error');
@@ -362,7 +403,11 @@ export default function JimpitanAdminPage() {
         ) : null}
 
         {!settingMode ? (
-          <Card title="Top Up Saldo Warga" subtitle="Kelola top up tanpa mengganggu alur input harian">
+          <Card
+            title="Top Up Saldo Warga"
+            subtitle="Pilih periode agar saldo masuk ke bulan yang benar"
+            headerRight={<PeriodPickerCompact label="Periode" value={topupPeriod} onChange={setTopupPeriod} />}
+          >
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-2 text-sm font-semibold">
                 <span>Pilih Warga</span>
@@ -391,6 +436,44 @@ export default function JimpitanAdminPage() {
                   {topupLoading ? 'Menyimpan...' : 'Simpan Top Up'}
                 </Button>
               </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {!settingMode ? (
+          <Card title="Riwayat Top Up Saldo" subtitle={`Top up periode ${topupPeriod}`}>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Tanggal Input</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Warga</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Nominal</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Admin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topupHistoryLoading ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={4} className="px-4 py-3 text-sm text-[var(--text-muted)]">Memuat riwayat top up...</td>
+                    </tr>
+                  ) : topupHistory.length === 0 ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={4} className="px-4 py-3 text-sm text-[var(--text-muted)]">Belum ada top up pada periode ini.</td>
+                    </tr>
+                  ) : (
+                    topupHistoryPager.pagedItems.map((row) => (
+                      <tr key={row.id} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{formatTanggalIndonesia(row.created_at)}</td>
+                        <td className="border-b border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{row.nama}</td>
+                        <td className="border-b border-[var(--line)] px-4 py-3 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.nominal || 0))}</td>
+                        <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.admin_name || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              <PaginationControls page={topupHistoryPager.page} totalPages={topupHistoryPager.totalPages} onPrev={topupHistoryPager.prev} onNext={topupHistoryPager.next} />
             </div>
           </Card>
         ) : null}

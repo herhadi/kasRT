@@ -17,6 +17,7 @@ export type LoginResponse = {
 export type DashboardWargaData = {
   jimpitan_hari_ini: number;
   jimpitan_bulan_ini: number;
+  jimpitan_is_member?: boolean;
   iuran_wajib_bulan_ini: number;
   optional_contributions: Array<{
     name: string;

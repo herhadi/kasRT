@@ -22,6 +22,7 @@ import {
   listPetugasByShiftDay,
   listJimpitanByOperationalDate,
   listJimpitanMembers,
+  listJimpitanTopups,
   getJimpitanDailyRecapByMonth,
   listJimpitanWeeklySchedule,
   listJimpitanExternalParticipants,
@@ -702,18 +703,23 @@ export async function sendJimpitanShiftReminder(req, res) {
 }
 
 export async function topUpJimpitan(req, res) {
-  const { warga_id, nominal, note } = req.body;
+  const { warga_id, nominal, note, month_key } = req.body;
   const admin_id = req.user.user_id;
+  const monthKey = String(month_key || '').trim();
   
   const nilaiNominal = Number(nominal || 0);
   if (nilaiNominal <= 0) {
     return res.status(400).json({ success: false, message: 'Nominal topup harus lebih dari 0' });
+  }
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) {
+    return res.status(400).json({ success: false, message: 'Periode topup tidak valid' });
   }
   
   try {
     const saldoAkhir = await topUpJimpitanSaldo({
       wargaId: warga_id,
       nominal: nilaiNominal,
+      monthKey,
       adminId: admin_id,
       note: note || null
     });
@@ -722,6 +728,17 @@ export async function topUpJimpitan(req, res) {
       success: true,
       saldo_akhir: saldoAkhir
     });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getJimpitanTopupHistory(req, res) {
+  const monthKey = String(req.query.month || '').trim();
+  const limit = Number(req.query.limit || 100);
+  try {
+    const data = await listJimpitanTopups({ monthKey, limit });
+    return res.json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

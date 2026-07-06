@@ -19,6 +19,7 @@ import {
   getJimpitanBulananByWarga,
   getJimpitanHarianByWarga,
   getLaporanBulananByMonth,
+  isJimpitanMember,
   isInternetMember,
   isLingkunganMember,
   isKoperasiMember,
@@ -89,6 +90,7 @@ export async function dashboardWarga(req, res) {
     const lingkunganMember = await isLingkunganMember(user_id);
     const koperasiMember = await isKoperasiMember(user_id);
     const tabunganMember = await isTabunganMember(user_id);
+    const jimpitanMember = await isJimpitanMember(user_id);
     const membershipRequests = await getLatestMembershipRequestStatusMap(user_id);
 
     iuranRows.forEach((row) => {
@@ -162,6 +164,7 @@ export async function dashboardWarga(req, res) {
       data: {
         jimpitan_hari_ini,
         jimpitan_bulan_ini,
+        jimpitan_is_member: jimpitanMember,
         iuran_wajib_bulan_ini,
         optional_contributions,
         total_optional_bulan_ini,
