@@ -497,7 +497,7 @@ export default function DashboardPage() {
       </div>
 
       {(detailLoading || detailData || detailError) ? (
-        <div className="dashboard-detail-modal fixed inset-x-0 top-0 z-[70] flex bg-black/45 p-3 md:inset-0 md:items-center md:justify-center">
+        <div className="dashboard-detail-modal fixed inset-0 z-[70] flex justify-center bg-black/45 p-3">
           <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-4">
               <div>
