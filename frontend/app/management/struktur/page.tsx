@@ -10,10 +10,22 @@ import FeedbackToast from '@/components/ui/FeedbackToast';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { isValidPin, normalizePinInput } from '@/lib/helpers';
+import usePagination from '@/lib/hooks/usePagination';
 import { useAuth } from '@/lib/useAuth';
+import PaginationControls from '@/components/pagination/PaginationControls';
 import { ManagementRoleItem, ManagementUserItem } from '@/types';
 
 type WargaOption = { id: string; nama: string; no_hp?: string };
+
+function formatLastLogin(value?: string | null) {
+  if (!value) return 'Belum pernah login';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date);
+}
 
 export default function UserManagementPage() {
   const { user, loading } = useAuth();
@@ -204,6 +216,13 @@ export default function UserManagementPage() {
     }
   }
 
+  const loginRows = [...users].sort((a, b) => {
+    const at = a.last_login_at ? new Date(a.last_login_at).getTime() : 0;
+    const bt = b.last_login_at ? new Date(b.last_login_at).getTime() : 0;
+    return bt - at || String(a.nama).localeCompare(String(b.nama), 'id');
+  });
+  const loginPager = usePagination(loginRows, 10);
+
   if (loading || !user) return <main className="min-h-screen" />;
 
   const organizationTableRows = organizationRoles
@@ -220,7 +239,6 @@ export default function UserManagementPage() {
     const isLeadership = leadershipRoleNames.has(String(role.name).toLowerCase());
     return canManageLeadership || !isLeadership;
   });
-
   if (!canManage) {
     return (
       <main className="min-h-screen pb-10">
@@ -271,6 +289,34 @@ export default function UserManagementPage() {
             Reset PIN akan mengatur PIN ke default `1234` dan user wajib ganti PIN saat login berikutnya.
           </p>
         </Card>
+
+        {isRoot ? (
+          <Card title="Login Terakhir" subtitle="Pantauan login warga dan pengurus, hanya root">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Nama</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">No HP</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Role</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Last Login</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loginPager.pagedItems.map((row) => (
+                    <tr key={String(row.id)} className="bg-[var(--surface)]">
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{row.nama}</td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.no_hp || '-'}</td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{(row.roles || []).join(', ') || '-'}</td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{formatLastLogin(row.last_login_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <PaginationControls page={loginPager.page} totalPages={loginPager.totalPages} onPrev={loginPager.prev} onNext={loginPager.next} />
+          </Card>
+        ) : null}
 
         <Card title="Manajemen Warga" subtitle="Tambah warga baru dan tunjuk role admin sesuai kebutuhan">
           <div className="grid gap-3 md:grid-cols-4">

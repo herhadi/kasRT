@@ -116,6 +116,7 @@ export type ManagementUserItem = {
   nama: string;
   no_hp: string;
   roles: string[];
+  last_login_at?: string | null;
 };
 
 export type PendingApprovalItem = {

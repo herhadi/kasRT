@@ -1,6 +1,10 @@
 import { pool } from '../db.js';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
+export async function ensureUserManagementColumns() {
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
+}
+
 export async function ensureNotulenTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS monthly_meeting_notes (
@@ -54,11 +58,13 @@ export async function listAssignableOrganizationRoles() {
 }
 
 export async function listUsersWithRoles() {
+  await ensureUserManagementColumns();
   const result = await pool.query(
     `SELECT
        u.id,
        u.nama,
        u.no_hp,
+       u.last_login_at,
        COALESCE(
          ARRAY_AGG(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL),
          ARRAY[]::text[]
@@ -66,7 +72,7 @@ export async function listUsersWithRoles() {
      FROM users u
      LEFT JOIN user_roles ur ON ur.user_id = u.id
      LEFT JOIN roles r ON r.id = ur.role_id
-     GROUP BY u.id, u.nama, u.no_hp
+     GROUP BY u.id, u.nama, u.no_hp, u.last_login_at
      ORDER BY u.nama ASC`
   );
   return result.rows;

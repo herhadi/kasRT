@@ -6,16 +6,18 @@ import {
   updateWargaUser
 } from '../models/managementModel.js';
 
-export async function getUserManagementData(_req, res) {
+export async function getUserManagementData(req, res) {
   try {
+    const isRoot = (req.user?.roles || []).some((role) => String(role).trim().toLowerCase() === 'root');
     const [users, organizationRoles] = await Promise.all([
       listUsersWithRoles(),
       listAssignableOrganizationRoles()
     ]);
+    const visibleUsers = isRoot ? users : users.map(({ last_login_at: _lastLoginAt, ...user }) => user);
     return res.json({
       success: true,
       data: {
-        users,
+        users: visibleUsers,
         organization_roles: organizationRoles,
         admin_roles: organizationRoles
       }

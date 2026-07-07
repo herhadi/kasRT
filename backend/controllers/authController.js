@@ -4,6 +4,7 @@ import {
   findUserForLogin,
   findUserRoles,
   listWargaDropdownOptions,
+  updateLastLoginById,
   updateUserPinById,
   updateUserProfileById
 } from '../models/authModel.js';
@@ -21,6 +22,7 @@ export async function login(req, res) {
   }
 
   const roles = await findUserRoles(user.id);
+  await updateLastLoginById(user.id);
 
   const token = jwt.sign(
     {

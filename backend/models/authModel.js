@@ -1,22 +1,38 @@
 import { pool } from '../db.js';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
+export async function ensureAuthUserColumns() {
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
+}
+
 export async function findUserForLogin(noHp) {
+  await ensureAuthUserColumns();
   const result = await pool.query(
-    'SELECT id, nama, no_hp, pin, telegram_chat_id FROM users WHERE no_hp = $1',
+    'SELECT id, nama, no_hp, pin, telegram_chat_id, last_login_at FROM users WHERE no_hp = $1',
     [noHp]
   );
   return result.rows[0] || null;
 }
 
 export async function findUserById(userId) {
+  await ensureAuthUserColumns();
   const result = await pool.query(
-    `SELECT id, nama, no_hp, telegram_chat_id
+    `SELECT id, nama, no_hp, telegram_chat_id, last_login_at
      FROM users
      WHERE id = $1`,
     [userId]
   );
   return result.rows[0] || null;
+}
+
+export async function updateLastLoginById(userId) {
+  await ensureAuthUserColumns();
+  await pool.query(
+    `UPDATE users
+     SET last_login_at = NOW()
+     WHERE id = $1`,
+    [userId]
+  );
 }
 
 export async function findUserRoles(userId) {
