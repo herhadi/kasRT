@@ -12,6 +12,7 @@ export type WargaContributionRow = {
   targetAmount: number;
   suggestionText?: string;
   canInput?: boolean;
+  isDone?: boolean;
   canEdit?: boolean;
   editId?: string;
   editAmount?: number;
@@ -49,7 +50,7 @@ export default function WargaContributionGrid({
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
       {rows.map((row) => {
-        const done = row.paidAmount >= row.targetAmount;
+        const done = typeof row.isDone === 'boolean' ? row.isDone : row.paidAmount >= row.targetAmount;
         const canInput = row.canInput ?? true;
         return (
           <article

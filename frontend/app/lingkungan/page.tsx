@@ -133,6 +133,7 @@ export default function LingkunganPage() {
       nama: r.nama,
       paidAmount: r.paid_amount,
       targetAmount: Number(summary?.monthly_fee || 0),
+      isDone: Number(r.total_arrears || 0) <= 0,
       canInput: true,
       suggestionText: Number(r.surplus_amount || 0) > 0
         ? `Surplus: ${formatRupiah(Number(r.surplus_amount || 0))}`

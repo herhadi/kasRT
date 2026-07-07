@@ -151,6 +151,7 @@ export default function OperasionalInternetPage() {
         nama: r.nama,
         paidAmount: Number(r.paid_amount || 0),
         targetAmount: Number(summary?.monthly_fee || 0),
+        isDone: Number(r.total_arrears || 0) <= 0,
         canInput: true,
         suggestionText: Number(r.surplus_amount || 0) > 0
           ? `Surplus: ${formatRupiah(Number(r.surplus_amount || 0))}`
