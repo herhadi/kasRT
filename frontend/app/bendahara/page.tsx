@@ -8,6 +8,7 @@ import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHead
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import SummaryTripleCard from '@/components/ui/SummaryTripleCard';
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
@@ -16,6 +17,8 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, formatTanggalIndonesia, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
+import usePagination from '@/lib/hooks/usePagination';
+import PaginationControls from '@/components/pagination/PaginationControls';
 
 type WargaItem = { id: string | number; nama: string };
 type IuranStatusItem = { warga_id: string; nama: string; paid_amount: number };
@@ -104,6 +107,12 @@ type RekapKeuanganItem = {
 type PendapatanSummary = { iuran: number; jimpitan: number; sewa_aset?: number; total: number };
 type OpeningArrearsItem = { warga_id: string; opening_arrears: number };
 type IuranTariffItem = { id: string; effective_month: string; monthly_fee: number };
+type IuranMemberItem = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string };
+const IURAN_MEMBER_START_MONTH = '2026-01';
+
+function stickyValueClass(value: number) {
+  return Number(value || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]';
+}
 
 export default function BendaharaPage() {
   const { user, loading } = useAuth();
@@ -161,6 +170,9 @@ export default function BendaharaPage() {
   });
   const [pendingSosialReceiptCount, setPendingSosialReceiptCount] = useState(0);
   const [iuranTariffs, setIuranTariffs] = useState<IuranTariffItem[]>([]);
+  const [iuranMembers, setIuranMembers] = useState<IuranMemberItem[]>([]);
+  const [iuranMemberFilter, setIuranMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
+  const [iuranMemberMonthDrafts, setIuranMemberMonthDrafts] = useState<Record<string, string>>({});
   const [iuranMonthlyFee, setIuranMonthlyFee] = useState(30000);
   const [showIuranTariffSetting, setShowIuranTariffSetting] = useState(false);
   const [iuranTariffMonth, setIuranTariffMonth] = useState(() => {
@@ -196,6 +208,8 @@ export default function BendaharaPage() {
   const speechPressedRef = useRef(false);
   const iuranSyncRef = useRef<Promise<void>>(Promise.resolve());
   const iuranPageMode = pathname === '/operasional/iuran' || pathname === '/operasional/bendahara/iuran';
+  const settingMode = pathname === '/operasional/bendahara/setting';
+  const guideMode = pathname === '/operasional/bendahara/panduan';
   const bendaharaMode = pathname === '/operasional/bendahara' || pathname === '/operasional' || pathname === '/bendahara';
   const sekretarisMode = pathname === '/operasional/sekretaris';
 
@@ -315,6 +329,13 @@ export default function BendaharaPage() {
     setIuranMonthlyFee(Number(result.data?.active_fee || 30000));
   }, [selectedMonth]);
 
+  const loadIuranMembers = useCallback(async () => {
+    const result = await apiFetch<{ success: boolean; data: IuranMemberItem[] }>('/bendahara/iuran-members');
+    const rows = result.data || [];
+    setIuranMembers(rows);
+    setIuranMemberMonthDrafts(Object.fromEntries(rows.map((member) => [member.warga_id, member.active_from_month || IURAN_MEMBER_START_MONTH])));
+  }, []);
+
   const loadReport = useCallback(async () => {
     const result = await apiFetch<{ success: boolean; data: BendaharaReport }>('/report/dashboard-admin-bendahara');
     setReport(result.data || null);
@@ -362,10 +383,10 @@ export default function BendaharaPage() {
       }
       return;
     }
-    void Promise.all([loadMaster(), loadIuranTariffs(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadOpeningArrears()]).catch((e) =>
+    void Promise.all([loadMaster(), loadIuranTariffs(), loadIuranMembers(), loadReport(), loadWargaOptions(), loadYearlyBook(), loadOpeningArrears()]).catch((e) =>
       setError(e instanceof Error ? e.message : 'Gagal memuat menu bendahara')
     );
-  }, [loading, canSeeOps, isBendahara, isKetua, isAdminSosial, isSekretaris, router, loadMaster, loadIuranTariffs, loadReport, loadWargaOptions, loadYearlyBook, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
+  }, [loading, canSeeOps, isBendahara, isKetua, isAdminSosial, isSekretaris, router, loadMaster, loadIuranTariffs, loadIuranMembers, loadReport, loadWargaOptions, loadYearlyBook, loadPendingSosialReceiptCount, loadSosialSummary, loadRekapKeuangan, loadOpeningArrears, loadMeetingNote]);
 
   useEffect(() => {
     if (loading || !canSeeOps) return;
@@ -572,6 +593,11 @@ export default function BendaharaPage() {
     },
     [warga, iuranStatus, openingArrears, iuranMonthlyFee, user]
   );
+  const filteredIuranMembers = useMemo(
+    () => iuranMembers.filter((member) => iuranMemberFilter === 'aktif' ? member.is_active : !member.is_active),
+    [iuranMembers, iuranMemberFilter]
+  );
+  const iuranMemberPager = usePagination(filteredIuranMembers, 10);
   const iuranPresetAmounts = useMemo(
     () => [1, 2, 3, 4, 5, 6].map((n) => ({ label: `${n}x`, amount: Number(iuranMonthlyFee || 30000) * n })),
     [iuranMonthlyFee]
@@ -670,6 +696,33 @@ export default function BendaharaPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan tarif iuran wajib');
       setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal menyimpan tarif iuran wajib' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setIuranMemberActive(wargaId: string, isActive: boolean) {
+    const activeFromMonth = iuranMemberMonthDrafts[wargaId] || IURAN_MEMBER_START_MONTH;
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(activeFromMonth)) {
+      setError('Mulai iuran wajib format YYYY-MM.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setError('');
+      const result = await apiFetch<{ success: boolean; data: IuranMemberItem[] }>('/bendahara/iuran-member', {
+        method: 'POST',
+        body: JSON.stringify({ warga_id: wargaId, is_active: isActive, active_from_month: activeFromMonth })
+      });
+      const rows = result.data || [];
+      setIuranMembers(rows);
+      setIuranMemberMonthDrafts(Object.fromEntries(rows.map((member) => [member.warga_id, member.active_from_month || IURAN_MEMBER_START_MONTH])));
+      setMessage(isActive ? 'Anggota iuran wajib berhasil diaktifkan.' : 'Anggota iuran wajib berhasil dinonaktifkan.');
+      setToast({ type: 'success', text: isActive ? 'Anggota diaktifkan.' : 'Anggota dinonaktifkan.' });
+      void Promise.all([loadMaster(), loadReport()]).catch(() => undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal menyimpan anggota iuran wajib');
+      setToast({ type: 'error', text: e instanceof Error ? e.message : 'Gagal menyimpan anggota iuran wajib' });
     } finally {
       setBusy(false);
     }
@@ -816,6 +869,139 @@ export default function BendaharaPage() {
     );
   }
 
+  if (guideMode && (isBendahara || isKetua)) {
+    return (
+      <main className="min-h-screen pb-10">
+        <FeedbackToast error={error} message={message} />
+        <Navbar sticky={false} />
+        <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <OperationalSubmenuHeader backHref="/operasional/bendahara" title="Kembali ke Operasional Bendahara" />
+          <BendaharaIuranGuide />
+        </div>
+      </main>
+    );
+  }
+
+  if (settingMode && (isBendahara || isKetua)) {
+    return (
+      <main className="min-h-screen pb-10">
+        <FeedbackToast error={error} message={message} />
+        {toast ? (
+          <div
+            className={
+              toast.type === 'success'
+                ? 'fixed right-4 top-4 z-[70] rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-md'
+                : 'fixed right-4 top-4 z-[70] rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-md'
+            }
+          >
+            {toast.text}
+          </div>
+        ) : null}
+        <Navbar sticky={false} />
+        <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <OperationalSubmenuHeader backHref="/operasional/bendahara" title="Kembali ke Operasional Bendahara" />
+          <div className="sticky top-0 z-40 grid gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm md:grid-cols-2">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">
+              Anggota aktif: <b className="text-emerald-800">{iuranMembers.filter((member) => member.is_active).length}</b>
+            </div>
+            <div className="rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-900">
+              Tarif aktif: <b className="text-sky-800">{formatRupiah(iuranMonthlyFee)}</b>
+            </div>
+          </div>
+
+          <Card title="Pengaturan Iuran Wajib" subtitle="Tarif dan keanggotaan iuran wajib bendahara.">
+            {isBendahara ? (
+              <div className="grid gap-3 md:grid-cols-4">
+                <Input label="Tarif Berlaku Mulai" type="month" value={iuranTariffMonth} onChange={(e) => setIuranTariffMonth(e.target.value)} />
+                <Input
+                  label="Nominal Tarif Baru"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatRupiahInput(iuranTariffValue)}
+                  onChange={(e) => setIuranTariffValue(e.target.value)}
+                />
+                <div className="flex items-end md:col-span-2">
+                  <Button className="w-full" onClick={submitIuranTariff} disabled={busy}>Simpan Tarif</Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">Ketua dapat melihat pengaturan. Perubahan tarif dan keanggotaan hanya untuk Bendahara/root.</p>
+            )}
+          </Card>
+
+          <Card title="Keanggotaan Iuran Wajib" subtitle="Daftar warga eligible. Nonaktifkan warga yang tidak wajib membayar iuran wajib.">
+            <div className="mb-3 flex w-full gap-2">
+              {(['aktif', 'nonaktif'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => {
+                    setIuranMemberFilter(filter);
+                    iuranMemberPager.reset();
+                  }}
+                  className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${iuranMemberFilter === filter ? 'opacity-100' : 'opacity-70'}`}
+                >
+                  {filter === 'aktif'
+                    ? `Aktif (${iuranMembers.filter((member) => member.is_active).length})`
+                    : `Nonaktif (${iuranMembers.filter((member) => !member.is_active).length})`}
+                </button>
+              ))}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="px-3 py-2 text-left text-xs">Warga</th>
+                    <th className="px-3 py-2 text-left text-xs">Mulai Iuran</th>
+                    <th className="px-3 py-2 text-left text-xs">Status</th>
+                    <th className="px-3 py-2 text-right text-xs">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {iuranMemberPager.pagedItems.map((member) => (
+                    <tr key={member.warga_id} className="bg-[var(--surface)]">
+                      <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td>
+                      <td className="border-t border-[var(--line)] px-3 py-2 text-sm">
+                        <input
+                          type="month"
+                          className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          value={iuranMemberMonthDrafts[member.warga_id] || member.active_from_month || IURAN_MEMBER_START_MONTH}
+                          onChange={(event) => setIuranMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: event.target.value }))}
+                          disabled={!isBendahara}
+                        />
+                      </td>
+                      <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        {member.is_active ? 'Aktif' : 'Nonaktif'}
+                      </td>
+                      <td className="border-t border-[var(--line)] px-3 py-2 text-right">
+                        {isBendahara ? (
+                          <MemberActionButtons
+                            isActive={Boolean(member.is_active)}
+                            disabled={busy}
+                            onSaveStart={() => void setIuranMemberActive(member.warga_id, Boolean(member.is_active))}
+                            onToggle={() => void setIuranMemberActive(member.warga_id, !Boolean(member.is_active))}
+                          />
+                        ) : (
+                          <span className="text-xs text-[var(--text-muted)]">Lihat saja</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {!filteredIuranMembers.length ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Tidak ada anggota {iuranMemberFilter}.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <PaginationControls page={iuranMemberPager.page} totalPages={iuranMemberPager.totalPages} onPrev={iuranMemberPager.prev} onNext={iuranMemberPager.next} />
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
   if (iuranPageMode && (isBendahara || isKetua)) {
     return (
       <main className="min-h-screen pb-10">
@@ -834,10 +1020,15 @@ export default function BendaharaPage() {
         <Navbar />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
           <OperationalSubmenuHeader backHref="/operasional/bendahara" title="Kembali ke Operasional Bendahara" />
+          <div className="ops-sticky-summary">
+            <div className="ops-sticky-item ops-sticky-item-sky">Kas<br /><b className={stickyValueClass(totalSaldoRealtime)}>{formatRupiah(totalSaldoRealtime)}</b></div>
+            <div className="ops-sticky-item ops-sticky-item-emerald">Masuk<br /><b className={stickyValueClass(Number(pendapatan.total || totalPendapatanBulanIni || 0))}>{formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0))}</b></div>
+            <div className="ops-sticky-item ops-sticky-item-rose">Keluar<br /><b className={stickyValueClass(totalPengeluaranBulanTerpilih)}>{formatRupiah(totalPengeluaranBulanTerpilih)}</b></div>
+          </div>
           <Card
             title="Input Iuran Wajib"
             headerRight={
-              <div className="w-full max-w-[220px]">
+              <div className="w-full max-w-[170px]">
                 <Input
                   label="Periode"
                   type="month"
@@ -854,44 +1045,12 @@ export default function BendaharaPage() {
               </div>
             }
           >
-            <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div className="surface-muted rounded-xl border border-[var(--line)] px-3 py-2 text-sm">
                 Tarif aktif: <b>{formatRupiah(iuranMonthlyFee)}</b>
-                {iuranTariffs[0]?.effective_month ? (
-                  <span className="ml-1 text-[var(--text-muted)]">(mulai {iuranTariffs[0].effective_month})</span>
-                ) : null}
               </div>
-              {isBendahara ? (
-                <Button variant="ghost" className="btn-action-blue" onClick={() => setShowIuranTariffSetting((v) => !v)}>
-                  ⚙️ Pengaturan Tarif
-                </Button>
-              ) : null}
+              <Link href="/operasional/bendahara/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
             </div>
-            {showIuranTariffSetting && isBendahara ? (
-              <div className="mb-4 grid gap-3 md:grid-cols-4">
-                <Input label="Tarif Berlaku Mulai" type="month" value={iuranTariffMonth} onChange={(e) => setIuranTariffMonth(e.target.value)} />
-                <Input
-                  label="Nominal Tarif Baru"
-                  type="text"
-                  inputMode="numeric"
-                  value={formatRupiahInput(iuranTariffValue)}
-                  onChange={(e) => setIuranTariffValue(e.target.value)}
-                />
-                <div className="md:col-span-2 flex items-end">
-                  <Button className="w-full" onClick={submitIuranTariff} disabled={busy}>Simpan Tarif</Button>
-                </div>
-              </div>
-            ) : null}
-            <SummaryTripleCard
-              title="Pendapatan Bulan Ini"
-              sticky
-              items={[
-                { label: 'Iuran', value: formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0)) },
-                { label: 'Jimpitan', value: formatRupiah(Number(pendapatan.jimpitan || 0)), className: 'hidden md:block' },
-                { label: 'Sewa Aset', value: formatRupiah(Number(pendapatan.sewa_aset || 0)), className: 'hidden md:block' },
-                { label: 'Total', value: formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0)), emphasize: true, className: 'hidden md:block' }
-              ]}
-            />
             <WargaContributionSection
               rows={iuranRows}
               selectedRow={selectedWargaCard}
@@ -1206,32 +1365,18 @@ export default function BendaharaPage() {
             </div>
           ) : (isBendahara || bendaharaMode) ? (
             <>
-              <SummaryTripleCard
-                title="Pendapatan Bulan Ini"
-                sticky
-                items={[
-                  { label: 'Iuran', value: formatRupiah(Number(pendapatan.iuran || totalPendapatanBulanIni || 0)) },
-                  { label: 'Jimpitan', value: formatRupiah(Number(pendapatan.jimpitan || 0)), className: 'hidden md:block' },
-                  { label: 'Sewa Aset', value: formatRupiah(Number(pendapatan.sewa_aset || 0)), className: 'hidden md:block' },
-                  { label: 'Total', value: formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0)), emphasize: true, className: 'hidden md:block' }
-                ]}
-              />
               {!iuranPageMode ? (
-                <div className="mb-3 flex flex-wrap gap-2">
+                <div className="mt-4 flex items-center justify-between gap-2">
                   <Link
                     href="/operasional/bendahara/iuran"
-                    className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold"
+                    className="btn-action-blue link-action px-3 py-1.5 text-xs"
                   >
                     Input Iuran
                   </Link>
-                  {isBendahara ? (
-                    <Link
-                      href="/approval/bendahara"
-                      className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold"
-                    >
-                      Approval Bendahara
-                    </Link>
-                  ) : null}
+                  <div className="flex gap-2">
+                    <Link href="/operasional/bendahara/panduan" className="btn-action-blue link-action px-3 py-1.5 text-xs">📖 Panduan</Link>
+                    <Link href="/operasional/bendahara/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
+                  </div>
                 </div>
               ) : null}
               {iuranPageMode ? (
@@ -1287,6 +1432,12 @@ export default function BendaharaPage() {
 
         {(isBendahara || isKetua) ? (
           <>
+            <div className="ops-sticky-summary">
+              <div className="ops-sticky-item ops-sticky-item-sky">Kas<br /><b className={stickyValueClass(totalSaldoRealtime)}>{formatRupiah(totalSaldoRealtime)}</b></div>
+              <div className="ops-sticky-item ops-sticky-item-emerald">Masuk<br /><b className={stickyValueClass(Number(pendapatan.total || totalPendapatanBulanIni || 0))}>{formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0))}</b></div>
+              <div className="ops-sticky-item ops-sticky-item-rose">Keluar<br /><b className={stickyValueClass(totalPengeluaranBulanTerpilih)}>{formatRupiah(totalPengeluaranBulanTerpilih)}</b></div>
+            </div>
+
             <Card title="Total Saldo Realtime" subtitle="Akumulasi saldo kas dari transaksi APPROVED">
               <SummaryTripleCard
                 title="Ringkasan Saldo"
@@ -1637,6 +1788,65 @@ export default function BendaharaPage() {
 
       </div>
     </main>
+  );
+}
+
+function BendaharaIuranGuide() {
+  return (
+    <>
+      <Card
+        title="Panduan Admin Bendahara"
+        subtitle="Alur pengaturan iuran wajib, input setoran, dan membaca kas bendahara."
+        headerRight={<Link href="/operasional/bendahara" className="btn-action-blue link-action px-3 py-1.5 text-xs">Kembali ke Operasional</Link>}
+      >
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Untuk sementara tunggakan iuran wajib di dashboard warga dinolkan. Pengaturan ini tetap disiapkan agar saat iuran wajib dipakai kembali, tarif dan anggota sudah bisa dikelola rapi.
+        </div>
+      </Card>
+
+      <Card title="1. Atur tarif dan keanggotaan" subtitle="Lakukan sebelum input iuran wajib berjalan.">
+        <ol className="list-decimal space-y-3 pl-5 text-sm leading-6 text-[var(--text-primary)]">
+          <li>Buka <Link href="/operasional/bendahara/setting" className="font-semibold text-[var(--accent)] underline">Pengaturan Bendahara</Link>.</li>
+          <li>Isi <b>Tarif Berlaku Mulai</b> dan nominal tarif, lalu pilih <b>Simpan Tarif</b>.</li>
+          <li>Di tabel keanggotaan, warga eligible otomatis aktif. Nonaktifkan warga yang tidak wajib ikut iuran wajib.</li>
+          <li>Isi <b>Mulai Iuran</b> untuk menentukan sejak bulan apa warga muncul dan dihitung di input iuran.</li>
+        </ol>
+      </Card>
+
+      <Card title="2. Input iuran wajib" subtitle="Pencatatan setoran per warga.">
+        <ol className="list-decimal space-y-3 pl-5 text-sm leading-6 text-[var(--text-primary)]">
+          <li>Buka <Link href="/operasional/bendahara/iuran" className="font-semibold text-[var(--accent)] underline">Input Iuran</Link>.</li>
+          <li>Pilih periode, lalu input nominal sesuai pembayaran warga.</li>
+          <li>Setoran disimpan lokal lebih dulu dan disinkronkan di background agar terasa cepat.</li>
+          <li>Jika salah input, tahan card warga selama waktu koreksi global untuk membuka modal koreksi.</li>
+        </ol>
+      </Card>
+
+      <Card title="3. Baca ringkasan kas" subtitle="Sticky mengikuti pola modul internet, lingkungan, dan tabungan.">
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+            <thead>
+              <tr className="bg-[var(--surface-strong)]">
+                <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Informasi</th>
+                <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Arti</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Kas', 'Total saldo kas bendahara dari Kas Iuran Wajib, Kas Jimpitan, dan Kas Sewa Aset.'],
+                ['Masuk', 'Total pemasukan bulan terpilih.'],
+                ['Keluar', 'Total pengeluaran bulan terpilih.']
+              ].map(([label, desc]) => (
+                <tr key={label} className="bg-[var(--surface)]">
+                  <td className="border-t border-[var(--line)] px-3 py-2 text-sm font-semibold">{label}</td>
+                  <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
   );
 }
 

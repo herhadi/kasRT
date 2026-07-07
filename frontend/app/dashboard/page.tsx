@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -155,6 +155,18 @@ export default function DashboardPage() {
     () => (wargaData?.optional_contributions || []).filter((item) => item.is_mandatory === false && Number(item.amount || 0) > 0),
     [wargaData]
   );
+  const formatSignedRupiah = useCallback((value: number) => {
+    const numeric = Number(value || 0);
+    if (numeric > 0) return `+${formatRupiah(numeric)}`;
+    if (numeric < 0) return `-${formatRupiah(Math.abs(numeric))}`;
+    return formatRupiah(0);
+  }, []);
+  const obligationTone = useCallback((value: number): 'accent' | 'success' | 'danger' => {
+    const numeric = Number(value || 0);
+    if (numeric < 0) return 'danger';
+    if (numeric > 0) return 'success';
+    return 'accent';
+  }, []);
   const personalObligations = useMemo(() => {
     if (!wargaData) {
       return {
@@ -356,16 +368,16 @@ export default function DashboardPage() {
                 {wargaData.internet_is_member ? (
                   <Metric
                     title="Kewajiban Internet"
-                    value={formatRupiah(personalObligations.internet)}
-                    tone={personalObligations.internet < 0 ? 'danger' : 'accent'}
+                    value={formatSignedRupiah(personalObligations.internet)}
+                    tone={obligationTone(personalObligations.internet)}
                     onClick={() => void openContributionDetail('internet')}
                   />
                 ) : null}
                 {wargaData.lingkungan_is_member ? (
                   <Metric
                     title="Kewajiban Lingkungan"
-                    value={formatRupiah(personalObligations.lingkungan)}
-                    tone={personalObligations.lingkungan < 0 ? 'danger' : 'accent'}
+                    value={formatSignedRupiah(personalObligations.lingkungan)}
+                    tone={obligationTone(personalObligations.lingkungan)}
                     onClick={() => void openContributionDetail('lingkungan')}
                   />
                 ) : null}
@@ -392,7 +404,7 @@ export default function DashboardPage() {
 
             <CompactPanel title="Tunggakan Anda" subtitle="Jumlah bulan dan nominal per kas">
               <div className="space-y-2 text-sm">
-                <Line label="Iuran Wajib" value={`${wargaData.iuran_tunggakan_bulan_count} bulan • ${formatRupiah(wargaData.iuran_tunggakan_bulan_ini)}`} />
+                <Line label="Iuran Wajib" value={`0 bulan • ${formatRupiah(0)}`} />
                 {wargaData.internet_is_member ? <Line label="Internet" value={`${wargaData.internet_tunggakan_bulan_count} bulan • ${formatRupiah(wargaData.internet_tunggakan_total)}`} /> : null}
                 {wargaData.lingkungan_is_member ? <Line label="Lingkungan" value={`${wargaData.lingkungan_tunggakan_bulan_count} bulan • ${formatRupiah(wargaData.lingkungan_tunggakan_total)}`} /> : null}
               </div>

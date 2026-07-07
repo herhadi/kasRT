@@ -5,10 +5,12 @@ import {
   closeBookYear,
   getYearlyBook,
   getBendaharaMasterData,
+  getIuranWajibMembers,
   getIuranWajibTariffs,
   getOpeningArrears,
   inputPengeluaranBulanan,
   openBookYear,
+  postIuranWajibMember,
   postIuranWajibTariff,
   saveOpeningArrears,
   setorIuranWajibWarga
@@ -19,10 +21,12 @@ const router = express.Router();
 router.use(auth);
 
 router.get('/master', allowRoles('Bendahara', 'Ketua'), asyncHandler(getBendaharaMasterData));
+router.get('/iuran-members', allowRoles('Bendahara', 'Ketua'), asyncHandler(getIuranWajibMembers));
 router.get('/iuran-tariffs', allowRoles('Bendahara', 'Ketua'), asyncHandler(getIuranWajibTariffs));
 router.get('/opening-arrears', allowRoles('Bendahara', 'Ketua'), asyncHandler(getOpeningArrears));
 router.get('/yearly-book', allowRoles('Bendahara', 'Ketua'), asyncHandler(getYearlyBook));
 router.post('/setor-iuran-wajib', allowRoles('Bendahara'), asyncHandler(setorIuranWajibWarga));
+router.post('/iuran-member', allowRoles('Bendahara'), asyncHandler(postIuranWajibMember));
 router.post('/iuran-tariff', allowRoles('Bendahara'), asyncHandler(postIuranWajibTariff));
 router.post('/opening-arrears', allowRoles('Bendahara'), asyncHandler(saveOpeningArrears));
 router.post('/pengeluaran', allowRoles('Bendahara'), asyncHandler(inputPengeluaranBulanan));

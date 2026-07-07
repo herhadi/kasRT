@@ -30,6 +30,18 @@ export async function ensureIuranTariffTable() {
   }
 }
 
+export async function ensureIuranMemberTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS iw_members (
+      warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01',
+      updated_by UUID NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
 export async function listIuranWajibTariffs() {
   await ensureIuranTariffTable();
   const rs = await pool.query(`SELECT id::text, effective_month, monthly_fee FROM iw_tariffs ORDER BY effective_month DESC`);
@@ -62,6 +74,42 @@ export async function getActiveIuranWajibFeeByMonth(month) {
   );
   if (!rs.rows.length) return DEFAULT_IURAN_WAJIB_FEE;
   return Number(rs.rows[0].monthly_fee || DEFAULT_IURAN_WAJIB_FEE);
+}
+
+export async function listIuranWajibMembers() {
+  await ensureIuranMemberTable();
+  const result = await pool.query(
+    `SELECT
+       u.id::text AS warga_id,
+       u.nama,
+       COALESCE(m.is_active, TRUE) AS is_active,
+       COALESCE(m.active_from_month, '2026-01') AS active_from_month
+     FROM users u
+     LEFT JOIN iw_members m ON m.warga_id = u.id
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
+     ORDER BY u.nama ASC`
+  );
+  return result.rows.map((row) => ({
+    warga_id: String(row.warga_id),
+    nama: String(row.nama || ''),
+    is_active: Boolean(row.is_active),
+    active_from_month: String(row.active_from_month || '2026-01')
+  }));
+}
+
+export async function setIuranWajibMemberActive({ wargaId, isActive, activeFromMonth, updatedBy }) {
+  await ensureIuranMemberTable();
+  await pool.query(
+    `INSERT INTO iw_members (warga_id, is_active, active_from_month, updated_by, updated_at)
+     VALUES ($1::uuid, $2, $3, $4::uuid, NOW())
+     ON CONFLICT (warga_id)
+     DO UPDATE SET
+       is_active = EXCLUDED.is_active,
+       active_from_month = EXCLUDED.active_from_month,
+       updated_by = EXCLUDED.updated_by,
+       updated_at = NOW()`,
+    [wargaId, Boolean(isActive), activeFromMonth || '2026-01', updatedBy || null]
+  );
 }
 
 export async function listFinanceWallets() {
@@ -260,11 +308,15 @@ export async function listIuranWajibStatusByMonth({ month }) {
     : new Date().toISOString().slice(0, 7);
   const monthDate = `${monthValue}-01`;
 
+  await ensureIuranMemberTable();
   const result = await pool.query(
     `WITH warga AS (
      SELECT DISTINCT u.id::text AS warga_id, u.nama
      FROM users u
+     LEFT JOIN iw_members m ON m.warga_id = u.id
      WHERE ${ELIGIBLE_USERS_CLAUSE}
+       AND COALESCE(m.is_active, TRUE) = TRUE
+       AND COALESCE(m.active_from_month, '2026-01') <= $2
      ),
      iuran AS (
        SELECT it.warga_id::text AS warga_id, COALESCE(SUM(it.amount), 0) AS total
@@ -281,7 +333,7 @@ export async function listIuranWajibStatusByMonth({ month }) {
      FROM warga w
      LEFT JOIN iuran i ON i.warga_id = w.warga_id
      ORDER BY w.nama ASC`,
-    [monthDate]
+    [monthDate, monthValue]
   );
   return result.rows;
 }

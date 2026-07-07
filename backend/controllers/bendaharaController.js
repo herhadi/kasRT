@@ -5,9 +5,11 @@ import {
   listFinanceWallets,
   listIuranWajibTariffs,
   getActiveIuranWajibFeeByMonth,
+  listIuranWajibMembers,
   listIuranWajibStatusByMonth,
   listPendapatanBulanan,
   listPengeluaranBulanan,
+  setIuranWajibMemberActive,
   upsertIuranWajibTariff,
   upsertOpeningArrearsByContribution
 } from '../models/bendaharaModel.js';
@@ -46,6 +48,35 @@ export async function getIuranWajibTariffs(req, res) {
     return res.json({ success: true, data: { tariffs, active_fee: activeFee } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getIuranWajibMembers(req, res) {
+  try {
+    const data = await listIuranWajibMembers();
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function postIuranWajibMember(req, res) {
+  const wargaId = String(req.body.warga_id || '').trim();
+  const isActive = Boolean(req.body.is_active);
+  const activeFromMonth = String(req.body.active_from_month || '2026-01').trim();
+  const actor = String(req.user.user_id || '').trim();
+
+  if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id tidak valid' });
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(activeFromMonth)) {
+    return res.status(400).json({ success: false, message: 'active_from_month invalid' });
+  }
+
+  try {
+    await setIuranWajibMemberActive({ wargaId, isActive, activeFromMonth, updatedBy: actor });
+    const data = await listIuranWajibMembers();
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
   }
 }
 
