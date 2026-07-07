@@ -8,6 +8,8 @@ import {
   updateUserPinById,
   updateUserProfileById
 } from '../models/authModel.js';
+import { createPinResetRequestByNoHp } from '../models/managementModel.js';
+import { notifyRoles } from '../services/approvalNotifier.js';
 
 export async function login(req, res) {
   const { no_hp, pin } = req.body;
@@ -143,4 +145,33 @@ export async function updateMyProfile(req, res) {
       telegram_connected: Boolean(updated.telegram_chat_id)
     }
   });
+}
+
+export async function requestPinReset(req, res) {
+  const noHp = String(req.body?.no_hp || '').trim();
+  if (!noHp) {
+    return res.status(400).json({ success: false, message: 'Nomor HP wajib diisi.' });
+  }
+
+  try {
+    const result = await createPinResetRequestByNoHp({ noHp });
+    if (result.found && !result.alreadyPending) {
+      await notifyRoles(
+        ['Ketua', 'Plt Ketua', 'Sekretaris', 'root'],
+        `🔐 <b>Permintaan Reset PIN</b>\n` +
+          `Nama: <b>${result.user?.nama || '-'}</b>\n` +
+          `No HP: <b>${result.user?.no_hp || noHp}</b>\n\n` +
+          `Buka Inbox KasRT untuk reset PIN ke default.`
+      ).catch(() => {});
+    }
+
+    return res.json({
+      success: true,
+      message: result.alreadyPending
+        ? 'Permintaan reset PIN Anda masih menunggu diproses admin.'
+        : 'Jika nomor terdaftar, permintaan reset PIN akan dikirim ke admin.'
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Gagal mengirim permintaan reset PIN.' });
+  }
 }

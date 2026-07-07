@@ -6,6 +6,7 @@ import {
   listPendingJimpitanBatches,
   listPendingTransactionApprovals
 } from '../models/approvalModel.js';
+import { listPendingPinResetRequests } from '../models/managementModel.js';
 
 function normalizeRoles(userRoles = []) {
   if (Array.isArray(userRoles)) return userRoles;
@@ -30,6 +31,7 @@ export async function getPendingApprovals(req, res) {
   const canApproveFinance = hasAnyRole(roles, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
   const canApproveSetorHandover = hasAnyRole(roles, ['Bendahara', 'root']);
   const canApproveSosialReceipt = hasAnyRole(roles, ['Admin Sosial', 'root']);
+  const canManageUsers = hasAnyRole(roles, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
 
   const sections = [];
 
@@ -68,6 +70,15 @@ export async function getPendingApprovals(req, res) {
     sections.push({
       key: 'social_receipt',
       label: 'Approval Dana Masuk Sosial',
+      items: rows
+    });
+  }
+
+  if (canManageUsers) {
+    const rows = await listPendingPinResetRequests();
+    sections.push({
+      key: 'pin_reset',
+      label: 'Permintaan Reset PIN',
       items: rows
     });
   }

@@ -5,6 +5,24 @@ export async function ensureUserManagementColumns() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
 }
 
+export async function ensurePinResetRequestTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pin_reset_requests (
+      id UUID PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','RESET')),
+      requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      reset_by UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+      reset_at TIMESTAMPTZ NULL
+    )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS pin_reset_requests_pending_unique
+    ON pin_reset_requests (user_id)
+    WHERE status = 'PENDING'
+  `);
+}
+
 export async function ensureNotulenTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS monthly_meeting_notes (
@@ -187,6 +205,135 @@ export async function updateWargaUser({ userId, nama, noHp, resetPin = false, de
     }
 
     await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createPinResetRequestByNoHp({ noHp }) {
+  await ensurePinResetRequestTable();
+  const userResult = await pool.query(
+    `SELECT id, nama, no_hp
+     FROM users
+     WHERE no_hp = $1
+     LIMIT 1`,
+    [noHp]
+  );
+  if (userResult.rows.length === 0) {
+    return { found: false, alreadyPending: false, user: null };
+  }
+
+  const user = userResult.rows[0];
+  const existing = await pool.query(
+    `SELECT id, requested_at
+     FROM pin_reset_requests
+     WHERE user_id = $1
+       AND status = 'PENDING'
+     LIMIT 1`,
+    [user.id]
+  );
+  if (existing.rows.length > 0) {
+    return { found: true, alreadyPending: true, user, request: existing.rows[0] };
+  }
+
+  const { randomUUID } = await import('crypto');
+  const inserted = await pool.query(
+    `INSERT INTO pin_reset_requests (id, user_id)
+     VALUES ($1, $2)
+     RETURNING id, requested_at`,
+    [randomUUID(), user.id]
+  );
+  return { found: true, alreadyPending: false, user, request: inserted.rows[0] };
+}
+
+export async function listPendingPinResetRequests() {
+  await ensurePinResetRequestTable();
+  const result = await pool.query(
+    `SELECT
+       r.id::text,
+       r.user_id::text,
+       r.status,
+       r.requested_at,
+       u.nama,
+       u.no_hp
+     FROM pin_reset_requests r
+     JOIN users u ON u.id = r.user_id
+     WHERE r.status = 'PENDING'
+     ORDER BY r.requested_at ASC`
+  );
+  return result.rows.map((row) => ({
+    kind: 'PIN_RESET',
+    id: row.id,
+    title: `Reset PIN ${row.nama}`,
+    description: `Permintaan reset PIN dari ${row.nama} (${row.no_hp})`,
+    amount: 0,
+    created_at: row.requested_at,
+    meta: {
+      request_id: row.id,
+      user_id: row.user_id,
+      nama: row.nama,
+      no_hp: row.no_hp
+    }
+  }));
+}
+
+export async function resetPinFromRequest({ requestId, actorId, defaultPin = '1234' }) {
+  await ensurePinResetRequestTable();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const request = await client.query(
+      `SELECT
+         r.id,
+         r.user_id,
+         r.status,
+         r.reset_at,
+         admin.nama AS reset_by_nama,
+         u.nama,
+         u.no_hp
+       FROM pin_reset_requests r
+       JOIN users u ON u.id = r.user_id
+       LEFT JOIN users admin ON admin.id = r.reset_by
+       WHERE r.id = $1
+       LIMIT 1`,
+      [requestId]
+    );
+    if (request.rows.length === 0) {
+      throw new Error('Permintaan reset PIN tidak ditemukan');
+    }
+    const row = request.rows[0];
+    if (row.status !== 'PENDING') {
+      const by = row.reset_by_nama || 'admin lain';
+      const at = row.reset_at ? new Date(row.reset_at).toISOString() : '';
+      const error = new Error(`PIN sudah di-reset oleh ${by}${at ? ` pada ${at}` : ''}.`);
+      error.code = 'ALREADY_RESET';
+      throw error;
+    }
+
+    await client.query(
+      `UPDATE users
+       SET pin = $2,
+           must_change_pin = TRUE
+       WHERE id = $1`,
+      [row.user_id, defaultPin]
+    );
+    await client.query(
+      `UPDATE pin_reset_requests
+       SET status = 'RESET',
+           reset_by = $2,
+           reset_at = NOW()
+       WHERE id = $1`,
+      [requestId, actorId]
+    );
+    await client.query('COMMIT');
+    return {
+      user_id: String(row.user_id),
+      nama: String(row.nama || ''),
+      no_hp: String(row.no_hp || '')
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

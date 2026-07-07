@@ -1,6 +1,6 @@
 import express from 'express';
 
-import { changeMyPin, getWargaOptions, login, me, updateMyProfile } from '../controllers/authController.js';
+import { changeMyPin, getWargaOptions, login, me, requestPinReset, updateMyProfile } from '../controllers/authController.js';
 import { disconnectMyTelegram, generateTelegramActivationLink } from '../controllers/telegramController.js';
 import { auth, asyncHandler, validateRequiredFields } from '../middleware/auth.js';
 
@@ -11,6 +11,7 @@ router.post(
   validateRequiredFields(['no_hp', 'pin']),
   asyncHandler(login)
 );
+router.post('/request-pin-reset', asyncHandler(requestPinReset));
 
 router.get('/me', auth, asyncHandler(me));
 router.get('/warga-options', auth, asyncHandler(getWargaOptions));

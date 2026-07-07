@@ -255,7 +255,14 @@ export default function ApprovalPage() {
         });
       }
 
-      setMessage(`${item.title} berhasil di-approve.`);
+      if (item.kind === 'PIN_RESET') {
+        await apiFetch(`/management/pin-reset-requests/${encodeURIComponent(String(item.meta.request_id ?? item.id))}/reset`, {
+          method: 'POST',
+          body: JSON.stringify({})
+        });
+      }
+
+      setMessage(item.kind === 'PIN_RESET' ? `${item.title} berhasil diproses.` : `${item.title} berhasil di-approve.`);
       await loadPending();
       await loadHistory(historyPage);
     } catch (error) {
@@ -340,11 +347,11 @@ export default function ApprovalPage() {
       <Navbar />
 
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
-        <Card title="Inbox Persetujuan" subtitle={`${totalPending} transaksi menunggu persetujuan`}>
+        <Card title="Inbox Persetujuan" subtitle={`${totalPending} pesan menunggu tindak lanjut`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm text-[var(--text-muted)]">
-                Total transaksi menunggu: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
+                Total pesan menunggu: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {hasAnyRole(user, ['Admin Internet', 'root']) ? <Link href="/approval/internet" className="btn-action-blue link-action px-3 py-1.5 text-xs">Keanggotaan Internet</Link> : null}
@@ -359,8 +366,8 @@ export default function ApprovalPage() {
         </Card>
 
         {canSeeApproval && sections.length === 0 && !loadingList ? (
-          <Card title="Tidak Ada Pending" subtitle="Semua transaksi yang bisa Anda approve sudah selesai">
-            <p className="text-sm text-[var(--text-muted)]">Belum ada transaksi baru yang membutuhkan persetujuan.</p>
+          <Card title="Tidak Ada Pending" subtitle="Semua pesan yang bisa Anda tindak lanjuti sudah selesai">
+            <p className="text-sm text-[var(--text-muted)]">Belum ada transaksi atau permintaan baru yang membutuhkan tindakan.</p>
           </Card>
         ) : null}
 
@@ -447,15 +454,17 @@ function SectionWithPagination({
                       <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
                       <p className="text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(item.created_at)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
-                    </div>
+                    {item.kind !== 'PIN_RESET' ? (
+                      <div className="text-right">
+                        <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
+                      </div>
+                    ) : null}
                     <Button
                       className="whitespace-nowrap text-sm px-3 py-1.5"
                       onClick={() => void approveItem(item)}
                       disabled={isApproving}
                     >
-                      {isApproving ? '...' : 'Approve'}
+                      {isApproving ? '...' : item.kind === 'PIN_RESET' ? 'Reset PIN' : 'Approve'}
                     </Button>
                   </article>
                 );

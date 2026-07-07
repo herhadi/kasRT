@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Card from '@/components/ui/Card';
+import OperationalStickySummary from '@/components/operational/OperationalStickySummary';
 import { hasAnyRole } from '@/lib/auth';
 import { useAuth } from '@/lib/useAuth';
 
@@ -118,6 +119,7 @@ export default function OperasionalHomePage() {
   const visibleModules = isRoot || isKetua
     ? moduleLinks
     : moduleLinks.filter((module) => module.roles.some((role) => hasExactRole(user, role)));
+  const roleLabel = user?.roles?.[0] || 'Warga';
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -128,7 +130,7 @@ export default function OperasionalHomePage() {
   if (!canSeeOps) {
     return (
       <main className="min-h-screen pb-10">
-        <Navbar />
+        <Navbar sticky={false} />
         <div className="mx-auto mt-6 w-full max-w-5xl px-4 md:px-6">
           <Card title="Tidak Ada Akses" subtitle="Menu operasional hanya untuk role terkait">
             <p className="text-sm text-[var(--text-muted)]">Akun Anda tidak memiliki akses ke menu operasional.</p>
@@ -140,8 +142,15 @@ export default function OperasionalHomePage() {
 
   return (
     <main className="min-h-screen pb-10">
-      <Navbar />
+      <Navbar sticky={false} />
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
+        <OperationalStickySummary
+          items={[
+            { label: 'Menu', value: 'Operasional', tone: 'sky' },
+            { label: 'Role', value: roleLabel, tone: 'emerald' },
+            { label: 'Modul', value: `${visibleModules.length} akses`, tone: 'amber' }
+          ]}
+        />
         <Card
           title={isRoot ? 'Operasional Root' : isKetua ? 'Operasional Ketua' : 'Operasional'}
           subtitle={isRoot ? 'Akses CRUD semua modul' : isKetua ? 'Monitoring lintas modul' : 'Pilih menu operasional sesuai akses role'}

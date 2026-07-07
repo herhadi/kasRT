@@ -15,7 +15,10 @@ export default function LoginPage() {
   const [noHp, setNoHp] = useState('');
   const [pin, setPin] = useState('');
   const [message, setMessage] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -66,6 +69,28 @@ export default function LoginPage() {
       setMessage(error instanceof Error ? error.message : 'Login gagal');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleRequestReset() {
+    setResetMessage('');
+    setMessage('');
+    if (!noHp.trim()) {
+      setResetMessage('Isi nomor HP dulu, lalu kirim permintaan reset PIN.');
+      return;
+    }
+    try {
+      setResetLoading(true);
+      const result = await apiFetch<{ success: boolean; message?: string }>('/auth/request-pin-reset', {
+        method: 'POST',
+        auth: false,
+        body: JSON.stringify({ no_hp: noHp.trim() })
+      });
+      setResetMessage(result.message || 'Permintaan reset PIN dikirim ke admin.');
+    } catch (error) {
+      setResetMessage(error instanceof Error ? error.message : 'Gagal mengirim permintaan reset PIN.');
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -122,6 +147,33 @@ export default function LoginPage() {
                 minLength={4}
                 maxLength={6}
               />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-[var(--accent)] underline-offset-4 hover:underline"
+                  onClick={() => {
+                    setShowReset((prev) => !prev);
+                    setResetMessage('');
+                  }}
+                >
+                  Lupa PIN?
+                </button>
+              </div>
+
+              {showReset ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+                  <p className="font-semibold">Minta reset PIN ke admin</p>
+                  <p className="mt-1 text-xs leading-5">
+                    Pastikan nomor HP di atas sudah benar. Admin Struktur akan mendapat permintaan reset, lalu PIN Anda diatur ke default sementara.
+                  </p>
+                  <Button type="button" variant="ghost" className="mt-3 w-full bg-white/70 text-amber-900" onClick={handleRequestReset} disabled={resetLoading}>
+                    {resetLoading ? 'Mengirim...' : 'Kirim Permintaan Reset'}
+                  </Button>
+                  {resetMessage ? (
+                    <p className="mt-2 rounded-xl border border-amber-200 bg-white/70 px-3 py-2 text-xs font-semibold text-amber-900">{resetMessage}</p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {message ? (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{message}</div>

@@ -120,7 +120,7 @@ export type ManagementUserItem = {
 };
 
 export type PendingApprovalItem = {
-  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT' | 'ASSET_RENTAL_PAYMENT';
+  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT' | 'ASSET_RENTAL_PAYMENT' | 'PIN_RESET';
   id: string | number;
   title: string;
   description: string;
@@ -138,6 +138,9 @@ export type PendingApprovalItem = {
     renter_name?: string;
     periode?: string;
     requested_by?: string | number;
+    user_id?: string | number;
+    nama?: string;
+    no_hp?: string;
   };
 };
 

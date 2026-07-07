@@ -1,7 +1,7 @@
 import express from 'express';
 import { auth, asyncHandler } from '../middleware/auth.js';
 import { allowRoles } from '../middleware/role.js';
-import { addWargaUser, editWargaUser, getUserManagementData, updateUserAdminRoles } from '../controllers/userAdminController.js';
+import { addWargaUser, editWargaUser, getUserManagementData, resetPinRequest, updateUserAdminRoles } from '../controllers/userAdminController.js';
 import { getMeetingAttendance, getMeetingNote, saveMeetingAttendance, saveMeetingNote } from '../controllers/meetingController.js';
 import { deleteTelegramWebhook, getTelegramWebhookInfo, setTelegramWebhook } from '../controllers/telegramController.js';
 import { cronHealthStatus } from '../controllers/cronHealthController.js';
@@ -17,6 +17,7 @@ router.get('/meeting-attendance', allowRoles('Ketua', 'Sekretaris'), asyncHandle
 router.post('/users', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(addWargaUser));
 router.post('/users/:id/edit', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(editWargaUser));
 router.post('/users/:id/admin-roles', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(updateUserAdminRoles));
+router.post('/pin-reset-requests/:id/reset', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'root'), asyncHandler(resetPinRequest));
 router.post('/meeting-note', allowRoles('Sekretaris'), asyncHandler(saveMeetingNote));
 router.post('/meeting-attendance', allowRoles('Sekretaris'), asyncHandler(saveMeetingAttendance));
 router.get('/telegram/webhook-info', allowRoles('root'), asyncHandler(getTelegramWebhookInfo));

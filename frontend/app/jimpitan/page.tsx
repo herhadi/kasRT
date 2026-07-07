@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import FormJimpitan from './FormJimpitan';
+import OperationalStickySummary from '@/components/operational/OperationalStickySummary';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
@@ -535,11 +536,14 @@ export default function JimpitanPage() {
         </div>
       </div>
 
-      <div className="ops-sticky-summary mx-auto mt-3 w-[calc(100%-2rem)] max-w-6xl md:w-[calc(100%-3rem)]">
-        <div className="ops-sticky-item ops-sticky-item-sky">Masuk<br /><b>{formatRupiah(recapData.totalSemuaTunai)}</b></div>
-        <div className="ops-sticky-item ops-sticky-item-emerald">Setor Saya<br /><b>{formatRupiah(recapData.totalTunaiSaya)}</b></div>
-        <div className="ops-sticky-item ops-sticky-item-rose">Belum<br /><b>{recapData.belum} warga</b></div>
-      </div>
+      <OperationalStickySummary
+        className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-6xl md:w-[calc(100%-3rem)]"
+        items={[
+          { label: 'Masuk', value: formatRupiah(recapData.totalSemuaTunai), tone: 'sky' },
+          { label: 'Setor Saya', value: formatRupiah(recapData.totalTunaiSaya), tone: 'emerald' },
+          { label: 'Belum', value: `${recapData.belum} warga`, tone: 'rose' }
+        ]}
+      />
 
       <div className="mx-auto mt-3 w-full max-w-6xl px-4 md:px-6">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">

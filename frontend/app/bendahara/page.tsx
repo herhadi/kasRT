@@ -19,6 +19,7 @@ import { formatRupiah, formatRupiahInput, formatTanggalIndonesia, parseRupiahInp
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
+import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
 
 type WargaItem = { id: string | number; nama: string };
 type IuranStatusItem = { warga_id: string; nama: string; paid_amount: number };
@@ -109,10 +110,6 @@ type OpeningArrearsItem = { warga_id: string; opening_arrears: number };
 type IuranTariffItem = { id: string; effective_month: string; monthly_fee: number };
 type IuranMemberItem = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string };
 const IURAN_MEMBER_START_MONTH = '2026-01';
-
-function stickyValueClass(value: number) {
-  return Number(value || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]';
-}
 
 export default function BendaharaPage() {
   const { user, loading } = useAuth();
@@ -864,7 +861,7 @@ export default function BendaharaPage() {
     return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={error} message={message} />
-      <Navbar />
+      <Navbar sticky={false} />
       </main>
     );
   }
@@ -1017,14 +1014,16 @@ export default function BendaharaPage() {
             {toast.text}
           </div>
         ) : null}
-        <Navbar />
+        <Navbar sticky={false} />
         <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
           <OperationalSubmenuHeader backHref="/operasional/bendahara" title="Kembali ke Operasional Bendahara" />
-          <div className="ops-sticky-summary">
-            <div className="ops-sticky-item ops-sticky-item-sky">Kas<br /><b className={stickyValueClass(totalSaldoRealtime)}>{formatRupiah(totalSaldoRealtime)}</b></div>
-            <div className="ops-sticky-item ops-sticky-item-emerald">Masuk<br /><b className={stickyValueClass(Number(pendapatan.total || totalPendapatanBulanIni || 0))}>{formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0))}</b></div>
-            <div className="ops-sticky-item ops-sticky-item-rose">Keluar<br /><b className={stickyValueClass(totalPengeluaranBulanTerpilih)}>{formatRupiah(totalPengeluaranBulanTerpilih)}</b></div>
-          </div>
+          <OperationalStickySummary
+            items={[
+              { label: 'Kas', value: formatRupiah(totalSaldoRealtime), tone: 'sky', valueClassName: operationalStickyValueClass(totalSaldoRealtime) },
+              { label: 'Masuk', value: formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0)), tone: 'emerald', valueClassName: operationalStickyValueClass(Number(pendapatan.total || totalPendapatanBulanIni || 0)) },
+              { label: 'Keluar', value: formatRupiah(totalPengeluaranBulanTerpilih), tone: 'rose', valueClassName: operationalStickyValueClass(totalPengeluaranBulanTerpilih) }
+            ]}
+          />
           <Card
             title="Input Iuran Wajib"
             headerRight={
@@ -1086,7 +1085,7 @@ export default function BendaharaPage() {
           {toast.text}
         </div>
       ) : null}
-      <Navbar />
+      <Navbar sticky={false} />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card title={title} subtitle="Input iuran wajib bulanan">
           {!isBendahara && !bendaharaMode && !sekretarisMode ? (
@@ -1432,11 +1431,13 @@ export default function BendaharaPage() {
 
         {(isBendahara || isKetua) ? (
           <>
-            <div className="ops-sticky-summary">
-              <div className="ops-sticky-item ops-sticky-item-sky">Kas<br /><b className={stickyValueClass(totalSaldoRealtime)}>{formatRupiah(totalSaldoRealtime)}</b></div>
-              <div className="ops-sticky-item ops-sticky-item-emerald">Masuk<br /><b className={stickyValueClass(Number(pendapatan.total || totalPendapatanBulanIni || 0))}>{formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0))}</b></div>
-              <div className="ops-sticky-item ops-sticky-item-rose">Keluar<br /><b className={stickyValueClass(totalPengeluaranBulanTerpilih)}>{formatRupiah(totalPengeluaranBulanTerpilih)}</b></div>
-            </div>
+            <OperationalStickySummary
+              items={[
+                { label: 'Kas', value: formatRupiah(totalSaldoRealtime), tone: 'sky', valueClassName: operationalStickyValueClass(totalSaldoRealtime) },
+                { label: 'Masuk', value: formatRupiah(Number(pendapatan.total || totalPendapatanBulanIni || 0)), tone: 'emerald', valueClassName: operationalStickyValueClass(Number(pendapatan.total || totalPendapatanBulanIni || 0)) },
+                { label: 'Keluar', value: formatRupiah(totalPengeluaranBulanTerpilih), tone: 'rose', valueClassName: operationalStickyValueClass(totalPengeluaranBulanTerpilih) }
+              ]}
+            />
 
             <Card title="Total Saldo Realtime" subtitle="Akumulasi saldo kas dari transaksi APPROVED">
               <SummaryTripleCard

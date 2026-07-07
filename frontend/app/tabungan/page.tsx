@@ -14,6 +14,7 @@ import WargaContributionModal from '@/components/contribution/WargaContributionM
 import { CONTRIBUTION_EDIT_HOLD_MS } from '@/components/contribution/constants';
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 import PaginationControls from '@/components/pagination/PaginationControls';
+import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, formatTanggalDdMmYyyy, parseRupiahInput } from '@/lib/helpers';
@@ -49,10 +50,6 @@ type TabunganOpeningBalance = {
   amount: number;
   description: string;
 };
-
-function stickyValueClass(value: number) {
-  return Number(value || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]';
-}
 
 function formatPeriodLabel(monthKey: string) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) return monthKey;
@@ -440,11 +437,13 @@ export default function TabunganPage() {
       <Navbar sticky={false} />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         {inputPageMode ? <OperationalSubmenuHeader backHref="/operasional/tabungan" title="Kembali ke Operasional Pembangunan" /> : null}
-        <div className="ops-sticky-summary">
-          <div className="ops-sticky-item ops-sticky-item-sky">Kas Dana<br /><b className={stickyValueClass(tabunganTotals.total_kas_dana || totalTabungan)}>{formatRupiah(tabunganTotals.total_kas_dana || totalTabungan)}</b></div>
-          <div className="ops-sticky-item ops-sticky-item-emerald">Saldo Warga<br /><b className={stickyValueClass(tabunganTotals.total_saldo_warga || totalTabungan)}>{formatRupiah(tabunganTotals.total_saldo_warga || totalTabungan)}</b></div>
-          <div className="ops-sticky-item ops-sticky-item-amber">Sisa Kas<br /><b className={stickyValueClass(tabunganTotals.sisa_kas_kegiatan)}>{formatRupiah(tabunganTotals.sisa_kas_kegiatan)}</b></div>
-        </div>
+        <OperationalStickySummary
+          items={[
+            { label: 'Kas Dana', value: formatRupiah(tabunganTotals.total_kas_dana || totalTabungan), tone: 'sky', valueClassName: operationalStickyValueClass(tabunganTotals.total_kas_dana || totalTabungan) },
+            { label: 'Saldo Warga', value: formatRupiah(tabunganTotals.total_saldo_warga || totalTabungan), tone: 'emerald', valueClassName: operationalStickyValueClass(tabunganTotals.total_saldo_warga || totalTabungan) },
+            { label: 'Sisa Kas', value: formatRupiah(tabunganTotals.sisa_kas_kegiatan), tone: 'amber', valueClassName: operationalStickyValueClass(tabunganTotals.sisa_kas_kegiatan) }
+          ]}
+        />
         <Card
           title="Tabungan Pembangunan"
           subtitle={`Setoran sukarela warga (minimal ${formatRupiah(minimumFee)})`}

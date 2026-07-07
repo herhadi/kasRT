@@ -20,6 +20,7 @@ import WargaContributionSection from '@/components/contribution/WargaContributio
 import { WargaContributionRow } from '@/components/contribution/WargaContributionGrid';
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
+import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
 
 type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; surplus_amount: number; arrears_months: number; chargeable_months: number; last_payment?: { id: string; amount: number; paid_at?: string; note?: string } | null };
 type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; opening_balances?: Array<{ id: string; tanggal: string; closing_year: number; opening_year: number; amount: number; description: string }>; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
@@ -42,10 +43,6 @@ function formatTanggalDdMmYyyy(dateValue: Date | string) {
   const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
   if (Number.isNaN(date.getTime())) return raw || '-';
   return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
-}
-
-function stickyValueClass(value: number) {
-  return Number(value || 0) < 0 ? 'text-rose-600' : 'text-[var(--accent)]';
 }
 
 export default function LingkunganPage() {
@@ -377,11 +374,13 @@ export default function LingkunganPage() {
           </div>
         ) : null}
       </Card>
-      <div className="ops-sticky-summary">
-        <div className="ops-sticky-item ops-sticky-item-sky">Kas<br /><b className={stickyValueClass(Number(lingkunganKas || 0))}>{formatRupiah(Number(lingkunganKas || 0))}</b></div>
-        <div className="ops-sticky-item ops-sticky-item-emerald">Masuk<br /><b className={stickyValueClass(Number(summary?.pemasukan || 0))}>{formatRupiah(Number(summary?.pemasukan || 0))}</b></div>
-        <div className="ops-sticky-item ops-sticky-item-rose">Keluar<br /><b className={stickyValueClass(Number(summary?.pengeluaran || 0))}>{formatRupiah(Number(summary?.pengeluaran || 0))}</b></div>
-      </div>
+      <OperationalStickySummary
+        items={[
+          { label: 'Kas', value: formatRupiah(Number(lingkunganKas || 0)), tone: 'sky', valueClassName: operationalStickyValueClass(Number(lingkunganKas || 0)) },
+          { label: 'Masuk', value: formatRupiah(Number(summary?.pemasukan || 0)), tone: 'emerald', valueClassName: operationalStickyValueClass(Number(summary?.pemasukan || 0)) },
+          { label: 'Keluar', value: formatRupiah(Number(summary?.pengeluaran || 0)), tone: 'rose', valueClassName: operationalStickyValueClass(Number(summary?.pengeluaran || 0)) }
+        ]}
+      />
       <Card title="Status Iuran Warga" subtitle="Hitungan tunggakan mengikuti tarif efektif per bulan">
         <div className="mb-3 flex w-full gap-2">
           {(['semua', 'belum', 'sudah'] as const).map((f) => (

@@ -1,10 +1,12 @@
 import {
   createWargaUser,
   listAssignableOrganizationRoles,
+  resetPinFromRequest,
   listUsersWithRoles,
   setUserOrganizationRoles,
   updateWargaUser
 } from '../models/managementModel.js';
+import { notifyUser } from '../services/approvalNotifier.js';
 
 export async function getUserManagementData(req, res) {
   try {
@@ -107,5 +109,31 @@ export async function editWargaUser(req, res) {
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function resetPinRequest(req, res) {
+  const requestId = String(req.params.id || '').trim();
+  const actor = String(req.user?.user_id || '').trim();
+  const actorName = String(req.user?.nama || req.user?.name || '').trim();
+  if (!requestId) {
+    return res.status(400).json({ success: false, message: 'request id tidak valid' });
+  }
+
+  try {
+    const result = await resetPinFromRequest({ requestId, actorId: actor, defaultPin: '1234' });
+    await notifyUser(
+      result.user_id,
+      `✅ <b>PIN KasRT Anda sudah di-reset</b>\n` +
+        `PIN sementara: <b>1234</b>\n` +
+        `Silakan login dan ganti PIN baru.`
+    ).catch(() => {});
+    return res.json({
+      success: true,
+      message: `PIN ${result.nama} berhasil di-reset ke default${actorName ? ` oleh ${actorName}` : ''}.`
+    });
+  } catch (error) {
+    const status = error.code === 'ALREADY_RESET' ? 409 : 400;
+    return res.status(status).json({ success: false, message: error.message });
   }
 }
