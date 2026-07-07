@@ -292,11 +292,10 @@ async function getMyRecurringContributionDetail({ userId, moduleKey, untilMonth 
       [untilMonth]
     ),
     pool.query(
-      `SELECT month_key, COALESCE(SUM(amount), 0) AS paid
+      `SELECT COALESCE(SUM(amount), 0) AS total_paid
        FROM ${paymentTable}
        WHERE warga_id = $1::uuid
-         AND month_key BETWEEN $2 AND $3
-       GROUP BY month_key`,
+         AND month_key BETWEEN $2 AND $3`,
       [userId, startMonth, untilMonth]
     ),
   ]);
@@ -305,12 +304,14 @@ async function getMyRecurringContributionDetail({ userId, moduleKey, untilMonth 
     effective_month: String(row.effective_month),
     monthly_fee: Number(row.monthly_fee || 0)
   }));
-  const paidMap = new Map(paymentRes.rows.map((row) => [String(row.month_key), Number(row.paid || 0)]));
+  const totalPaid = Number(paymentRes.rows[0]?.total_paid || 0);
+  let totalTargetBefore = 0;
   const rows = months.map((month) => {
     const tariff = [...tariffs].reverse().find((item) => item.effective_month <= month);
     const target = Number(tariff?.monthly_fee || 0);
-    const paid = Number(paidMap.get(month) || 0);
+    const paid = Math.min(target, Math.max(totalPaid - totalTargetBefore, 0));
     const kurang = Math.max(target - paid, 0);
+    totalTargetBefore += target;
     return {
       kind: 'MONTH',
       period: month,
@@ -447,58 +448,100 @@ export async function getWargaFinancialSnapshot(userId) {
        WHERE sa.warga_id = $1::uuid
      ),
      internet_arrears AS (
-       SELECT COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
-            , COALESCE(SUM(CASE WHEN GREATEST(mt.target - COALESCE(p.paid,0), 0) > 0 THEN 1 ELSE 0 END), 0) AS months_arrears
-       FROM (
+       WITH member AS (
+         SELECT active_from_month
+         FROM inet_members
+         WHERE warga_id = $1::uuid
+           AND is_active = TRUE
+         LIMIT 1
+       ),
+       months AS (
          SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
          FROM generate_series(
-           TO_DATE((SELECT COALESCE(MIN(effective_month), TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM inet_tariffs), 'YYYY-MM'),
+           TO_DATE((SELECT COALESCE(active_from_month, TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM member), 'YYYY-MM'),
            DATE_TRUNC('month', CURRENT_DATE)::date,
            interval '1 month'
          ) m
-       ) mo
-       CROSS JOIN LATERAL (
-         SELECT COALESCE((
+       ),
+       month_target AS (
+         SELECT mo.month_key,
+         COALESCE((
            SELECT t.monthly_fee
            FROM inet_tariffs t
            WHERE t.effective_month <= mo.month_key
            ORDER BY t.effective_month DESC
            LIMIT 1
          ), 60000::numeric) AS target
-       ) mt
-       LEFT JOIN (
-         SELECT month_key, SUM(amount) AS paid
+         FROM months mo
+       ),
+       paid_total AS (
+         SELECT COALESCE(SUM(amount), 0) AS total_paid
          FROM inet_payments
          WHERE warga_id = $1::uuid
-         GROUP BY month_key
-       ) p ON p.month_key = mo.month_key
+           AND month_key <= TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+       ),
+       running_targets AS (
+         SELECT mt.*,
+                SUM(mt.target) OVER (ORDER BY mt.month_key ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS target_through_month
+         FROM month_target mt
+       ),
+       allocated AS (
+         SELECT rt.*,
+                LEAST(rt.target, GREATEST((SELECT total_paid FROM paid_total) - (rt.target_through_month - rt.target), 0)) AS applied_amount
+         FROM running_targets rt
+       )
+       SELECT
+         COALESCE(SUM(target - applied_amount), 0) AS total_arrears,
+         COALESCE(COUNT(*) FILTER (WHERE applied_amount < target), 0) AS months_arrears
+       FROM allocated
      ),
      lingkungan_arrears AS (
-       SELECT COALESCE(SUM(GREATEST(mt.target - COALESCE(p.paid,0), 0)), 0) AS total_arrears
-            , COALESCE(SUM(CASE WHEN GREATEST(mt.target - COALESCE(p.paid,0), 0) > 0 THEN 1 ELSE 0 END), 0) AS months_arrears
-       FROM (
+       WITH member AS (
+         SELECT active_from_month
+         FROM lh_members
+         WHERE warga_id = $1::uuid
+           AND is_active = TRUE
+         LIMIT 1
+       ),
+       months AS (
          SELECT TO_CHAR(m, 'YYYY-MM') AS month_key
          FROM generate_series(
-           TO_DATE((SELECT COALESCE(MIN(effective_month), TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM lh_tariffs), 'YYYY-MM'),
+           TO_DATE((SELECT COALESCE(active_from_month, TO_CHAR(CURRENT_DATE, 'YYYY-MM')) FROM member), 'YYYY-MM'),
            DATE_TRUNC('month', CURRENT_DATE)::date,
            interval '1 month'
          ) m
-       ) mo
-       CROSS JOIN LATERAL (
-         SELECT COALESCE((
+       ),
+       month_target AS (
+         SELECT mo.month_key,
+         COALESCE((
            SELECT t.monthly_fee
            FROM lh_tariffs t
            WHERE t.effective_month <= mo.month_key
            ORDER BY t.effective_month DESC
            LIMIT 1
          ), 20000::numeric) AS target
-       ) mt
-       LEFT JOIN (
-         SELECT month_key, SUM(amount) AS paid
+         FROM months mo
+       ),
+       paid_total AS (
+         SELECT COALESCE(SUM(amount), 0) AS total_paid
          FROM lh_payments
          WHERE warga_id = $1::uuid
-         GROUP BY month_key
-       ) p ON p.month_key = mo.month_key
+           AND month_key <= TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+       ),
+       running_targets AS (
+         SELECT mt.*,
+                SUM(mt.target) OVER (ORDER BY mt.month_key ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS target_through_month
+         FROM month_target mt
+       ),
+       allocated AS (
+         SELECT rt.*,
+                LEAST(rt.target, GREATEST((SELECT total_paid FROM paid_total) - (rt.target_through_month - rt.target), 0)) AS applied_amount
+         FROM running_targets rt
+       )
+       SELECT
+         COALESCE(SUM(target - applied_amount), 0) AS total_arrears,
+         COALESCE(COUNT(*) FILTER (WHERE applied_amount < target), 0) AS months_arrears
+       FROM allocated
      )
      SELECT
        GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) AS iuran_tunggakan_bulan_ini,
