@@ -15,6 +15,7 @@ import { CONTRIBUTION_EDIT_HOLD_MS } from '@/components/contribution/constants';
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
+import MembershipStartMonthInput, { DEFAULT_MEMBER_START_MONTH, formatMemberStartMonthLabel } from '@/components/membership/MembershipStartMonthInput';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, formatTanggalDdMmYyyy, parseRupiahInput } from '@/lib/helpers';
@@ -27,7 +28,7 @@ type TabunganWargaItem = {
   last_credit?: { id: string; amount: number; description?: string; created_at?: string } | null;
 };
 
-type TabunganMember = { warga_id: string; nama: string; is_active: boolean };
+type TabunganMember = { warga_id: string; nama: string; is_active: boolean; active_from_month?: string };
 type TabunganTariff = { id: string; effective_month: string; monthly_fee: number };
 
 type TabunganHistoryItem = {
@@ -89,6 +90,7 @@ export default function TabunganPage() {
   const [expenseNotes, setExpenseNotes] = useState('');
   const [minimumFee, setMinimumFee] = useState(5000);
   const [members, setMembers] = useState<TabunganMember[]>([]);
+  const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
   const [tariffs, setTariffs] = useState<TabunganTariff[]>([]);
   const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [tariffValue, setTariffValue] = useState('');
@@ -136,7 +138,9 @@ export default function TabunganPage() {
       apiFetch<{ success: boolean; data: TabunganMember[] }>('/tabungan/members'),
       apiFetch<{ success: boolean; data: TabunganTariff[] }>('/tabungan/tariffs')
     ]);
-    setMembers(memberResult.data || []);
+    const memberRows = memberResult.data || [];
+    setMembers(memberRows);
+    setMemberMonthDrafts(Object.fromEntries(memberRows.map((member) => [member.warga_id, member.active_from_month || DEFAULT_MEMBER_START_MONTH])));
     setTariffs(tariffResult.data || []);
   }, []);
 
@@ -324,11 +328,22 @@ export default function TabunganPage() {
     }
   }
 
-  async function setMemberActive(wargaId: string, isActive: boolean) {
+  async function setMemberActive(wargaId: string, isActive: boolean, activeFromMonth = memberMonthDrafts[wargaId] || DEFAULT_MEMBER_START_MONTH, startOnly = false) {
     try {
       setBusy(true); setError(''); setMessage('');
-      await apiFetch('/tabungan/members/set-active', { method: 'POST', body: JSON.stringify({ warga_id: wargaId, is_active: isActive }) });
-      setMessage(isActive ? 'Warga diaktifkan sebagai anggota tabungan.' : 'Warga dinonaktifkan dari anggota tabungan.');
+      const result = await apiFetch<{ success: boolean; data?: TabunganMember }>('/tabungan/members/set-active', { method: 'POST', body: JSON.stringify({ warga_id: wargaId, is_active: isActive, active_from_month: activeFromMonth }) });
+      const savedMonth = String(result.data?.active_from_month || activeFromMonth);
+      const memberName = members.find((member) => member.warga_id === wargaId)?.nama || 'Warga';
+      setMemberMonthDrafts((previous) => ({ ...previous, [wargaId]: savedMonth }));
+      setMembers((previous) => previous.map((member) => (
+        member.warga_id === wargaId ? { ...member, is_active: isActive, active_from_month: savedMonth } : member
+      )));
+      setMessage(startOnly
+        ? `${memberName}: mulai aktif tabungan ${formatMemberStartMonthLabel(savedMonth)} tersimpan.`
+        : isActive
+          ? `Warga diaktifkan sebagai anggota tabungan. Mulai aktif ${formatMemberStartMonthLabel(savedMonth)}.`
+          : `Warga dinonaktifkan dari anggota tabungan. Mulai aktif ${formatMemberStartMonthLabel(savedMonth)}.`
+      );
       await Promise.all([loadSettings(), loadSummary()]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mengubah keanggotaan tabungan');
@@ -369,10 +384,10 @@ export default function TabunganPage() {
             </div>
             {tariffs.length ? <p className="mt-3 text-xs text-[var(--text-muted)]">Tarif aktif: {formatRupiah(minimumFee)}. Riwayat terbaru: {tariffs.slice(0, 3).map((t) => `${t.effective_month} ${formatRupiah(t.monthly_fee)}`).join(' · ')}</p> : null}
           </Card>
-          <Card title="Keanggotaan Tabungan" subtitle="Semua user eligible ditampilkan. Hanya anggota aktif yang muncul di form input.">
-            <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
-              {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={member.is_active} disabled={busy} onToggle={() => void setMemberActive(member.warga_id, !member.is_active)} /></td></tr>)}
-              {!members.length ? <tr><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada user eligible.</td></tr> : null}
+          <Card title="Keanggotaan Tabungan" subtitle="Semua user eligible ditampilkan. Mulai aktif dipakai sebagai riwayat sejak kapan warga ikut tabungan.">
+            <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Aktif</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
+              {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><MembershipStartMonthInput value={memberMonthDrafts[member.warga_id] || member.active_from_month || DEFAULT_MEMBER_START_MONTH} onDraftChange={(nextMonth) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: nextMonth }))} onSave={(nextMonth) => void setMemberActive(member.warga_id, member.is_active, nextMonth, true)} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={member.is_active} disabled={busy} onToggle={() => void setMemberActive(member.warga_id, !member.is_active)} /></td></tr>)}
+              {!members.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada user eligible.</td></tr> : null}
             </tbody></table></div>
             <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
           </Card>

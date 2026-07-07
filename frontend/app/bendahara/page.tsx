@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
+import MembershipStartMonthInput, { DEFAULT_MEMBER_START_MONTH, formatMemberStartMonthLabel } from '@/components/membership/MembershipStartMonthInput';
 
 type WargaItem = { id: string | number; nama: string };
 type IuranStatusItem = { warga_id: string; nama: string; paid_amount: number };
@@ -109,7 +110,7 @@ type PendapatanSummary = { iuran: number; jimpitan: number; sewa_aset?: number; 
 type OpeningArrearsItem = { warga_id: string; opening_arrears: number };
 type IuranTariffItem = { id: string; effective_month: string; monthly_fee: number };
 type IuranMemberItem = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string };
-const IURAN_MEMBER_START_MONTH = '2026-01';
+const IURAN_MEMBER_START_MONTH = DEFAULT_MEMBER_START_MONTH;
 
 export default function BendaharaPage() {
   const { user, loading } = useAuth();
@@ -698,8 +699,7 @@ export default function BendaharaPage() {
     }
   }
 
-  async function setIuranMemberActive(wargaId: string, isActive: boolean) {
-    const activeFromMonth = iuranMemberMonthDrafts[wargaId] || IURAN_MEMBER_START_MONTH;
+  async function setIuranMemberActive(wargaId: string, isActive: boolean, activeFromMonth = iuranMemberMonthDrafts[wargaId] || IURAN_MEMBER_START_MONTH, startOnly = false) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(activeFromMonth)) {
       setError('Mulai iuran wajib format YYYY-MM.');
       return;
@@ -714,8 +714,15 @@ export default function BendaharaPage() {
       const rows = result.data || [];
       setIuranMembers(rows);
       setIuranMemberMonthDrafts(Object.fromEntries(rows.map((member) => [member.warga_id, member.active_from_month || IURAN_MEMBER_START_MONTH])));
-      setMessage(isActive ? 'Anggota iuran wajib berhasil diaktifkan.' : 'Anggota iuran wajib berhasil dinonaktifkan.');
-      setToast({ type: 'success', text: isActive ? 'Anggota diaktifkan.' : 'Anggota dinonaktifkan.' });
+      const memberName = rows.find((member) => member.warga_id === wargaId)?.nama || 'Warga';
+      const savedMonth = rows.find((member) => member.warga_id === wargaId)?.active_from_month || activeFromMonth;
+      const text = startOnly
+        ? `${memberName}: mulai iuran wajib ${formatMemberStartMonthLabel(savedMonth)} tersimpan.`
+        : isActive
+          ? `Anggota iuran wajib diaktifkan. Mulai iuran ${formatMemberStartMonthLabel(savedMonth)}.`
+          : `Anggota iuran wajib dinonaktifkan. Mulai iuran ${formatMemberStartMonthLabel(savedMonth)}.`;
+      setMessage(text);
+      setToast({ type: 'success', text });
       void Promise.all([loadMaster(), loadReport()]).catch(() => undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal menyimpan anggota iuran wajib');
@@ -959,11 +966,10 @@ export default function BendaharaPage() {
                     <tr key={member.warga_id} className="bg-[var(--surface)]">
                       <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td>
                       <td className="border-t border-[var(--line)] px-3 py-2 text-sm">
-                        <input
-                          type="month"
-                          className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        <MembershipStartMonthInput
                           value={iuranMemberMonthDrafts[member.warga_id] || member.active_from_month || IURAN_MEMBER_START_MONTH}
-                          onChange={(event) => setIuranMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: event.target.value }))}
+                          onDraftChange={(nextMonth) => setIuranMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: nextMonth }))}
+                          onSave={(nextMonth) => void setIuranMemberActive(member.warga_id, Boolean(member.is_active), nextMonth, true)}
                           disabled={!isBendahara}
                         />
                       </td>
@@ -975,7 +981,6 @@ export default function BendaharaPage() {
                           <MemberActionButtons
                             isActive={Boolean(member.is_active)}
                             disabled={busy}
-                            onSaveStart={() => void setIuranMemberActive(member.warga_id, Boolean(member.is_active))}
                             onToggle={() => void setIuranMemberActive(member.warga_id, !Boolean(member.is_active))}
                           />
                         ) : (

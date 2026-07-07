@@ -18,11 +18,13 @@ export async function ensureTabunganTables() {
     CREATE TABLE IF NOT EXISTS tab_savings_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_by UUID REFERENCES users(id)
     )
   `);
+  await pool.query(`ALTER TABLE tab_savings_members ADD COLUMN IF NOT EXISTS active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01'`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tab_savings_accounts (
       id UUID PRIMARY KEY,
@@ -216,25 +218,30 @@ export async function listTabunganMembers() {
     `SELECT
        u.id::text AS warga_id,
        u.nama,
-       COALESCE(sm.is_active, FALSE) AS is_active
+       COALESCE(sm.is_active, FALSE) AS is_active,
+       COALESCE(sm.active_from_month, '2026-01') AS active_from_month
      FROM users u
      LEFT JOIN tab_savings_members sm ON sm.warga_id = u.id
      WHERE ${ELIGIBLE_USERS_CLAUSE}
      ORDER BY u.nama ASC`
   );
-  return result.rows.map((row) => ({ ...row, is_active: Boolean(row.is_active) }));
+  return result.rows.map((row) => ({ ...row, is_active: Boolean(row.is_active), active_from_month: String(row.active_from_month || '2026-01') }));
 }
 
-export async function setTabunganMemberActive({ wargaId, isActive, updatedBy }) {
+export async function setTabunganMemberActive({ wargaId, isActive, activeFromMonth = '2026-01', updatedBy }) {
   await ensureTabunganTables();
   await pool.query(
-    `INSERT INTO tab_savings_members (warga_id, is_active, updated_at, updated_by)
-     VALUES ($1::uuid, $2::boolean, NOW(), $3::uuid)
+    `INSERT INTO tab_savings_members (warga_id, is_active, active_from_month, updated_at, updated_by)
+     VALUES ($1::uuid, $2::boolean, $3, NOW(), $4::uuid)
      ON CONFLICT (warga_id)
-     DO UPDATE SET is_active = EXCLUDED.is_active, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
-    [wargaId, isActive, updatedBy]
+     DO UPDATE SET
+       is_active = EXCLUDED.is_active,
+       active_from_month = EXCLUDED.active_from_month,
+       updated_at = NOW(),
+       updated_by = EXCLUDED.updated_by`,
+    [wargaId, isActive, activeFromMonth, updatedBy]
   );
-  return { warga_id: wargaId, is_active: Boolean(isActive) };
+  return { warga_id: wargaId, is_active: Boolean(isActive), active_from_month: activeFromMonth };
 }
 
 export async function listTabunganTariffs() {
@@ -300,6 +307,7 @@ export async function listTabunganWargaSummary(month = null) {
        LIMIT 1
      ) lp ON TRUE
      WHERE sm.is_active = TRUE
+       AND COALESCE(sm.active_from_month, '2026-01') <= $1
      ORDER BY u.nama ASC`,
     [monthKey]
   );
@@ -440,8 +448,12 @@ export async function inputTabunganSetoran({ wargaId, amount, description, month
     await client.query('BEGIN');
 
     const member = await client.query(
-      `SELECT 1 FROM tab_savings_members WHERE warga_id = $1::uuid AND is_active = TRUE`,
-      [wargaId]
+      `SELECT 1
+       FROM tab_savings_members
+       WHERE warga_id = $1::uuid
+         AND is_active = TRUE
+         AND COALESCE(active_from_month, '2026-01') <= $2`,
+      [wargaId, monthKey]
     );
     if (!member.rowCount) throw new Error('Warga bukan anggota tabungan aktif');
 

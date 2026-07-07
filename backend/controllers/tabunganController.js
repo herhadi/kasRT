@@ -113,10 +113,12 @@ export async function getTabunganMembersHandler(_req, res) {
 export async function postTabunganMemberSetActiveHandler(req, res) {
   const wargaId = String(req.body.warga_id || '').trim();
   const isActive = Boolean(req.body.is_active);
+  const activeFromMonth = String(req.body.active_from_month || '2026-01').trim();
   const actor = String(req.user.user_id || '').trim();
   if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib diisi' });
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(activeFromMonth)) return res.status(400).json({ success: false, message: 'active_from_month invalid' });
   try {
-    return res.json({ success: true, data: await setTabunganMemberActive({ wargaId, isActive, updatedBy: actor }) });
+    return res.json({ success: true, data: await setTabunganMemberActive({ wargaId, isActive, activeFromMonth, updatedBy: actor }) });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

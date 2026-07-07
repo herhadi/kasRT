@@ -21,6 +21,7 @@ import { WargaContributionRow } from '@/components/contribution/WargaContributio
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
+import MembershipStartMonthInput, { DEFAULT_MEMBER_START_MONTH, formatMemberStartMonthLabel } from '@/components/membership/MembershipStartMonthInput';
 
 type InternetRow = {
   warga_id: string;
@@ -51,7 +52,7 @@ type InternetYearlyHistory = {
   recap: Array<{ month: string; pemasukan: number; pengeluaran: number }>;
 };
 type InternetMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string };
-const MEMBER_START_MONTH = '2026-01';
+const MEMBER_START_MONTH = DEFAULT_MEMBER_START_MONTH;
 
 function formatTanggalDdMmYyyy(dateValue: Date | string) {
   const raw = typeof dateValue === 'string' ? dateValue.slice(0, 10) : '';
@@ -291,7 +292,7 @@ export default function OperasionalInternetPage() {
     }
   }
 
-  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || MEMBER_START_MONTH) {
+  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || MEMBER_START_MONTH, startOnly = false) {
     try {
       setBusy(true);
       setError('');
@@ -308,10 +309,12 @@ export default function OperasionalInternetPage() {
       setMembers((previous) => previous.map((member) => (
         member.warga_id === wid ? { ...member, is_active: next, active_from_month: savedMonth } : member
       )));
-      setMessage(
-        next
-          ? `Keanggotaan internet aktif. Mulai iuran tersimpan: ${savedMonth}.`
-          : `Warga dinonaktifkan. Mulai iuran tersimpan: ${savedMonth}.`
+      const memberName = members.find((member) => member.warga_id === wid)?.nama || 'Warga';
+      setMessage(startOnly
+        ? `${memberName}: mulai iuran internet ${formatMemberStartMonthLabel(savedMonth)} tersimpan.`
+        : next
+          ? `Keanggotaan internet aktif. Mulai iuran tersimpan: ${formatMemberStartMonthLabel(savedMonth)}.`
+          : `Warga dinonaktifkan. Mulai iuran tersimpan: ${formatMemberStartMonthLabel(savedMonth)}.`
       );
       await loadAll();
     } catch (e) {
@@ -435,7 +438,7 @@ export default function OperasionalInternetPage() {
               ))}
             </div>
             <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Iuran</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
-              {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><input type="month" className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" value={memberMonthDrafts[member.warga_id] || member.active_from_month || MEMBER_START_MONTH} onChange={(event) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: event.target.value }))} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={Boolean(member.is_active)} disabled={busy} onSaveStart={() => void setMemberActive(member.warga_id, Boolean(member.is_active))} onToggle={() => void setMemberActive(member.warga_id, !Boolean(member.is_active))} /></td></tr>)}
+              {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><MembershipStartMonthInput value={memberMonthDrafts[member.warga_id] || member.active_from_month || MEMBER_START_MONTH} onDraftChange={(nextMonth) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: nextMonth }))} onSave={(nextMonth) => void setMemberActive(member.warga_id, Boolean(member.is_active), nextMonth, true)} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={Boolean(member.is_active)} disabled={busy} onToggle={() => void setMemberActive(member.warga_id, !Boolean(member.is_active))} /></td></tr>)}
               {!filteredMembers.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Tidak ada anggota {memberFilter}.</td></tr> : null}
             </tbody></table></div>
             <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />

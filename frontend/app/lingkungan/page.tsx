@@ -21,13 +21,14 @@ import { WargaContributionRow } from '@/components/contribution/WargaContributio
 import OperationalIuranGuide from '@/components/contribution/OperationalIuranGuide';
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
+import MembershipStartMonthInput, { DEFAULT_MEMBER_START_MONTH, formatMemberStartMonthLabel } from '@/components/membership/MembershipStartMonthInput';
 
 type Row = { warga_id: string; nama: string; paid_amount: number; target_amount: number; arrears: number; total_arrears: number; surplus_amount: number; arrears_months: number; chargeable_months: number; last_payment?: { id: string; amount: number; paid_at?: string; note?: string } | null };
 type Summary = { month: string; monthly_fee: number; pemasukan: number; pengeluaran: number; total_saldo: number; total_kas: number; rows: Row[]; opening_balances?: Array<{ id: string; tanggal: string; closing_year: number; opening_year: number; amount: number; description: string }>; expenses?: Array<{ id: string; expense_date: string; expense_month: string; amount: number; description: string }> };
 type Yearly = { year: string; recap: Array<{ month: string; pemasukan: number; pengeluaran: number }> };
 type LingkunganMember = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string; updated_by?: string };
 type DashboardKasSnapshot = { kas_umum?: { kas_lingkungan?: number } };
-const MEMBER_START_MONTH = '2026-01';
+const MEMBER_START_MONTH = DEFAULT_MEMBER_START_MONTH;
 
 function formatLocalMonth(offset = 0) {
   const date = new Date();
@@ -243,14 +244,25 @@ export default function LingkunganPage() {
       setError(e instanceof Error ? e.message : 'Gagal simpan tarif');
     } finally { setBusy(false); }
   }
-  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || MEMBER_START_MONTH) {
+  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || MEMBER_START_MONTH, startOnly = false) {
     try {
       setBusy(true); setError(''); setMessage('');
-      await apiFetch('/lingkungan/members/set-active', {
+      const result = await apiFetch<{ success: boolean; data?: LingkunganMember }>('/lingkungan/members/set-active', {
         method: 'POST',
         body: JSON.stringify({ warga_id: wid, is_active: next, active_from_month: activeFromMonth })
       });
-      setMessage(next ? 'Warga diaktifkan sebagai anggota lingkungan.' : 'Warga dinonaktifkan dari anggota lingkungan.');
+      const savedMonth = String(result.data?.active_from_month || activeFromMonth);
+      const memberName = members.find((member) => member.warga_id === wid)?.nama || 'Warga';
+      setMemberMonthDrafts((previous) => ({ ...previous, [wid]: savedMonth }));
+      setMembers((previous) => previous.map((member) => (
+        member.warga_id === wid ? { ...member, is_active: next, active_from_month: savedMonth } : member
+      )));
+      setMessage(startOnly
+        ? `${memberName}: mulai iuran lingkungan ${formatMemberStartMonthLabel(savedMonth)} tersimpan.`
+        : next
+          ? `Warga diaktifkan sebagai anggota lingkungan. Mulai iuran ${formatMemberStartMonthLabel(savedMonth)}.`
+          : `Warga dinonaktifkan dari anggota lingkungan. Mulai iuran ${formatMemberStartMonthLabel(savedMonth)}.`
+      );
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal update anggota lingkungan');
@@ -330,15 +342,10 @@ export default function LingkunganPage() {
                 <tr key={m.warga_id}>
                   <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td>
                   <td className="border-t border-[var(--line)] px-3 py-2 text-sm">
-                    <input
-                      type="month"
-                      lang="id-ID"
-                      className="w-full min-w-[140px] rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                    <MembershipStartMonthInput
                       value={memberMonthDrafts[m.warga_id] || m.active_from_month || MEMBER_START_MONTH}
-                      onChange={(e) => {
-                        const nextMonth = e.target.value;
-                        setMemberMonthDrafts((prev) => ({ ...prev, [m.warga_id]: nextMonth }));
-                      }}
+                      onDraftChange={(nextMonth) => setMemberMonthDrafts((prev) => ({ ...prev, [m.warga_id]: nextMonth }))}
+                      onSave={(nextMonth) => void setMemberActive(m.warga_id, Boolean(m.is_active), nextMonth, true)}
                     />
                   </td>
                   <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td>
@@ -346,7 +353,6 @@ export default function LingkunganPage() {
                     <MemberActionButtons
                       isActive={Boolean(m.is_active)}
                       disabled={busy}
-                      onSaveStart={() => void setMemberActive(m.warga_id, Boolean(m.is_active))}
                       onToggle={() => void setMemberActive(m.warga_id, !Boolean(m.is_active))}
                     />
                   </td>
