@@ -16,6 +16,7 @@ import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
 import MembershipStartMonthInput, { DEFAULT_MEMBER_START_MONTH, formatMemberStartMonthLabel } from '@/components/membership/MembershipStartMonthInput';
+import MembershipStatusFilter from '@/components/membership/MembershipStatusFilter';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, formatTanggalDdMmYyyy, parseRupiahInput } from '@/lib/helpers';
@@ -90,6 +91,7 @@ export default function TabunganPage() {
   const [expenseNotes, setExpenseNotes] = useState('');
   const [minimumFee, setMinimumFee] = useState(5000);
   const [members, setMembers] = useState<TabunganMember[]>([]);
+  const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
   const [tariffs, setTariffs] = useState<TabunganTariff[]>([]);
   const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -366,8 +368,12 @@ export default function TabunganPage() {
     } finally { setBusy(false); }
   }
 
-  const memberPager = usePagination(members, PAGE_SIZE);
-  useEffect(() => { memberPager.reset(); }, [members.length]);
+  const filteredMembers = useMemo(
+    () => members.filter((member) => memberFilter === 'aktif' ? member.is_active : !member.is_active),
+    [members, memberFilter]
+  );
+  const memberPager = usePagination(filteredMembers, PAGE_SIZE);
+  useEffect(() => { memberPager.reset(); }, [filteredMembers.length, memberFilter]);
 
   if (settingMode) {
     return (
@@ -385,9 +391,10 @@ export default function TabunganPage() {
             {tariffs.length ? <p className="mt-3 text-xs text-[var(--text-muted)]">Tarif aktif: {formatRupiah(minimumFee)}. Riwayat terbaru: {tariffs.slice(0, 3).map((t) => `${t.effective_month} ${formatRupiah(t.monthly_fee)}`).join(' · ')}</p> : null}
           </Card>
           <Card title="Keanggotaan Tabungan" subtitle="Semua user eligible ditampilkan. Mulai aktif dipakai sebagai riwayat sejak kapan warga ikut tabungan.">
+            <MembershipStatusFilter value={memberFilter} activeCount={members.filter((member) => member.is_active).length} inactiveCount={members.filter((member) => !member.is_active).length} onChange={setMemberFilter} />
             <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Aktif</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
               {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><MembershipStartMonthInput value={memberMonthDrafts[member.warga_id] || member.active_from_month || DEFAULT_MEMBER_START_MONTH} onDraftChange={(nextMonth) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: nextMonth }))} onSave={(nextMonth) => void setMemberActive(member.warga_id, member.is_active, nextMonth, true)} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={member.is_active} disabled={busy} onToggle={() => void setMemberActive(member.warga_id, !member.is_active)} /></td></tr>)}
-              {!members.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada user eligible.</td></tr> : null}
+              {!filteredMembers.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Tidak ada anggota {memberFilter}.</td></tr> : null}
             </tbody></table></div>
             <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
           </Card>

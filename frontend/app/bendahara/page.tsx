@@ -21,6 +21,7 @@ import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
 import MembershipStartMonthInput, { DEFAULT_MEMBER_START_MONTH, formatMemberStartMonthLabel } from '@/components/membership/MembershipStartMonthInput';
+import MembershipStatusFilter from '@/components/membership/MembershipStatusFilter';
 
 type WargaItem = { id: string | number; nama: string };
 type IuranStatusItem = { warga_id: string; nama: string; paid_amount: number };
@@ -934,23 +935,15 @@ export default function BendaharaPage() {
           </Card>
 
           <Card title="Keanggotaan Iuran Wajib" subtitle="Daftar warga eligible. Nonaktifkan warga yang tidak wajib membayar iuran wajib.">
-            <div className="mb-3 flex w-full gap-2">
-              {(['aktif', 'nonaktif'] as const).map((filter) => (
-                <button
-                  key={filter}
-                  type="button"
-                  onClick={() => {
-                    setIuranMemberFilter(filter);
-                    iuranMemberPager.reset();
-                  }}
-                  className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${iuranMemberFilter === filter ? 'opacity-100' : 'opacity-70'}`}
-                >
-                  {filter === 'aktif'
-                    ? `Aktif (${iuranMembers.filter((member) => member.is_active).length})`
-                    : `Nonaktif (${iuranMembers.filter((member) => !member.is_active).length})`}
-                </button>
-              ))}
-            </div>
+            <MembershipStatusFilter
+              value={iuranMemberFilter}
+              activeCount={iuranMembers.filter((member) => member.is_active).length}
+              inactiveCount={iuranMembers.filter((member) => !member.is_active).length}
+              onChange={(filter) => {
+                setIuranMemberFilter(filter);
+                iuranMemberPager.reset();
+              }}
+            />
             <div className="overflow-x-auto">
               <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                 <thead>

@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
+import MembershipStatusFilter from '@/components/membership/MembershipStatusFilter';
 
 type WargaOption = { id: string; nama: string; no_hp?: string };
 type ExternalParticipant = {
@@ -342,26 +343,12 @@ export default function JimpitanAdminPage() {
 
         {settingMode && isAdminJimpitan ? (
           <Card title="Pengaturan Warga Jimpitan" subtitle="Atur warga yang wajib ikut jimpitan bulanan. Donatur dikelola pada bagian terpisah.">
-            <div className="mb-3 grid grid-cols-2 gap-2 md:max-w-sm">
-              {(['ACTIVE', 'INACTIVE'] as const).map((status) => {
-                const label = status === 'ACTIVE' ? 'Aktif' : 'Nonaktif';
-                const count = members.filter((member) => member.status === status).length;
-                return (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => setMemberFilter(status)}
-                    className={`rounded-xl border px-3 py-2 text-xs font-bold ${
-                      memberFilter === status
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
-                        : 'border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)]'
-                    }`}
-                  >
-                    {label} ({count})
-                  </button>
-                );
-              })}
-            </div>
+            <MembershipStatusFilter
+              value={memberFilter === 'ACTIVE' ? 'aktif' : 'nonaktif'}
+              activeCount={members.filter((member) => member.status === 'ACTIVE').length}
+              inactiveCount={members.filter((member) => member.status === 'INACTIVE').length}
+              onChange={(filter) => setMemberFilter(filter === 'aktif' ? 'ACTIVE' : 'INACTIVE')}
+            />
             <div className="overflow-x-auto">
               <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                 <thead>

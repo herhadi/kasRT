@@ -22,6 +22,7 @@ import OperationalIuranGuide from '@/components/contribution/OperationalIuranGui
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
 import OperationalStickySummary, { operationalStickyValueClass } from '@/components/operational/OperationalStickySummary';
 import MembershipStartMonthInput, { DEFAULT_MEMBER_START_MONTH, formatMemberStartMonthLabel } from '@/components/membership/MembershipStartMonthInput';
+import MembershipStatusFilter from '@/components/membership/MembershipStatusFilter';
 
 type InternetRow = {
   warga_id: string;
@@ -430,13 +431,7 @@ export default function OperasionalInternetPage() {
             </div>
           ) : null}
           <Card title="Keanggotaan Internet" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk peserta iuran internet.">
-            <div className="mb-3 flex w-full gap-2">
-              {(['aktif', 'nonaktif'] as const).map((filter) => (
-                <button key={filter} type="button" onClick={() => setMemberFilter(filter)} className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${memberFilter === filter ? 'opacity-100' : 'opacity-70'}`}>
-                  {filter === 'aktif' ? `Aktif (${members.filter((member) => member.is_active).length})` : `Nonaktif (${members.filter((member) => !member.is_active).length})`}
-                </button>
-              ))}
-            </div>
+            <MembershipStatusFilter value={memberFilter} activeCount={members.filter((member) => member.is_active).length} inactiveCount={members.filter((member) => !member.is_active).length} onChange={setMemberFilter} />
             <div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]"><thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Mulai Iuran</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead><tbody>
               {memberPager.pagedItems.map((member) => <tr key={member.warga_id} className="bg-[var(--surface)]"><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm"><MembershipStartMonthInput value={memberMonthDrafts[member.warga_id] || member.active_from_month || MEMBER_START_MONTH} onDraftChange={(nextMonth) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: nextMonth }))} onSave={(nextMonth) => void setMemberActive(member.warga_id, Boolean(member.is_active), nextMonth, true)} /></td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><MemberActionButtons isActive={Boolean(member.is_active)} disabled={busy} onToggle={() => void setMemberActive(member.warga_id, !Boolean(member.is_active))} /></td></tr>)}
               {!filteredMembers.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Tidak ada anggota {memberFilter}.</td></tr> : null}
