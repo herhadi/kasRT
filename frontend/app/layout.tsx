@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent'
   },
   icons: {
-    icon: '/icons/kasrt-icon.svg',
+    icon: '/icons/kasrt-icon-192.png',
     apple: '/icons/kasrt-icon-192.png'
   }
 };
