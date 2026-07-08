@@ -452,7 +452,7 @@ export default function JimpitanAdminPage() {
 
       <Navbar />
 
-      <div className="mx-auto w-full max-w-6xl space-y-4 px-4 pt-5 md:px-6">
+      <div className="mx-auto w-full space-y-4 px-4 pt-5 md:px-6">
         <div className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Admin Jimpitan</p>
@@ -461,19 +461,13 @@ export default function JimpitanAdminPage() {
           <div className="flex flex-wrap justify-end gap-2">
             {settingMode ? (
               <Link href="/operasional/jimpitan" className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
-                Kembali
+                ✕ Close
               </Link>
             ) : isAdminJimpitan ? (
               <Link href="/operasional/jimpitan/setting" className="btn-action-blue link-action px-3 py-2">
                 ⚙️ Pengaturan
               </Link>
             ) : null}
-            <Link
-              href="/jimpitan"
-              className="btn-action-blue link-action px-3 py-2"
-            >
-              Kembali ke Input
-            </Link>
           </div>
         </div>
 

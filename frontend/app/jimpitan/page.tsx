@@ -563,7 +563,7 @@ export default function JimpitanPage() {
 
       <Navbar sticky={false} />
 
-      <div className="mx-auto mt-4 w-full max-w-6xl px-4 md:px-6">
+      <div className="mx-auto mt-4 w-full max-w-none px-4 md:px-6">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
           <p className="text-xs text-[var(--text-muted)]">Operasional</p>
           <p className="text-sm font-semibold text-[var(--text-primary)]">{operationalDate}</p>
@@ -571,7 +571,7 @@ export default function JimpitanPage() {
       </div>
 
       <OperationalStickySummary
-        className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-6xl md:w-[calc(100%-3rem)]"
+        className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-none md:w-[calc(100%-3rem)]"
         items={jimpitanMode === 'SHIFT_TOTAL'
           ? [
               { label: 'Mode', value: 'Setor Shift', tone: 'sky' },
@@ -622,7 +622,7 @@ export default function JimpitanPage() {
         </div>
       ) : null}
 
-      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-3 w-full max-w-6xl px-4 md:px-6">
+      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-3 w-full max-w-none px-4 md:px-6">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
           <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
             {(['semua', 'belum', 'lunas', 'kosong'] as FilterStatus[]).map((f) => (
@@ -646,7 +646,7 @@ export default function JimpitanPage() {
       </div> : null}
 
       {/* Buttons placed above the card warga list */}
-      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
+      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-4 w-full max-w-none space-y-4 px-4 md:px-6">
         <div className="flex flex-wrap gap-3 pt-4">
           <Button
             variant="ghost"
@@ -712,7 +712,7 @@ export default function JimpitanPage() {
 
       </div> : null}
 
-      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
+      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-4 w-full max-w-none space-y-4 px-4 md:px-6">
         <div>
           <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
             Daftar Warga ({orderedItems.length})
