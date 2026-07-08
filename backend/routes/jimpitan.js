@@ -18,6 +18,7 @@ import {
   getJimpitanTopupHistory,
   healthCheck,
   inputJimpitan,
+  inputJimpitanV2Detail,
   inputJimpitanOldCashHandover,
   inputJimpitanV2Income,
   inputJimpitanV2MonthlyIncome,
@@ -43,6 +44,13 @@ router.post(
   auth,
   validateRequiredFields(['nominal']),
   asyncHandler(inputJimpitan)
+);
+
+router.post(
+  '/input-v2-detail',
+  auth,
+  validateRequiredFields(['nominal']),
+  asyncHandler(inputJimpitanV2Detail)
 );
 
 router.post(

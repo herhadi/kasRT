@@ -90,6 +90,16 @@ export async function ensureJimpitanExternalParticipantsTable() {
     CREATE INDEX IF NOT EXISTS idx_jimpitan_details_external_tanggal
     ON jimpitan_details (external_participant_id, tanggal DESC)
   `);
+
+  await pool.query(`
+    ALTER TABLE jimpitan_details
+      ADD COLUMN IF NOT EXISTS source_mode VARCHAR(20) NOT NULL DEFAULT 'PER_WARGA'
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_jimpitan_details_source_tanggal
+    ON jimpitan_details (source_mode, tanggal DESC)
+  `);
 }
 
 export async function ensureJimpitanTopupsTable() {
@@ -384,6 +394,55 @@ export async function createJimpitanExternalDraft({ externalParticipantId, nomin
   );
 }
 
+export async function getJimpitanV2InputStatus(operationalDate) {
+  await ensureJimpitanScheduleColumns();
+  const result = await pool.query(
+    `SELECT
+       EXISTS (
+         SELECT 1
+         FROM jimpitan_batches jb
+         WHERE jb.operational_date = $1::date
+           AND jb.batch_mode = 'SHIFT_TOTAL'
+           AND jb.status IN ('PENDING','APPROVED')
+           AND COALESCE(jb.note, '') NOT LIKE '[ADMIN_MONTHLY]%'
+       ) AS has_global,
+       EXISTS (
+         SELECT 1
+         FROM jimpitan_details jd
+         WHERE jd.tanggal = $1::date
+           AND jd.source_mode = 'SHIFT_TOTAL'
+       ) AS has_by_name`,
+    [operationalDate]
+  );
+  const row = result.rows[0] || {};
+  const hasGlobal = Boolean(row.has_global);
+  const hasByName = Boolean(row.has_by_name);
+  return {
+    has_global: hasGlobal,
+    has_by_name: hasByName,
+    input_mode: hasGlobal ? 'GLOBAL' : hasByName ? 'BY_NAME' : null
+  };
+}
+
+export async function createJimpitanV2Detail({ wargaId = null, externalParticipantId = null, nominal, tanggal, petugasId }) {
+  await ensureJimpitanScheduleColumns();
+  const total = Number(nominal || 0);
+  if (!Number.isFinite(total) || total < 0) throw new Error('Nominal tidak valid');
+  if (!wargaId && !externalParticipantId) throw new Error('Target input tidak valid');
+
+  const inputStatus = await getJimpitanV2InputStatus(tanggal);
+  if (inputStatus.has_global) {
+    throw new Error('Tanggal ini sudah memakai rekap global. Input by name dikunci agar data tidak dobel.');
+  }
+
+  await pool.query(
+    `INSERT INTO jimpitan_details
+       (warga_id, external_participant_id, nominal, tanggal, petugas_id, status, source_mode)
+     VALUES ($1::uuid, $2::uuid, $3, $4::date, $5, 'APPROVED', 'SHIFT_TOTAL')`,
+    [wargaId, externalParticipantId, total, tanggal, petugasId]
+  );
+}
+
 export async function createSetorBatch({ petugasId, detailIds = null }) {
   await ensureJimpitanScheduleColumns();
   const client = await pool.connect();
@@ -454,6 +513,11 @@ export async function createShiftTotalBatch({ petugasId, totalAmount, operationa
   await ensureJimpitanScheduleColumns();
   const total = Number(totalAmount || 0);
   if (!Number.isFinite(total) || total <= 0) throw new Error('Nominal setor harus lebih dari 0');
+
+  const inputStatus = await getJimpitanV2InputStatus(operationalDate);
+  if (inputStatus.has_by_name) {
+    throw new Error('Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.');
+  }
 
   const duplicate = await pool.query(
     `SELECT id, status

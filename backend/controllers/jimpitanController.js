@@ -12,6 +12,7 @@ import {
   createJimpitanExternalDraft,
   createJimpitanExternalParticipant,
   createJimpitanDraftAndUpdateSaldo,
+  createJimpitanV2Detail,
   createApprovedShiftTotalIncome,
   createApprovedShiftMonthlyIncome,
   createJimpitanOldCashHandover,
@@ -21,6 +22,7 @@ import {
   findBatchCreator,
   getApprovedBatchRecapByMonth,
   getEffectiveJimpitanMode,
+  getJimpitanV2InputStatus,
   getJimpitanModeHistory,
   getJimpitanRouteOrder,
   getUserJimpitanShiftHari,
@@ -260,6 +262,54 @@ export async function inputJimpitan(req, res) {
   }
 }
 
+export async function inputJimpitanV2Detail(req, res) {
+  const { warga_id, nominal, target_type, external_participant_id } = req.body;
+  const petugas_id = req.user.user_id;
+  const roles = req.user.roles || [];
+  const targetType = String(target_type || 'WARGA').trim().toUpperCase();
+  const externalId = String(external_participant_id || '').trim();
+  const tanggalOperasional = getOperationalDate();
+
+  const effectiveMode = await getEffectiveJimpitanMode(tanggalOperasional.toISOString().slice(0, 10));
+  if (effectiveMode.mode !== 'SHIFT_TOTAL') {
+    return res.status(400).json({ success: false, message: 'Input by name V2 hanya aktif pada mode Jimpitan V2.' });
+  }
+
+  if (!canInputByTime(roles)) {
+    return res.status(403).json({
+      success: false,
+      message: 'JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00'
+    });
+  }
+
+  const access = await getShiftAccessContext(petugas_id, roles, tanggalOperasional);
+  if (!access.canOperate) {
+    return res.status(403).json({
+      success: false,
+      message: 'Bukan shift Anda hari ini.'
+    });
+  }
+
+  const nilaiNominal = Number(nominal || 0);
+  if (!Number.isFinite(nilaiNominal) || nilaiNominal < 0) {
+    return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
+  }
+
+  try {
+    await createJimpitanV2Detail({
+      wargaId: targetType === 'DONATUR' ? null : warga_id,
+      externalParticipantId: targetType === 'DONATUR' ? externalId : null,
+      nominal: nilaiNominal,
+      tanggal: tanggalOperasional.toISOString().slice(0, 10),
+      petugasId: petugas_id
+    });
+
+    return res.json({ success: true, tanggal_operasional: tanggalOperasional });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
 export async function setorJimpitan(req, res) {
   const petugas_id = req.user.user_id;
   const inputDetailIds = Array.isArray(req.body.detail_ids) ? req.body.detail_ids : null;
@@ -441,19 +491,10 @@ export async function listJimpitan(req, res) {
     const access = await getShiftAccessContext(req.user.user_id, req.user.roles || [], operationalDate);
     const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 10));
 
-    if (effectiveMode.mode === 'SHIFT_TOTAL') {
-      return res.json({
-        success: true,
-        operational_date: operationalDate,
-        operational_day: access.hariOperasional,
-        viewer_shift_day: access.shiftHari,
-        can_operate_today: access.canOperate,
-        jimpitan_mode: effectiveMode.mode,
-        data: []
-      });
-    }
-    
     const rows = await listJimpitanByOperationalDate(operationalDate.toISOString().slice(0, 10));
+    const v2InputStatus = effectiveMode.mode === 'SHIFT_TOTAL'
+      ? await getJimpitanV2InputStatus(operationalDate.toISOString().slice(0, 10))
+      : null;
     const data = rows.map((row) => {
       const saldo = Number(row.saldo || 0);
       const nominalHariIni = Number(row.nominal_hari_ini || 0);
@@ -462,10 +503,14 @@ export async function listJimpitan(req, res) {
       const isDonatur = targetType === 'DONATUR';
       
       const lunasByInput = nominalHariIni > 0 || nominalHariIni === 0 && row.petugas;
-      const lunasBySaldo = !isDonatur && (saldo >= TARGET_BULANAN || saldo >= totalKewajibanHarian);
+      const lunasBySaldo = effectiveMode.mode === 'SHIFT_TOTAL'
+        ? false
+        : !isDonatur && (saldo >= TARGET_BULANAN || saldo >= totalKewajibanHarian);
       const isLunasUI = Boolean(lunasByInput || lunasBySaldo);
       
-      const nominalSaran = isLunasUI ? 0 : (isDonatur ? BIAYA_HARIAN : calculateNominalSaran(saldo, hariKe));
+      const nominalSaran = effectiveMode.mode === 'SHIFT_TOTAL'
+        ? BIAYA_HARIAN
+        : isLunasUI ? 0 : (isDonatur ? BIAYA_HARIAN : calculateNominalSaran(saldo, hariKe));
       const detailStatus = String(row.detail_status || '').toUpperCase();
       const batchStatus = String(row.batch_status || '').toUpperCase();
       const canEditNominal = !isDonatur && detailStatus !== '' && detailStatus !== 'APPROVED' && batchStatus !== 'APPROVED';
@@ -494,6 +539,7 @@ export async function listJimpitan(req, res) {
       viewer_shift_day: access.shiftHari,
       can_operate_today: access.canOperate,
       jimpitan_mode: effectiveMode.mode,
+      v2_input_status: v2InputStatus,
       data
     });
   } catch (err) {

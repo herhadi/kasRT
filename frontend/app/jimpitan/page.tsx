@@ -16,6 +16,8 @@ import { JimpitanListItem } from '@/types';
 
 type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
 type JimpitanMode = 'PER_WARGA' | 'SHIFT_TOTAL';
+type V2InputTab = 'GLOBAL' | 'BY_NAME';
+type V2InputStatus = { has_global: boolean; has_by_name: boolean; input_mode: V2InputTab | null };
 
 export default function JimpitanPage() {
   const { user, loading } = useAuth();
@@ -31,6 +33,8 @@ export default function JimpitanPage() {
   const [shiftTotalInput, setShiftTotalInput] = useState('');
   const [shiftTotalNote, setShiftTotalNote] = useState('');
   const [shiftTotalLoading, setShiftTotalLoading] = useState(false);
+  const [v2Tab, setV2Tab] = useState<V2InputTab>('GLOBAL');
+  const [v2InputStatus, setV2InputStatus] = useState<V2InputStatus>({ has_global: false, has_by_name: false, input_mode: null });
 
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
   const [editTarget, setEditTarget] = useState<JimpitanListItem | null>(null);
@@ -81,13 +85,24 @@ export default function JimpitanPage() {
     });
   }, []);
 
+  const operationalDateIso = useMemo(() => {
+    const now = new Date();
+    const hour = now.getHours();
+    const date = new Date(now);
+    if (hour < 12) {
+      date.setDate(date.getDate() - 1);
+    }
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }, []);
+
   const loadList = useCallback(async () => {
     try {
       setError('');
-      const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean; jimpitan_mode?: JimpitanMode }>('/jimpitan/list');
+      const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean; jimpitan_mode?: JimpitanMode; v2_input_status?: V2InputStatus }>('/jimpitan/list');
       setItems(result.data || []);
       setCanOperateToday(Boolean(result.can_operate_today ?? true));
       setJimpitanMode(result.jimpitan_mode || 'PER_WARGA');
+      setV2InputStatus(result.v2_input_status || { has_global: false, has_by_name: false, input_mode: null });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
     }
@@ -130,11 +145,12 @@ export default function JimpitanPage() {
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean; jimpitan_mode?: JimpitanMode }>('/jimpitan/list');
+          const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean; jimpitan_mode?: JimpitanMode; v2_input_status?: V2InputStatus }>('/jimpitan/list');
           const rows = result.data || [];
           setItems(rows);
           setCanOperateToday(Boolean(result.can_operate_today ?? true));
           setJimpitanMode(result.jimpitan_mode || 'PER_WARGA');
+          setV2InputStatus(result.v2_input_status || { has_global: false, has_by_name: false, input_mode: null });
           if ((result.jimpitan_mode || 'PER_WARGA') === 'PER_WARGA') {
             await loadRouteOrder(rows);
           }
@@ -216,7 +232,7 @@ export default function JimpitanPage() {
   async function submitInput(nominal: number) {
     if (!selected) return;
     try {
-      await apiFetch('/jimpitan/input', {
+      await apiFetch(jimpitanMode === 'SHIFT_TOTAL' ? '/jimpitan/input-v2-detail' : '/jimpitan/input', {
         method: 'POST',
         body: JSON.stringify(
           selected.target_type === 'DONATUR' && selected.external_participant_id
@@ -226,7 +242,7 @@ export default function JimpitanPage() {
       });
       await loadList();
       setSelected(null);
-      pushToast('Input jimpitan berhasil disimpan.', 'success');
+      pushToast(jimpitanMode === 'SHIFT_TOTAL' ? 'Detail by name berhasil dicatat.' : 'Input jimpitan berhasil disimpan.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Gagal input jimpitan';
       pushToast(message, 'error');
@@ -259,6 +275,10 @@ export default function JimpitanPage() {
     const amount = parseRupiahInput(shiftTotalInput);
     if (!Number.isFinite(amount) || amount <= 0) {
       pushToast('Nominal setoran shift harus lebih dari 0.', 'warning');
+      return;
+    }
+    if (v2InputStatus.has_by_name) {
+      pushToast('Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.', 'warning');
       return;
     }
     if (!window.confirm(`Ajukan setoran shift ${formatRupiah(amount)} ke Admin Jimpitan?`)) return;
@@ -343,6 +363,39 @@ export default function JimpitanPage() {
       window.open(`https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(pesan)}`, '_blank');
     } catch (e) {
       pushToast(e instanceof Error ? e.message : 'Gagal menyiapkan rekap bulanan', 'error');
+    }
+  }
+
+  async function handleKirimRekapHarianGlobalWA() {
+    const month = operationalDateIso.slice(0, 7);
+    try {
+      const res = await apiFetch<{
+        success: boolean;
+        data: { days: Array<{ tanggal: string; total_nominal: number; total_rumah: number; total_petugas: number }> };
+      }>(`/jimpitan/daily-recap?month=${encodeURIComponent(month)}`);
+      const row = (res.data?.days || []).find((item) => String(item.tanggal).slice(0, 10) === operationalDateIso);
+      if (!row) {
+        pushToast('Belum ada rekap global harian untuk tanggal ini.', 'warning');
+        return;
+      }
+      const date = new Date(`${operationalDateIso}T00:00:00`);
+      const label = date.toLocaleDateString('id-ID', { dateStyle: 'full' });
+      let pesan = `📝 *REKAP JIMPITAN HARIAN*\n`;
+      pesan += `📅 *${label}*\n`;
+      pesan += '━━━━━━━━━━━━━━━\n';
+      pesan += `💰 Total: *${formatRupiah(Number(row.total_nominal || 0))}*\n`;
+      pesan += `👥 Petugas: ${Number(row.total_petugas || 0) || '-'}\n`;
+      pesan += '━━━━━━━━━━━━━━━\n';
+      pesan += `_Dilaporkan oleh: ${user?.nama || 'Petugas'}_`;
+
+      if (navigator.share) {
+        navigator.share({ title: `Rekap Jimpitan ${label}`, text: pesan }).catch(() => {});
+        return;
+      }
+      const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
+      window.open(`https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(pesan)}`, '_blank');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal menyiapkan rekap harian', 'error');
     }
   }
 
@@ -464,6 +517,12 @@ export default function JimpitanPage() {
     setRouteOrder((prev) => normalizeRouteOrder(prev, items));
   }, [items, normalizeRouteOrder]);
 
+  useEffect(() => {
+    if (jimpitanMode !== 'SHIFT_TOTAL') return;
+    if (v2InputStatus.has_by_name) setV2Tab('BY_NAME');
+    else if (v2InputStatus.has_global) setV2Tab('GLOBAL');
+  }, [jimpitanMode, v2InputStatus.has_by_name, v2InputStatus.has_global]);
+
   function clearPressTimer() {
     if (pressTimerRef.current) {
       window.clearTimeout(pressTimerRef.current);
@@ -520,6 +579,10 @@ export default function JimpitanPage() {
       return;
     }
     if (row.isLunas) return;
+    if (jimpitanMode === 'SHIFT_TOTAL' && v2InputStatus.has_global) {
+      pushToast('Tanggal ini sudah memakai rekap global. Input by name dikunci agar data tidak dobel.', 'warning');
+      return;
+    }
     const roles = (user?.roles || []).map((role) => String(role).trim().toLowerCase());
     const isRoot = roles.includes('root');
     
@@ -540,6 +603,7 @@ export default function JimpitanPage() {
   }
 
   if (loading || !user) return <main className="min-h-screen" />;
+  const showByNameInput = jimpitanMode === 'PER_WARGA' || (jimpitanMode === 'SHIFT_TOTAL' && v2Tab === 'BY_NAME');
 
   return (
     <main className="min-h-screen pb-20 md:pb-10">
@@ -589,40 +653,87 @@ export default function JimpitanPage() {
         <div className="mx-auto mt-4 w-full max-w-none px-4 md:px-6">
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Jimpitan V2</p>
-            <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Setor Total Shift</h2>
+            <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Input Jimpitan Hybrid</h2>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Mode ini mencatat total pendapatan harian dari petugas shift. Tidak ada input satu per satu warga.
+              Pilih global untuk total harian, atau by name untuk histori warga/donatur. Satu tanggal hanya boleh memakai salah satu mode.
             </p>
-            <div className="mt-4 space-y-3">
-              <Input
-                label="Total pendapatan hari ini"
-                value={shiftTotalInput}
-                onChange={(event) => setShiftTotalInput(formatRupiahInput(event.target.value))}
-                placeholder="Rp 0"
-                inputMode="numeric"
-              />
-              <Input
-                label="Catatan"
-                value={shiftTotalNote}
-                onChange={(event) => setShiftTotalNote(event.target.value)}
-                placeholder="Opsional, contoh: setoran shift Senin"
-              />
-              <Button
-                onClick={handleSetorShiftTotal}
-                disabled={shiftTotalLoading || !canOperateToday}
-                className="btn-action-blue w-full rounded-xl py-3 font-semibold disabled:opacity-50"
-              >
-                {shiftTotalLoading ? 'Mengajukan...' : 'Ajukan Setoran Shift'}
-              </Button>
-              {!canOperateToday ? (
-                <p className="text-xs text-rose-600">Bukan jadwal shift Anda hari ini.</p>
-              ) : null}
+            <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-1">
+              {(['GLOBAL', 'BY_NAME'] as V2InputTab[]).map((tab) => {
+                const locked = tab === 'GLOBAL' ? v2InputStatus.has_by_name : v2InputStatus.has_global;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => {
+                      if (locked) {
+                        pushToast(
+                          tab === 'GLOBAL'
+                            ? 'Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.'
+                            : 'Tanggal ini sudah memakai rekap global. Input by name dikunci agar data tidak dobel.',
+                          'warning'
+                        );
+                        return;
+                      }
+                      setV2Tab(tab);
+                    }}
+                    className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+                      v2Tab === tab
+                        ? 'bg-[var(--accent)] text-white shadow-sm'
+                        : locked
+                          ? 'text-[var(--text-muted)] opacity-50'
+                          : 'text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {tab === 'GLOBAL' ? 'Global' : 'By Name'} {locked ? '🔒' : ''}
+                  </button>
+                );
+              })}
+            </div>
+
+            {v2Tab === 'GLOBAL' ? (
+              <div className="mt-4 space-y-3">
+                <Input
+                  label="Total pendapatan hari ini"
+                  value={shiftTotalInput}
+                  onChange={(event) => setShiftTotalInput(formatRupiahInput(event.target.value))}
+                  placeholder="Rp 0"
+                  inputMode="numeric"
+                />
+                <Input
+                  label="Catatan"
+                  value={shiftTotalNote}
+                  onChange={(event) => setShiftTotalNote(event.target.value)}
+                  placeholder="Opsional, contoh: setoran shift Senin"
+                />
+                <div className="grid gap-2 md:grid-cols-3">
+                  <Button
+                    onClick={handleSetorShiftTotal}
+                    disabled={shiftTotalLoading || !canOperateToday || v2InputStatus.has_by_name}
+                    className="btn-action-blue w-full rounded-xl py-3 font-semibold disabled:opacity-50"
+                  >
+                    {shiftTotalLoading ? 'Mengajukan...' : 'Ajukan Setoran Shift'}
+                  </Button>
+                  <Button variant="ghost" className="btn-action-green w-full rounded-xl py-3 font-semibold" onClick={() => void handleKirimRekapHarianGlobalWA()}>
+                    Share Harian WA
+                  </Button>
+                  <Button variant="ghost" className="btn-action-blue w-full rounded-xl py-3 font-semibold" onClick={() => void handleKirimRekapBulananWA()}>
+                    Share Bulanan WA
+                  </Button>
+                </div>
+                {!canOperateToday ? (
+                  <p className="text-xs text-rose-600">Bukan jadwal shift Anda hari ini.</p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--text-primary)]">
+                <p><b>Mode By Name aktif.</b> Ketuk kartu warga/donatur di bawah untuk mencatat histori. Tidak memengaruhi tunggakan warga.</p>
+              </div>
+            )}
             </div>
           </div>
-        </div>
       ) : null}
 
-      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-3 w-full max-w-none px-4 md:px-6">
+      {showByNameInput ? <div className="mx-auto mt-3 w-full max-w-none px-4 md:px-6">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
           <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
             {(['semua', 'belum', 'lunas', 'kosong'] as FilterStatus[]).map((f) => (
@@ -646,13 +757,13 @@ export default function JimpitanPage() {
       </div> : null}
 
       {/* Buttons placed above the card warga list */}
-      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-4 w-full max-w-none space-y-4 px-4 md:px-6">
+      {showByNameInput ? <div className="mx-auto mt-4 w-full max-w-none space-y-4 px-4 md:px-6">
         <div className="flex flex-wrap gap-3 pt-4">
           <Button
             variant="ghost"
             className="btn-action-green min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleKirimRekapWA}
-            disabled={!canKirimRekap}
+            disabled={jimpitanMode === 'PER_WARGA' && !canKirimRekap}
           >
             <span className="mr-2">📤</span>
             Kirim Rekap WA
@@ -668,21 +779,23 @@ export default function JimpitanPage() {
             </Button>
           ) : null}
           
-          <Button
-            variant="ghost"
-            onClick={handleSetor}
-            disabled={setorLoading || !canSetor}
-            className="btn-action-blue min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {setorLoading ? (
-              <span>Memproses...</span>
-            ) : (
-              <span>
-                <span className="mr-2">💰</span>
-                {canSetor ? `Setor ${formatRupiah(recapData.totalTunaiSaya)}` : 'Setor'}
-              </span>
-            )}
-          </Button>
+          {jimpitanMode === 'PER_WARGA' ? (
+            <Button
+              variant="ghost"
+              onClick={handleSetor}
+              disabled={setorLoading || !canSetor}
+              className="btn-action-blue min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {setorLoading ? (
+                <span>Memproses...</span>
+              ) : (
+                <span>
+                  <span className="mr-2">💰</span>
+                  {canSetor ? `Setor ${formatRupiah(recapData.totalTunaiSaya)}` : 'Setor'}
+                </span>
+              )}
+            </Button>
+          ) : null}
 
         </div>
 
@@ -712,7 +825,7 @@ export default function JimpitanPage() {
 
       </div> : null}
 
-      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-4 w-full max-w-none space-y-4 px-4 md:px-6">
+      {showByNameInput ? <div className="mx-auto mt-4 w-full max-w-none space-y-4 px-4 md:px-6">
         <div>
           <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
             Daftar Warga ({orderedItems.length})
