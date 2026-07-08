@@ -40,7 +40,7 @@ import {
   updateJimpitanReminderDeliveryLog,
   updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
-import { delCache, getCacheJson, setCacheJson } from '../services/cacheService.js';
+import { delCache, delCacheByPrefix, getCacheJson, setCacheJson } from '../services/cacheService.js';
 
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
@@ -189,7 +189,7 @@ export async function inputJimpitan(req, res) {
   }
   
   const tanggalOperasional = getOperationalDate();
-  const effectiveMode = await getEffectiveJimpitanMode(tanggalOperasional.toISOString().slice(0, 7));
+  const effectiveMode = await getEffectiveJimpitanMode(tanggalOperasional.toISOString().slice(0, 10));
   if (effectiveMode.mode === 'SHIFT_TOTAL') {
     return res.status(400).json({
       success: false,
@@ -269,7 +269,7 @@ export async function setorJimpitan(req, res) {
   }
 
   const operationalDate = getOperationalDate();
-  const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 7));
+  const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 10));
   if (effectiveMode.mode === 'SHIFT_TOTAL') {
     return res.status(400).json({
       success: false,
@@ -334,7 +334,7 @@ export async function setorJimpitanShiftTotal(req, res) {
   const operationalDate = getOperationalDate();
   const operationalDateIso = operationalDate.toISOString().slice(0, 10);
 
-  const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 7));
+  const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 10));
   if (effectiveMode.mode !== 'SHIFT_TOTAL') {
     return res.status(400).json({
       success: false,
@@ -435,7 +435,7 @@ export async function listJimpitan(req, res) {
     const operationalDate = getOperationalDate();
     const hariKe = operationalDate.getDate();
     const access = await getShiftAccessContext(req.user.user_id, req.user.roles || [], operationalDate);
-    const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 7));
+    const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 10));
 
     if (effectiveMode.mode === 'SHIFT_TOTAL') {
       return res.json({
@@ -498,9 +498,9 @@ export async function listJimpitan(req, res) {
 }
 
 export async function getJimpitanMode(req, res) {
-  const month = String(req.query.month || '').trim();
+  const date = String(req.query.date || req.query.month || '').trim();
   try {
-    const effective = await getEffectiveJimpitanMode(month);
+    const effective = await getEffectiveJimpitanMode(date);
     const normalizedRoles = (req.user.roles || []).map((role) => String(role).trim().toLowerCase());
     const isRoot = normalizedRoles.includes('root');
     const history = isRoot ? await getJimpitanModeHistory() : [];
@@ -511,17 +511,17 @@ export async function getJimpitanMode(req, res) {
 }
 
 export async function updateJimpitanMode(req, res) {
-  const effectiveMonth = String(req.body.effective_month || '').trim();
+  const effectiveDate = String(req.body.effective_date || '').trim();
   const mode = String(req.body.mode || '').trim().toUpperCase();
   const note = String(req.body.note || '').trim();
   try {
     const data = await setJimpitanMode({
-      effectiveMonth,
+      effectiveDate,
       mode,
       note,
       createdBy: req.user.user_id
     });
-    await delCache(`dashboard:warga:*`);
+    await delCacheByPrefix('dashboard:warga:');
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

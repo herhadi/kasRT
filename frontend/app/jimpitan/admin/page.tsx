@@ -49,16 +49,6 @@ type TopupHistoryItem = {
   created_at: string;
   admin_name?: string | null;
 };
-type JimpitanMode = 'PER_WARGA' | 'SHIFT_TOTAL';
-type JimpitanModeHistoryItem = {
-  id: string;
-  effective_month: string;
-  mode: JimpitanMode;
-  note?: string | null;
-  created_at?: string;
-  created_by_name?: string | null;
-};
-
 export default function JimpitanAdminPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -85,15 +75,9 @@ export default function JimpitanAdminPage() {
   const [donaturNoHp, setDonaturNoHp] = useState('');
   const [donaturKeterangan, setDonaturKeterangan] = useState('');
   const [savingDonatur, setSavingDonatur] = useState(false);
-  const [modeMonth, setModeMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [modeValue, setModeValue] = useState<JimpitanMode>('PER_WARGA');
-  const [modeNote, setModeNote] = useState('');
-  const [modeHistory, setModeHistory] = useState<JimpitanModeHistoryItem[]>([]);
-  const [savingMode, setSavingMode] = useState(false);
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
 
   const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
-  const isRoot = hasAnyRole(user, ['root']);
   const isKetua = hasAnyRole(user, ['Ketua']);
   const settingMode = pathname === '/operasional/jimpitan/setting';
 
@@ -137,18 +121,6 @@ export default function JimpitanAdminPage() {
     setMembers(result.data || []);
   }, [isAdminJimpitan]);
 
-  const loadModeHistory = useCallback(async () => {
-    if (!isRoot) return;
-    const result = await apiFetch<{
-      success: boolean;
-      data: { effective?: JimpitanModeHistoryItem; history?: JimpitanModeHistoryItem[] };
-    }>(`/jimpitan/mode?month=${encodeURIComponent(modeMonth)}`);
-    setModeHistory(result.data?.history || []);
-    if (result.data?.effective?.mode) {
-      setModeValue(result.data.effective.mode);
-    }
-  }, [isRoot, modeMonth]);
-
   const loadTopupHistory = useCallback(async () => {
     if (!isAdminJimpitan) return;
     setTopupHistoryLoading(true);
@@ -172,10 +144,10 @@ export default function JimpitanAdminPage() {
       router.replace('/jimpitan');
       return;
     }
-    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers(), loadModeHistory()]).catch((error) => {
+    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, loadModeHistory, pushToast]);
+  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, pushToast]);
 
   const setorHistoryPager = usePagination(setorHistory, 20);
   const filteredMembers = useMemo(
@@ -320,27 +292,6 @@ export default function JimpitanAdminPage() {
     }
   }
 
-  async function handleSaveMode() {
-    try {
-      setSavingMode(true);
-      await apiFetch('/jimpitan/mode', {
-        method: 'POST',
-        body: JSON.stringify({
-          effective_month: modeMonth,
-          mode: modeValue,
-          note: modeNote
-        })
-      });
-      setModeNote('');
-      await loadModeHistory();
-      pushToast(`Mode Jimpitan ${modeValue === 'SHIFT_TOTAL' ? 'Setor Shift' : 'Per Warga'} mulai ${modeMonth} tersimpan.`, 'success');
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Gagal menyimpan mode Jimpitan', 'error');
-    } finally {
-      setSavingMode(false);
-    }
-  }
-
   if (loading || !user) return <main className="min-h-screen" />;
 
   return (
@@ -388,72 +339,6 @@ export default function JimpitanAdminPage() {
             </Link>
           </div>
         </div>
-
-        {settingMode && isRoot ? (
-          <Card title="Mode Operasional Jimpitan" subtitle="Khusus root. Histori ini menentukan kapan dashboard pribadi warga menampilkan Jimpitan per warga atau disembunyikan saat mode setor shift.">
-            <div className="grid gap-3 md:grid-cols-[160px_220px_1fr_auto] md:items-end">
-              <Input
-                label="Berlaku mulai"
-                type="month"
-                value={modeMonth}
-                onChange={(event) => setModeMonth(event.target.value)}
-              />
-              <label className="block text-sm font-medium text-[var(--text-primary)]">
-                Mode
-                <select
-                  value={modeValue}
-                  onChange={(event) => setModeValue(event.target.value as JimpitanMode)}
-                  className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
-                >
-                  <option value="PER_WARGA">V1 - Input per warga</option>
-                  <option value="SHIFT_TOTAL">V2 - Setor total shift</option>
-                </select>
-              </label>
-              <Input
-                label="Catatan"
-                value={modeNote}
-                onChange={(event) => setModeNote(event.target.value)}
-                placeholder="Contoh: uji coba sistem setor shift"
-              />
-              <Button
-                onClick={handleSaveMode}
-                disabled={savingMode}
-                className="btn-action-blue rounded-xl px-4 py-2 font-semibold"
-              >
-                {savingMode ? 'Menyimpan...' : 'Simpan Mode'}
-              </Button>
-            </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-                <thead>
-                  <tr className="bg-[var(--surface-strong)]">
-                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Mulai</th>
-                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Mode</th>
-                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Catatan</th>
-                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Diubah</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {modeHistory.length === 0 ? (
-                    <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada histori mode.</td></tr>
-                  ) : modeHistory.map((item) => (
-                    <tr key={item.id} className="bg-[var(--surface)]">
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">{item.effective_month}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">
-                        {item.mode === 'SHIFT_TOTAL' ? 'V2 - Setor Shift' : 'V1 - Per Warga'}
-                      </td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-muted)]">{item.note || '-'}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-muted)]">
-                        {item.created_by_name || '-'}
-                        {item.created_at ? <span className="block text-xs">{formatTanggalIndonesia(item.created_at)}</span> : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        ) : null}
 
         {settingMode && isAdminJimpitan ? (
           <Card title="Pengaturan Warga Jimpitan" subtitle="Atur warga yang wajib ikut jimpitan bulanan. Donatur dikelola pada bagian terpisah.">

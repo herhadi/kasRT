@@ -148,7 +148,7 @@ export async function ensureJimpitanModeHistoryTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS jimpitan_mode_history (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      effective_month VARCHAR(7) NOT NULL,
+      effective_date DATE NOT NULL,
       mode VARCHAR(20) NOT NULL CHECK (mode IN ('PER_WARGA','SHIFT_TOTAL')),
       note TEXT NULL,
       created_by UUID NULL REFERENCES users(id),
@@ -157,20 +157,15 @@ export async function ensureJimpitanModeHistoryTable() {
   `);
 
   await pool.query(`
-    ALTER TABLE jimpitan_mode_history
-      DROP CONSTRAINT IF EXISTS jimpitan_mode_history_effective_month_key
-  `);
-
-  await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_jimpitan_mode_history_effective_created
-    ON jimpitan_mode_history (effective_month DESC, created_at DESC)
+    ON jimpitan_mode_history (effective_date DESC, created_at DESC)
   `);
 
   await pool.query(`
-    INSERT INTO jimpitan_mode_history (effective_month, mode, note)
-    SELECT '2026-01', 'PER_WARGA', 'Default awal sistem'
+    INSERT INTO jimpitan_mode_history (effective_date, mode, note)
+    SELECT '2026-01-01'::date, 'PER_WARGA', 'Default awal sistem'
     WHERE NOT EXISTS (
-      SELECT 1 FROM jimpitan_mode_history WHERE effective_month = '2026-01'
+      SELECT 1 FROM jimpitan_mode_history
     )
   `);
 }
@@ -205,7 +200,7 @@ export async function getJimpitanModeHistory() {
   const result = await pool.query(
     `SELECT
        jmh.id::text,
-       jmh.effective_month,
+       TO_CHAR(jmh.effective_date, 'YYYY-MM-DD') AS effective_date,
        jmh.mode,
        jmh.note,
        jmh.created_at,
@@ -213,20 +208,23 @@ export async function getJimpitanModeHistory() {
        u.nama AS created_by_name
      FROM jimpitan_mode_history jmh
      LEFT JOIN users u ON u.id = jmh.created_by
-     ORDER BY jmh.effective_month DESC, jmh.created_at DESC`
+     ORDER BY jmh.effective_date DESC, jmh.created_at DESC`
   );
   return result.rows;
 }
 
-export async function getEffectiveJimpitanMode(monthKey = null) {
+export async function getEffectiveJimpitanMode(referenceDate = null) {
   await ensureJimpitanModeHistoryTable();
-  const targetMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(monthKey || ''))
-    ? String(monthKey)
-    : new Date().toISOString().slice(0, 7);
+  const raw = String(referenceDate || '').trim();
+  const targetDate = /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(raw)
+    ? raw
+    : /^\d{4}-(0[1-9]|1[0-2])$/.test(raw)
+      ? `${raw}-01`
+      : new Date().toISOString().slice(0, 10);
   const result = await pool.query(
     `SELECT
        jmh.id::text,
-       jmh.effective_month,
+       TO_CHAR(jmh.effective_date, 'YYYY-MM-DD') AS effective_date,
        jmh.mode,
        jmh.note,
        jmh.created_at,
@@ -234,26 +232,26 @@ export async function getEffectiveJimpitanMode(monthKey = null) {
        u.nama AS created_by_name
      FROM jimpitan_mode_history jmh
      LEFT JOIN users u ON u.id = jmh.created_by
-     WHERE jmh.effective_month <= $1
-     ORDER BY jmh.effective_month DESC, jmh.created_at DESC
+     WHERE jmh.effective_date <= $1::date
+     ORDER BY jmh.effective_date DESC, jmh.created_at DESC
      LIMIT 1`,
-    [targetMonth]
+    [targetDate]
   );
-  return result.rows[0] || { effective_month: '2026-01', mode: 'PER_WARGA', note: 'Default awal sistem' };
+  return result.rows[0] || { effective_date: '2026-01-01', mode: 'PER_WARGA', note: 'Default awal sistem' };
 }
 
-export async function setJimpitanMode({ effectiveMonth, mode, note = null, createdBy }) {
+export async function setJimpitanMode({ effectiveDate, mode, note = null, createdBy }) {
   await ensureJimpitanModeHistoryTable();
-  const cleanMonth = String(effectiveMonth || '').trim();
+  const cleanDate = String(effectiveDate || '').trim();
   const cleanMode = String(mode || '').trim().toUpperCase();
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(cleanMonth)) throw new Error('Bulan berlaku tidak valid');
+  if (!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(cleanDate)) throw new Error('Tanggal berlaku tidak valid');
   if (!['PER_WARGA', 'SHIFT_TOTAL'].includes(cleanMode)) throw new Error('Mode jimpitan tidak valid');
 
   const result = await pool.query(
-    `INSERT INTO jimpitan_mode_history (effective_month, mode, note, created_by, created_at)
-     VALUES ($1, $2, NULLIF($3, ''), $4::uuid, NOW())
-     RETURNING id::text, effective_month, mode, note, created_by::text, created_at`,
-    [cleanMonth, cleanMode, note, createdBy]
+    `INSERT INTO jimpitan_mode_history (effective_date, mode, note, created_by, created_at)
+     VALUES ($1::date, $2, NULLIF($3, ''), $4::uuid, NOW())
+     RETURNING id::text, TO_CHAR(effective_date, 'YYYY-MM-DD') AS effective_date, mode, note, created_by::text, created_at`,
+    [cleanDate, cleanMode, note, createdBy]
   );
   return result.rows[0];
 }

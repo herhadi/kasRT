@@ -66,3 +66,17 @@ export async function delCache(key) {
   }
 }
 
+export async function delCacheByPrefix(prefix) {
+  try {
+    const c = await ensureClient();
+    if (!c) return false;
+    const keys = [];
+    for await (const key of c.scanIterator({ MATCH: `${prefix}*`, COUNT: 100 })) {
+      keys.push(key);
+    }
+    if (keys.length > 0) await c.del(keys);
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -68,8 +68,8 @@ export async function dashboardWarga(req, res) {
     }
     res.set('X-Cache', refresh ? 'BYPASS' : 'MISS');
 
-    const dashboardMonth = monthFilter || new Date().toISOString().slice(0, 7);
-    const jimpitanMode = await getEffectiveJimpitanMode(dashboardMonth);
+    const dashboardReferenceDate = monthFilter ? `${monthFilter}-01` : new Date().toISOString().slice(0, 10);
+    const jimpitanMode = await getEffectiveJimpitanMode(dashboardReferenceDate);
     const isJimpitanPersonalActive = jimpitanMode.mode !== 'SHIFT_TOTAL';
     const jimpitan_hari_ini = isJimpitanPersonalActive ? await getJimpitanHarianByWarga(user_id) : 0;
     const jimpitan_bulan_ini = isJimpitanPersonalActive ? await getJimpitanBulananByWarga(user_id, monthFilter) : 0;

@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import Input from '@/components/ui/Input';
 import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
+import { formatTanggalIndonesia } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 
 type CronHealthStatus = {
@@ -45,6 +47,16 @@ type CronHealthLog = {
     created_at: string;
 };
 
+type JimpitanMode = 'PER_WARGA' | 'SHIFT_TOTAL';
+type JimpitanModeHistoryItem = {
+  id: string;
+  effective_date: string;
+  mode: JimpitanMode;
+  note?: string | null;
+  created_at?: string;
+  created_by_name?: string | null;
+};
+
 export default function ManagementHomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -54,6 +66,12 @@ export default function ManagementHomePage() {
   const [testingReminder, setTestingReminder] = useState(false);
   const [cronTestMessage, setCronTestMessage] = useState('');
   const [testShiftDay, setTestShiftDay] = useState('3');
+  const [modeDate, setModeDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [modeValue, setModeValue] = useState<JimpitanMode>('PER_WARGA');
+  const [modeNote, setModeNote] = useState('');
+  const [modeHistory, setModeHistory] = useState<JimpitanModeHistoryItem[]>([]);
+  const [savingMode, setSavingMode] = useState(false);
+  const [modeMessage, setModeMessage] = useState('');
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
@@ -75,6 +93,45 @@ export default function ManagementHomePage() {
       setCronError(error instanceof Error ? error.message : 'Gagal memuat status cron');
     } finally {
       setLoadingCron(false);
+    }
+  }
+
+  async function loadJimpitanMode() {
+    if (!isRoot) return;
+    setModeMessage('');
+    try {
+      const res = await apiFetch<{
+        success: boolean;
+        data: { effective?: JimpitanModeHistoryItem; history?: JimpitanModeHistoryItem[] };
+      }>(`/jimpitan/mode?date=${encodeURIComponent(modeDate)}`);
+      setModeHistory(res.data?.history || []);
+      if (res.data?.effective?.mode) {
+        setModeValue(res.data.effective.mode);
+      }
+    } catch (error) {
+      setModeMessage(error instanceof Error ? error.message : 'Gagal memuat mode Jimpitan');
+    }
+  }
+
+  async function saveJimpitanMode() {
+    setSavingMode(true);
+    setModeMessage('');
+    try {
+      await apiFetch('/jimpitan/mode', {
+        method: 'POST',
+        body: JSON.stringify({
+          effective_date: modeDate,
+          mode: modeValue,
+          note: modeNote.trim()
+        })
+      });
+      setModeNote('');
+      setModeMessage(`Mode Jimpitan tersimpan mulai ${modeDate}.`);
+      await loadJimpitanMode();
+    } catch (error) {
+      setModeMessage(error instanceof Error ? error.message : 'Gagal menyimpan mode Jimpitan');
+    } finally {
+      setSavingMode(false);
     }
   }
 
@@ -101,6 +158,7 @@ export default function ManagementHomePage() {
   useEffect(() => {
     if (!loading && user && isRoot) {
       void loadCronStatus();
+      void loadJimpitanMode();
     }
   }, [loading, user?.id, isRoot]);
 
@@ -159,6 +217,84 @@ export default function ManagementHomePage() {
             ) : null}
           </div>
         </Card>
+        {isRoot ? (
+          <Card
+            title="Mode Operasional Jimpitan"
+            subtitle="Khusus root. Tanggal berlaku menentukan kapan Jimpitan tampil sebagai info pribadi warga atau memakai setoran total shift."
+            headerRight={
+              <Button variant="ghost" onClick={loadJimpitanMode}>
+                Refresh
+              </Button>
+            }
+          >
+            <div className="grid gap-3 md:grid-cols-[170px_230px_1fr_auto] md:items-end">
+              <Input
+                label="Berlaku mulai tanggal"
+                type="date"
+                value={modeDate}
+                onChange={(event) => setModeDate(event.target.value)}
+              />
+              <label className="block text-sm font-medium text-[var(--text-primary)]">
+                Mode
+                <select
+                  value={modeValue}
+                  onChange={(event) => setModeValue(event.target.value as JimpitanMode)}
+                  className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                >
+                  <option value="PER_WARGA">V1 - Input per warga</option>
+                  <option value="SHIFT_TOTAL">V2 - Setor total shift</option>
+                </select>
+              </label>
+              <Input
+                label="Catatan"
+                value={modeNote}
+                onChange={(event) => setModeNote(event.target.value)}
+                placeholder="Contoh: mulai uji coba setoran shift"
+              />
+              <Button
+                onClick={saveJimpitanMode}
+                disabled={savingMode}
+                className="btn-action-blue rounded-xl px-4 py-2 font-semibold"
+              >
+                {savingMode ? 'Menyimpan...' : 'Simpan Mode'}
+              </Button>
+            </div>
+            {modeMessage ? <p className="mt-3 text-sm text-[var(--text-muted)]">{modeMessage}</p> : null}
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal Berlaku</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Mode</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Catatan</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Diubah</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modeHistory.length === 0 ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada histori mode.</td>
+                    </tr>
+                  ) : modeHistory.map((item) => (
+                    <tr key={item.id} className="bg-[var(--surface)]">
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                        {item.effective_date}
+                      </td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-primary)]">
+                        {item.mode === 'SHIFT_TOTAL' ? 'V2 - Setor Shift' : 'V1 - Per Warga'}
+                      </td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-muted)]">{item.note || '-'}</td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm text-[var(--text-muted)]">
+                        {item.created_by_name || '-'}
+                        {item.created_at ? <span className="block text-xs">{formatTanggalIndonesia(item.created_at)}</span> : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : null}
         {isRoot ? (
           <Card
             title="Status Reminder Jimpitan"
