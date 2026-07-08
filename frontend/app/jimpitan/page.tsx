@@ -757,24 +757,8 @@ export default function JimpitanPage() {
                 ) : null}
               </div>
             ) : (
-              <div className="mt-4 space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--text-primary)]">
+              <div className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--text-primary)]">
                 <p><b>Mode By Name aktif.</b> Ketuk kartu warga/donatur di bawah untuk mencatat histori. Tidak memengaruhi tunggakan warga.</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant="ghost"
-                    className="btn-action-green w-full rounded-xl py-3 text-xs font-semibold sm:text-sm"
-                    onClick={handleKirimRekapWA}
-                  >
-                    Share Harian WA
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="btn-action-blue w-full rounded-xl py-3 text-xs font-semibold sm:text-sm"
-                    onClick={() => void handleKirimRekapBulananWA()}
-                  >
-                    Share Bulanan WA
-                  </Button>
-                </div>
               </div>
             )}
             </div>
