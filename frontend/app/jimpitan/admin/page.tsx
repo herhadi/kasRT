@@ -49,6 +49,15 @@ type TopupHistoryItem = {
   created_at: string;
   admin_name?: string | null;
 };
+type JimpitanV2Entry = {
+  id: string;
+  entry_type: 'SHIFT_INCOME' | 'MONTHLY_INCOME' | 'OLD_CASH_HANDOVER';
+  entry_date: string;
+  amount: number;
+  description?: string | null;
+  created_at: string;
+  created_by_name?: string | null;
+};
 export default function JimpitanAdminPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -60,6 +69,24 @@ export default function JimpitanAdminPage() {
   const [topupLoading, setTopupLoading] = useState(false);
   const [topupHistoryLoading, setTopupHistoryLoading] = useState(false);
   const [topupHistory, setTopupHistory] = useState<TopupHistoryItem[]>([]);
+  const [v2Date, setV2Date] = useState(() => new Date().toISOString().slice(0, 10));
+  const [v2Amount, setV2Amount] = useState('');
+  const [v2Note, setV2Note] = useState('');
+  const [v2Loading, setV2Loading] = useState(false);
+  const [v2MonthlyPeriod, setV2MonthlyPeriod] = useState(() => new Date().toISOString().slice(0, 7));
+  const [v2MonthlyAmount, setV2MonthlyAmount] = useState('');
+  const [v2MonthlyNote, setV2MonthlyNote] = useState('');
+  const [v2MonthlyLoading, setV2MonthlyLoading] = useState(false);
+  const [handoverDate, setHandoverDate] = useState(() => {
+    const d = new Date();
+    d.setDate(0);
+    return d.toISOString().slice(0, 10);
+  });
+  const [handoverAmount, setHandoverAmount] = useState('');
+  const [handoverNote, setHandoverNote] = useState('');
+  const [handoverLoading, setHandoverLoading] = useState(false);
+  const [v2EntriesLoading, setV2EntriesLoading] = useState(false);
+  const [v2Entries, setV2Entries] = useState<JimpitanV2Entry[]>([]);
   const [setorPeriod, setSetorPeriod] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -134,6 +161,17 @@ export default function JimpitanAdminPage() {
     }
   }, [isAdminJimpitan, topupPeriod]);
 
+  const loadV2Entries = useCallback(async () => {
+    if (!isAdminJimpitan) return;
+    setV2EntriesLoading(true);
+    try {
+      const result = await apiFetch<{ success: boolean; data: JimpitanV2Entry[] }>('/jimpitan/v2-entries');
+      setV2Entries(result.data || []);
+    } finally {
+      setV2EntriesLoading(false);
+    }
+  }, [isAdminJimpitan]);
+
   useEffect(() => {
     if (loading) return;
     if (!user) {
@@ -144,10 +182,10 @@ export default function JimpitanAdminPage() {
       router.replace('/jimpitan');
       return;
     }
-    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers()]).catch((error) => {
+    void Promise.all([loadWargaOptions(), loadSetorHistory(), loadExternalParticipants(), loadMembers(), loadV2Entries()]).catch((error) => {
       pushToast(error instanceof Error ? error.message : 'Gagal memuat data admin jimpitan', 'error');
     });
-  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, pushToast]);
+  }, [loading, user, isAdminJimpitan, isKetua, router, loadWargaOptions, loadSetorHistory, loadExternalParticipants, loadMembers, loadV2Entries, pushToast]);
 
   const setorHistoryPager = usePagination(setorHistory, 20);
   const filteredMembers = useMemo(
@@ -156,6 +194,7 @@ export default function JimpitanAdminPage() {
   );
   const memberPager = usePagination(filteredMembers, 10);
   const topupHistoryPager = usePagination(topupHistory, 10);
+  const v2EntriesPager = usePagination(v2Entries, 10);
 
   useEffect(() => {
     setorHistoryPager.reset();
@@ -168,6 +207,10 @@ export default function JimpitanAdminPage() {
   useEffect(() => {
     topupHistoryPager.reset();
   }, [topupHistory.length, topupPeriod]);
+
+  useEffect(() => {
+    v2EntriesPager.reset();
+  }, [v2Entries.length]);
 
   useEffect(() => {
     if (!loading && user && isAdminJimpitan && !settingMode) {
@@ -222,6 +265,100 @@ export default function JimpitanAdminPage() {
       pushToast(error instanceof Error ? error.message : 'Top up gagal', 'error');
     } finally {
       setTopupLoading(false);
+    }
+  }
+
+  async function handleInputV2Income() {
+    const amount = parseRupiahInput(v2Amount);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v2Date)) {
+      pushToast('Tanggal pemasukan tidak valid.', 'warning');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      pushToast('Nominal pemasukan V2 harus lebih dari 0.', 'warning');
+      return;
+    }
+    try {
+      setV2Loading(true);
+      await apiFetch('/jimpitan/v2-income', {
+        method: 'POST',
+        body: JSON.stringify({
+          operational_date: v2Date,
+          amount,
+          note: v2Note.trim()
+        })
+      });
+      setV2Amount('');
+      setV2Note('');
+      await loadV2Entries();
+      pushToast(`Pemasukan Jimpitan V2 tanggal ${v2Date} berhasil dicatat.`, 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal input pemasukan V2', 'error');
+    } finally {
+      setV2Loading(false);
+    }
+  }
+
+  async function handleInputV2MonthlyIncome() {
+    const amount = parseRupiahInput(v2MonthlyAmount);
+    if (!/^\d{4}-\d{2}$/.test(v2MonthlyPeriod)) {
+      pushToast('Periode rekap bulanan tidak valid.', 'warning');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      pushToast('Nominal rekap bulanan harus lebih dari 0.', 'warning');
+      return;
+    }
+    try {
+      setV2MonthlyLoading(true);
+      await apiFetch('/jimpitan/v2-monthly-income', {
+        method: 'POST',
+        body: JSON.stringify({
+          month_key: v2MonthlyPeriod,
+          amount,
+          note: v2MonthlyNote.trim()
+        })
+      });
+      setV2MonthlyAmount('');
+      setV2MonthlyNote('');
+      await loadV2Entries();
+      pushToast(`Rekap bulanan Jimpitan V2 periode ${v2MonthlyPeriod} berhasil dicatat.`, 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal input rekap bulanan V2', 'error');
+    } finally {
+      setV2MonthlyLoading(false);
+    }
+  }
+
+  async function handleInputOldCashHandover() {
+    const amount = parseRupiahInput(handoverAmount);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(handoverDate)) {
+      pushToast('Tanggal serah terima tidak valid.', 'warning');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      pushToast('Nominal setoran susulan harus lebih dari 0.', 'warning');
+      return;
+    }
+    if (!window.confirm(`Catat setoran susulan kas lama Jimpitan ${formatRupiah(amount)} per ${handoverDate}?`)) return;
+    try {
+      setHandoverLoading(true);
+      await apiFetch('/jimpitan/old-cash-handover', {
+        method: 'POST',
+        body: JSON.stringify({
+          handover_date: handoverDate,
+          amount,
+          note: handoverNote.trim()
+        })
+      });
+      setHandoverAmount('');
+      setHandoverNote('');
+      await loadV2Entries();
+      pushToast(`Setoran susulan kas lama Jimpitan per ${handoverDate} berhasil dicatat.`, 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal input setoran susulan kas lama', 'error');
+    } finally {
+      setHandoverLoading(false);
     }
   }
 
@@ -389,6 +526,117 @@ export default function JimpitanAdminPage() {
               </table>
             </div>
             <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
+          </Card>
+        ) : null}
+
+        {!settingMode && isAdminJimpitan ? (
+          <Card title="Input Jimpitan V2" subtitle="Untuk mode setoran total shift. Input admin langsung APPROVED karena uang sudah di tangan admin.">
+            <div className="grid gap-4 xl:grid-cols-3">
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+                <p className="text-sm font-bold text-[var(--text-primary)]">Pemasukan Bulanan V2</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Untuk rekap bulan lampau, misalnya Januari sampai Juni 2026 cukup total per bulan.</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+                  <Input label="Periode" type="month" value={v2MonthlyPeriod} onChange={(event) => setV2MonthlyPeriod(event.target.value)} />
+                  <Input
+                    label="Nominal"
+                    inputMode="numeric"
+                    value={formatRupiahInput(v2MonthlyAmount)}
+                    onChange={(event) => setV2MonthlyAmount(event.target.value)}
+                    placeholder="Contoh: 2.250.000"
+                  />
+                  <Input label="Catatan" value={v2MonthlyNote} onChange={(event) => setV2MonthlyNote(event.target.value)} placeholder="Opsional" />
+                  <Button className="w-full" onClick={handleInputV2MonthlyIncome} disabled={v2MonthlyLoading}>
+                    {v2MonthlyLoading ? 'Menyimpan...' : 'Simpan Rekap Bulanan'}
+                  </Button>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+                <p className="text-sm font-bold text-[var(--text-primary)]">Pemasukan Harian V2</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Untuk bulan berjalan agar bisa masuk rekap harian dan Kirim Rekap Bulanan WA.</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+                  <Input label="Tanggal" type="date" value={v2Date} onChange={(event) => setV2Date(event.target.value)} />
+                  <Input
+                    label="Nominal"
+                    inputMode="numeric"
+                    value={formatRupiahInput(v2Amount)}
+                    onChange={(event) => setV2Amount(event.target.value)}
+                    placeholder="Contoh: 150.000"
+                  />
+                  <Input label="Catatan" value={v2Note} onChange={(event) => setV2Note(event.target.value)} placeholder="Opsional" />
+                  <Button className="w-full" onClick={handleInputV2Income} disabled={v2Loading}>
+                    {v2Loading ? 'Menyimpan...' : 'Simpan Pemasukan Harian'}
+                  </Button>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+                <p className="text-sm font-bold text-[var(--text-primary)]">Setoran Susulan Kas Lama</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Untuk uang dari petugas/admin lama yang baru diserahkan kemudian dan baru menambah Kas Jimpitan saat diterima.</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+                  <Input label="Tanggal Serah Terima" type="date" value={handoverDate} onChange={(event) => setHandoverDate(event.target.value)} />
+                  <Input
+                    label="Nominal"
+                    inputMode="numeric"
+                    value={formatRupiahInput(handoverAmount)}
+                    onChange={(event) => setHandoverAmount(event.target.value)}
+                    placeholder="Contoh: 1.250.000"
+                  />
+                  <Input label="Catatan" value={handoverNote} onChange={(event) => setHandoverNote(event.target.value)} placeholder="Contoh: setoran sisa kas admin lama Juni 2026" />
+                  <Button className="w-full" onClick={handleInputOldCashHandover} disabled={handoverLoading}>
+                    {handoverLoading ? 'Menyimpan...' : 'Simpan Setoran Susulan'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {!settingMode && isAdminJimpitan ? (
+          <Card title="Riwayat Input Jimpitan V2" subtitle="Pemasukan manual dan setoran susulan kas lama yang langsung masuk Kas Jimpitan">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Tanggal</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Jenis</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Catatan</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Nominal</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Admin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {v2EntriesLoading ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={5} className="px-4 py-3 text-sm text-[var(--text-muted)]">Memuat riwayat V2...</td>
+                    </tr>
+                  ) : v2Entries.length === 0 ? (
+                    <tr className="bg-[var(--surface)]">
+                      <td colSpan={5} className="px-4 py-3 text-sm text-[var(--text-muted)]">Belum ada input V2.</td>
+                    </tr>
+                  ) : v2EntriesPager.pagedItems.map((row) => (
+                    <tr key={`${row.entry_type}-${row.id}`} className="bg-[var(--surface)]">
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{String(row.entry_date || '').slice(0, 10)}</td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+                        {row.entry_type === 'OLD_CASH_HANDOVER'
+                          ? 'Setoran Susulan'
+                          : row.entry_type === 'MONTHLY_INCOME'
+                            ? 'Pemasukan Bulanan'
+                            : 'Pemasukan Harian'}
+                      </td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                        {String(row.description || '-')
+                          .replace('[ADMIN_INPUT]', '')
+                          .replace('[ADMIN_MONTHLY]', '')
+                          .replace('[JIMPITAN_OLD_CASH_HANDOVER]', '')
+                          .trim()}
+                      </td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-right text-sm font-semibold text-[var(--accent)]">{formatRupiah(Number(row.amount || 0))}</td>
+                      <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{row.created_by_name || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <PaginationControls page={v2EntriesPager.page} totalPages={v2EntriesPager.totalPages} onPrev={v2EntriesPager.prev} onNext={v2EntriesPager.next} />
+            </div>
           </Card>
         ) : null}
 

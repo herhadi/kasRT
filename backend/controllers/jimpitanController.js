@@ -12,6 +12,9 @@ import {
   createJimpitanExternalDraft,
   createJimpitanExternalParticipant,
   createJimpitanDraftAndUpdateSaldo,
+  createApprovedShiftTotalIncome,
+  createApprovedShiftMonthlyIncome,
+  createJimpitanOldCashHandover,
   createSetorBatch,
   createShiftTotalBatch,
   editNominalJimpitanByAdmin,
@@ -26,6 +29,7 @@ import {
   listJimpitanByOperationalDate,
   listJimpitanMembers,
   listJimpitanTopups,
+  listJimpitanV2AdminEntries,
   getJimpitanDailyRecapByMonth,
   listJimpitanWeeklySchedule,
   listJimpitanExternalParticipants,
@@ -869,6 +873,75 @@ export async function getJimpitanTopupHistory(req, res) {
   const limit = Number(req.query.limit || 100);
   try {
     const data = await listJimpitanTopups({ monthKey, limit });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function inputJimpitanV2Income(req, res) {
+  const adminId = req.user.user_id;
+  const operationalDate = String(req.body.operational_date || '').trim();
+  const amount = Number(req.body.amount || req.body.nominal || 0);
+  const note = String(req.body.note || '').trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(operationalDate)) {
+    return res.status(400).json({ success: false, message: 'Tanggal operasional tidak valid' });
+  }
+  try {
+    const data = await createApprovedShiftTotalIncome({
+      adminId,
+      totalAmount: amount,
+      operationalDate,
+      note
+    });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function inputJimpitanV2MonthlyIncome(req, res) {
+  const adminId = req.user.user_id;
+  const monthKey = String(req.body.month_key || req.body.month || '').trim();
+  const amount = Number(req.body.amount || req.body.nominal || 0);
+  const note = String(req.body.note || '').trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) {
+    return res.status(400).json({ success: false, message: 'Periode rekap bulanan tidak valid' });
+  }
+  try {
+    const data = await createApprovedShiftMonthlyIncome({
+      adminId,
+      totalAmount: amount,
+      monthKey,
+      note
+    });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function inputJimpitanOldCashHandover(req, res) {
+  const adminId = req.user.user_id;
+  const handoverDate = String(req.body.handover_date || '').trim();
+  const amount = Number(req.body.amount || req.body.nominal || 0);
+  const note = String(req.body.note || '').trim();
+  try {
+    const data = await createJimpitanOldCashHandover({
+      adminId,
+      amount,
+      handoverDate,
+      note
+    });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function getJimpitanV2AdminEntries(_req, res) {
+  try {
+    const data = await listJimpitanV2AdminEntries({ limit: 100 });
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

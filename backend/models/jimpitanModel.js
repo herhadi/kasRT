@@ -484,6 +484,167 @@ export async function createShiftTotalBatch({ petugasId, totalAmount, operationa
   };
 }
 
+export async function createApprovedShiftTotalIncome({ adminId, totalAmount, operationalDate, note = null }) {
+  await ensureJimpitanScheduleColumns();
+  const total = Number(totalAmount || 0);
+  if (!Number.isFinite(total) || total <= 0) throw new Error('Nominal pemasukan harus lebih dari 0');
+
+  const duplicate = await pool.query(
+    `SELECT id
+     FROM jimpitan_batches
+     WHERE operational_date = $1::date
+       AND batch_mode = 'SHIFT_TOTAL'
+       AND status = 'APPROVED'
+       AND COALESCE(note, '') LIKE '[ADMIN_INPUT]%'
+     LIMIT 1`,
+    [operationalDate]
+  );
+  if (duplicate.rows.length > 0) {
+    throw new Error('Pemasukan V2 tanggal ini sudah pernah diinput admin');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const batchResult = await client.query(
+      `INSERT INTO jimpitan_batches
+         (petugas_id, total_amount, status, batch_mode, operational_date, note, total_rumah, approved_by, approved_at, created_at)
+       VALUES ($1, $2, 'APPROVED', 'SHIFT_TOTAL', $3::date, $4, 0, $1, NOW(), $3::date)
+       RETURNING id, total_amount, operational_date, note`,
+      [adminId, total, operationalDate, `[ADMIN_INPUT] ${note || ''}`.trim()]
+    );
+
+    const walletResult = await client.query(`SELECT id FROM wallets WHERE name = 'Kas Jimpitan' LIMIT 1`);
+    if (walletResult.rows.length === 0) throw new Error('Wallet Kas Jimpitan tidak ditemukan');
+
+    await client.query(
+      `INSERT INTO transactions
+       (type, target_wallet_id, amount, status, description, created_by, approved_by, approved_at, created_at)
+       VALUES ('IN', $1, $2, 'APPROVED', $3, $4, $4, NOW(), $5::date)`,
+      [
+        walletResult.rows[0].id,
+        total,
+        `[JIMPITAN_V2_ADMIN] Pemasukan jimpitan ${operationalDate}${note ? ` • ${note}` : ''}`,
+        adminId,
+        operationalDate
+      ]
+    );
+
+    await client.query('COMMIT');
+    return {
+      batch_id: batchResult.rows[0].id,
+      total: Number(batchResult.rows[0].total_amount || 0),
+      operational_date: batchResult.rows[0].operational_date
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createApprovedShiftMonthlyIncome({ adminId, totalAmount, monthKey, note = null }) {
+  await ensureJimpitanScheduleColumns();
+  const total = Number(totalAmount || 0);
+  if (!Number.isFinite(total) || total <= 0) throw new Error('Nominal rekap bulanan harus lebih dari 0');
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(monthKey || ''))) throw new Error('Periode rekap bulanan tidak valid');
+  const operationalDate = `${monthKey}-01`;
+
+  const duplicate = await pool.query(
+    `SELECT id
+     FROM jimpitan_batches
+     WHERE TO_CHAR(operational_date, 'YYYY-MM') = $1
+       AND batch_mode = 'SHIFT_TOTAL'
+       AND status = 'APPROVED'
+       AND COALESCE(note, '') LIKE '[ADMIN_MONTHLY]%'
+     LIMIT 1`,
+    [monthKey]
+  );
+  if (duplicate.rows.length > 0) {
+    throw new Error('Rekap bulanan V2 periode ini sudah pernah diinput admin');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const batchResult = await client.query(
+      `INSERT INTO jimpitan_batches
+         (petugas_id, total_amount, status, batch_mode, operational_date, note, total_rumah, approved_by, approved_at, created_at)
+       VALUES ($1, $2, 'APPROVED', 'SHIFT_TOTAL', $3::date, $4, 0, $1, NOW(), $3::date)
+       RETURNING id, total_amount, operational_date, note`,
+      [adminId, total, operationalDate, `[ADMIN_MONTHLY] Rekap bulanan ${monthKey}${note ? ` • ${note}` : ''}`]
+    );
+
+    const walletResult = await client.query(`SELECT id FROM wallets WHERE name = 'Kas Jimpitan' LIMIT 1`);
+    if (walletResult.rows.length === 0) throw new Error('Wallet Kas Jimpitan tidak ditemukan');
+
+    await client.query(
+      `INSERT INTO transactions
+       (type, target_wallet_id, amount, status, description, created_by, approved_by, approved_at, created_at)
+       VALUES ('IN', $1, $2, 'APPROVED', $3, $4, $4, NOW(), $5::date)`,
+      [
+        walletResult.rows[0].id,
+        total,
+        `[JIMPITAN_V2_MONTHLY] Rekap bulanan jimpitan ${monthKey}${note ? ` • ${note}` : ''}`,
+        adminId,
+        operationalDate
+      ]
+    );
+
+    await client.query('COMMIT');
+    return {
+      batch_id: batchResult.rows[0].id,
+      total: Number(batchResult.rows[0].total_amount || 0),
+      month_key: monthKey
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createJimpitanOldCashHandover({ adminId, amount, handoverDate, note = null }) {
+  const total = Number(amount || 0);
+  if (!Number.isFinite(total) || total <= 0) throw new Error('Nominal setoran susulan harus lebih dari 0');
+  if (!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(String(handoverDate || ''))) throw new Error('Tanggal serah terima tidak valid');
+
+  const duplicate = await pool.query(
+    `SELECT id
+     FROM transactions
+     WHERE type = 'IN'
+       AND status = 'APPROVED'
+       AND description LIKE $1
+     LIMIT 1`,
+    [`[JIMPITAN_OLD_CASH_HANDOVER] Setoran susulan kas lama ${handoverDate}%`]
+  );
+  if (duplicate.rows.length > 0) {
+    throw new Error('Setoran susulan kas lama untuk tanggal ini sudah pernah diinput');
+  }
+
+  const walletResult = await pool.query(`SELECT id FROM wallets WHERE name = 'Kas Jimpitan' LIMIT 1`);
+  if (walletResult.rows.length === 0) throw new Error('Wallet Kas Jimpitan tidak ditemukan');
+
+  const result = await pool.query(
+    `INSERT INTO transactions
+     (type, target_wallet_id, amount, status, description, created_by, approved_by, approved_at, created_at)
+     VALUES ('IN', $1, $2, 'APPROVED', $3, $4, $4, NOW(), $5::date)
+     RETURNING id::text, amount, description, created_at`,
+    [
+      walletResult.rows[0].id,
+      total,
+      `[JIMPITAN_OLD_CASH_HANDOVER] Setoran susulan kas lama ${handoverDate}${note ? ` • ${note}` : ''}`,
+      adminId,
+      handoverDate
+    ]
+  );
+  return result.rows[0];
+}
+
 export async function approveJimpitanBatch({ batchId, adminId }) {
   await ensureJimpitanScheduleColumns();
   const client = await pool.connect();
@@ -556,6 +717,56 @@ export async function approveJimpitanBatch({ batchId, adminId }) {
   } finally {
     client.release();
   }
+}
+
+export async function listJimpitanV2AdminEntries({ limit = 50 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const result = await pool.query(
+    `SELECT
+       src.id::text,
+       src.entry_type,
+       src.entry_date,
+       src.amount,
+       src.description,
+       src.created_at,
+       src.created_by::text,
+       u.nama AS created_by_name
+     FROM (
+       SELECT
+         jb.id::text AS id,
+         CASE WHEN COALESCE(jb.note, '') LIKE '[ADMIN_MONTHLY]%' THEN 'MONTHLY_INCOME' ELSE 'SHIFT_INCOME' END AS entry_type,
+         jb.operational_date AS entry_date,
+         jb.total_amount AS amount,
+         jb.note AS description,
+         jb.created_at,
+         jb.petugas_id::text AS created_by
+       FROM jimpitan_batches jb
+       WHERE jb.batch_mode = 'SHIFT_TOTAL'
+         AND jb.status = 'APPROVED'
+         AND (COALESCE(jb.note, '') LIKE '[ADMIN_INPUT]%' OR COALESCE(jb.note, '') LIKE '[ADMIN_MONTHLY]%')
+       UNION ALL
+       SELECT
+         t.id::text AS id,
+         'OLD_CASH_HANDOVER' AS entry_type,
+         t.created_at::date AS entry_date,
+         t.amount,
+         t.description,
+         t.created_at,
+         t.created_by::text AS created_by
+       FROM transactions t
+       WHERE t.type = 'IN'
+         AND t.status = 'APPROVED'
+         AND t.description LIKE '[JIMPITAN_OLD_CASH_HANDOVER]%'
+     ) src
+     LEFT JOIN users u ON u.id::text = src.created_by::text
+     ORDER BY src.entry_date DESC, src.created_at DESC
+     LIMIT $1`,
+    [safeLimit]
+  );
+  return result.rows.map((row) => ({
+    ...row,
+    amount: Number(row.amount || 0)
+  }));
 }
 
 export async function findBatchCreator(batchId) {
@@ -1130,27 +1341,66 @@ export async function getDashboardAdminJimpitan() {
 export async function getJimpitanDailyRecapByMonth(month) {
   const result = await pool.query(
     `SELECT
-       TO_CHAR(jd.tanggal::date, 'YYYY-MM-DD') AS tanggal,
-       COALESCE(SUM(jd.nominal), 0) AS total_nominal,
-       COUNT(DISTINCT jd.warga_id) AS total_rumah,
-       COUNT(DISTINCT jd.petugas_id) AS total_petugas
-     FROM jimpitan_details jd
-     WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
-     GROUP BY jd.tanggal::date
-     ORDER BY jd.tanggal::date ASC`,
+       tanggal,
+       COALESCE(SUM(total_nominal), 0) AS total_nominal,
+       COALESCE(SUM(total_rumah), 0) AS total_rumah,
+       COALESCE(SUM(total_petugas), 0) AS total_petugas
+     FROM (
+       SELECT
+         jd.tanggal::date AS tanggal,
+         COALESCE(SUM(jd.nominal), 0) AS total_nominal,
+         COUNT(DISTINCT jd.warga_id) AS total_rumah,
+         COUNT(DISTINCT jd.petugas_id) AS total_petugas
+       FROM jimpitan_details jd
+       WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
+       GROUP BY jd.tanggal::date
+       UNION ALL
+       SELECT
+         jb.operational_date::date AS tanggal,
+         COALESCE(SUM(jb.total_amount), 0) AS total_nominal,
+         0 AS total_rumah,
+         COUNT(DISTINCT jb.petugas_id) AS total_petugas
+       FROM jimpitan_batches jb
+       WHERE TO_CHAR(jb.operational_date::date, 'YYYY-MM') = $1
+         AND jb.batch_mode = 'SHIFT_TOTAL'
+         AND jb.status = 'APPROVED'
+         AND COALESCE(jb.note, '') NOT LIKE '[ADMIN_MONTHLY]%'
+       GROUP BY jb.operational_date::date
+     ) x
+     GROUP BY tanggal
+     ORDER BY tanggal ASC`,
     [month]
   );
 
   const byPetugas = await pool.query(
     `SELECT
-       TO_CHAR(jd.tanggal::date, 'YYYY-MM-DD') AS tanggal,
-       u.nama AS petugas_nama,
-       COALESCE(SUM(jd.nominal), 0) AS total_nominal
-     FROM jimpitan_details jd
-     LEFT JOIN users u ON u.id::text = jd.petugas_id::text
-     WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
-     GROUP BY jd.tanggal::date, u.nama
-     ORDER BY jd.tanggal::date ASC, u.nama ASC`,
+       tanggal,
+       petugas_nama,
+       COALESCE(SUM(total_nominal), 0) AS total_nominal
+     FROM (
+       SELECT
+         jd.tanggal::date AS tanggal,
+         u.nama AS petugas_nama,
+         COALESCE(SUM(jd.nominal), 0) AS total_nominal
+       FROM jimpitan_details jd
+       LEFT JOIN users u ON u.id::text = jd.petugas_id::text
+       WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
+       GROUP BY jd.tanggal::date, u.nama
+       UNION ALL
+       SELECT
+         jb.operational_date::date AS tanggal,
+         u.nama AS petugas_nama,
+         COALESCE(SUM(jb.total_amount), 0) AS total_nominal
+       FROM jimpitan_batches jb
+       LEFT JOIN users u ON u.id::text = jb.petugas_id::text
+       WHERE TO_CHAR(jb.operational_date::date, 'YYYY-MM') = $1
+         AND jb.batch_mode = 'SHIFT_TOTAL'
+         AND jb.status = 'APPROVED'
+         AND COALESCE(jb.note, '') NOT LIKE '[ADMIN_MONTHLY]%'
+       GROUP BY jb.operational_date::date, u.nama
+     ) x
+     GROUP BY tanggal, petugas_nama
+     ORDER BY tanggal ASC, petugas_nama ASC`,
     [month]
   );
 

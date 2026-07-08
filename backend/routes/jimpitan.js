@@ -11,12 +11,16 @@ import {
   getJimpitanExternalParticipants,
   getJimpitanMembers,
   getJimpitanMode,
+  getJimpitanV2AdminEntries,
   getDailyRecapJimpitan,
   getMyJimpitanRouteOrder,
   getSetorHistoryJimpitanAdmin,
   getJimpitanTopupHistory,
   healthCheck,
   inputJimpitan,
+  inputJimpitanOldCashHandover,
+  inputJimpitanV2Income,
+  inputJimpitanV2MonthlyIncome,
   listJimpitan,
   resetBulananJimpitan,
   saveMyJimpitanRouteOrder,
@@ -75,6 +79,37 @@ router.get(
   auth,
   allowRoles('Admin Jimpitan', 'root'),
   asyncHandler(getJimpitanTopupHistory)
+);
+
+router.post(
+  '/v2-income',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  validateRequiredFields(['operational_date', 'amount']),
+  asyncHandler(inputJimpitanV2Income)
+);
+
+router.post(
+  '/v2-monthly-income',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  validateRequiredFields(['month_key', 'amount']),
+  asyncHandler(inputJimpitanV2MonthlyIncome)
+);
+
+router.post(
+  '/old-cash-handover',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  validateRequiredFields(['handover_date', 'amount']),
+  asyncHandler(inputJimpitanOldCashHandover)
+);
+
+router.get(
+  '/v2-entries',
+  auth,
+  allowRoles('Admin Jimpitan', 'root'),
+  asyncHandler(getJimpitanV2AdminEntries)
 );
 
 router.post(
