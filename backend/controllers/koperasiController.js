@@ -24,8 +24,10 @@ export async function koperasiMembersHandler(_req, res) {
 export async function koperasiMemberSetActiveHandler(req, res) {
   const wargaId = String(req.body.warga_id || '').trim();
   const isActive = Boolean(req.body.is_active);
+  const activeFromMonth = String(req.body.active_from_month || '2026-01').trim();
   if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
-  const data = await setKoperasiMemberActive({ wargaId, isActive });
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(activeFromMonth)) return res.status(400).json({ success: false, message: 'active_from_month invalid' });
+  const data = await setKoperasiMemberActive({ wargaId, isActive, activeFromMonth });
   return res.json({ success: true, data });
 }
 
@@ -96,9 +98,11 @@ export async function koperasiSummaryHandler(req, res) {
 export async function koperasiRegisterMemberHandler(req, res) {
   const wargaId = String(req.body.warga_id || '').trim();
   const joinFee = Number(req.body.join_fee || 0);
+  const activeFromMonth = String(req.body.active_from_month || '2026-01').trim();
   if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib' });
   if (joinFee <= 0) return res.status(400).json({ success: false, message: 'join_fee wajib' });
-  const data = await registerKoperasiMember({ wargaId, joinFee, createdBy: String(req.user.user_id || '').trim() });
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(activeFromMonth)) return res.status(400).json({ success: false, message: 'active_from_month invalid' });
+  const data = await registerKoperasiMember({ wargaId, joinFee, activeFromMonth, createdBy: String(req.user.user_id || '').trim() });
   return res.json({ success: true, data });
 }
 

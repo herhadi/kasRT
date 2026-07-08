@@ -19,10 +19,12 @@ export async function ensureKoperasiTables() {
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       joined_at DATE NOT NULL DEFAULT CURRENT_DATE,
+      active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE kop_members ADD COLUMN IF NOT EXISTS active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01'`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS kop_loans (
@@ -181,7 +183,11 @@ export async function getKoperasiMemberCandidates() {
        UNION
        SELECT * FROM fallback_warga
      )
-     SELECT bw.id AS warga_id, bw.nama, COALESCE(km.is_active, FALSE) AS is_active
+     SELECT
+       bw.id AS warga_id,
+       bw.nama,
+       COALESCE(km.is_active, FALSE) AS is_active,
+       COALESCE(km.active_from_month, '2026-01') AS active_from_month
        FROM base_warga bw
        LEFT JOIN kop_members km ON km.warga_id = bw.id
       ORDER BY bw.nama ASC`
@@ -189,27 +195,30 @@ export async function getKoperasiMemberCandidates() {
   return rows;
 }
 
-export async function setKoperasiMemberActive({ wargaId, isActive }) {
+export async function setKoperasiMemberActive({ wargaId, isActive, activeFromMonth = '2026-01' }) {
   await pool.query(
-    `INSERT INTO kop_members (warga_id, is_active, joined_at, created_at, updated_at)
-     VALUES ($1::uuid, $2, CURRENT_DATE, NOW(), NOW())
+    `INSERT INTO kop_members (warga_id, is_active, joined_at, active_from_month, created_at, updated_at)
+     VALUES ($1::uuid, $2, CURRENT_DATE, $3, NOW(), NOW())
      ON CONFLICT (warga_id)
-     DO UPDATE SET is_active = EXCLUDED.is_active, updated_at = NOW()`,
-    [wargaId, Boolean(isActive)]
+     DO UPDATE SET
+       is_active = EXCLUDED.is_active,
+       active_from_month = EXCLUDED.active_from_month,
+       updated_at = NOW()`,
+    [wargaId, Boolean(isActive), activeFromMonth]
   );
-  return { warga_id: wargaId, is_active: Boolean(isActive) };
+  return { warga_id: wargaId, is_active: Boolean(isActive), active_from_month: activeFromMonth };
 }
 
-export async function registerKoperasiMember({ wargaId, joinFee, createdBy }) {
+export async function registerKoperasiMember({ wargaId, joinFee, activeFromMonth = '2026-01', createdBy }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO kop_members (warga_id, is_active, joined_at, created_at, updated_at)
-       VALUES ($1::uuid, TRUE, CURRENT_DATE, NOW(), NOW())
+      `INSERT INTO kop_members (warga_id, is_active, joined_at, active_from_month, created_at, updated_at)
+       VALUES ($1::uuid, TRUE, CURRENT_DATE, $2, NOW(), NOW())
        ON CONFLICT (warga_id)
-       DO UPDATE SET is_active = TRUE, updated_at = NOW()`,
-      [wargaId]
+       DO UPDATE SET is_active = TRUE, active_from_month = EXCLUDED.active_from_month, updated_at = NOW()`,
+      [wargaId, activeFromMonth]
     );
     await client.query(
       `INSERT INTO kop_member_fees (id, warga_id, paid_date, amount, created_by)
@@ -244,7 +253,7 @@ export async function upsertKoperasiMonthlyFee({ effectiveMonth, amount, updated
 export async function getKoperasiIuranSummary(month) {
   const [feeRes, memberRes, paidRes, installmentRes, iuranRes] = await Promise.all([
     pool.query(`SELECT value_json FROM kop_settings WHERE key_name='monthly_fee' LIMIT 1`),
-    pool.query(`SELECT u.id AS warga_id, u.nama FROM kop_members km JOIN users u ON u.id = km.warga_id WHERE km.is_active = TRUE ORDER BY u.nama`),
+    pool.query(`SELECT u.id AS warga_id, u.nama FROM kop_members km JOIN users u ON u.id = km.warga_id WHERE km.is_active = TRUE AND COALESCE(km.active_from_month, '2026-01') <= $1 ORDER BY u.nama`, [month]),
     pool.query(
       `SELECT l.warga_id::text AS warga_id, COALESCE(SUM(p.amount),0) AS paid
        FROM kop_payments p

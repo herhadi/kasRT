@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
@@ -13,8 +14,12 @@ import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers
 import { useAuth } from '@/lib/useAuth';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
+import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
+import MemberActionButtons from '@/components/ui/MemberActionButtons';
+import MembershipStartMonthInput, { DEFAULT_MEMBER_START_MONTH, formatMemberStartMonthLabel } from '@/components/membership/MembershipStartMonthInput';
+import MembershipStatusFilter from '@/components/membership/MembershipStatusFilter';
 
-type Member = { warga_id: string; nama: string; is_active?: boolean };
+type Member = { warga_id: string; nama: string; is_active?: boolean; active_from_month?: string };
 type WargaOption = { id: string; nama: string; no_hp?: string };
 type PlanRow = { installment_no: number; due_month: string; principal_due: number; interest_due: number; total_due: number };
 type LoanRow = { id: string; nama: string; status: string; principal_amount: number; total_tagihan: number; total_bayar: number; sisa_piutang: number };
@@ -22,6 +27,7 @@ type Summary = { kas_saldo: number; total_angsuran_masuk: number; loans: LoanRow
 
 export default function KoperasiPage() {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
   const canAccess = hasAnyRole(user, ['Admin Koperasi', 'Ketua']);
   const canWrite = hasAnyRole(user, ['Admin Koperasi', 'root']);
   const [members, setMembers] = useState<Member[]>([]);
@@ -42,11 +48,12 @@ export default function KoperasiPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const [showMemberSection, setShowMemberSection] = useState(false);
+  const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
+  const [memberMonthDrafts, setMemberMonthDrafts] = useState<Record<string, string>>({});
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [registerTarget, setRegisterTarget] = useState<Member | null>(null);
   const [joinFee, setJoinFee] = useState('');
-  const memberPager = usePagination(members, 10);
+  const settingMode = pathname === '/operasional/koperasi/setting';
 
   async function loadAll() {
     if (!canAccess) return;
@@ -58,6 +65,7 @@ export default function KoperasiPage() {
     const m = mRes.data || [];
     const w = wRes.data || [];
     setMembers(m);
+    setMemberMonthDrafts(Object.fromEntries(m.map((member) => [member.warga_id, member.active_from_month || DEFAULT_MEMBER_START_MONTH])));
     setWargaOptions(w);
     setSummary(sRes.data || null);
     if (w[0] && !wargaId) setWargaId(String(w[0].id));
@@ -69,7 +77,11 @@ export default function KoperasiPage() {
     () => wargaOptions.find((w) => String(w.id) === String(wargaId))?.nama || members.find((m) => m.warga_id === wargaId)?.nama || '-',
     [wargaOptions, members, wargaId]
   );
-  const activeMembers = useMemo(() => members.filter((m) => Boolean(m.is_active)), [members]);
+  const filteredMembers = useMemo(
+    () => members.filter((member) => memberFilter === 'aktif' ? Boolean(member.is_active) : !member.is_active),
+    [members, memberFilter]
+  );
+  const memberPager = usePagination(filteredMembers, 10);
   const previewGrandTotal = useMemo(
     () => plan.reduce((acc, row) => acc + Number(row.total_due || 0), 0),
     [plan]
@@ -81,7 +93,7 @@ export default function KoperasiPage() {
   }, [wargaOptions, wargaId]);
   useEffect(() => {
     memberPager.reset();
-  }, [members.length]);
+  }, [filteredMembers.length, memberFilter]);
 
   async function previewPlan() {
     const principalValue = parseRupiahInput(principal);
@@ -162,14 +174,25 @@ export default function KoperasiPage() {
     }
   }
 
-  async function setMemberActive(wid: string, next: boolean) {
+  async function setMemberActive(wid: string, next: boolean, activeFromMonth = memberMonthDrafts[wid] || DEFAULT_MEMBER_START_MONTH, startOnly = false) {
     try {
       setBusy(true); setError(''); setMessage('');
-      await apiFetch('/koperasi/members/set-active', {
+      const result = await apiFetch<{ success: boolean; data?: Member }>('/koperasi/members/set-active', {
         method: 'POST',
-        body: JSON.stringify({ warga_id: wid, is_active: next })
+        body: JSON.stringify({ warga_id: wid, is_active: next, active_from_month: activeFromMonth })
       });
-      setMessage(next ? 'Warga diaktifkan sebagai anggota koperasi.' : 'Warga dinonaktifkan dari anggota koperasi.');
+      const savedMonth = String(result.data?.active_from_month || activeFromMonth);
+      const memberName = members.find((member) => member.warga_id === wid)?.nama || 'Warga';
+      setMemberMonthDrafts((previous) => ({ ...previous, [wid]: savedMonth }));
+      setMembers((previous) => previous.map((member) => (
+        member.warga_id === wid ? { ...member, is_active: next, active_from_month: savedMonth } : member
+      )));
+      setMessage(startOnly
+        ? `${memberName}: mulai aktif koperasi ${formatMemberStartMonthLabel(savedMonth)} tersimpan.`
+        : next
+          ? `Warga diaktifkan sebagai anggota koperasi. Mulai aktif ${formatMemberStartMonthLabel(savedMonth)}.`
+          : `Warga dinonaktifkan dari anggota koperasi. Mulai aktif ${formatMemberStartMonthLabel(savedMonth)}.`
+      );
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal update anggota koperasi');
@@ -186,7 +209,11 @@ export default function KoperasiPage() {
       setBusy(true); setError(''); setMessage('');
       await apiFetch('/koperasi/members/register', {
         method: 'POST',
-        body: JSON.stringify({ warga_id: registerTarget.warga_id, join_fee: fee })
+        body: JSON.stringify({
+          warga_id: registerTarget.warga_id,
+          join_fee: fee,
+          active_from_month: memberMonthDrafts[registerTarget.warga_id] || registerTarget.active_from_month || DEFAULT_MEMBER_START_MONTH
+        })
       });
       setMessage('Registrasi anggota berhasil, status aktif.');
       setRegisterTarget(null);
@@ -202,10 +229,88 @@ export default function KoperasiPage() {
 
   if (loading || !user) return <main className="min-h-screen" />;
 
+  if (settingMode) {
+    return (
+      <main className="min-h-screen pb-10">
+        <FeedbackToast error={error} message={message} />
+        <Navbar sticky={false} />
+        <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
+          <OperationalSubmenuHeader backHref="/operasional/koperasi" title="Kembali ke Operasional Koperasi" />
+          <div className="sticky top-0 z-40 grid gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 shadow-sm md:grid-cols-2">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">Anggota aktif: <b className="text-emerald-800">{members.filter((member) => member.is_active).length}</b></div>
+            <div className="rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-900">Pinjaman aktif: <b className="text-sky-800">{summary?.loans?.length || 0}</b></div>
+          </div>
+
+          <Card title="Keanggotaan Koperasi" subtitle="Atur anggota koperasi, bulan mulai aktif, dan biaya registrasi saat aktivasi pertama.">
+            <MembershipStatusFilter
+              value={memberFilter}
+              activeCount={members.filter((member) => member.is_active).length}
+              inactiveCount={members.filter((member) => !member.is_active).length}
+              onChange={setMemberFilter}
+            />
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga</th>
+                    <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Mulai Aktif</th>
+                    <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {memberPager.pagedItems.map((member) => (
+                    <tr key={member.warga_id} className="bg-[var(--surface)]">
+                      <td className="border-t border-[var(--line)] px-3 py-2 text-sm">{member.nama}</td>
+                      <td className="border-t border-[var(--line)] px-3 py-2 text-sm">
+                        <MembershipStartMonthInput
+                          value={memberMonthDrafts[member.warga_id] || member.active_from_month || DEFAULT_MEMBER_START_MONTH}
+                          onDraftChange={(nextMonth) => setMemberMonthDrafts((prev) => ({ ...prev, [member.warga_id]: nextMonth }))}
+                          onSave={(nextMonth) => void setMemberActive(member.warga_id, Boolean(member.is_active), nextMonth, true)}
+                          disabled={!canWrite}
+                        />
+                      </td>
+                      <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>{member.is_active ? 'Aktif' : 'Nonaktif'}</td>
+                      <td className="border-t border-[var(--line)] px-3 py-2 text-right">
+                        {canWrite ? (
+                          <MemberActionButtons
+                            isActive={Boolean(member.is_active)}
+                            disabled={busy}
+                            onToggle={() => {
+                              if (member.is_active) void setMemberActive(member.warga_id, false);
+                              else {
+                                setRegisterTarget(member);
+                                setJoinFee('');
+                              }
+                            }}
+                          />
+                        ) : <span className="text-xs text-[var(--text-muted)]">Lihat saja</span>}
+                      </td>
+                    </tr>
+                  ))}
+                  {!filteredMembers.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Tidak ada anggota {memberFilter}.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+            <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} />
+          </Card>
+          <KoperasiRegisterModal
+            target={registerTarget}
+            joinFee={joinFee}
+            setJoinFee={setJoinFee}
+            busy={busy}
+            onClose={() => setRegisterTarget(null)}
+            onSubmit={submitRegisterMember}
+          />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={error} message={message} />
-      <Navbar />
+      <Navbar sticky={false} />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <Card title="Operasional Koperasi" subtitle="Flat/menurun, bunga max 2.5% per bulan">
           {!canAccess ? <p className="text-sm text-[var(--text-muted)]">Akses ditolak.</p> : (
@@ -216,25 +321,12 @@ export default function KoperasiPage() {
             </div>
           )}
           <div className="mt-3">
-            <Link href="/operasional/koperasi/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran Wajib</Link>
+            <div className="flex items-center justify-between gap-2">
+              <Link href="/operasional/koperasi/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran Wajib</Link>
+              {canWrite ? <Link href="/operasional/koperasi/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link> : null}
+            </div>
           </div>
         </Card>
-
-        {canWrite ? (
-          <Card title="Keanggotaan Koperasi" subtitle="Daftar warga dari master global. Tandai Aktif hanya untuk anggota koperasi.">
-            <div className="mb-3">
-              <button type="button" className="btn-action-blue link-action px-3 py-1.5 text-xs" onClick={() => setShowMemberSection((v) => !v)}>
-                {showMemberSection ? 'Sembunyikan Keanggotaan' : 'Tampilkan Keanggotaan'}
-              </button>
-            </div>
-            {showMemberSection ? <><div className="overflow-x-auto"><table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
-              <thead><tr className="bg-[var(--surface-strong)]"><th className="px-3 py-2 text-left text-xs">Warga</th><th className="px-3 py-2 text-left text-xs">Status</th><th className="px-3 py-2 text-right text-xs">Aksi</th></tr></thead>
-              <tbody>{memberPager.pagedItems.map((m) => <tr key={m.warga_id}><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{m.nama}</td><td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right"><button type="button" className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${m.is_active ? 'opacity-70' : ''}`} onClick={() => { if (m.is_active) void setMemberActive(m.warga_id, false); else { setRegisterTarget(m); setJoinFee(''); } }} disabled={busy}>{m.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button></td></tr>)}
-              {!members.length ? <tr><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada data warga.</td></tr> : null}</tbody>
-            </table></div>
-            <PaginationControls page={memberPager.page} totalPages={memberPager.totalPages} onPrev={memberPager.prev} onNext={memberPager.next} /></> : null}
-          </Card>
-        ) : null}
 
         {canWrite ? (
           <Card
@@ -332,21 +424,49 @@ export default function KoperasiPage() {
           </div>
         ) : null}
         {registerTarget ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
-              <h3 className="text-base font-semibold text-[var(--text-primary)]">Registrasi Anggota Baru</h3>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">{registerTarget.nama}</p>
-              <div className="mt-3">
-                <Input label="Biaya Registrasi" type="text" inputMode="numeric" value={formatRupiahInput(joinFee)} onChange={(e) => setJoinFee(e.target.value)} />
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Button variant="ghost" className="btn-action-blue" onClick={() => setRegisterTarget(null)}>Batal</Button>
-                <Button onClick={submitRegisterMember} disabled={busy}>Bayar & Aktifkan</Button>
-              </div>
-            </div>
-          </div>
+          <KoperasiRegisterModal
+            target={registerTarget}
+            joinFee={joinFee}
+            setJoinFee={setJoinFee}
+            busy={busy}
+            onClose={() => setRegisterTarget(null)}
+            onSubmit={submitRegisterMember}
+          />
         ) : null}
       </div>
     </main>
+  );
+}
+
+function KoperasiRegisterModal({
+  target,
+  joinFee,
+  setJoinFee,
+  busy,
+  onClose,
+  onSubmit
+}: {
+  target: Member | null;
+  joinFee: string;
+  setJoinFee: (value: string) => void;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  if (!target) return null;
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">Registrasi Anggota Baru</h3>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">{target.nama}</p>
+        <div className="mt-3">
+          <Input label="Biaya Registrasi" type="text" inputMode="numeric" value={formatRupiahInput(joinFee)} onChange={(e) => setJoinFee(e.target.value)} />
+        </div>
+        <div className="mt-3 flex gap-2">
+          <Button variant="ghost" className="btn-action-blue" onClick={onClose}>Batal</Button>
+          <Button onClick={onSubmit} disabled={busy}>Bayar & Aktifkan</Button>
+        </div>
+      </div>
+    </div>
   );
 }

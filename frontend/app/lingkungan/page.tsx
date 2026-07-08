@@ -343,7 +343,7 @@ export default function LingkunganPage() {
                       onSave={(nextMonth) => void setMemberActive(m.warga_id, Boolean(m.is_active), nextMonth, true)}
                     />
                   </td>
-                  <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-[var(--text-muted)]'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td>
+                  <td className={`border-t border-[var(--line)] px-3 py-2 text-sm font-semibold ${m.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>{m.is_active ? 'Aktif' : 'Nonaktif'}</td>
                   <td className="border-t border-[var(--line)] px-3 py-2 text-right">
                     <MemberActionButtons
                       isActive={Boolean(m.is_active)}
