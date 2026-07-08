@@ -156,6 +156,11 @@ export async function ensureJimpitanModeHistoryTable() {
     )
   `);
 
+  await pool.query(`ALTER TABLE jimpitan_mode_history ADD COLUMN IF NOT EXISTS effective_date DATE`);
+  await pool.query(`UPDATE jimpitan_mode_history SET effective_date = '2026-01-01'::date WHERE effective_date IS NULL`);
+  await pool.query(`ALTER TABLE jimpitan_mode_history ALTER COLUMN effective_date SET NOT NULL`);
+  await pool.query(`ALTER TABLE jimpitan_mode_history DROP COLUMN IF EXISTS effective_month`);
+
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_jimpitan_mode_history_effective_created
     ON jimpitan_mode_history (effective_date DESC, created_at DESC)
