@@ -117,13 +117,14 @@ export async function ensureJimpitanMembersTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS jimpitan_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),
+      status VARCHAR(20) NOT NULL DEFAULT 'INACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_by UUID REFERENCES users(id)
     )
   `);
   await pool.query(`UPDATE jimpitan_members SET status = 'ACTIVE' WHERE status = 'DONATUR'`);
+  await pool.query(`ALTER TABLE jimpitan_members ALTER COLUMN status SET DEFAULT 'INACTIVE'`);
   await pool.query(`
     DO $$
     DECLARE constraint_name text;
@@ -143,12 +144,55 @@ export async function ensureJimpitanMembersTable() {
   `);
 }
 
+export async function ensureJimpitanModeHistoryTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jimpitan_mode_history (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      effective_month VARCHAR(7) NOT NULL,
+      mode VARCHAR(20) NOT NULL CHECK (mode IN ('PER_WARGA','SHIFT_TOTAL')),
+      note TEXT NULL,
+      created_by UUID NULL REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    ALTER TABLE jimpitan_mode_history
+      DROP CONSTRAINT IF EXISTS jimpitan_mode_history_effective_month_key
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_jimpitan_mode_history_effective_created
+    ON jimpitan_mode_history (effective_month DESC, created_at DESC)
+  `);
+
+  await pool.query(`
+    INSERT INTO jimpitan_mode_history (effective_month, mode, note)
+    SELECT '2026-01', 'PER_WARGA', 'Default awal sistem'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM jimpitan_mode_history WHERE effective_month = '2026-01'
+    )
+  `);
+}
+
+export async function ensureJimpitanBatchModeColumns() {
+  await pool.query(`
+    ALTER TABLE jimpitan_batches
+      ADD COLUMN IF NOT EXISTS batch_mode VARCHAR(20) NOT NULL DEFAULT 'PER_WARGA',
+      ADD COLUMN IF NOT EXISTS operational_date DATE NULL,
+      ADD COLUMN IF NOT EXISTS note TEXT NULL,
+      ADD COLUMN IF NOT EXISTS total_rumah INTEGER NOT NULL DEFAULT 0
+  `);
+}
+
 export async function ensureJimpitanScheduleColumns() {
   await ensureJimpitanShiftDaysTable();
   await ensureJimpitanReminderLogTable();
   await ensureJimpitanRouteOrderTable();
   await ensureJimpitanExternalParticipantsTable();
   await ensureJimpitanMembersTable();
+  await ensureJimpitanModeHistoryTable();
+  await ensureJimpitanBatchModeColumns();
 
   await pool.query(`
     ALTER TABLE users
@@ -156,11 +200,69 @@ export async function ensureJimpitanScheduleColumns() {
   `);
 }
 
+export async function getJimpitanModeHistory() {
+  await ensureJimpitanModeHistoryTable();
+  const result = await pool.query(
+    `SELECT
+       jmh.id::text,
+       jmh.effective_month,
+       jmh.mode,
+       jmh.note,
+       jmh.created_at,
+       jmh.created_by::text,
+       u.nama AS created_by_name
+     FROM jimpitan_mode_history jmh
+     LEFT JOIN users u ON u.id = jmh.created_by
+     ORDER BY jmh.effective_month DESC, jmh.created_at DESC`
+  );
+  return result.rows;
+}
+
+export async function getEffectiveJimpitanMode(monthKey = null) {
+  await ensureJimpitanModeHistoryTable();
+  const targetMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(monthKey || ''))
+    ? String(monthKey)
+    : new Date().toISOString().slice(0, 7);
+  const result = await pool.query(
+    `SELECT
+       jmh.id::text,
+       jmh.effective_month,
+       jmh.mode,
+       jmh.note,
+       jmh.created_at,
+       jmh.created_by::text,
+       u.nama AS created_by_name
+     FROM jimpitan_mode_history jmh
+     LEFT JOIN users u ON u.id = jmh.created_by
+     WHERE jmh.effective_month <= $1
+     ORDER BY jmh.effective_month DESC, jmh.created_at DESC
+     LIMIT 1`,
+    [targetMonth]
+  );
+  return result.rows[0] || { effective_month: '2026-01', mode: 'PER_WARGA', note: 'Default awal sistem' };
+}
+
+export async function setJimpitanMode({ effectiveMonth, mode, note = null, createdBy }) {
+  await ensureJimpitanModeHistoryTable();
+  const cleanMonth = String(effectiveMonth || '').trim();
+  const cleanMode = String(mode || '').trim().toUpperCase();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(cleanMonth)) throw new Error('Bulan berlaku tidak valid');
+  if (!['PER_WARGA', 'SHIFT_TOTAL'].includes(cleanMode)) throw new Error('Mode jimpitan tidak valid');
+
+  const result = await pool.query(
+    `INSERT INTO jimpitan_mode_history (effective_month, mode, note, created_by, created_at)
+     VALUES ($1, $2, NULLIF($3, ''), $4::uuid, NOW())
+     RETURNING id::text, effective_month, mode, note, created_by::text, created_at`,
+    [cleanMonth, cleanMode, note, createdBy]
+  );
+  return result.rows[0];
+}
+
 export async function ensureJimpitanMembersFromEligible() {
   await ensureJimpitanScheduleColumns();
   await pool.query(
     `INSERT INTO jimpitan_members (warga_id, status)
-     SELECT u.id, 'ACTIVE'
+     SELECT u.id, 'INACTIVE'
      FROM users u
      WHERE ${ELIGIBLE_USERS_CLAUSE}
      ON CONFLICT (warga_id) DO NOTHING`
@@ -280,6 +382,7 @@ export async function createJimpitanExternalDraft({ externalParticipantId, nomin
 }
 
 export async function createSetorBatch({ petugasId, detailIds = null }) {
+  await ensureJimpitanScheduleColumns();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -307,10 +410,10 @@ export async function createSetorBatch({ petugasId, detailIds = null }) {
     const total = details.rows.reduce((sum, row) => sum + Number(row.nominal || 0), 0);
 
     const batchResult = await client.query(
-      `INSERT INTO jimpitan_batches (petugas_id, total_amount, status)
-       VALUES ($1, $2, 'PENDING')
+      `INSERT INTO jimpitan_batches (petugas_id, total_amount, status, batch_mode, total_rumah)
+       VALUES ($1, $2, 'PENDING', 'PER_WARGA', $3)
        RETURNING id`,
-      [petugasId, total]
+      [petugasId, total, details.rows.length]
     );
 
     const batchId = batchResult.rows[0].id;
@@ -344,13 +447,48 @@ export async function createSetorBatch({ petugasId, detailIds = null }) {
   }
 }
 
+export async function createShiftTotalBatch({ petugasId, totalAmount, operationalDate, note = null }) {
+  await ensureJimpitanScheduleColumns();
+  const total = Number(totalAmount || 0);
+  if (!Number.isFinite(total) || total <= 0) throw new Error('Nominal setor harus lebih dari 0');
+
+  const duplicate = await pool.query(
+    `SELECT id, status
+     FROM jimpitan_batches
+     WHERE petugas_id = $1
+       AND operational_date = $2::date
+       AND batch_mode = 'SHIFT_TOTAL'
+       AND status IN ('PENDING','APPROVED')
+     LIMIT 1`,
+    [petugasId, operationalDate]
+  );
+  if (duplicate.rows.length > 0) {
+    throw new Error(`Setoran shift tanggal ini sudah ada (${duplicate.rows[0].status})`);
+  }
+
+  const result = await pool.query(
+    `INSERT INTO jimpitan_batches
+       (petugas_id, total_amount, status, batch_mode, operational_date, note, total_rumah)
+     VALUES ($1, $2, 'PENDING', 'SHIFT_TOTAL', $3::date, NULLIF($4, ''), 0)
+     RETURNING id, total_amount, operational_date, note`,
+    [petugasId, total, operationalDate, note]
+  );
+  return {
+    batch_id: result.rows[0].id,
+    total: Number(result.rows[0].total_amount || 0),
+    operational_date: result.rows[0].operational_date,
+    note: result.rows[0].note
+  };
+}
+
 export async function approveJimpitanBatch({ batchId, adminId }) {
+  await ensureJimpitanScheduleColumns();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
     const batchResult = await client.query(
-      `SELECT total_amount, status
+      `SELECT total_amount, status, batch_mode, operational_date, note
        FROM jimpitan_batches
        WHERE id = $1`,
       [batchId]
@@ -364,7 +502,9 @@ export async function approveJimpitanBatch({ batchId, adminId }) {
       throw new Error('Batch sudah di-approve');
     }
 
-    const total = Number(batchResult.rows[0].total_amount || 0);
+    const batch = batchResult.rows[0];
+    const total = Number(batch.total_amount || 0);
+    const batchMode = String(batch.batch_mode || 'PER_WARGA').toUpperCase();
 
     await client.query(
       `UPDATE jimpitan_batches
@@ -373,14 +513,16 @@ export async function approveJimpitanBatch({ batchId, adminId }) {
       [adminId, batchId]
     );
 
-    await client.query(
-      `UPDATE jimpitan_details jd
-       SET status = 'APPROVED'
-       FROM jimpitan_batch_items jbi
-       WHERE jbi.jimpitan_detail_id = jd.id
-       AND jbi.batch_id = $1`,
-      [batchId]
-    );
+    if (batchMode === 'PER_WARGA') {
+      await client.query(
+        `UPDATE jimpitan_details jd
+         SET status = 'APPROVED'
+         FROM jimpitan_batch_items jbi
+         WHERE jbi.jimpitan_detail_id = jd.id
+         AND jbi.batch_id = $1`,
+        [batchId]
+      );
+    }
 
     const walletResult = await client.query(`SELECT id FROM wallets WHERE name = 'Kas Jimpitan' LIMIT 1`);
     if (walletResult.rows.length === 0) {
@@ -391,9 +533,16 @@ export async function approveJimpitanBatch({ batchId, adminId }) {
 
     await client.query(
       `INSERT INTO transactions
-       (type, target_wallet_id, amount, status, created_by, approved_by, approved_at)
-       VALUES ('IN', $1, $2, 'APPROVED', $3, $3, NOW())`,
-      [walletId, total, adminId]
+       (type, target_wallet_id, amount, status, description, created_by, approved_by, approved_at)
+       VALUES ('IN', $1, $2, 'APPROVED', $3, $4, $4, NOW())`,
+      [
+        walletId,
+        total,
+        batchMode === 'SHIFT_TOTAL'
+          ? `[JIMPITAN_V2] Setoran shift jimpitan ${batch.operational_date ? String(batch.operational_date).slice(0, 10) : ''}`.trim()
+          : '[JIMPITAN_V1] Setoran per warga jimpitan',
+        adminId
+      ]
     );
 
     await client.query('COMMIT');
@@ -407,8 +556,9 @@ export async function approveJimpitanBatch({ batchId, adminId }) {
 }
 
 export async function findBatchCreator(batchId) {
+  await ensureJimpitanScheduleColumns();
   const result = await pool.query(
-    `SELECT petugas_id, total_amount FROM jimpitan_batches WHERE id = $1`,
+    `SELECT petugas_id, total_amount, batch_mode, operational_date, note FROM jimpitan_batches WHERE id = $1`,
     [batchId]
   );
   return result.rows[0] || null;

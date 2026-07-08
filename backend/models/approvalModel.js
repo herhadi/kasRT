@@ -7,6 +7,10 @@ export async function listPendingJimpitanBatches() {
        jb.total_amount,
        jb.created_at,
        jb.petugas_id,
+       COALESCE(jb.batch_mode, 'PER_WARGA') AS batch_mode,
+       jb.operational_date,
+       jb.note,
+       COALESCE(jb.total_rumah, 0) AS total_rumah,
        u.nama AS petugas_nama
      FROM jimpitan_batches jb
      LEFT JOIN users u ON u.id::text = jb.petugas_id::text
@@ -14,18 +18,26 @@ export async function listPendingJimpitanBatches() {
      ORDER BY jb.created_at ASC`
   );
 
-  return result.rows.map((row) => ({
-    kind: 'JIMPITAN_BATCH',
-    id: row.id,
-    title: `Batch Jimpitan #${row.id}`,
-    description: `Petugas: ${row.petugas_nama || row.petugas_id}`,
-    amount: Number(row.total_amount || 0),
-    created_at: row.created_at,
-    meta: {
-      batch_id: row.id,
-      petugas_id: row.petugas_id
-    }
-  }));
+  return result.rows.map((row) => {
+    const isShiftTotal = String(row.batch_mode || '').toUpperCase() === 'SHIFT_TOTAL';
+    const tanggal = row.operational_date ? String(row.operational_date).slice(0, 10) : '-';
+    return {
+      kind: 'JIMPITAN_BATCH',
+      id: row.id,
+      title: isShiftTotal ? `Setoran Shift Jimpitan #${row.id}` : `Batch Jimpitan #${row.id}`,
+      description: isShiftTotal
+        ? `Petugas: ${row.petugas_nama || row.petugas_id} • Tanggal: ${tanggal}${row.note ? ` • ${row.note}` : ''}`
+        : `Petugas: ${row.petugas_nama || row.petugas_id} • Rumah: ${row.total_rumah || '-'}`,
+      amount: Number(row.total_amount || 0),
+      created_at: row.created_at,
+      meta: {
+        batch_id: row.id,
+        petugas_id: row.petugas_id,
+        batch_mode: row.batch_mode,
+        operational_date: row.operational_date
+      }
+    };
+  });
 }
 
 export async function listPendingTransactionApprovals() {

@@ -27,7 +27,7 @@ import {
   ,getWargaFinancialSnapshot
 } from '../models/reportModel.js';
 import { getLatestMembershipRequestStatusMap } from '../models/membershipRequestModel.js';
-import { getDashboardAdminJimpitan } from '../models/jimpitanModel.js';
+import { getDashboardAdminJimpitan, getEffectiveJimpitanMode } from '../models/jimpitanModel.js';
 import { getCacheJson, setCacheJson } from '../services/cacheService.js';
 
 const JIMPITAN_TARGET_BULANAN = 15000;
@@ -68,8 +68,11 @@ export async function dashboardWarga(req, res) {
     }
     res.set('X-Cache', refresh ? 'BYPASS' : 'MISS');
 
-    const jimpitan_hari_ini = await getJimpitanHarianByWarga(user_id);
-    const jimpitan_bulan_ini = await getJimpitanBulananByWarga(user_id, monthFilter);
+    const dashboardMonth = monthFilter || new Date().toISOString().slice(0, 7);
+    const jimpitanMode = await getEffectiveJimpitanMode(dashboardMonth);
+    const isJimpitanPersonalActive = jimpitanMode.mode !== 'SHIFT_TOTAL';
+    const jimpitan_hari_ini = isJimpitanPersonalActive ? await getJimpitanHarianByWarga(user_id) : 0;
+    const jimpitan_bulan_ini = isJimpitanPersonalActive ? await getJimpitanBulananByWarga(user_id, monthFilter) : 0;
     const iuranRows = await getIuranBulananByWarga(user_id, monthFilter);
     const internetByMonthKey = await getInternetBulananByWargaByMonthKey(user_id, monthFilter);
     const lingkunganByMonthKey = await getLingkunganBulananByWargaByMonthKey(user_id, monthFilter);
@@ -90,7 +93,7 @@ export async function dashboardWarga(req, res) {
     const lingkunganMember = await isLingkunganMember(user_id);
     const koperasiMember = await isKoperasiMember(user_id);
     const tabunganMember = await isTabunganMember(user_id);
-    const jimpitanMember = await isJimpitanMember(user_id);
+    const jimpitanMember = isJimpitanPersonalActive ? await isJimpitanMember(user_id) : false;
     const membershipRequests = await getLatestMembershipRequestStatusMap(user_id);
 
     iuranRows.forEach((row) => {
@@ -165,11 +168,12 @@ export async function dashboardWarga(req, res) {
         jimpitan_hari_ini,
         jimpitan_bulan_ini,
         jimpitan_is_member: jimpitanMember,
+        jimpitan_mode: jimpitanMode.mode,
         iuran_wajib_bulan_ini,
         optional_contributions,
         total_optional_bulan_ini,
         total_kontribusi_bulan_ini,
-        target_kontribusi_dasar: JIMPITAN_TARGET_BULANAN + IURAN_WAJIB_TARGET,
+        target_kontribusi_dasar: (isJimpitanPersonalActive ? JIMPITAN_TARGET_BULANAN : 0) + IURAN_WAJIB_TARGET,
         target_jimpitan_bulanan: JIMPITAN_TARGET_BULANAN,
         target_iuran_wajib: IURAN_WAJIB_TARGET,
         internet_bulan_ini,

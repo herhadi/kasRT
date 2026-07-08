@@ -17,13 +17,14 @@ export async function ensureTabunganTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tab_savings_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      is_active BOOLEAN NOT NULL DEFAULT FALSE,
       active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_by UUID REFERENCES users(id)
     )
   `);
+  await pool.query(`ALTER TABLE tab_savings_members ALTER COLUMN is_active SET DEFAULT FALSE`);
   await pool.query(`ALTER TABLE tab_savings_members ADD COLUMN IF NOT EXISTS active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01'`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tab_savings_accounts (
@@ -207,7 +208,7 @@ export async function ensureTabunganMembersFromEligible() {
        SELECT id FROM eligible_all
        WHERE NOT EXISTS (SELECT 1 FROM warga_role)
      )
-     SELECT id, TRUE FROM warga_final
+     SELECT id, FALSE FROM warga_final
      ON CONFLICT (warga_id) DO NOTHING`
   );
 }

@@ -17,13 +17,14 @@ export async function ensureKoperasiTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS kop_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      is_active BOOLEAN NOT NULL DEFAULT FALSE,
       joined_at DATE NOT NULL DEFAULT CURRENT_DATE,
       active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE kop_members ALTER COLUMN is_active SET DEFAULT FALSE`);
   await pool.query(`ALTER TABLE kop_members ADD COLUMN IF NOT EXISTS active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01'`);
 
   await pool.query(`

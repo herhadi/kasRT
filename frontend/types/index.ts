@@ -18,6 +18,7 @@ export type DashboardWargaData = {
   jimpitan_hari_ini: number;
   jimpitan_bulan_ini: number;
   jimpitan_is_member?: boolean;
+  jimpitan_mode?: 'PER_WARGA' | 'SHIFT_TOTAL';
   iuran_wajib_bulan_ini: number;
   optional_contributions: Array<{
     name: string;

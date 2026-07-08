@@ -31,7 +31,7 @@ export async function ensureLingkunganTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lh_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      is_active BOOLEAN NOT NULL DEFAULT FALSE,
       active_from_month VARCHAR(7) NOT NULL DEFAULT '${MEMBER_START_MONTH}',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -40,6 +40,7 @@ export async function ensureLingkunganTables() {
   `);
   await pool.query(`ALTER TABLE lh_members ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id)`);
   await pool.query(`ALTER TABLE lh_members ADD COLUMN IF NOT EXISTS active_from_month VARCHAR(7)`);
+  await pool.query(`ALTER TABLE lh_members ALTER COLUMN is_active SET DEFAULT FALSE`);
   await pool.query(
     `UPDATE lh_members
      SET active_from_month = '${MEMBER_START_MONTH}'
@@ -100,7 +101,7 @@ export async function ensureLingkunganMembersFromWarga() {
       WHERE NOT EXISTS (SELECT 1 FROM warga_role)
     )
     INSERT INTO lh_members (warga_id, is_active, active_from_month)
-    SELECT id, TRUE, '${MEMBER_START_MONTH}' FROM warga_final
+    SELECT id, FALSE, '${MEMBER_START_MONTH}' FROM warga_final
     ON CONFLICT (warga_id) DO NOTHING
   `);
 }

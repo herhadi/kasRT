@@ -13,9 +13,12 @@ import {
   createJimpitanExternalParticipant,
   createJimpitanDraftAndUpdateSaldo,
   createSetorBatch,
+  createShiftTotalBatch,
   editNominalJimpitanByAdmin,
   findBatchCreator,
   getApprovedBatchRecapByMonth,
+  getEffectiveJimpitanMode,
+  getJimpitanModeHistory,
   getJimpitanRouteOrder,
   getUserJimpitanShiftHari,
   isValidJimpitanShiftDay,
@@ -30,6 +33,7 @@ import {
   lockDailyJimpitanReminder,
   resetBulananJimpitanSaldo,
   saveJimpitanRouteOrder,
+  setJimpitanMode,
   setJimpitanMemberStatus,
   setJimpitanExternalParticipantActive,
   topUpJimpitanSaldo,
@@ -185,6 +189,13 @@ export async function inputJimpitan(req, res) {
   }
   
   const tanggalOperasional = getOperationalDate();
+  const effectiveMode = await getEffectiveJimpitanMode(tanggalOperasional.toISOString().slice(0, 7));
+  if (effectiveMode.mode === 'SHIFT_TOTAL') {
+    return res.status(400).json({
+      success: false,
+      message: 'Mode Jimpitan saat ini setoran total shift. Input per warga sedang tidak aktif.'
+    });
+  }
 
   if (!canInputByTime(roles)) {
     if (debug) console.log('[JIMPITAN][INPUT] reject: outside operational time');
@@ -258,6 +269,13 @@ export async function setorJimpitan(req, res) {
   }
 
   const operationalDate = getOperationalDate();
+  const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 7));
+  if (effectiveMode.mode === 'SHIFT_TOTAL') {
+    return res.status(400).json({
+      success: false,
+      message: 'Mode Jimpitan saat ini setoran total shift. Gunakan form setor total.'
+    });
+  }
   const access = await getShiftAccessContext(petugas_id, req.user.roles || [], operationalDate);
   if (!access.canOperate) {
     return res.status(403).json({
@@ -308,6 +326,74 @@ export async function setorJimpitan(req, res) {
   }
 }
 
+export async function setorJimpitanShiftTotal(req, res) {
+  const petugas_id = req.user.user_id;
+  const roles = req.user.roles || [];
+  const nominal = Number(req.body.amount || req.body.nominal || 0);
+  const note = String(req.body.note || '').trim();
+  const operationalDate = getOperationalDate();
+  const operationalDateIso = operationalDate.toISOString().slice(0, 10);
+
+  const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 7));
+  if (effectiveMode.mode !== 'SHIFT_TOTAL') {
+    return res.status(400).json({
+      success: false,
+      message: 'Mode Jimpitan saat ini masih per warga. Setoran total shift belum aktif.'
+    });
+  }
+
+  if (!canInputByTime(roles)) {
+    return res.status(403).json({
+      success: false,
+      message: 'JAM OPERASIONAL TUTUP: setor shift hanya jam 21.00 - 06.00'
+    });
+  }
+
+  const access = await getShiftAccessContext(petugas_id, roles, operationalDate);
+  if (!access.canOperate) {
+    return res.status(403).json({
+      success: false,
+      message: 'Bukan shift Anda hari ini.'
+    });
+  }
+
+  if (!Number.isFinite(nominal) || nominal <= 0) {
+    return res.status(400).json({ success: false, message: 'Nominal setor harus lebih dari 0' });
+  }
+
+  try {
+    const batch = await createShiftTotalBatch({
+      petugasId: petugas_id,
+      totalAmount: nominal,
+      operationalDate: operationalDateIso,
+      note
+    });
+
+    const approvalLink = buildApprovalLink();
+    const linkSection = approvalLink ? `\n\n🔗 <a href="${approvalLink}">Buka Approval di Web</a>` : '';
+
+    await notifyRoles(
+      ['Admin Jimpitan', 'root'],
+      `🔔 <b>Approval Setoran Jimpitan Shift Dibutuhkan</b>\n` +
+        `Tanggal: <b>${operationalDateIso}</b>\n` +
+        `Batch ID: <b>${batch.batch_id}</b>\n` +
+        `Petugas ID: <b>${petugas_id}</b>\n` +
+        `Total: <b>${formatRupiah(batch.total)}</b>` +
+        (note ? `\nCatatan: ${note}` : '') +
+        linkSection
+    );
+
+    return res.json({
+      success: true,
+      batch_id: batch.batch_id,
+      total: batch.total,
+      operational_date: operationalDateIso
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
 export async function approveJimpitan(req, res) {
   const { batch_id } = req.body;
   const admin_id = req.user.user_id;
@@ -349,6 +435,19 @@ export async function listJimpitan(req, res) {
     const operationalDate = getOperationalDate();
     const hariKe = operationalDate.getDate();
     const access = await getShiftAccessContext(req.user.user_id, req.user.roles || [], operationalDate);
+    const effectiveMode = await getEffectiveJimpitanMode(operationalDate.toISOString().slice(0, 7));
+
+    if (effectiveMode.mode === 'SHIFT_TOTAL') {
+      return res.json({
+        success: true,
+        operational_date: operationalDate,
+        operational_day: access.hariOperasional,
+        viewer_shift_day: access.shiftHari,
+        can_operate_today: access.canOperate,
+        jimpitan_mode: effectiveMode.mode,
+        data: []
+      });
+    }
     
     const rows = await listJimpitanByOperationalDate(operationalDate.toISOString().slice(0, 10));
     const data = rows.map((row) => {
@@ -390,10 +489,42 @@ export async function listJimpitan(req, res) {
       operational_day: access.hariOperasional,
       viewer_shift_day: access.shiftHari,
       can_operate_today: access.canOperate,
+      jimpitan_mode: effectiveMode.mode,
       data
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+export async function getJimpitanMode(req, res) {
+  const month = String(req.query.month || '').trim();
+  try {
+    const effective = await getEffectiveJimpitanMode(month);
+    const normalizedRoles = (req.user.roles || []).map((role) => String(role).trim().toLowerCase());
+    const isRoot = normalizedRoles.includes('root');
+    const history = isRoot ? await getJimpitanModeHistory() : [];
+    return res.json({ success: true, data: { effective, history } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function updateJimpitanMode(req, res) {
+  const effectiveMonth = String(req.body.effective_month || '').trim();
+  const mode = String(req.body.mode || '').trim().toUpperCase();
+  const note = String(req.body.note || '').trim();
+  try {
+    const data = await setJimpitanMode({
+      effectiveMonth,
+      mode,
+      note,
+      createdBy: req.user.user_id
+    });
+    await delCache(`dashboard:warga:*`);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
   }
 }
 

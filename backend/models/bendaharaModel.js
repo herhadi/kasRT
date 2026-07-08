@@ -34,12 +34,13 @@ export async function ensureIuranMemberTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS iw_members (
       warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      is_active BOOLEAN NOT NULL DEFAULT FALSE,
       active_from_month VARCHAR(7) NOT NULL DEFAULT '2026-01',
       updated_by UUID NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE iw_members ALTER COLUMN is_active SET DEFAULT FALSE`);
 }
 
 export async function listIuranWajibTariffs() {
@@ -82,7 +83,7 @@ export async function listIuranWajibMembers() {
     `SELECT
        u.id::text AS warga_id,
        u.nama,
-       COALESCE(m.is_active, TRUE) AS is_active,
+       COALESCE(m.is_active, FALSE) AS is_active,
        COALESCE(m.active_from_month, '2026-01') AS active_from_month
      FROM users u
      LEFT JOIN iw_members m ON m.warga_id = u.id
@@ -315,7 +316,7 @@ export async function listIuranWajibStatusByMonth({ month }) {
      FROM users u
      LEFT JOIN iw_members m ON m.warga_id = u.id
      WHERE ${ELIGIBLE_USERS_CLAUSE}
-       AND COALESCE(m.is_active, TRUE) = TRUE
+       AND COALESCE(m.is_active, FALSE) = TRUE
        AND COALESCE(m.active_from_month, '2026-01') <= $2
      ),
      iuran AS (

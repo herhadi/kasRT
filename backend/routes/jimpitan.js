@@ -10,6 +10,7 @@ import {
   getJimpitanSchedule,
   getJimpitanExternalParticipants,
   getJimpitanMembers,
+  getJimpitanMode,
   getDailyRecapJimpitan,
   getMyJimpitanRouteOrder,
   getSetorHistoryJimpitanAdmin,
@@ -20,10 +21,12 @@ import {
   resetBulananJimpitan,
   saveMyJimpitanRouteOrder,
   sendJimpitanShiftReminder,
+  updateJimpitanMode,
   updateJimpitanExternalParticipantStatus,
   updateJimpitanMemberStatus,
   setPetugasShift,
   setorJimpitan,
+  setorJimpitanShiftTotal,
   topUpJimpitan
 } from '../controllers/jimpitanController.js';
 
@@ -42,6 +45,13 @@ router.post(
   '/setor',
   auth,
   asyncHandler(setorJimpitan)
+);
+
+router.post(
+  '/setor-shift-total',
+  auth,
+  validateRequiredFields(['amount']),
+  asyncHandler(setorJimpitanShiftTotal)
 );
 
 router.post(
@@ -104,6 +114,8 @@ router.get(
 );
 
 router.get('/list', auth, asyncHandler(listJimpitan));
+router.get('/mode', auth, asyncHandler(getJimpitanMode));
+router.post('/mode', auth, allowRoles('root'), validateRequiredFields(['effective_month', 'mode']), asyncHandler(updateJimpitanMode));
 router.get('/daily-recap', auth, allowRoles('Admin Jimpitan', 'Ketua'), asyncHandler(getDailyRecapJimpitan));
 router.get('/route-order', auth, asyncHandler(getMyJimpitanRouteOrder));
 router.post('/route-order', auth, asyncHandler(saveMyJimpitanRouteOrder));

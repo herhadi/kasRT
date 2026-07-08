@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/useAuth';
 import { JimpitanListItem } from '@/types';
 
 type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
+type JimpitanMode = 'PER_WARGA' | 'SHIFT_TOTAL';
 
 export default function JimpitanPage() {
   const { user, loading } = useAuth();
@@ -26,6 +27,10 @@ export default function JimpitanPage() {
   const [setorLoading, setSetorLoading] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>('semua');
   const [canOperateToday, setCanOperateToday] = useState(true);
+  const [jimpitanMode, setJimpitanMode] = useState<JimpitanMode>('PER_WARGA');
+  const [shiftTotalInput, setShiftTotalInput] = useState('');
+  const [shiftTotalNote, setShiftTotalNote] = useState('');
+  const [shiftTotalLoading, setShiftTotalLoading] = useState(false);
 
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
   const [editTarget, setEditTarget] = useState<JimpitanListItem | null>(null);
@@ -79,9 +84,10 @@ export default function JimpitanPage() {
   const loadList = useCallback(async () => {
     try {
       setError('');
-      const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean }>('/jimpitan/list');
+      const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean; jimpitan_mode?: JimpitanMode }>('/jimpitan/list');
       setItems(result.data || []);
       setCanOperateToday(Boolean(result.can_operate_today ?? true));
+      setJimpitanMode(result.jimpitan_mode || 'PER_WARGA');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
     }
@@ -124,11 +130,14 @@ export default function JimpitanPage() {
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean }>('/jimpitan/list');
+          const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean; jimpitan_mode?: JimpitanMode }>('/jimpitan/list');
           const rows = result.data || [];
           setItems(rows);
           setCanOperateToday(Boolean(result.can_operate_today ?? true));
-          await loadRouteOrder(rows);
+          setJimpitanMode(result.jimpitan_mode || 'PER_WARGA');
+          if ((result.jimpitan_mode || 'PER_WARGA') === 'PER_WARGA') {
+            await loadRouteOrder(rows);
+          }
         } catch (e) {
           setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
         }
@@ -243,6 +252,31 @@ export default function JimpitanPage() {
       pushToast(e instanceof Error ? e.message : 'Setor gagal', 'error');
     } finally {
       setSetorLoading(false);
+    }
+  }
+
+  async function handleSetorShiftTotal() {
+    const amount = parseRupiahInput(shiftTotalInput);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      pushToast('Nominal setoran shift harus lebih dari 0.', 'warning');
+      return;
+    }
+    if (!window.confirm(`Ajukan setoran shift ${formatRupiah(amount)} ke Admin Jimpitan?`)) return;
+
+    try {
+      setShiftTotalLoading(true);
+      await apiFetch('/jimpitan/setor-shift-total', {
+        method: 'POST',
+        body: JSON.stringify({ amount, note: shiftTotalNote.trim() })
+      });
+      setShiftTotalInput('');
+      setShiftTotalNote('');
+      await loadList();
+      pushToast('Setoran shift berhasil diajukan. Menunggu approval.', 'success');
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : 'Gagal mengajukan setoran shift', 'error');
+    } finally {
+      setShiftTotalLoading(false);
     }
   }
 
@@ -538,14 +572,57 @@ export default function JimpitanPage() {
 
       <OperationalStickySummary
         className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-6xl md:w-[calc(100%-3rem)]"
-        items={[
-          { label: 'Masuk', value: formatRupiah(recapData.totalSemuaTunai), tone: 'sky' },
-          { label: 'Setor Saya', value: formatRupiah(recapData.totalTunaiSaya), tone: 'emerald' },
-          { label: 'Belum', value: `${recapData.belum} warga`, tone: 'rose' }
-        ]}
+        items={jimpitanMode === 'SHIFT_TOTAL'
+          ? [
+              { label: 'Mode', value: 'Setor Shift', tone: 'sky' },
+              { label: 'Status', value: canOperateToday ? 'Shift Anda' : 'Bukan Shift', tone: canOperateToday ? 'emerald' : 'rose' },
+              { label: 'Kas', value: 'Tetap Jimpitan', tone: 'amber' }
+            ]
+          : [
+              { label: 'Masuk', value: formatRupiah(recapData.totalSemuaTunai), tone: 'sky' },
+              { label: 'Setor Saya', value: formatRupiah(recapData.totalTunaiSaya), tone: 'emerald' },
+              { label: 'Belum', value: `${recapData.belum} warga`, tone: 'rose' }
+            ]}
       />
 
-      <div className="mx-auto mt-3 w-full max-w-6xl px-4 md:px-6">
+      {jimpitanMode === 'SHIFT_TOTAL' ? (
+        <div className="mx-auto mt-4 w-full max-w-3xl px-4 md:px-6">
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Jimpitan V2</p>
+            <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Setor Total Shift</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Mode ini mencatat total pendapatan harian dari petugas shift. Tidak ada input satu per satu warga.
+            </p>
+            <div className="mt-4 space-y-3">
+              <Input
+                label="Total pendapatan hari ini"
+                value={shiftTotalInput}
+                onChange={(event) => setShiftTotalInput(formatRupiahInput(event.target.value))}
+                placeholder="Rp 0"
+                inputMode="numeric"
+              />
+              <Input
+                label="Catatan"
+                value={shiftTotalNote}
+                onChange={(event) => setShiftTotalNote(event.target.value)}
+                placeholder="Opsional, contoh: setoran shift Senin"
+              />
+              <Button
+                onClick={handleSetorShiftTotal}
+                disabled={shiftTotalLoading || !canOperateToday}
+                className="btn-action-blue w-full rounded-xl py-3 font-semibold disabled:opacity-50"
+              >
+                {shiftTotalLoading ? 'Mengajukan...' : 'Ajukan Setoran Shift'}
+              </Button>
+              {!canOperateToday ? (
+                <p className="text-xs text-rose-600">Bukan jadwal shift Anda hari ini.</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-3 w-full max-w-6xl px-4 md:px-6">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
           <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
             {(['semua', 'belum', 'lunas', 'kosong'] as FilterStatus[]).map((f) => (
@@ -566,10 +643,10 @@ export default function JimpitanPage() {
             ))}
           </div>
         </div>
-      </div>
+      </div> : null}
 
       {/* Buttons placed above the card warga list */}
-      <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
+      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
         <div className="flex flex-wrap gap-3 pt-4">
           <Button
             variant="ghost"
@@ -633,9 +710,9 @@ export default function JimpitanPage() {
           ) : null}
         </div>
 
-      </div>
+      </div> : null}
 
-      <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
+      {jimpitanMode === 'PER_WARGA' ? <div className="mx-auto mt-4 w-full max-w-6xl space-y-4 px-4 md:px-6">
         <div>
           <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
             Daftar Warga ({orderedItems.length})
@@ -757,7 +834,7 @@ export default function JimpitanPage() {
             })}
           </div>
         </div>
-      </div>
+      </div> : null}
 
       <FormJimpitan selected={selected} onSubmit={submitInput} onClose={() => setSelected(null)} />
 
