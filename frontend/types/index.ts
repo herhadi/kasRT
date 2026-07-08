@@ -103,6 +103,8 @@ export type JimpitanScheduleData = {
   petugas: Array<{
     id: string | number;
     nama: string;
+    jimpitan_alias?: string | null;
+    jimpitan_label?: string | null;
     jimpitan_shift_hari: number | null;
   }>;
 };

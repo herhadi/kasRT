@@ -12,7 +12,7 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
-import { JimpitanListItem } from '@/types';
+import { JimpitanListItem, JimpitanScheduleData } from '@/types';
 
 type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
 type JimpitanMode = 'PER_WARGA' | 'SHIFT_TOTAL';
@@ -35,6 +35,7 @@ export default function JimpitanPage() {
   const [shiftTotalLoading, setShiftTotalLoading] = useState(false);
   const [v2Tab, setV2Tab] = useState<V2InputTab>('GLOBAL');
   const [v2InputStatus, setV2InputStatus] = useState<V2InputStatus>({ has_global: false, has_by_name: false, input_mode: null });
+  const [currentPetugasLabel, setCurrentPetugasLabel] = useState('');
 
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
   const [editTarget, setEditTarget] = useState<JimpitanListItem | null>(null);
@@ -161,6 +162,20 @@ export default function JimpitanPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [user, loadRouteOrder]);
+
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      try {
+        const result = await apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule');
+        const me = (result.data?.petugas || []).find((petugas) => String(petugas.id) === String(user.id));
+        const fallback = String(user.nama || '').trim().split(/\s+/)[0] || String(user.nama || 'Petugas');
+        setCurrentPetugasLabel(String(me?.jimpitan_label || me?.jimpitan_alias || fallback).trim());
+      } catch {
+        setCurrentPetugasLabel(String(user.nama || '').trim().split(/\s+/)[0] || String(user.nama || 'Petugas'));
+      }
+    })();
+  }, [user]);
 
   const recapData = useMemo(() => {
     const normalizedUserName = String(user?.nama || '').trim().toLowerCase();
@@ -371,31 +386,46 @@ export default function JimpitanPage() {
     try {
       const res = await apiFetch<{
         success: boolean;
-        data: { days: Array<{ tanggal: string; total_nominal: number; total_rumah: number; total_petugas: number }> };
+        data: {
+          by_petugas: Array<{ tanggal: string; petugas_nama: string; total_nominal: number }>;
+        };
       }>(`/jimpitan/daily-recap?month=${encodeURIComponent(month)}`);
-      const row = (res.data?.days || []).find((item) => String(item.tanggal).slice(0, 10) === operationalDateIso);
-      if (!row) {
-        pushToast('Belum ada rekap global harian untuk tanggal ini.', 'warning');
+      const fallbackFirstName = String(user?.nama || '').trim().split(/\s+/)[0] || '';
+      const allowedNames = new Set(
+        [currentPetugasLabel, user?.nama, fallbackFirstName]
+          .map((name) => String(name || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+      const rows = (res.data?.by_petugas || []).filter((item) => allowedNames.has(String(item.petugas_nama || '').trim().toLowerCase()));
+      if (rows.length === 0) {
+        pushToast('Belum ada rekap shift Anda pada bulan ini.', 'warning');
         return;
       }
-      const date = new Date(`${operationalDateIso}T00:00:00`);
-      const label = date.toLocaleDateString('id-ID', { dateStyle: 'full' });
-      let pesan = `📝 *REKAP JIMPITAN HARIAN*\n`;
-      pesan += `📅 *${label}*\n`;
+      const [yearStr, monthStr] = month.split('-');
+      const monthLabel = new Date(Number(yearStr), Number(monthStr) - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+      let grandTotal = 0;
+      const lines = rows.map((row) => {
+        const date = new Date(`${String(row.tanggal).slice(0, 10)}T00:00:00`);
+        const label = date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric' });
+        const nominal = Number(row.total_nominal || 0);
+        grandTotal += nominal;
+        return `• ${label}: ${formatRupiah(nominal)}`;
+      });
+      let pesan = `📝 *REKAP SHIFT JIMPITAN ${monthLabel}*\n`;
+      pesan += `👤 *${currentPetugasLabel || fallbackFirstName || user?.nama || 'Petugas'}*\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
-      pesan += `💰 Total: *${formatRupiah(Number(row.total_nominal || 0))}*\n`;
-      pesan += `👥 Petugas: ${Number(row.total_petugas || 0) || '-'}\n`;
+      pesan += `${lines.join('\n')}\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
-      pesan += `_Dilaporkan oleh: ${user?.nama || 'Petugas'}_`;
+      pesan += `💰 *TOTAL: ${formatRupiah(grandTotal)}*`;
 
       if (navigator.share) {
-        navigator.share({ title: `Rekap Jimpitan ${label}`, text: pesan }).catch(() => {});
+        navigator.share({ title: `Rekap Shift Jimpitan ${monthLabel}`, text: pesan }).catch(() => {});
         return;
       }
       const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
       window.open(`https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(pesan)}`, '_blank');
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Gagal menyiapkan rekap harian', 'error');
+      pushToast(error instanceof Error ? error.message : 'Gagal menyiapkan rekap shift', 'error');
     }
   }
 
@@ -705,7 +735,7 @@ export default function JimpitanPage() {
                   onChange={(event) => setShiftTotalNote(event.target.value)}
                   placeholder="Opsional, contoh: setoran shift Senin"
                 />
-                <div className="grid gap-2 md:grid-cols-3">
+                <div className="space-y-2">
                   <Button
                     onClick={handleSetorShiftTotal}
                     disabled={shiftTotalLoading || !canOperateToday || v2InputStatus.has_by_name}
@@ -713,12 +743,14 @@ export default function JimpitanPage() {
                   >
                     {shiftTotalLoading ? 'Mengajukan...' : 'Ajukan Setoran Shift'}
                   </Button>
-                  <Button variant="ghost" className="btn-action-green w-full rounded-xl py-3 font-semibold" onClick={() => void handleKirimRekapHarianGlobalWA()}>
-                    Share Harian WA
-                  </Button>
-                  <Button variant="ghost" className="btn-action-blue w-full rounded-xl py-3 font-semibold" onClick={() => void handleKirimRekapBulananWA()}>
-                    Share Bulanan WA
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="ghost" className="btn-action-green w-full rounded-xl py-3 text-xs font-semibold sm:text-sm" onClick={() => void handleKirimRekapHarianGlobalWA()}>
+                      Share Shift WA
+                    </Button>
+                    <Button variant="ghost" className="btn-action-blue w-full rounded-xl py-3 text-xs font-semibold sm:text-sm" onClick={() => void handleKirimRekapBulananWA()}>
+                      Share Bulanan WA
+                    </Button>
+                  </div>
                 </div>
                 {!canOperateToday ? (
                   <p className="text-xs text-rose-600">Bukan jadwal shift Anda hari ini.</p>
@@ -766,7 +798,7 @@ export default function JimpitanPage() {
             disabled={jimpitanMode === 'PER_WARGA' && !canKirimRekap}
           >
             <span className="mr-2">📤</span>
-            Kirim Rekap WA
+            Share Harian WA
           </Button>
           {isAdminJimpitan ? (
             <Button
@@ -775,7 +807,7 @@ export default function JimpitanPage() {
               onClick={() => void handleKirimRekapBulananWA()}
             >
               <span className="mr-2">🗓️</span>
-              Kirim Rekap Bulanan WA
+              Share Bulanan WA
             </Button>
           ) : null}
           

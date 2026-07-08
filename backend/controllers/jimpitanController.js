@@ -677,6 +677,7 @@ export async function setPetugasShift(req, res) {
   const userId = String(req.body.user_id || '').trim();
   const shiftHariRaw = req.body.shift_hari;
   const shiftHari = shiftHariRaw === null || shiftHariRaw === '' ? null : Number(shiftHariRaw);
+  const alias = String(req.body.alias ?? req.body.jimpitan_alias ?? '').trim();
 
   if (!userId) {
     return res.status(400).json({ success: false, message: 'user_id tidak valid' });
@@ -694,7 +695,7 @@ export async function setPetugasShift(req, res) {
       }
     }
 
-    const row = await updatePetugasShiftHari({ userId, shiftHari });
+    const row = await updatePetugasShiftHari({ userId, shiftHari, alias });
     if (!row) {
       return res.status(404).json({ success: false, message: 'User petugas tidak ditemukan' });
     }

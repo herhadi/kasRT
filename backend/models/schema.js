@@ -1,5 +1,5 @@
 export const dbSchema = {
-  users: ['id', 'nama', 'no_hp', 'pin', 'jimpitan_saldo', 'telegram_chat_id', 'jimpitan_shift_hari'],
+  users: ['id', 'nama', 'no_hp', 'pin', 'jimpitan_saldo', 'telegram_chat_id', 'jimpitan_shift_hari', 'jimpitan_alias'],
   roles: ['id', 'name'],
   user_roles: ['user_id', 'role_id'],
   wallets: ['id', 'name'],

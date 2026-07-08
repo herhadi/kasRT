@@ -58,6 +58,7 @@ export default function OperasionalKeamananPage() {
   const [scheduleData, setScheduleData] = useState<JimpitanScheduleData | null>(null);
   const [selectedPetugasId, setSelectedPetugasId] = useState('');
   const [selectedShiftDay, setSelectedShiftDay] = useState('');
+  const [selectedAlias, setSelectedAlias] = useState('');
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [setShiftLoading, setSetShiftLoading] = useState(false);
 
@@ -125,6 +126,7 @@ export default function OperasionalKeamananPage() {
     if (!selectedPetugasId || !scheduleData?.petugas) return;
     const selected = scheduleData.petugas.find((petugas) => String(petugas.id) === String(selectedPetugasId));
     setSelectedShiftDay(selected?.jimpitan_shift_hari ? String(selected.jimpitan_shift_hari) : '');
+    setSelectedAlias(String(selected?.jimpitan_alias || selected?.jimpitan_label || selected?.nama?.split(/\s+/)[0] || '').trim());
   }, [selectedPetugasId, scheduleData]);
 
   useEffect(() => {
@@ -149,7 +151,7 @@ export default function OperasionalKeamananPage() {
       setSetShiftLoading(true); setError(''); setMessage('');
       await apiFetch('/jimpitan/set-petugas-shift', {
         method: 'POST',
-        body: JSON.stringify({ user_id: userId, shift_hari: shiftHari })
+        body: JSON.stringify({ user_id: userId, shift_hari: shiftHari, alias: selectedAlias.trim() })
       });
       await loadSchedule();
       setMessage('Jadwal petugas berhasil diperbarui.');
@@ -191,7 +193,7 @@ export default function OperasionalKeamananPage() {
       lines.push(`📍 *${String(day.label).toUpperCase()}*`);
       if (day.members.length > 0) {
         day.members.forEach((person, index) => {
-          lines.push(`   ${index + 1}. ${person.nama}`);
+          lines.push(`   ${index + 1}. ${person.jimpitan_label || person.jimpitan_alias || person.nama}`);
         });
       } else {
         lines.push('   _Belum ada petugas_');
@@ -277,7 +279,7 @@ export default function OperasionalKeamananPage() {
         {canManageShifts ? (
           <>
             <Card title="Atur Shift Petugas" subtitle="Pilih warga/petugas lalu tentukan hari shift, hasilnya langsung masuk tabel mingguan">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-4">
                 <label className="space-y-2 text-sm font-semibold">
                   <span>Pilih Warga</span>
                   <select
@@ -308,6 +310,12 @@ export default function OperasionalKeamananPage() {
                     ))}
                   </select>
                 </label>
+                <Input
+                  label="Alias WA"
+                  value={selectedAlias}
+                  onChange={(event) => setSelectedAlias(event.target.value)}
+                  placeholder="Contoh: Deni"
+                />
                 <div className="flex items-end">
                   <Button
                     className="w-full"
@@ -319,7 +327,7 @@ export default function OperasionalKeamananPage() {
                 </div>
               </div>
               <div className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-muted)]">
-                {scheduleLoading ? 'Memuat referensi jadwal...' : 'Pilih user lalu set hari. Jika ingin mengosongkan shift, pilih "Belum diatur".'}
+                {scheduleLoading ? 'Memuat referensi jadwal...' : 'Alias dipakai supaya rekap WA tidak terlalu panjang. Jika ingin mengosongkan shift, pilih "Belum diatur".'}
               </div>
             </Card>
 
@@ -353,7 +361,7 @@ export default function OperasionalKeamananPage() {
                       <tr key={day.id} className="bg-[var(--surface)]">
                         <td className="border-b border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{day.label}</td>
                         <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">
-                          {day.members.length > 0 ? day.members.map((person) => person.nama).join(', ') : 'Belum ada petugas'}
+                          {day.members.length > 0 ? day.members.map((person) => person.jimpitan_label || person.jimpitan_alias || person.nama).join(', ') : 'Belum ada petugas'}
                         </td>
                         <td className="border-b border-[var(--line)] px-4 py-3 text-right text-sm font-semibold text-[var(--accent)]">{day.members.length}</td>
                       </tr>

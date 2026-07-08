@@ -206,7 +206,8 @@ export async function ensureJimpitanScheduleColumns() {
 
   await pool.query(`
     ALTER TABLE users
-      ADD COLUMN IF NOT EXISTS jimpitan_shift_hari SMALLINT
+      ADD COLUMN IF NOT EXISTS jimpitan_shift_hari SMALLINT,
+      ADD COLUMN IF NOT EXISTS jimpitan_alias VARCHAR(40)
   `);
 }
 
@@ -1035,8 +1036,10 @@ export async function listJimpitanWeeklySchedule() {
 
   const petugasResult = await pool.query(
     `SELECT
-       u.id,
+       u.id::text AS id,
        u.nama,
+       u.jimpitan_alias,
+       COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama) AS jimpitan_label,
        u.jimpitan_shift_hari
      FROM users u
      WHERE ${ELIGIBLE_USERS_CLAUSE}
@@ -1065,8 +1068,10 @@ export async function listPetugasByShiftDay(shiftHari) {
   await ensureJimpitanScheduleColumns();
   const result = await pool.query(
      `SELECT
-       u.id,
+       u.id::text AS id,
        u.nama,
+       u.jimpitan_alias,
+       COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama) AS jimpitan_label,
        u.telegram_chat_id,
        u.no_hp
      FROM users u
@@ -1145,15 +1150,21 @@ export async function listLatestJimpitanReminderLogs(limit = 20) {
   return result.rows;
 }
 
-export async function updatePetugasShiftHari({ userId, shiftHari }) {
+export async function updatePetugasShiftHari({ userId, shiftHari, alias = null }) {
   await ensureJimpitanScheduleColumns();
 
   const result = await pool.query(
     `UPDATE users
-     SET jimpitan_shift_hari = $1
+     SET jimpitan_shift_hari = $1,
+         jimpitan_alias = NULLIF(TRIM($3), '')
      WHERE id = $2
-     RETURNING id, nama, jimpitan_shift_hari`,
-    [shiftHari, userId]
+     RETURNING
+       id::text AS id,
+       nama,
+       jimpitan_alias,
+       COALESCE(NULLIF(TRIM(jimpitan_alias), ''), SPLIT_PART(TRIM(nama), ' ', 1), nama) AS jimpitan_label,
+       jimpitan_shift_hari`,
+    [shiftHari, userId, alias]
   );
 
   return result.rows[0] || null;
@@ -1441,19 +1452,19 @@ export async function getJimpitanDailyRecapByMonth(month) {
        tanggal,
        petugas_nama,
        COALESCE(SUM(total_nominal), 0) AS total_nominal
-     FROM (
+       FROM (
        SELECT
          jd.tanggal::date AS tanggal,
-         u.nama AS petugas_nama,
+         COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama, '-') AS petugas_nama,
          COALESCE(SUM(jd.nominal), 0) AS total_nominal
        FROM jimpitan_details jd
        LEFT JOIN users u ON u.id::text = jd.petugas_id::text
        WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
-       GROUP BY jd.tanggal::date, u.nama
+       GROUP BY jd.tanggal::date, COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama, '-')
        UNION ALL
        SELECT
          jb.operational_date::date AS tanggal,
-         u.nama AS petugas_nama,
+         COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama, '-') AS petugas_nama,
          COALESCE(SUM(jb.total_amount), 0) AS total_nominal
        FROM jimpitan_batches jb
        LEFT JOIN users u ON u.id::text = jb.petugas_id::text
@@ -1461,7 +1472,7 @@ export async function getJimpitanDailyRecapByMonth(month) {
          AND jb.batch_mode = 'SHIFT_TOTAL'
          AND jb.status = 'APPROVED'
          AND COALESCE(jb.note, '') NOT LIKE '[ADMIN_MONTHLY]%'
-       GROUP BY jb.operational_date::date, u.nama
+       GROUP BY jb.operational_date::date, COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama, '-')
      ) x
      GROUP BY tanggal, petugas_nama
      ORDER BY tanggal ASC, petugas_nama ASC`,
