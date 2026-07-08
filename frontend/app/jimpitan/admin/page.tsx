@@ -58,6 +58,19 @@ type JimpitanV2Entry = {
   created_at: string;
   created_by_name?: string | null;
 };
+
+function buildDefaultJimpitanDailyNote(dateValue: string) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return 'setoran jimpitan';
+  const label = date.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  return `setoran jimpitan ${label}`;
+}
+
 export default function JimpitanAdminPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -71,7 +84,8 @@ export default function JimpitanAdminPage() {
   const [topupHistory, setTopupHistory] = useState<TopupHistoryItem[]>([]);
   const [v2Date, setV2Date] = useState(() => new Date().toISOString().slice(0, 10));
   const [v2Amount, setV2Amount] = useState('');
-  const [v2Note, setV2Note] = useState('');
+  const [v2Note, setV2Note] = useState(() => buildDefaultJimpitanDailyNote(new Date().toISOString().slice(0, 10)));
+  const [v2NoteEdited, setV2NoteEdited] = useState(false);
   const [v2Loading, setV2Loading] = useState(false);
   const [v2MonthlyPeriod, setV2MonthlyPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [v2MonthlyAmount, setV2MonthlyAmount] = useState('');
@@ -213,6 +227,12 @@ export default function JimpitanAdminPage() {
   }, [v2Entries.length]);
 
   useEffect(() => {
+    if (!v2NoteEdited) {
+      setV2Note(buildDefaultJimpitanDailyNote(v2Date));
+    }
+  }, [v2Date, v2NoteEdited]);
+
+  useEffect(() => {
     if (!loading && user && isAdminJimpitan && !settingMode) {
       void loadTopupHistory().catch((error) => {
         pushToast(error instanceof Error ? error.message : 'Gagal memuat riwayat top up', 'error');
@@ -289,7 +309,8 @@ export default function JimpitanAdminPage() {
         })
       });
       setV2Amount('');
-      setV2Note('');
+      setV2NoteEdited(false);
+      setV2Note(buildDefaultJimpitanDailyNote(v2Date));
       await loadV2Entries();
       pushToast(`Pemasukan Jimpitan V2 tanggal ${v2Date} berhasil dicatat.`, 'success');
     } catch (error) {
@@ -523,7 +544,7 @@ export default function JimpitanAdminPage() {
           </Card>
         ) : null}
 
-        {!settingMode && isAdminJimpitan ? (
+        {settingMode && isAdminJimpitan ? (
           <Card title="Input Jimpitan V2" subtitle="Untuk mode setoran total shift. Input admin langsung APPROVED karena uang sudah di tangan admin.">
             <div className="grid gap-4 xl:grid-cols-3">
               <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
@@ -556,7 +577,15 @@ export default function JimpitanAdminPage() {
                     onChange={(event) => setV2Amount(event.target.value)}
                     placeholder="Contoh: 150.000"
                   />
-                  <Input label="Catatan" value={v2Note} onChange={(event) => setV2Note(event.target.value)} placeholder="Opsional" />
+                  <Input
+                    label="Catatan"
+                    value={v2Note}
+                    onChange={(event) => {
+                      setV2NoteEdited(true);
+                      setV2Note(event.target.value);
+                    }}
+                    placeholder={buildDefaultJimpitanDailyNote(v2Date)}
+                  />
                   <Button className="w-full" onClick={handleInputV2Income} disabled={v2Loading}>
                     {v2Loading ? 'Menyimpan...' : 'Simpan Pemasukan Harian'}
                   </Button>
@@ -584,7 +613,7 @@ export default function JimpitanAdminPage() {
           </Card>
         ) : null}
 
-        {!settingMode && isAdminJimpitan ? (
+        {settingMode && isAdminJimpitan ? (
           <Card title="Riwayat Input Jimpitan V2" subtitle="Pemasukan manual dan setoran susulan kas lama yang langsung masuk Kas Jimpitan">
             <div className="overflow-x-auto">
               <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">

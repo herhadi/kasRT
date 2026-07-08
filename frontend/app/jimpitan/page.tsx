@@ -586,7 +586,7 @@ export default function JimpitanPage() {
       />
 
       {jimpitanMode === 'SHIFT_TOTAL' ? (
-        <div className="mx-auto mt-4 w-full max-w-3xl px-4 md:px-6">
+        <div className="mx-auto mt-4 w-full max-w-none px-4 md:px-6">
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Jimpitan V2</p>
             <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Setor Total Shift</h2>
