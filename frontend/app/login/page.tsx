@@ -8,6 +8,7 @@ import { LoginResponse } from '@/types';
 import { isValidPin, normalizePinInput } from '@/lib/helpers';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,14 +30,6 @@ export default function LoginPage() {
       router.replace('/dashboard');
     }
   }, [user, router]);
-
-  function toggleTheme() {
-    const root = document.documentElement;
-    const nextTheme = root.classList.contains('dark') ? 'light' : 'dark';
-    root.classList.remove('dark', 'light');
-    root.classList.add(nextTheme);
-    localStorage.setItem('kasrt_theme', nextTheme);
-  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -96,24 +89,7 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-      <button
-        type="button"
-        onClick={toggleTheme}
-        aria-label="Toggle dark dan light mode"
-        className="theme-toggle absolute right-4 top-4 z-20 inline-flex items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface-strong)] p-2.5 text-[var(--text-primary)] shadow-sm transition hover:scale-[1.02]"
-      >
-        <span className="theme-icon theme-icon-sun" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-            <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M12 2v2.2M12 19.8V22M4.93 4.93l1.55 1.55M17.52 17.52l1.55 1.55M2 12h2.2M19.8 12H22M4.93 19.07l1.55-1.55M17.52 6.48l1.55-1.55" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </span>
-        <span className="theme-icon theme-icon-moon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4c-.16.5-.25 1.02-.25 1.56a8.5 8.5 0 0 0 8.5 8.5c.53 0 1.05-.09 1.55-.26Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-          </svg>
-        </span>
-      </button>
+      <ThemeToggleButton className="absolute right-4 top-4 z-20" />
 
       <div className="glass-card relative w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/70">
         <div className="grid md:grid-cols-2">
@@ -164,7 +140,7 @@ export default function LoginPage() {
                 <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
                   <p className="font-semibold">Minta reset PIN ke admin</p>
                   <p className="mt-1 text-xs leading-5">
-                    Pastikan nomor HP di atas sudah benar. Admin Struktur akan mendapat permintaan reset, lalu PIN Anda diatur ke default sementara.
+                    Pastikan nomor HP di atas sudah benar. Admin akan mendapat permintaan reset, lalu PIN Anda diatur ke default (pin awal).
                   </p>
                   <Button type="button" variant="ghost" className="mt-3 w-full bg-white/70 text-amber-900" onClick={handleRequestReset} disabled={resetLoading}>
                     {resetLoading ? 'Mengirim...' : 'Kirim Permintaan Reset'}

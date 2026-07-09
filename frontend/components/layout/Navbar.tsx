@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { hasAnyRole } from '@/lib/auth';
 import { useAuth } from '@/lib/useAuth';
-import Button from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
+import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 
 function hasExactRole(user: { roles?: string[] } | null, roleName: string) {
   return (user?.roles || []).some((role) => String(role).trim().toLowerCase() === roleName.toLowerCase());
@@ -17,8 +17,10 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const navScrollerRef = useRef<HTMLDivElement | null>(null);
   const navScrollPosRef = useRef(0);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   
   // Disable browser scroll restoration
   useEffect(() => {
@@ -174,6 +176,24 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     });
   }, [pathname]);
 
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProfileMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [profileMenuOpen]);
+
   if (!user) return null;
 
   const menus = [
@@ -199,9 +219,49 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
                 <span>{pendingCount} menunggu persetujuan</span>
               </div>
             )}
-            <Button variant="danger" className="hidden md:inline-flex" onClick={() => { logout(); router.push('/login'); }}>
-              Keluar
-            </Button>
+            <ThemeToggleButton className="md:hidden" />
+            <div ref={profileMenuRef} className="relative hidden md:block">
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((prev) => !prev)}
+                aria-label="Menu profil"
+                aria-expanded={profileMenuOpen}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--surface-strong)]"
+              >
+                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                  <path d="M12 12.2a4.3 4.3 0 1 0 0-8.6 4.3 4.3 0 0 0 0 8.6Zm0 2.1c-4.1 0-7.5 2.2-7.5 4.9 0 .8.7 1.4 1.5 1.4h12c.8 0 1.5-.6 1.5-1.4 0-2.7-3.4-4.9-7.5-4.9Z" fill="currentColor" />
+                </svg>
+              </button>
+              {profileMenuOpen ? (
+                <div className="absolute right-0 top-12 z-[60] w-56 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-2 shadow-xl">
+                  <div className="border-b border-[var(--line)] px-3 py-2">
+                    <p className="truncate text-sm font-bold text-[var(--text-primary)]">{user.nama || 'Profil'}</p>
+                    <p className="text-xs text-[var(--text-muted)]">Pengaturan akun</p>
+                  </div>
+                  <ThemeToggleButton showLabel className="mt-2 w-full justify-start rounded-xl border-0 bg-transparent px-3 py-2 shadow-none hover:bg-[var(--surface-strong)] hover:scale-100" />
+                  <Link
+                    href="/akun"
+                    onClick={() => setProfileMenuOpen(false)}
+                    className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-strong)]"
+                  >
+                    <span aria-hidden="true">⚙️</span>
+                    <span>Pengaturan</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      logout();
+                      router.push('/login');
+                    }}
+                    className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                  >
+                    <span aria-hidden="true">🚪</span>
+                    <span>Keluar</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
