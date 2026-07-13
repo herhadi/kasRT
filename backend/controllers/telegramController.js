@@ -7,6 +7,12 @@ import {
   linkTelegramChatWithCode
 } from '../models/telegramModel.js';
 import { getTabunganBalanceByWarga } from '../models/tabunganModel.js';
+import {
+  getMyContributionDetail,
+  getWargaFinancialSnapshot,
+  isInternetMember,
+  isLingkunganMember
+} from '../models/reportModel.js';
 
 function normalizeBotUsername(username) {
   if (!username) return '';
@@ -49,11 +55,90 @@ function buildTelegramHelpMessage({ linkedUser = null } = {}) {
     `📚 <b>Bantuan Command KasRT</b>\n` +
     `Gunakan command berikut untuk cek informasi pribadi:\n\n` +
     `• <b>/cek_tab</b> — cek saldo Tabungan Pembangunan\n` +
-    `• <b>/cek_inet</b> — cek status iuran Internet <i>(segera)</i>\n` +
-    `• <b>/cek_ling</b> — cek status iuran Lingkungan <i>(segera)</i>\n` +
+    `• <b>/cek_inet</b> — cek kewajiban iuran Internet\n` +
+    `• <b>/cek_lingk</b> — cek kewajiban iuran Lingkungan\n` +
     `• <b>/cek_koperasi</b> — cek informasi Koperasi <i>(segera)</i>\n\n` +
     `Jika belum terhubung, aktifkan Telegram dari menu Profil/Akun di aplikasi KasRT.`
   );
+}
+
+function getCurrentMonthKey() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit'
+  }).formatToParts(now);
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${map.year}-${map.month}`;
+}
+
+function formatMonthKey(monthKey) {
+  const value = String(monthKey || '').trim();
+  const match = value.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return value || '-';
+  return new Date(Number(match[1]), Number(match[2]) - 1, 1).toLocaleDateString('id-ID', {
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
+async function sendUnlinkedTelegramMessage(chatId) {
+  await sendTelegramMessage(
+    chatId,
+    'Akun Telegram ini belum terhubung dengan KasRT.\n\nSilakan aktivasi dari menu Profil/Akun di aplikasi KasRT terlebih dahulu.'
+  );
+}
+
+async function sendRecurringObligationMessage({ chatId, user, moduleKey }) {
+  const isInternet = moduleKey === 'internet';
+  const label = isInternet ? 'Internet' : 'Lingkungan';
+  const memberActive = isInternet
+    ? await isInternetMember(user.id)
+    : await isLingkunganMember(user.id);
+
+  if (!memberActive) {
+    await sendTelegramMessage(
+      chatId,
+      `📌 <b>Kewajiban ${label}</b>\n` +
+      `Nama: <b>${user.nama}</b>\n` +
+      `Status anggota: <b>Nonaktif</b>\n\n` +
+      `Saat ini Anda belum tercatat sebagai anggota aktif ${label}. Jika ingin mengaktifkan, ajukan dari dashboard KasRT.`
+    );
+    return `${moduleKey}_non_member`;
+  }
+
+  const untilMonth = getCurrentMonthKey();
+  const [snapshot, detail] = await Promise.all([
+    getWargaFinancialSnapshot(user.id),
+    getMyContributionDetail({ userId: user.id, moduleKey, untilMonth })
+  ]);
+
+  const summary = detail.summary || {};
+  const arrearsTotal = Number((isInternet ? snapshot.internet_tunggakan_total : snapshot.lingkungan_tunggakan_total) || 0);
+  const arrearsMonths = Number((isInternet ? snapshot.internet_tunggakan_bulan_count : snapshot.lingkungan_tunggakan_bulan_count) || 0);
+  const unpaidRows = (detail.rows || []).filter((row) => String(row.status) === 'TUNGGAK');
+  const unpaidPreview = unpaidRows.slice(0, 6).map((row) => `• ${formatMonthKey(row.period)}: ${formatRupiah(row.arrears)}`);
+  const moreText = unpaidRows.length > 6 ? `\n• ...dan ${unpaidRows.length - 6} bulan lainnya` : '';
+  const statusText = arrearsTotal > 0
+    ? `Masih ada kewajiban <b>${formatRupiah(arrearsTotal)}</b>`
+    : 'Tidak ada tunggakan sampai bulan ini.';
+
+  await sendTelegramMessage(
+    chatId,
+    `📌 <b>Kewajiban ${label}</b>\n` +
+    `Nama: <b>${user.nama}</b>\n` +
+    `Status anggota: <b>Aktif</b>\n` +
+    `Periode: <b>${formatMonthKey(detail.start_month)} s.d. ${formatMonthKey(untilMonth)}</b>\n\n` +
+    `Target total: <b>${formatRupiah(summary.total_target || 0)}</b>\n` +
+    `Sudah dibayar: <b>${formatRupiah(summary.total_paid || 0)}</b>\n` +
+    `Sisa kewajiban: <b>${formatRupiah(arrearsTotal)}</b>\n` +
+    `Bulan belum lunas: <b>${arrearsMonths}</b>\n\n` +
+    `${statusText}` +
+    (unpaidPreview.length ? `\n\n<b>Rincian belum lunas:</b>\n${unpaidPreview.join('\n')}${moreText}` : '') +
+    `\n\nGunakan <b>/${isInternet ? 'cek_inet' : 'cek_lingk'}</b> kapan saja untuk mengecek data terbaru.`
+  );
+  return `${moduleKey}_obligation_sent`;
 }
 
 export async function telegramWebhook(req, res) {
@@ -94,10 +179,7 @@ export async function telegramWebhook(req, res) {
   if (command === '/cek_tab') {
     const userByChatId = await findUserByTelegramChatId(chatId);
     if (!userByChatId) {
-      await sendTelegramMessage(
-        chatId,
-        'Akun Telegram ini belum terhubung dengan KasRT.\n\nSilakan aktivasi dari menu Profil/Akun di aplikasi KasRT terlebih dahulu.'
-      );
+      await sendUnlinkedTelegramMessage(chatId);
       return res.json({ ok: true, status: 'tabungan_unlinked' });
     }
 
@@ -111,6 +193,21 @@ export async function telegramWebhook(req, res) {
         `Gunakan <b>/cek_tab</b> kapan saja untuk mengecek saldo terbaru.`
     );
     return res.json({ ok: true, status: 'tabungan_balance_sent' });
+  }
+
+  if (command === '/cek_inet' || command === '/cek_lingk') {
+    const userByChatId = await findUserByTelegramChatId(chatId);
+    if (!userByChatId) {
+      await sendUnlinkedTelegramMessage(chatId);
+      return res.json({ ok: true, status: 'recurring_unlinked' });
+    }
+
+    const status = await sendRecurringObligationMessage({
+      chatId,
+      user: userByChatId,
+      moduleKey: command === '/cek_inet' ? 'internet' : 'lingkungan'
+    });
+    return res.json({ ok: true, status });
   }
 
   if (command?.startsWith('/') && command !== '/start') {

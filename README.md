@@ -43,6 +43,17 @@ Telegram:
 - `TELEGRAM_WEBHOOK_SECRET`
 - `BACKEND_PUBLIC_URL`
 
+### Command Telegram
+
+User yang sudah menghubungkan akun Telegram dari menu Profil/Akun dapat memakai command berikut:
+
+- `/help` — menampilkan daftar command KasRT.
+- `/cek_tab` — cek saldo Tabungan Pembangunan.
+- `/cek_inet` — cek kewajiban iuran Internet.
+- `/cek_lingk` — cek kewajiban iuran Lingkungan.
+
+Command yang tidak tersedia akan diarahkan untuk memakai `/help`.
+
 Opsional performa:
 - `REDIS_URL` (contoh: `rediss://...`)
 
