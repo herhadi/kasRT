@@ -17,7 +17,7 @@ import { JimpitanListItem, JimpitanScheduleData } from '@/types';
 type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
 type JimpitanMode = 'PER_WARGA' | 'SHIFT_TOTAL';
 type V2InputTab = 'GLOBAL' | 'BY_NAME';
-type V2InputStatus = { has_global: boolean; has_by_name: boolean; input_mode: V2InputTab | null };
+type V2InputStatus = { has_global: boolean; has_by_name: boolean; has_my_global?: boolean; input_mode: V2InputTab | null };
 
 export default function JimpitanPage() {
   const { user, loading } = useAuth();
@@ -220,6 +220,8 @@ export default function JimpitanPage() {
 
   const canKirimRekap = recapData.sayaPernahInputHariIni;
   const canSetor = recapData.totalTunaiSaya > 0;
+  const canShareShiftWa = isAdminJimpitan || (jimpitanMode === 'SHIFT_TOTAL' && canOperateToday);
+  const canSetorShiftTotal = canOperateToday && !v2InputStatus.has_by_name && !v2InputStatus.has_my_global;
 
   const filteredItems = useMemo(() => {
     switch (filter) {
@@ -296,6 +298,10 @@ export default function JimpitanPage() {
       pushToast('Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.', 'warning');
       return;
     }
+    if (v2InputStatus.has_my_global) {
+      pushToast('Anda sudah mengajukan setoran shift untuk tanggal ini.', 'warning');
+      return;
+    }
     if (!window.confirm(`Ajukan setoran shift ${formatRupiah(amount)} ke Admin Jimpitan?`)) return;
 
     try {
@@ -316,8 +322,8 @@ export default function JimpitanPage() {
   }
 
   async function handleKirimRekapBulananWA() {
-    if (!isAdminJimpitan) {
-      pushToast('Fitur ini khusus Admin Jimpitan.', 'warning');
+    if (!canShareShiftWa) {
+      pushToast('Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.', 'warning');
       return;
     }
     const month = new Date().toISOString().slice(0, 7);
@@ -382,6 +388,10 @@ export default function JimpitanPage() {
   }
 
   async function handleKirimRekapHarianGlobalWA() {
+    if (!canShareShiftWa) {
+      pushToast('Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.', 'warning');
+      return;
+    }
     const month = operationalDateIso.slice(0, 7);
     try {
       const res = await apiFetch<{
@@ -430,8 +440,12 @@ export default function JimpitanPage() {
   }
 
   function handleKirimRekapWA() {
-    if (!canKirimRekap) {
+    if (jimpitanMode === 'PER_WARGA' && !canKirimRekap) {
       pushToast('Hanya petugas yang input pada hari operasional ini yang bisa kirim rekap WA.', 'warning');
+      return;
+    }
+    if (jimpitanMode === 'SHIFT_TOTAL' && !canShareShiftWa) {
+      pushToast('Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.', 'warning');
       return;
     }
 
@@ -738,16 +752,26 @@ export default function JimpitanPage() {
                 <div className="space-y-2">
                   <Button
                     onClick={handleSetorShiftTotal}
-                    disabled={shiftTotalLoading || !canOperateToday || v2InputStatus.has_by_name}
+                    disabled={shiftTotalLoading || !canSetorShiftTotal}
                     className="btn-action-blue w-full rounded-xl py-3 font-semibold disabled:opacity-50"
                   >
-                    {shiftTotalLoading ? 'Mengajukan...' : 'Ajukan Setoran Shift'}
+                    {shiftTotalLoading ? 'Mengajukan...' : v2InputStatus.has_my_global ? 'Setoran Shift Sudah Diajukan' : 'Ajukan Setoran Shift'}
                   </Button>
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="ghost" className="btn-action-green w-full rounded-xl py-3 text-xs font-semibold sm:text-sm" onClick={() => void handleKirimRekapHarianGlobalWA()}>
+                    <Button
+                      variant="ghost"
+                      className="btn-action-green w-full rounded-xl py-3 text-xs font-semibold disabled:opacity-50 sm:text-sm"
+                      onClick={() => void handleKirimRekapHarianGlobalWA()}
+                      disabled={!canShareShiftWa}
+                    >
                       Share Shift WA
                     </Button>
-                    <Button variant="ghost" className="btn-action-blue w-full rounded-xl py-3 text-xs font-semibold sm:text-sm" onClick={() => void handleKirimRekapBulananWA()}>
+                    <Button
+                      variant="ghost"
+                      className="btn-action-blue w-full rounded-xl py-3 text-xs font-semibold disabled:opacity-50 sm:text-sm"
+                      onClick={() => void handleKirimRekapBulananWA()}
+                      disabled={!canShareShiftWa}
+                    >
                       Share Bulanan WA
                     </Button>
                   </div>
@@ -800,7 +824,7 @@ export default function JimpitanPage() {
             <span className="mr-2">📤</span>
             Share Harian WA
           </Button>
-          {isAdminJimpitan ? (
+          {canShareShiftWa ? (
             <Button
               variant="ghost"
               className="btn-action-blue min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md"

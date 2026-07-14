@@ -493,7 +493,7 @@ export async function listJimpitan(req, res) {
 
     const rows = await listJimpitanByOperationalDate(operationalDate.toISOString().slice(0, 10));
     const v2InputStatus = effectiveMode.mode === 'SHIFT_TOTAL'
-      ? await getJimpitanV2InputStatus(operationalDate.toISOString().slice(0, 10))
+      ? await getJimpitanV2InputStatus(operationalDate.toISOString().slice(0, 10), req.user.user_id)
       : null;
     const data = rows.map((row) => {
       const saldo = Number(row.saldo || 0);
@@ -582,6 +582,14 @@ export async function getDailyRecapJimpitan(req, res) {
   const rawMonth = String(req.query.month || '').trim();
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth) ? rawMonth : new Date().toISOString().slice(0, 7);
   try {
+    const roles = (req.user.roles || []).map((role) => String(role).trim().toLowerCase());
+    const canReadAll = roles.includes('root') || roles.includes('admin jimpitan') || roles.includes('ketua');
+    if (!canReadAll) {
+      const access = await getShiftAccessContext(req.user.user_id, req.user.roles || [], getOperationalDate());
+      if (!access.canOperate) {
+        return res.status(403).json({ success: false, message: 'Bukan petugas shift hari ini.' });
+      }
+    }
     const data = await getJimpitanDailyRecapByMonth(month);
     return res.json({ success: true, month, data });
   } catch (error) {

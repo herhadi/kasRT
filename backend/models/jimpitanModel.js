@@ -395,7 +395,7 @@ export async function createJimpitanExternalDraft({ externalParticipantId, nomin
   );
 }
 
-export async function getJimpitanV2InputStatus(operationalDate) {
+export async function getJimpitanV2InputStatus(operationalDate, petugasId = null) {
   await ensureJimpitanScheduleColumns();
   const result = await pool.query(
     `SELECT
@@ -412,8 +412,18 @@ export async function getJimpitanV2InputStatus(operationalDate) {
          FROM jimpitan_details jd
          WHERE jd.tanggal = $1::date
            AND jd.source_mode = 'SHIFT_TOTAL'
-       ) AS has_by_name`,
-    [operationalDate]
+       ) AS has_by_name,
+       EXISTS (
+         SELECT 1
+         FROM jimpitan_batches jb
+         WHERE $2::text IS NOT NULL
+           AND jb.petugas_id::text = $2::text
+           AND jb.operational_date = $1::date
+           AND jb.batch_mode = 'SHIFT_TOTAL'
+           AND jb.status IN ('PENDING','APPROVED')
+           AND COALESCE(jb.note, '') NOT LIKE '[ADMIN_MONTHLY]%'
+       ) AS has_my_global`,
+    [operationalDate, petugasId]
   );
   const row = result.rows[0] || {};
   const hasGlobal = Boolean(row.has_global);
@@ -421,6 +431,7 @@ export async function getJimpitanV2InputStatus(operationalDate) {
   return {
     has_global: hasGlobal,
     has_by_name: hasByName,
+    has_my_global: Boolean(row.has_my_global),
     input_mode: hasGlobal ? 'GLOBAL' : hasByName ? 'BY_NAME' : null
   };
 }
