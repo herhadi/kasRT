@@ -404,7 +404,7 @@ export default function JimpitanPage() {
       const res = await apiFetch<{
         success: boolean;
         data: {
-          by_petugas: Array<{ tanggal: string; petugas_nama: string; total_nominal: number }>;
+          by_petugas: Array<{ tanggal: string; petugas_nama: string; total_nominal: number; total_pending?: number; has_pending?: boolean }>;
         };
       }>(`/jimpitan/daily-recap?month=${encodeURIComponent(month)}`);
       const fallbackFirstName = String(user?.nama || '').trim().split(/\s+/)[0] || '';
@@ -427,13 +427,18 @@ export default function JimpitanPage() {
         const label = date ? date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric' }) : String(row.tanggal || '-');
         const nominal = Number(row.total_nominal || 0);
         grandTotal += nominal;
-        return `• ${label}: ${formatRupiah(nominal)}`;
+        const pendingMark = row.has_pending || Number(row.total_pending || 0) > 0 ? ' *' : '';
+        return `• ${label}: ${formatRupiah(nominal)}${pendingMark}`;
       });
       let pesan = `📝 *REKAP SHIFT JIMPITAN ${monthLabel}*\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
       pesan += `${lines.join('\n')}\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
       pesan += `💰 *TOTAL: ${formatRupiah(grandTotal)}*\n`;
+      if (rows.some((row) => row.has_pending || Number(row.total_pending || 0) > 0)) {
+        pesan += `\\* belum approve admin\n`;
+      }
+      pesan += '━━━━━━━━━━━━━━━\n';
       pesan += `_Dilaporkan oleh : ${petugasLabel}_`;
 
       if (navigator.share) {

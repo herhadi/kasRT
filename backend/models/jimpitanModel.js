@@ -1467,12 +1467,14 @@ export async function getJimpitanDailyRecapByMonth(month) {
     `SELECT
        tanggal,
        petugas_nama,
-       COALESCE(SUM(total_nominal), 0) AS total_nominal
+       COALESCE(SUM(total_nominal), 0) AS total_nominal,
+       COALESCE(SUM(total_pending), 0) AS total_pending
        FROM (
        SELECT
          jd.tanggal::date AS tanggal,
          COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama, '-') AS petugas_nama,
-         COALESCE(SUM(jd.nominal), 0) AS total_nominal
+         COALESCE(SUM(jd.nominal), 0) AS total_nominal,
+         0 AS total_pending
        FROM jimpitan_details jd
        LEFT JOIN users u ON u.id::text = jd.petugas_id::text
        WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
@@ -1481,12 +1483,13 @@ export async function getJimpitanDailyRecapByMonth(month) {
        SELECT
          jb.operational_date::date AS tanggal,
          COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama, '-') AS petugas_nama,
-         COALESCE(SUM(jb.total_amount), 0) AS total_nominal
+         COALESCE(SUM(jb.total_amount), 0) AS total_nominal,
+         COALESCE(SUM(CASE WHEN jb.status <> 'APPROVED' THEN jb.total_amount ELSE 0 END), 0) AS total_pending
        FROM jimpitan_batches jb
        LEFT JOIN users u ON u.id::text = jb.petugas_id::text
        WHERE TO_CHAR(jb.operational_date::date, 'YYYY-MM') = $1
          AND jb.batch_mode = 'SHIFT_TOTAL'
-         AND jb.status = 'APPROVED'
+         AND jb.status IN ('PENDING','APPROVED')
          AND COALESCE(jb.note, '') NOT LIKE '[ADMIN_MONTHLY]%'
        GROUP BY jb.operational_date::date, COALESCE(NULLIF(TRIM(u.jimpitan_alias), ''), SPLIT_PART(TRIM(u.nama), ' ', 1), u.nama, '-')
      ) x
@@ -1505,7 +1508,9 @@ export async function getJimpitanDailyRecapByMonth(month) {
     by_petugas: byPetugas.rows.map((r) => ({
       tanggal: formatDateOnly(r.tanggal),
       petugas_nama: String(r.petugas_nama || '-'),
-      total_nominal: Number(r.total_nominal || 0)
+      total_nominal: Number(r.total_nominal || 0),
+      total_pending: Number(r.total_pending || 0),
+      has_pending: Number(r.total_pending || 0) > 0
     }))
   };
 }
