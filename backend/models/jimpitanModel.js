@@ -1425,6 +1425,11 @@ export async function getDashboardAdminJimpitan() {
 }
 
 export async function getJimpitanDailyRecapByMonth(month) {
+  const formatDateOnly = (value) => {
+    if (!value) return '';
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    return String(value).slice(0, 10);
+  };
   const result = await pool.query(
     `SELECT
        tanggal,
@@ -1492,13 +1497,13 @@ export async function getJimpitanDailyRecapByMonth(month) {
 
   return {
     days: result.rows.map((r) => ({
-      tanggal: String(r.tanggal),
+      tanggal: formatDateOnly(r.tanggal),
       total_nominal: Number(r.total_nominal || 0),
       total_rumah: Number(r.total_rumah || 0),
       total_petugas: Number(r.total_petugas || 0)
     })),
     by_petugas: byPetugas.rows.map((r) => ({
-      tanggal: String(r.tanggal),
+      tanggal: formatDateOnly(r.tanggal),
       petugas_nama: String(r.petugas_nama || '-'),
       total_nominal: Number(r.total_nominal || 0)
     }))

@@ -19,6 +19,13 @@ type JimpitanMode = 'PER_WARGA' | 'SHIFT_TOTAL';
 type V2InputTab = 'GLOBAL' | 'BY_NAME';
 type V2InputStatus = { has_global: boolean; has_by_name: boolean; has_my_global?: boolean; input_mode: V2InputTab | null };
 
+function parseRecapDate(value: string) {
+  const raw = String(value || '').trim();
+  const isoDate = raw.match(/\d{4}-\d{2}-\d{2}/)?.[0] || raw.slice(0, 10);
+  const date = new Date(`${isoDate}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export default function JimpitanPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -351,9 +358,9 @@ export default function JimpitanPage() {
       });
 
       const rawDayLines = rows.map((r) => {
-        const date = new Date(`${r.tanggal}T00:00:00`);
-        const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' });
-        const dayNum = date.getDate();
+        const date = parseRecapDate(r.tanggal);
+        const dayName = date ? date.toLocaleDateString('id-ID', { weekday: 'long' }) : '-';
+        const dayNum = date ? date.getDate() : String(r.tanggal || '-').slice(8, 10);
         const nominalOnly = Number(r.total_nominal || 0).toLocaleString('id-ID');
         return {
           left: `• ${dayName}, ${dayNum}`,
@@ -415,8 +422,8 @@ export default function JimpitanPage() {
       const monthLabel = new Date(Number(yearStr), Number(monthStr) - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
       let grandTotal = 0;
       const lines = rows.map((row) => {
-        const date = new Date(`${String(row.tanggal).slice(0, 10)}T00:00:00`);
-        const label = date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric' });
+        const date = parseRecapDate(row.tanggal);
+        const label = date ? date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric' }) : String(row.tanggal || '-');
         const nominal = Number(row.total_nominal || 0);
         grandTotal += nominal;
         return `• ${label}: ${formatRupiah(nominal)}`;
