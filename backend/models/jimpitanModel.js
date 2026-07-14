@@ -1435,13 +1435,15 @@ export async function getJimpitanDailyRecapByMonth(month) {
        tanggal,
        COALESCE(SUM(total_nominal), 0) AS total_nominal,
        COALESCE(SUM(total_rumah), 0) AS total_rumah,
-       COALESCE(SUM(total_petugas), 0) AS total_petugas
+       COALESCE(SUM(total_petugas), 0) AS total_petugas,
+       COALESCE(SUM(total_pending), 0) AS total_pending
      FROM (
        SELECT
          jd.tanggal::date AS tanggal,
          COALESCE(SUM(jd.nominal), 0) AS total_nominal,
          COUNT(DISTINCT jd.warga_id) AS total_rumah,
-         COUNT(DISTINCT jd.petugas_id) AS total_petugas
+         COUNT(DISTINCT jd.petugas_id) AS total_petugas,
+         0 AS total_pending
        FROM jimpitan_details jd
        WHERE TO_CHAR(jd.tanggal::date, 'YYYY-MM') = $1
        GROUP BY jd.tanggal::date
@@ -1450,11 +1452,12 @@ export async function getJimpitanDailyRecapByMonth(month) {
          jb.operational_date::date AS tanggal,
          COALESCE(SUM(jb.total_amount), 0) AS total_nominal,
          0 AS total_rumah,
-         COUNT(DISTINCT jb.petugas_id) AS total_petugas
+         COUNT(DISTINCT jb.petugas_id) AS total_petugas,
+         COALESCE(SUM(CASE WHEN jb.status <> 'APPROVED' THEN jb.total_amount ELSE 0 END), 0) AS total_pending
        FROM jimpitan_batches jb
        WHERE TO_CHAR(jb.operational_date::date, 'YYYY-MM') = $1
          AND jb.batch_mode = 'SHIFT_TOTAL'
-         AND jb.status = 'APPROVED'
+         AND jb.status IN ('PENDING','APPROVED')
          AND COALESCE(jb.note, '') NOT LIKE '[ADMIN_MONTHLY]%'
        GROUP BY jb.operational_date::date
      ) x
@@ -1503,7 +1506,9 @@ export async function getJimpitanDailyRecapByMonth(month) {
       tanggal: formatDateOnly(r.tanggal),
       total_nominal: Number(r.total_nominal || 0),
       total_rumah: Number(r.total_rumah || 0),
-      total_petugas: Number(r.total_petugas || 0)
+      total_petugas: Number(r.total_petugas || 0),
+      total_pending: Number(r.total_pending || 0),
+      has_pending: Number(r.total_pending || 0) > 0
     })),
     by_petugas: byPetugas.rows.map((r) => ({
       tanggal: formatDateOnly(r.tanggal),

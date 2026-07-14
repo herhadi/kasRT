@@ -339,7 +339,7 @@ export default function JimpitanPage() {
         success: boolean;
         month: string;
         data: {
-          days: Array<{ tanggal: string; total_nominal: number; total_rumah: number; total_petugas: number }>;
+          days: Array<{ tanggal: string; total_nominal: number; total_rumah: number; total_petugas: number; total_pending?: number; has_pending?: boolean }>;
         };
       }>(`/jimpitan/daily-recap?month=${encodeURIComponent(month)}`);
 
@@ -362,9 +362,10 @@ export default function JimpitanPage() {
         const dayName = date ? date.toLocaleDateString('id-ID', { weekday: 'long' }) : '-';
         const dayNum = date ? date.getDate() : String(r.tanggal || '-').slice(8, 10);
         const nominalOnly = Number(r.total_nominal || 0).toLocaleString('id-ID');
+        const pendingMark = r.has_pending || Number(r.total_pending || 0) > 0 ? ' *' : '';
         return {
           left: `• ${dayName}, ${dayNum}`,
-          right: nominalOnly
+          right: `${nominalOnly}${pendingMark}`
         };
       });
       const maxLeft = rawDayLines.reduce((max, line) => Math.max(max, line.left.length), 0);
@@ -435,9 +436,6 @@ export default function JimpitanPage() {
       pesan += `${lines.join('\n')}\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
       pesan += `💰 *TOTAL: ${formatRupiah(grandTotal)}*\n`;
-      if (rows.some((row) => row.has_pending || Number(row.total_pending || 0) > 0)) {
-        pesan += `\\* belum approve admin\n`;
-      }
       pesan += '━━━━━━━━━━━━━━━\n';
       pesan += `_Dilaporkan oleh : ${petugasLabel}_`;
 
