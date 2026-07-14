@@ -420,6 +420,7 @@ export default function JimpitanPage() {
       }
       const [yearStr, monthStr] = month.split('-');
       const monthLabel = new Date(Number(yearStr), Number(monthStr) - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+      const petugasLabel = currentPetugasLabel || fallbackFirstName || user?.nama || 'Petugas';
       let grandTotal = 0;
       const lines = rows.map((row) => {
         const date = parseRecapDate(row.tanggal);
@@ -429,11 +430,11 @@ export default function JimpitanPage() {
         return `• ${label}: ${formatRupiah(nominal)}`;
       });
       let pesan = `📝 *REKAP SHIFT JIMPITAN ${monthLabel}*\n`;
-      pesan += `👤 *${currentPetugasLabel || fallbackFirstName || user?.nama || 'Petugas'}*\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
       pesan += `${lines.join('\n')}\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
-      pesan += `💰 *TOTAL: ${formatRupiah(grandTotal)}*`;
+      pesan += `💰 *TOTAL: ${formatRupiah(grandTotal)}*\n`;
+      pesan += `_Dilaporkan oleh : ${petugasLabel}_`;
 
       if (navigator.share) {
         navigator.share({ title: `Rekap Shift Jimpitan ${monthLabel}`, text: pesan }).catch(() => {});
