@@ -362,15 +362,18 @@ export default function JimpitanPage() {
         const dayName = date ? date.toLocaleDateString('id-ID', { weekday: 'long' }) : '-';
         const dayNum = date ? date.getDate() : String(r.tanggal || '-').slice(8, 10);
         const nominalOnly = Number(r.total_nominal || 0).toLocaleString('id-ID');
-        const pendingMark = r.has_pending || Number(r.total_pending || 0) > 0 ? ' *' : '';
         return {
           left: `• ${dayName}, ${dayNum}`,
-          right: `${nominalOnly}${pendingMark}`
+          right: nominalOnly,
+          hasPending: Boolean(r.has_pending || Number(r.total_pending || 0) > 0)
         };
       });
       const maxLeft = rawDayLines.reduce((max, line) => Math.max(max, line.left.length), 0);
       const maxRight = rawDayLines.reduce((max, line) => Math.max(max, line.right.length), 0);
-      const dayLines = rawDayLines.map((line) => `${line.left.padEnd(maxLeft, ' ')} : Rp ${line.right.padStart(maxRight, ' ')}`);
+      const dayLines = rawDayLines.map((line) => {
+        const codeLine = `${line.left.padEnd(maxLeft, ' ')} : Rp ${line.right.padStart(maxRight, ' ')}`;
+        return `\`${codeLine}\`${line.hasPending ? ' *' : ''}`;
+      });
 
       let pesan = `🗓️ *REKAP JIMPITAN ${monthLabel}*\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
@@ -378,9 +381,7 @@ export default function JimpitanPage() {
       rows.forEach((r) => {
         grandTotal += Number(r.total_nominal || 0);
       });
-      pesan += '```\n';
       pesan += `${dayLines.join('\n')}\n`;
-      pesan += '```\n';
       pesan += '━━━━━━━━━━━━━━━\n';
       pesan += `💰 *TOTAL BULANAN: ${formatRupiah(grandTotal)}*`;
 
@@ -423,13 +424,22 @@ export default function JimpitanPage() {
       const monthLabel = new Date(Number(yearStr), Number(monthStr) - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
       const petugasLabel = currentPetugasLabel || fallbackFirstName || user?.nama || 'Petugas';
       let grandTotal = 0;
-      const lines = rows.map((row) => {
+      const rawShiftLines = rows.map((row) => {
         const date = parseRecapDate(row.tanggal);
         const label = date ? date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric' }) : String(row.tanggal || '-');
         const nominal = Number(row.total_nominal || 0);
         grandTotal += nominal;
-        const pendingMark = row.has_pending || Number(row.total_pending || 0) > 0 ? ' *' : '';
-        return `• ${label}: ${formatRupiah(nominal)}${pendingMark}`;
+        return {
+          left: `• ${label}`,
+          right: nominal.toLocaleString('id-ID'),
+          hasPending: Boolean(row.has_pending || Number(row.total_pending || 0) > 0)
+        };
+      });
+      const maxShiftLeft = rawShiftLines.reduce((max, line) => Math.max(max, line.left.length), 0);
+      const maxShiftRight = rawShiftLines.reduce((max, line) => Math.max(max, line.right.length), 0);
+      const lines = rawShiftLines.map((line) => {
+        const codeLine = `${line.left.padEnd(maxShiftLeft, ' ')} : Rp ${line.right.padStart(maxShiftRight, ' ')}`;
+        return `\`${codeLine}\`${line.hasPending ? ' *' : ''}`;
       });
       let pesan = `📝 *REKAP SHIFT JIMPITAN ${monthLabel}*\n`;
       pesan += '━━━━━━━━━━━━━━━\n';
