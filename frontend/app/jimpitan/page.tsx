@@ -328,6 +328,18 @@ export default function JimpitanPage() {
     }
   }
 
+  function getSetorShiftBlockedMessage() {
+    if (!canOperateToday) return 'Bukan jadwal shift Anda hari ini.';
+    if (v2InputStatus.has_by_name) return 'Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.';
+    if (v2InputStatus.has_my_global) return 'Anda sudah mengajukan setoran shift untuk tanggal ini.';
+    return '';
+  }
+
+  function warnSetorShiftBlocked() {
+    const message = getSetorShiftBlockedMessage();
+    if (message) pushToast(message, 'warning');
+  }
+
   async function handleKirimRekapBulananWA() {
     if (!canShareShiftWa) {
       pushToast('Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.', 'warning');
@@ -763,12 +775,18 @@ export default function JimpitanPage() {
                   onChange={(event) => setShiftTotalInput(formatRupiahInput(event.target.value))}
                   placeholder="Rp 0"
                   inputMode="numeric"
+                  readOnly={!canSetorShiftTotal}
+                  onClick={warnSetorShiftBlocked}
+                  onFocus={warnSetorShiftBlocked}
                 />
                 <Input
                   label="Catatan"
                   value={shiftTotalNote}
                   onChange={(event) => setShiftTotalNote(event.target.value)}
                   placeholder="Opsional, contoh: setoran shift Senin"
+                  readOnly={!canSetorShiftTotal}
+                  onClick={warnSetorShiftBlocked}
+                  onFocus={warnSetorShiftBlocked}
                 />
                 <div className="space-y-2">
                   <Button
