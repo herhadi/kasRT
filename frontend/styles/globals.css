@@ -138,9 +138,9 @@ body {
 .mobile-bottom-nav-inner {
   pointer-events: auto;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.35rem;
-  max-width: 28rem;
+  max-width: 32rem;
   margin: 0 auto;
   border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
   border-radius: 1.65rem;
@@ -241,6 +241,7 @@ body {
 
 .mobile-bottom-nav-tone-blue { --nav-tone: #2563eb; }
 .mobile-bottom-nav-tone-emerald { --nav-tone: #059669; }
+.mobile-bottom-nav-tone-cyan { --nav-tone: #0891b2; }
 .mobile-bottom-nav-tone-amber { --nav-tone: #d97706; }
 .mobile-bottom-nav-tone-violet { --nav-tone: #7c3aed; }
 

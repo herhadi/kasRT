@@ -8,7 +8,7 @@ import { hasAnyRole } from '@/lib/auth';
 import { useAuth } from '@/lib/useAuth';
 import type { DashboardWargaData, MembershipRequestStatus } from '@/types';
 
-type NavIconName = 'home' | 'ops' | 'inbox' | 'profile';
+type NavIconName = 'home' | 'ops' | 'guide' | 'inbox' | 'profile';
 
 function hasExactRole(user: { roles?: string[] } | null, roleName: string) {
   return (user?.roles || []).some((role) => String(role).trim().toLowerCase() === roleName.toLowerCase());
@@ -23,6 +23,9 @@ function NavIcon({ name }: { name: NavIconName }) {
   }
   if (name === 'inbox') {
     return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.7 5h12.6A2.7 2.7 0 0 1 21 7.7v8.6a2.7 2.7 0 0 1-2.7 2.7H5.7A2.7 2.7 0 0 1 3 16.3V7.7A2.7 2.7 0 0 1 5.7 5Zm.5 3.2 5.3 4.1a.8.8 0 0 0 1 0l5.3-4.1-.9-1.2L12 10.8 7.1 7l-.9 1.2Z" /></svg>;
+  }
+  if (name === 'guide') {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.2 4.2h8.1A3.7 3.7 0 0 1 18 7.9v11.9H7a2.8 2.8 0 0 1-2.8-2.8V6.2a2 2 0 0 1 2-2Zm.4 12.2v.6c0 .5.4.9.9.9h8.1v-1.5H7.5c-.3 0-.6 0-.9.1Zm1-8.7h6.8v1.6H7.6V7.7Zm0 3h5.4v1.6H7.6v-1.6Z" /></svg>;
   }
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12.2a4.3 4.3 0 1 0 0-8.6 4.3 4.3 0 0 0 0 8.6Zm0 2.1c-4.1 0-7.5 2.2-7.5 4.9 0 .8.7 1.4 1.5 1.4h12c.8 0 1.5-.6 1.5-1.4 0-2.7-3.4-4.9-7.5-4.9Z" /></svg>;
 }
@@ -131,6 +134,7 @@ export default function BottomNav() {
         tone: 'emerald',
         active: canSeeOps ? pathname?.startsWith('/operasional') : pathname?.startsWith('/jimpitan')
       },
+      { href: '/panduan', label: 'Panduan', icon: 'guide' as const, tone: 'cyan', active: pathname?.startsWith('/panduan') },
       { href: '/approval', label: 'Inbox', icon: 'inbox' as const, tone: 'amber', active: pathname?.startsWith('/approval'), badge: pendingCount },
       { href: '/akun', label: 'Profil', icon: 'profile' as const, tone: 'violet', active: pathname === '/akun' || pathname?.startsWith('/akun/') }
     ],

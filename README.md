@@ -11,6 +11,12 @@ KasRT adalah aplikasi kas RT berbasis:
 - Integrasi Telegram untuk notifikasi approval dan reminder jimpitan.
 - Cache Redis opsional untuk endpoint baca berat (fallback aman jika Redis tidak tersedia).
 
+## Dokumentasi
+
+- Manual cetak/panduan pengguna: `docs/MANUAL_GUIDE.md`
+- Changelog: `docs/CHANGELOG.md`
+- Deploy VPS: `infra/vps/README.md`
+
 ## Menjalankan Lokal
 
 1. Backend
