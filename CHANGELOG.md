@@ -9,6 +9,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Rekap Share WA Jimpitan V2 menampilkan setoran `PENDING` dengan tanda bintang pada nominal.
 - Format daftar Rekap Shift Jimpitan dan Rekap Jimpitan Bulanan dibuat rapi dengan backtick per baris.
 - Footer Share Shift WA Jimpitan V2 menampilkan petugas pelapor dalam teks miring.
+- Panduan modul dipusatkan di halaman `/panduan` dengan anchor per modul dan pencarian sederhana.
 
 ## 2026-07-13
 

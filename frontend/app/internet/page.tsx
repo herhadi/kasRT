@@ -457,7 +457,7 @@ export default function OperasionalInternetPage() {
             <div className="mt-4 flex items-center justify-between gap-2">
               <Link href="/operasional/internet/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
               <div className="flex gap-2">
-                <Link href="/operasional/internet/panduan" className="btn-action-blue link-action px-3 py-1.5 text-xs">📖 Panduan</Link>
+                <Link href="/panduan#internet" className="btn-action-blue link-action px-3 py-1.5 text-xs">📖 Panduan</Link>
                 <Link href="/operasional/internet/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
               </div>
             </div>

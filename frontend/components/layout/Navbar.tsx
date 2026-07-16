@@ -200,6 +200,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: jimpitanMenuHref, label: 'Jimpitan', icon: '💰' },
     { ...opsMenu, opsOnly: true },
+    { href: '/panduan', label: 'Panduan', icon: '📖' },
     { href: approvalMenuHref, label: 'Inbox', icon: '✉️', gated: true },
     { href: '/management', label: 'Manajemen', icon: '🛠️', managerOnly: true }
   ];
@@ -279,6 +280,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
                   pathname === menu.href ||
                   (menu.href.startsWith('/approval') && pathname?.startsWith('/approval')) ||
                   (menu.href === '/management' && pathname?.startsWith('/management')) ||
+                  (menu.href === '/panduan' && pathname?.startsWith('/panduan')) ||
                   (isOpsMenu && pathname?.startsWith('/operasional'));
                 return (
                   <Link

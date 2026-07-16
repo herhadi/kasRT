@@ -1,3 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-export { default } from '../../../lingkungan/page';
+export default function LingkunganPanduanRedirectPage() {
+  redirect('/panduan#lingkungan');
+}

@@ -1,13 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import Navbar from '@/components/layout/Navbar';
-import TabunganPembangunanGuide from '@/components/tabungan/TabunganPembangunanGuide';
-
-export default function TabunganPembangunanGuidePage() {
-  return (
-    <>
-      <Navbar sticky={false} />
-      <TabunganPembangunanGuide />
-    </>
-  );
+export default function TabunganPanduanRedirectPage() {
+  redirect('/panduan#tabungan');
 }

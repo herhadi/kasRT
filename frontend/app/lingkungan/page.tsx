@@ -369,7 +369,7 @@ export default function LingkunganPage() {
           <div className="mt-4 flex items-center justify-between gap-2">
             <Link href="/operasional/lingkungan/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
             <div className="flex gap-2">
-              <Link href="/operasional/lingkungan/panduan" className="btn-action-blue link-action px-3 py-1.5 text-xs">📖 Panduan</Link>
+              <Link href="/panduan#lingkungan" className="btn-action-blue link-action px-3 py-1.5 text-xs">📖 Panduan</Link>
               <Link href="/operasional/lingkungan/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
             </div>
           </div>
