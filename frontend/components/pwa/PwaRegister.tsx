@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/useAuth';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -11,8 +13,11 @@ const PWA_INSTALL_DISMISSED_AT_KEY = 'kasrt_pwa_install_dismissed_at';
 const PWA_INSTALL_DISMISS_DELAY_MS = 60 * 60 * 1000;
 
 export default function PwaRegister() {
+  const pathname = usePathname();
+  const { user } = useAuth();
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  const hasBottomNav = Boolean(user && pathname !== '/login' && pathname !== '/akun/ganti-pin' && !user.must_change_pin);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -71,7 +76,7 @@ export default function PwaRegister() {
   if (!installPrompt || isStandalone) return null;
 
   return (
-    <div className="pwa-install-banner fixed inset-x-3 z-[95] mx-auto max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 shadow-xl backdrop-blur">
+    <div className={`pwa-install-banner fixed inset-x-3 z-[95] mx-auto max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 shadow-xl backdrop-blur ${hasBottomNav ? 'pwa-install-banner-with-bottom-nav' : ''}`}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-[var(--text-primary)]">Install KasRT02</p>

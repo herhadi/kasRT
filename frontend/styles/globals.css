@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+/* =========================================================
+   THEME TOKENS — START
+   Variabel warna, font, surface, tombol, dan dark mode global.
+   ========================================================= */
 :root {
   color-scheme: light;
   --sticky-nav-offset: 133px;
@@ -104,7 +108,14 @@ html.dark {
   --btn-danger-bg: #ef4444;
   --btn-danger-bg-hover: #dc2626;
 }
+/* =========================================================
+   THEME TOKENS — END
+   ========================================================= */
 
+/* =========================================================
+   BASE LAYOUT — START
+   Reset ringan, background aplikasi, dan padding mobile global.
+   ========================================================= */
 * {
   box-sizing: border-box;
 }
@@ -124,7 +135,14 @@ body {
     padding-bottom: calc(6.75rem + env(safe-area-inset-bottom)) !important;
   }
 }
+/* =========================================================
+   BASE LAYOUT — END
+   ========================================================= */
 
+/* =========================================================
+   BOTTOM NAVBAR MOBILE — START
+   Komponen: frontend/components/layout/BottomNav.tsx
+   ========================================================= */
 .mobile-bottom-nav {
   position: fixed;
   left: 0;
@@ -148,41 +166,6 @@ body {
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
   backdrop-filter: blur(18px);
   padding: 0.42rem;
-}
-
-.pwa-install-banner {
-  bottom: 0.75rem;
-}
-
-.dashboard-detail-modal {
-  align-items: center;
-}
-
-.dashboard-detail-modal > div {
-  max-height: calc(88vh - env(safe-area-inset-bottom));
-}
-
-.dashboard-detail-modal-body {
-  max-height: calc(88vh - 5rem - env(safe-area-inset-bottom));
-}
-
-@media (max-width: 767px) {
-  .pwa-install-banner {
-    bottom: calc(5.85rem + env(safe-area-inset-bottom));
-  }
-
-  .dashboard-detail-modal {
-    padding-top: calc(4.25rem + env(safe-area-inset-top));
-    padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
-  }
-
-  .dashboard-detail-modal > div {
-    max-height: calc(100vh - 10.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  }
-
-  .dashboard-detail-modal-body {
-    max-height: calc(100vh - 15.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  }
 }
 
 .mobile-bottom-nav-item {
@@ -286,7 +269,56 @@ html.dark .mobile-bottom-nav-item-active,
   font-weight: 900;
   line-height: 1;
 }
+/* =========================================================
+   BOTTOM NAVBAR MOBILE — END
+   ========================================================= */
 
+/* =========================================================
+   PWA BANNER & DASHBOARD DETAIL MODAL — START
+   Penyesuaian posisi agar tidak tertutup bottom navbar mobile.
+   ========================================================= */
+.pwa-install-banner {
+  bottom: 0.75rem;
+}
+
+.dashboard-detail-modal {
+  align-items: center;
+}
+
+.dashboard-detail-modal > div {
+  max-height: calc(88vh - env(safe-area-inset-bottom));
+}
+
+.dashboard-detail-modal-body {
+  max-height: calc(88vh - 5rem - env(safe-area-inset-bottom));
+}
+
+@media (max-width: 767px) {
+  .pwa-install-banner-with-bottom-nav {
+    bottom: calc(5.85rem + env(safe-area-inset-bottom));
+  }
+
+  .dashboard-detail-modal {
+    padding-top: calc(4.25rem + env(safe-area-inset-top));
+    padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
+  }
+
+  .dashboard-detail-modal > div {
+    max-height: calc(100vh - 10.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  .dashboard-detail-modal-body {
+    max-height: calc(100vh - 15.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}
+/* =========================================================
+   PWA BANNER & DASHBOARD DETAIL MODAL — END
+   ========================================================= */
+
+/* =========================================================
+   CARD & SMALL-SCREEN RESPONSIVE TWEAKS — START
+   Glass card, spacing, grid, dan table untuk layar kecil.
+   ========================================================= */
 .glass-card {
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   background: linear-gradient(160deg, var(--surface-strong), var(--surface));
@@ -332,12 +364,25 @@ html.dark .mobile-bottom-nav-item-active,
     font-size: 0.8125rem;
   }
 }
+/* =========================================================
+   CARD & SMALL-SCREEN RESPONSIVE TWEAKS — END
+   ========================================================= */
 
+/* =========================================================
+   TYPOGRAPHY HELPERS — START
+   ========================================================= */
 .metric-value {
   font-family: var(--font-space-grotesk), sans-serif;
   letter-spacing: -0.02em;
 }
+/* =========================================================
+   TYPOGRAPHY HELPERS — END
+   ========================================================= */
 
+/* =========================================================
+   THEME TOGGLE ICON — START
+   Dipakai oleh frontend/components/theme/ThemeToggleButton.tsx.
+   ========================================================= */
 .theme-icon {
   display: inline-flex;
   align-items: center;
@@ -355,7 +400,14 @@ html.dark .theme-icon-sun {
 html.dark .theme-icon-moon {
   display: inline-flex;
 }
+/* =========================================================
+   THEME TOGGLE ICON — END
+   ========================================================= */
 
+/* =========================================================
+   WIGGLE / DRAG FEEDBACK — START
+   Dipakai untuk card yang bisa diurutkan/drag.
+   ========================================================= */
 @keyframes kasrt-wiggle {
   0% { transform: rotate(0deg); }
   25% { transform: rotate(0.8deg); }
@@ -367,8 +419,14 @@ html.dark .theme-icon-moon {
 .wiggle-card {
   animation: kasrt-wiggle 220ms ease-in-out infinite;
 }
+/* =========================================================
+   WIGGLE / DRAG FEEDBACK — END
+   ========================================================= */
 
-/* Reusable action button styles (for non-Button components like Link) */
+/* =========================================================
+   ACTION BUTTONS — START
+   Reusable action button styles untuk Button/Link lintas modul.
+   ========================================================= */
 .btn-action-blue {
   border: 2px solid #93c5fd;
   background: #dbeafe;
@@ -425,8 +483,14 @@ html.dark .btn-action-green:hover {
   font-size: 0.875rem;
   font-weight: 600;
 }
+/* =========================================================
+   ACTION BUTTONS — END
+   ========================================================= */
 
-/* Reusable surface tone for inner rows/cards across pages */
+/* =========================================================
+   SURFACE & PERIOD PICKER — START
+   Surface muted dan date/month picker compact lintas modul.
+   ========================================================= */
 .surface-muted {
   background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
 }
@@ -456,7 +520,14 @@ html.dark .period-picker-compact {
   background: #082f49;
   color: #e0f2fe;
 }
+/* =========================================================
+   SURFACE & PERIOD PICKER — END
+   ========================================================= */
 
+/* =========================================================
+   OPERATIONAL STICKY SUMMARY — START
+   Card ringkasan sticky trio modul dan modul operasional lain.
+   ========================================================= */
 .ops-sticky-summary {
   position: sticky;
   top: 0;
@@ -517,7 +588,14 @@ html.dark .ops-sticky-item {
     line-height: 1.25rem;
   }
 }
+/* =========================================================
+   OPERATIONAL STICKY SUMMARY — END
+   ========================================================= */
 
+/* =========================================================
+   CONTRIBUTION STATUS CARDS — START
+   Warna status card iuran/setoran.
+   ========================================================= */
 .card-status-paid {
   border-color: color-mix(in srgb, #10b981 55%, var(--line));
   background: color-mix(in srgb, #10b981 10%, var(--surface-strong));
@@ -532,8 +610,14 @@ html.dark .ops-sticky-item {
   border-color: color-mix(in srgb, #64748b 45%, var(--line));
   background: color-mix(in srgb, #64748b 11%, var(--surface-strong));
 }
+/* =========================================================
+   CONTRIBUTION STATUS CARDS — END
+   ========================================================= */
 
-/* Global quick-choice buttons (mobile-first) */
+/* =========================================================
+   QUICK CHOICE BUTTONS — START
+   Pilihan nominal cepat, mobile-first.
+   ========================================================= */
 .quick-choice-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -563,8 +647,14 @@ html.dark .ops-sticky-item {
   background: color-mix(in srgb, var(--accent) 11%, var(--surface-strong));
   color: var(--accent);
 }
+/* =========================================================
+   QUICK CHOICE BUTTONS — END
+   ========================================================= */
 
-/* Segmented toggle (for model/range selectors) */
+/* =========================================================
+   SEGMENTED TOGGLE — START
+   Toggle mode/range/tab sederhana lintas halaman.
+   ========================================================= */
 .segmented-toggle {
   display: inline-flex;
   width: 100%;
@@ -606,3 +696,6 @@ html.dark .segmented-toggle-btn-inactive {
 html.dark .segmented-toggle-btn-inactive:hover {
   background: #334155;
 }
+/* =========================================================
+   SEGMENTED TOGGLE — END
+   ========================================================= */

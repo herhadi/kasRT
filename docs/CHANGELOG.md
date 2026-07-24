@@ -2,6 +2,14 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-07-24
+
+### Diubah
+
+- Posisi banner install PWA sekarang menyesuaikan keberadaan bottom navbar mobile.
+- Saat bottom navbar tidak tampil, misalnya halaman login/ganti PIN, banner PWA kembali berada di bawah seperti footer.
+- Saat bottom navbar tampil, banner PWA dinaikkan agar tidak tertutup navigasi mobile.
+
 ## 2026-07-15
 
 ### Diubah
