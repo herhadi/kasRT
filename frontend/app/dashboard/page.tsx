@@ -410,6 +410,8 @@ export default function DashboardPage() {
                         <span className="rounded-full bg-white/70 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800 dark:bg-amber-400/10 dark:text-amber-100">
                           {bill.display_status === 'TERLAMBAT' ? 'Terlambat' :
                            bill.display_status === 'LUNAS' ? 'Lunas' :
+                           bill.display_status === 'MENUNGGU_APPROVAL' ? 'Menunggu Approval' :
+                           bill.display_status === 'TERKUMPUL' ? 'Terkumpul di PIC' :
                            bill.display_status === 'SEBAGIAN' ? 'Sebagian' :
                            bill.display_status === 'BELUM_MULAI' ? 'Belum Mulai' : 'Belum'}
                         </span>

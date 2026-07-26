@@ -10,6 +10,7 @@ import {
   listSpecialBillOptions,
   listSpecialBills,
   listSpecialBillsForPic,
+  listSpecialBillPaymentHistory,
   listSpecialBillTargets,
   listTelegramTargetsForBill,
   listVisibleSpecialBillsForWarga,
@@ -143,10 +144,18 @@ export async function recordSpecialBillPaymentHandler(req, res) {
   if (!wargaId) return res.status(400).json({ success: false, message: 'Warga wajib dipilih' });
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Nominal pembayaran tidak valid' });
   await ensureBillOperator(req, billId);
-  const row = await recordSpecialBillPayment({ billId, wargaId, amount });
+  const row = await recordSpecialBillPayment({ billId, wargaId, amount, collectedBy: String(req.user?.user_id || '') });
   if (!row) return res.status(404).json({ success: false, message: 'Target warga aktif tidak ditemukan' });
   await delCacheByPrefix('dashboard:warga:');
   return res.json({ success: true, data: row, message: 'Pembayaran dicatat sebagai terkumpul di PIC.' });
+}
+
+export async function getSpecialBillPaymentHistory(req, res) {
+  const billId = String(req.params.id || '').trim();
+  if (!billId) return res.status(400).json({ success: false, message: 'ID tagihan tidak valid' });
+  await ensureBillOperator(req, billId);
+  const rows = await listSpecialBillPaymentHistory(billId);
+  return res.json({ success: true, data: rows });
 }
 
 export async function submitSpecialBillBatchHandler(req, res) {

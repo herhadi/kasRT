@@ -7,6 +7,7 @@ import {
   getMySpecialBills,
   getMyPicSpecialBills,
   getSpecialBillOptions,
+  getSpecialBillPaymentHistory,
   getSpecialBills,
   getSpecialBillTargets,
   hideSpecialBillHandler,
@@ -24,11 +25,12 @@ router.get('/pic', asyncHandler(getMyPicSpecialBills));
 router.get('/options', allowRoles('Bendahara', 'root'), asyncHandler(getSpecialBillOptions));
 router.get('/', allowRoles('Bendahara', 'root'), asyncHandler(getSpecialBills));
 router.post('/', allowRoles('Bendahara', 'root'), asyncHandler(createSpecialBillHandler));
+router.post('/approve-batch', allowRoles('Bendahara', 'root'), asyncHandler(approveSpecialBillBatchHandler));
 router.get('/:id/targets', asyncHandler(getSpecialBillTargets));
+router.get('/:id/payments', asyncHandler(getSpecialBillPaymentHistory));
 router.post('/:id/targets/set-active', allowRoles('Bendahara', 'root'), asyncHandler(setSpecialBillTargetActiveHandler));
 router.post('/:id/payment', asyncHandler(recordSpecialBillPaymentHandler));
 router.post('/:id/submit-batch', asyncHandler(submitSpecialBillBatchHandler));
-router.post('/approve-batch', allowRoles('Bendahara', 'root'), asyncHandler(approveSpecialBillBatchHandler));
 router.post('/:id/hide', allowRoles('Bendahara', 'root'), asyncHandler(hideSpecialBillHandler));
 
 export default router;

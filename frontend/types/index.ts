@@ -77,9 +77,12 @@ export type DashboardWargaData = {
     pic_name: string;
     target_amount: number;
     paid_amount: number;
+    collected_amount?: number;
+    pending_amount?: number;
+    approved_amount?: number;
     remaining_amount: number;
     status: string;
-    display_status: 'BELUM_MULAI' | 'BELUM' | 'SEBAGIAN' | 'LUNAS' | 'TERLAMBAT';
+    display_status: 'BELUM_MULAI' | 'BELUM' | 'SEBAGIAN' | 'TERKUMPUL' | 'MENUNGGU_APPROVAL' | 'LUNAS' | 'TERLAMBAT';
   }>;
 };
 

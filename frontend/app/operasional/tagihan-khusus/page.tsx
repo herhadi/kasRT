@@ -39,15 +39,39 @@ type SpecialBillTargetRow = {
   no_hp?: string | null;
   target_amount: number;
   paid_amount: number;
+  collected_amount: number;
+  pending_amount: number;
+  approved_amount: number;
   remaining_amount: number;
   is_active: boolean;
   status: string;
+};
+type SpecialBillPaymentRow = {
+  id: string;
+  warga_id: string;
+  warga_name: string;
+  amount: number;
+  status: 'COLLECTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  batch_id?: string | null;
+  collected_at: string;
+  collected_by_name?: string | null;
+  approved_at?: string | null;
+  approved_by_name?: string | null;
 };
 
 function formatDate(value: string) {
   const parsed = new Date(`${String(value || '').slice(0, 10)}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return value || '-';
   return parsed.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function getTargetStatusLabel(target: SpecialBillTargetRow) {
+  if (!target.is_active) return 'Nonaktif';
+  if (Number(target.approved_amount || 0) >= Number(target.target_amount || 0)) return 'Masuk Kas';
+  if (Number(target.pending_amount || 0) > 0) return 'Menunggu Approval';
+  if (Number(target.collected_amount || 0) > 0) return 'Terkumpul di PIC';
+  if (Number(target.paid_amount || 0) > 0) return 'Sebagian';
+  return 'Belum';
 }
 
 export default function TagihanKhususPage() {
@@ -68,6 +92,7 @@ export default function TagihanKhususPage() {
   const [targetFilter, setTargetFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [targetPage, setTargetPage] = useState(1);
   const [paymentDrafts, setPaymentDrafts] = useState<Record<string, string>>({});
+  const [payments, setPayments] = useState<SpecialBillPaymentRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -111,10 +136,19 @@ export default function TagihanKhususPage() {
     setTargetPage(1);
   }
 
+  async function loadPayments(billId: string) {
+    if (!billId) {
+      setPayments([]);
+      return;
+    }
+    const result = await apiFetch<{ success: boolean; data: SpecialBillPaymentRow[] }>(`/special-bills/${billId}/payments`);
+    setPayments(result.data || []);
+  }
+
   useEffect(() => {
-    if (!selectedBillId || !canAccess) return;
-    void loadTargets(selectedBillId).catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat target warga'));
-  }, [selectedBillId, canAccess]);
+    if (!selectedBillId || !user) return;
+    void Promise.all([loadTargets(selectedBillId), loadPayments(selectedBillId)]).catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat target warga'));
+  }, [selectedBillId, user?.id]);
 
   const filteredTargets = useMemo(
     () => targets.filter((target) => targetFilter === 'aktif' ? target.is_active : !target.is_active),
@@ -164,7 +198,7 @@ export default function TagihanKhususPage() {
         method: 'POST',
         body: JSON.stringify({ warga_id: wargaId, is_active: isActive })
       });
-      await Promise.all([load(), loadTargets(selectedBillId)]);
+      await Promise.all([load(), loadTargets(selectedBillId), loadPayments(selectedBillId)]);
       setMessage(`Target warga berhasil ${isActive ? 'diaktifkan' : 'dinonaktifkan'}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mengubah target warga');
@@ -196,7 +230,7 @@ export default function TagihanKhususPage() {
         method: 'POST',
         body: JSON.stringify({ warga_id: target.warga_id, amount: amountValue })
       });
-      await Promise.all([load(), loadTargets(selectedBillId)]);
+      await Promise.all([load(), loadTargets(selectedBillId), loadPayments(selectedBillId)]);
       setMessage(`Pembayaran ${target.nama} dicatat sebagai terkumpul di PIC.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mencatat pembayaran');
@@ -210,7 +244,7 @@ export default function TagihanKhususPage() {
     try {
       setBusy(true); setError(''); setMessage('');
       await apiFetch(`/special-bills/${selectedBillId}/submit-batch`, { method: 'POST', body: JSON.stringify({}) });
-      await Promise.all([load(), loadTargets(selectedBillId)]);
+      await Promise.all([load(), loadTargets(selectedBillId), loadPayments(selectedBillId)]);
       setMessage('Setoran tagihan diajukan dan menunggu approval Bendahara.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mengajukan setoran tagihan');
@@ -297,11 +331,11 @@ export default function TagihanKhususPage() {
                     <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{formatRupiah(target.target_amount)}</td>
                     <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{formatRupiah(target.paid_amount)}</td>
                     <td className={`border-b border-[var(--line)] px-3 py-2 text-sm font-semibold ${target.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>
-                      {target.is_active ? target.status : 'Nonaktif'}
+                      {getTargetStatusLabel(target)}
                     </td>
                     <td className="border-b border-[var(--line)] px-3 py-2 text-right">
                       <div className="flex min-w-[220px] items-center justify-end gap-2">
-                        {target.is_active && target.status !== 'APPROVED' ? (
+                        {target.is_active && Number(target.remaining_amount || 0) > 0 ? (
                           <>
                             <input
                               className="w-28 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2 py-1.5 text-right text-xs"
@@ -328,6 +362,42 @@ export default function TagihanKhususPage() {
               <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={targetPage <= 1} onClick={() => setTargetPage((page) => Math.max(1, page - 1))}>Prev</Button>
               <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={targetPage >= totalTargetPages} onClick={() => setTargetPage((page) => Math.min(totalTargetPages, page + 1))}>Next</Button>
             </div>
+          </div>
+        </Card>
+
+        <Card title="Riwayat Pembayaran" subtitle="Jejak pembayaran warga: terkumpul, menunggu approval, sampai masuk kas">
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+              <thead>
+                <tr className="bg-[var(--surface-strong)]">
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Tanggal</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Warga</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs">Nominal</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Status</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Input Oleh</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.slice(0, 20).map((payment) => (
+                  <tr key={payment.id}>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{formatDate(payment.collected_at)}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold">{payment.warga_name}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold">{formatRupiah(payment.amount)}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">
+                      {payment.status === 'APPROVED'
+                        ? 'Masuk Kas'
+                        : payment.status === 'PENDING'
+                          ? 'Menunggu Approval'
+                          : payment.status === 'REJECTED'
+                            ? 'Ditolak'
+                            : 'Terkumpul di PIC'}
+                    </td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{payment.collected_by_name || '-'}</td>
+                  </tr>
+                ))}
+                {!payments.length ? <tr><td colSpan={5} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat pembayaran.</td></tr> : null}
+              </tbody>
+            </table>
           </div>
         </Card>
 
