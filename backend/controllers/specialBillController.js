@@ -8,6 +8,7 @@ import {
   findSpecialBillById,
   getSpecialBillNotificationContext,
   hideSpecialBillFromDashboard,
+  listSpecialBillMembers,
   listSpecialBillOptions,
   listSpecialBills,
   listSpecialBillsForPic,
@@ -16,6 +17,7 @@ import {
   listTelegramTargetsForBill,
   listVisibleSpecialBillsForWarga,
   recordSpecialBillPayment,
+  setSpecialBillMemberActive,
   setSpecialBillTargetActive,
   updateSpecialBillPayment
 } from '../models/specialBillModel.js';
@@ -39,6 +41,24 @@ export async function getSpecialBillOptions(_req, res) {
 export async function getSpecialBills(_req, res) {
   const rows = await listSpecialBills();
   return res.json({ success: true, data: rows });
+}
+
+export async function getSpecialBillMembers(_req, res) {
+  const rows = await listSpecialBillMembers();
+  return res.json({ success: true, data: rows });
+}
+
+export async function setSpecialBillMemberActiveHandler(req, res) {
+  const wargaId = String(req.body.warga_id || '').trim();
+  const isActive = Boolean(req.body.is_active);
+  if (!wargaId) return res.status(400).json({ success: false, message: 'Warga wajib dipilih' });
+  const row = await setSpecialBillMemberActive({
+    wargaId,
+    isActive,
+    updatedBy: String(req.user?.user_id || '')
+  });
+  await delCacheByPrefix('dashboard:warga:');
+  return res.json({ success: true, data: row });
 }
 
 export async function getMyPicSpecialBills(req, res) {

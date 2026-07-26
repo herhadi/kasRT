@@ -3,6 +3,16 @@ import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export async function ensureSpecialBillTables() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS special_bill_members (
+      warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by UUID NULL REFERENCES users(id)
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS special_bills (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       title VARCHAR(160) NOT NULL,
@@ -88,6 +98,14 @@ export async function ensureSpecialBillTables() {
   `);
 
   await pool.query(`
+    INSERT INTO special_bill_members (warga_id, is_active)
+    SELECT u.id, TRUE
+    FROM users u
+    WHERE ${ELIGIBLE_USERS_CLAUSE}
+    ON CONFLICT (warga_id) DO NOTHING
+  `);
+
+  await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_special_bills_visible_dates
     ON special_bills (dashboard_visible, status, start_date, end_date)
   `);
@@ -99,6 +117,53 @@ export async function ensureSpecialBillTables() {
     CREATE INDEX IF NOT EXISTS idx_special_bill_payments_bill_status
     ON special_bill_payments (bill_id, status, batch_id)
   `);
+}
+
+export async function listSpecialBillMembers() {
+  await ensureSpecialBillTables();
+  const result = await pool.query(
+    `WITH eligible AS (
+       SELECT u.id, u.nama, u.no_hp
+       FROM users u
+       WHERE ${ELIGIBLE_USERS_CLAUSE}
+     )
+     INSERT INTO special_bill_members (warga_id, is_active)
+     SELECT id, TRUE
+     FROM eligible
+     ON CONFLICT (warga_id) DO NOTHING
+     RETURNING warga_id`
+  );
+  void result;
+
+  const rows = await pool.query(
+    `SELECT
+       u.id::text AS warga_id,
+       u.nama,
+       u.no_hp,
+       COALESCE(sbm.is_active, TRUE) AS is_active,
+       sbm.updated_at
+     FROM users u
+     LEFT JOIN special_bill_members sbm ON sbm.warga_id = u.id
+     WHERE ${ELIGIBLE_USERS_CLAUSE}
+     ORDER BY COALESCE(sbm.is_active, TRUE) DESC, u.nama ASC`
+  );
+  return rows.rows.map((row) => ({ ...row, is_active: Boolean(row.is_active) }));
+}
+
+export async function setSpecialBillMemberActive({ wargaId, isActive, updatedBy }) {
+  await ensureSpecialBillTables();
+  const result = await pool.query(
+    `INSERT INTO special_bill_members (warga_id, is_active, updated_by, updated_at)
+     VALUES ($1::uuid, $2, $3::uuid, NOW())
+     ON CONFLICT (warga_id)
+     DO UPDATE SET
+       is_active = EXCLUDED.is_active,
+       updated_by = EXCLUDED.updated_by,
+       updated_at = NOW()
+     RETURNING warga_id::text, is_active, updated_at`,
+    [wargaId, Boolean(isActive), updatedBy]
+  );
+  return result.rows[0] ? { ...result.rows[0], is_active: Boolean(result.rows[0].is_active) } : null;
 }
 
 export async function findSpecialBillById(billId) {
@@ -163,7 +228,9 @@ export async function createSpecialBill({
       `INSERT INTO special_bill_targets (bill_id, warga_id, target_amount)
        SELECT $1::uuid, u.id, $2::numeric
        FROM users u
+       LEFT JOIN special_bill_members sbm ON sbm.warga_id = u.id
        WHERE ${ELIGIBLE_USERS_CLAUSE}
+         AND COALESCE(sbm.is_active, TRUE) = TRUE
        ON CONFLICT (bill_id, warga_id) DO NOTHING`,
       [bill.id, amount]
     );

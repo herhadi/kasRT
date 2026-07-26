@@ -46,6 +46,13 @@ type SpecialBillTargetRow = {
   is_active: boolean;
   status: string;
 };
+type SpecialBillMemberRow = {
+  warga_id: string;
+  nama: string;
+  no_hp?: string | null;
+  is_active: boolean;
+  updated_at?: string | null;
+};
 type SpecialBillPaymentRow = {
   id: string;
   warga_id: string;
@@ -88,6 +95,9 @@ export default function TagihanKhususPage() {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [picUserId, setPicUserId] = useState('');
   const [selectedBillId, setSelectedBillId] = useState('');
+  const [members, setMembers] = useState<SpecialBillMemberRow[]>([]);
+  const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
+  const [memberPage, setMemberPage] = useState(1);
   const [targets, setTargets] = useState<SpecialBillTargetRow[]>([]);
   const [targetFilter, setTargetFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [targetPage, setTargetPage] = useState(1);
@@ -106,9 +116,13 @@ export default function TagihanKhususPage() {
     const billsRes = await apiFetch<{ success: boolean; data: SpecialBillRow[] }>(billsUrl);
     let userOptions: UserOption[] = [];
     if (canManage) {
-      const optionsRes = await apiFetch<{ success: boolean; data: { users: UserOption[] } }>('/special-bills/options');
+      const [optionsRes, membersRes] = await Promise.all([
+        apiFetch<{ success: boolean; data: { users: UserOption[] } }>('/special-bills/options'),
+        apiFetch<{ success: boolean; data: SpecialBillMemberRow[] }>('/special-bills/members')
+      ]);
       userOptions = optionsRes.data?.users || [];
       setUsers(userOptions);
+      setMembers(membersRes.data || []);
     }
     const billRows = billsRes.data || [];
     setRows(billRows);
@@ -159,6 +173,15 @@ export default function TagihanKhususPage() {
     return filteredTargets.slice(start, start + 10);
   }, [filteredTargets, targetPage]);
   const totalTargetPages = Math.max(1, Math.ceil(filteredTargets.length / 10));
+  const filteredMembers = useMemo(
+    () => members.filter((member) => memberFilter === 'aktif' ? member.is_active : !member.is_active),
+    [members, memberFilter]
+  );
+  const pagedMembers = useMemo(() => {
+    const start = (memberPage - 1) * 10;
+    return filteredMembers.slice(start, start + 10);
+  }, [filteredMembers, memberPage]);
+  const totalMemberPages = Math.max(1, Math.ceil(filteredMembers.length / 10));
 
   async function submit() {
     const numericAmount = parseRupiahInput(amount);
@@ -202,6 +225,22 @@ export default function TagihanKhususPage() {
       setMessage(`Target warga berhasil ${isActive ? 'diaktifkan' : 'dinonaktifkan'}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal mengubah target warga');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setMemberActive(wargaId: string, isActive: boolean) {
+    try {
+      setBusy(true); setError(''); setMessage('');
+      await apiFetch('/special-bills/members/set-active', {
+        method: 'POST',
+        body: JSON.stringify({ warga_id: wargaId, is_active: isActive })
+      });
+      await load();
+      setMessage(`Warga berhasil ${isActive ? 'diaktifkan' : 'dinonaktifkan'} untuk Tagihan Khusus berikutnya.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mengubah pengaturan warga');
     } finally {
       setBusy(false);
     }
@@ -306,7 +345,7 @@ export default function TagihanKhususPage() {
             <Input label="Catatan" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Opsional" />
           </div>
           <p className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-muted)]">
-            Target tagihan otomatis memakai daftar warga eligible seperti iuran wajib. Setelah tagihan dibuat, warga tertentu tetap bisa diaktifkan/nonaktifkan dari Pengaturan Target di bawah.
+            Target tagihan otomatis memakai warga yang aktif di Pengaturan Warga. Setelah tagihan dibuat, targetnya tetap bisa diaktifkan/nonaktifkan lagi dari Pengaturan Target Tagihan.
           </p>
 
           <div className="mt-4">
@@ -316,7 +355,66 @@ export default function TagihanKhususPage() {
           </div>
         </Card> : null}
 
+        {canManage ? (
+          <Card title="Pengaturan Warga" subtitle="Daftar warga yang akan otomatis menjadi target saat Tagihan Khusus baru dibuat">
+            <MembershipStatusFilter
+              value={memberFilter}
+              activeCount={members.filter((member) => member.is_active).length}
+              inactiveCount={members.filter((member) => !member.is_active).length}
+              onChange={(value) => {
+                setMemberFilter(value);
+                setMemberPage(1);
+              }}
+            />
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                <thead>
+                  <tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Warga</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Status</th>
+                    <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedMembers.map((member) => (
+                    <tr key={member.warga_id}>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold">
+                        {member.nama}
+                        <span className="block text-xs font-normal text-[var(--text-muted)]">{member.no_hp || '-'}</span>
+                      </td>
+                      <td className={`border-b border-[var(--line)] px-3 py-2 text-sm font-semibold ${member.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        {member.is_active ? 'Aktif' : 'Nonaktif'}
+                      </td>
+                      <td className="border-b border-[var(--line)] px-3 py-2 text-right">
+                        <MemberActionButtons isActive={member.is_active} disabled={busy} onToggle={() => void setMemberActive(member.warga_id, !member.is_active)} />
+                      </td>
+                    </tr>
+                  ))}
+                  {!pagedMembers.length ? <tr><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada warga pada filter ini.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+              <span>Halaman {memberPage} dari {totalMemberPages}</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={memberPage <= 1} onClick={() => setMemberPage((page) => Math.max(1, page - 1))}>Prev</Button>
+                <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={memberPage >= totalMemberPages} onClick={() => setMemberPage((page) => Math.min(totalMemberPages, page + 1))}>Next</Button>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-[var(--text-muted)]">
+              Catatan: perubahan ini berlaku untuk tagihan baru berikutnya. Tagihan yang sudah dibuat tetap memakai Pengaturan Target Tagihan masing-masing.
+            </p>
+          </Card>
+        ) : null}
+
         <Card title="Pengaturan Target Tagihan" subtitle="Aktif/nonaktif warga per tagihan, pola sama seperti keanggotaan iuran wajib">
+          {!rows.length ? (
+            <p className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-muted)]">
+              Belum ada Tagihan Khusus. Atur warga aktif/nonaktif di Pengaturan Warga, lalu buat Tagihan Khusus terlebih dahulu.
+            </p>
+          ) : null}
+          {rows.length ? (
+            <>
           <div className="mb-3 grid gap-3 md:grid-cols-2">
             <label className="space-y-2 text-sm font-semibold">
               <span>Pilih Tagihan</span>
@@ -390,6 +488,8 @@ export default function TagihanKhususPage() {
               <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={targetPage >= totalTargetPages} onClick={() => setTargetPage((page) => Math.min(totalTargetPages, page + 1))}>Next</Button>
             </div>
           </div>
+            </>
+          ) : null}
         </Card>
 
         <Card title="Riwayat Pembayaran" subtitle="Jejak pembayaran warga: terkumpul, menunggu approval, sampai masuk kas">
