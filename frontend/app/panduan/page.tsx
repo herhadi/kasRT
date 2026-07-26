@@ -276,13 +276,13 @@ const guideSectionOrder = [
   'mulai-cepat',
   'jimpitan',
   'bendahara',
-  'tagihan-khusus',
   'sosial',
   'lingkungan',
   'internet',
   'tabungan',
   'koperasi',
   'keamanan',
+  'tagihan-khusus',
   'telegram',
   'troubleshooting'
 ];

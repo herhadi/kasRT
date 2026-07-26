@@ -20,7 +20,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 ### Diubah
 
 - Navbar desktop menempatkan Operasional tepat sebelum Manajemen.
-- Urutan Panduan disamakan dengan urutan modul di Operasional root.
+- Urutan `/operasional` dan Panduan disamakan untuk root, dengan Tagihan Khusus ditempatkan setelah Keamanan.
 - Menu `/operasional` menampilkan akses Tagihan Khusus untuk Bendahara/root.
 - Bendahara/root dapat menyembunyikan tagihan khusus dari dashboard warga setelah kegiatan selesai.
 - Target Tagihan Khusus otomatis mengikuti daftar warga eligible seperti iuran wajib, lalu bisa diaktifkan/nonaktifkan per tagihan.
