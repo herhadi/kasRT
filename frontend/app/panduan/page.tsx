@@ -83,6 +83,29 @@ const guideSections: GuideSection[] = [
     ]
   },
   {
+    id: 'tagihan-khusus',
+    title: 'Tagihan Khusus',
+    icon: '📌',
+    summary: 'Tagihan temporer dengan PIC warga, target warga aktif/nonaktif, dan setoran yang harus diterima Bendahara.',
+    quickLinks: [
+      { href: '/operasional/tagihan-khusus', label: 'Operasional Tagihan Khusus' },
+      { href: '/approval/bendahara', label: 'Approval Bendahara' },
+      { href: '/dashboard', label: 'Dashboard Warga' }
+    ],
+    steps: [
+      'Bendahara atau root membuat tagihan, menentukan nominal per warga, periode bayar, dan PIC.',
+      'Target warga otomatis mengikuti daftar eligible seperti iuran wajib, lalu bisa diaktifkan/nonaktifkan per tagihan.',
+      'PIC mencatat pembayaran warga. Status awalnya terkumpul di PIC dan belum masuk kas.',
+      'PIC atau Bendahara mengajukan setoran agar masuk daftar Approval Bendahara.',
+      'Bendahara menerima uang dari Approval Bendahara. Setelah approve, setoran masuk Kas Bendahara.'
+    ],
+    notes: [
+      'Pembayaran yang sudah masuk batch tidak akan ikut setoran berikutnya, jadi aman dari dobel setor.',
+      'Warga melihat tagihan aktif di dashboard sampai Bendahara/root menyembunyikannya setelah kegiatan selesai.',
+      'Tagihan khusus tidak memotong kas modul lain; dana baru masuk Kas Bendahara setelah approval.'
+    ]
+  },
+  {
     id: 'internet',
     title: 'Internet',
     icon: '🌐',

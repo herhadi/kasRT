@@ -172,7 +172,7 @@ export type PendingApprovalSection = {
 };
 
 export type ApprovalHistoryItem = {
-  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT' | 'ASSET_RENTAL_PAYMENT';
+  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT' | 'ASSET_RENTAL_PAYMENT' | 'SPECIAL_BILL_BATCH';
   id: string | number;
   title: string;
   description: string;

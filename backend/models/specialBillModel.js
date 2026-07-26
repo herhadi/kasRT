@@ -451,6 +451,77 @@ export async function recordSpecialBillPayment({ billId, wargaId, amount, collec
   }
 }
 
+export async function updateSpecialBillPayment({ billId, paymentId, amount, actorId }) {
+  await ensureSpecialBillTables();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const paymentRes = await client.query(
+      `SELECT
+         sbp.id::text,
+         sbp.bill_id::text,
+         sbp.target_id::text,
+         sbp.warga_id::text,
+         sbp.amount,
+         sbp.status,
+         sbt.target_amount,
+         sbt.paid_amount
+       FROM special_bill_payments sbp
+       JOIN special_bill_targets sbt ON sbt.id = sbp.target_id
+       WHERE sbp.id = $1::uuid
+         AND sbp.bill_id = $2::uuid
+       FOR UPDATE`,
+      [paymentId, billId]
+    );
+    const payment = paymentRes.rows[0];
+    if (!payment) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    if (payment.status !== 'COLLECTED') {
+      throw new Error('Pembayaran yang sudah diajukan/approve tidak bisa diedit langsung');
+    }
+    const oldAmount = Number(payment.amount || 0);
+    const currentPaid = Number(payment.paid_amount || 0);
+    const targetAmount = Number(payment.target_amount || 0);
+    const maxAmount = Math.max(targetAmount - (currentPaid - oldAmount), 0);
+    const safeAmount = Math.min(Number(amount || 0), maxAmount);
+    if (!Number.isFinite(safeAmount) || safeAmount <= 0) throw new Error('Nominal koreksi tidak valid');
+    const delta = safeAmount - oldAmount;
+
+    const updatedPaymentRes = await client.query(
+      `UPDATE special_bill_payments
+       SET amount = $3::numeric,
+           collected_by = $4::uuid,
+           collected_at = NOW()
+       WHERE id = $1::uuid
+         AND bill_id = $2::uuid
+         AND status = 'COLLECTED'
+       RETURNING id::text, bill_id::text, target_id::text, warga_id::text, amount, status, collected_at`,
+      [paymentId, billId, safeAmount, actorId]
+    );
+    await client.query(
+      `UPDATE special_bill_targets
+       SET paid_amount = GREATEST(paid_amount + $2::numeric, 0),
+           status = CASE
+             WHEN GREATEST(paid_amount + $2::numeric, 0) >= target_amount THEN 'COLLECTED'
+             WHEN GREATEST(paid_amount + $2::numeric, 0) > 0 THEN 'PARTIAL'
+             ELSE 'UNPAID'
+           END,
+           updated_at = NOW()
+       WHERE id = $1::uuid`,
+      [payment.target_id, delta]
+    );
+    await client.query('COMMIT');
+    return { ...updatedPaymentRes.rows[0], old_amount: oldAmount, new_amount: safeAmount };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function createSpecialBillBatch({ billId, actorId }) {
   await ensureSpecialBillTables();
   const client = await pool.connect();
@@ -557,7 +628,7 @@ export async function approveSpecialBillBatch({ batchId, approverId }) {
   try {
     await client.query('BEGIN');
     const batchRes = await client.query(
-      `SELECT sbb.id::text, sbb.bill_id::text, sbb.total_amount, sb.title, sbb.transaction_id
+      `SELECT sbb.id::text, sbb.bill_id::text, sbb.pic_user_id::text, sbb.total_amount, sb.title, sbb.transaction_id
        FROM special_bill_batches sbb
        JOIN special_bills sb ON sb.id = sbb.bill_id
        WHERE sbb.id = $1::uuid
@@ -605,13 +676,87 @@ export async function approveSpecialBillBatch({ batchId, approverId }) {
       [batchId]
     );
     await client.query('COMMIT');
-    return { id: batch.id, amount: Number(batch.total_amount || 0), title: batch.title };
+    return { id: batch.id, bill_id: batch.bill_id, pic_user_id: batch.pic_user_id, amount: Number(batch.total_amount || 0), title: batch.title };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
   }
+}
+
+export async function getSpecialBillNotificationContext({ billId, wargaId = null, paymentId = null, batchId = null }) {
+  await ensureSpecialBillTables();
+  if (paymentId) {
+    const result = await pool.query(
+      `SELECT
+         sb.title,
+         TO_CHAR(sb.start_date, 'YYYY-MM-DD') AS start_date,
+         TO_CHAR(sb.end_date, 'YYYY-MM-DD') AS end_date,
+         sbp.amount,
+         u.id::text AS warga_id,
+         u.nama AS warga_name,
+         u.telegram_chat_id,
+         pic.nama AS pic_name
+       FROM special_bill_payments sbp
+       JOIN special_bills sb ON sb.id = sbp.bill_id
+       JOIN users u ON u.id = sbp.warga_id
+       JOIN users pic ON pic.id = sb.pic_user_id
+       WHERE sbp.id = $1::uuid
+       LIMIT 1`,
+      [paymentId]
+    );
+    return result.rows[0] || null;
+  }
+
+  if (batchId) {
+    const result = await pool.query(
+      `SELECT DISTINCT
+         sb.title,
+         sbb.total_amount,
+         sbb.pic_user_id::text,
+         pic.nama AS pic_name,
+         u.id::text AS warga_id,
+         u.nama AS warga_name,
+         u.telegram_chat_id,
+         COALESCE(SUM(sbp.amount) OVER (PARTITION BY u.id), 0) AS warga_amount
+       FROM special_bill_batches sbb
+       JOIN special_bills sb ON sb.id = sbb.bill_id
+       JOIN users pic ON pic.id = sbb.pic_user_id
+       JOIN special_bill_payments sbp ON sbp.batch_id = sbb.id
+       JOIN users u ON u.id = sbp.warga_id
+       WHERE sbb.id = $1::uuid`,
+      [batchId]
+    );
+    return result.rows;
+  }
+
+  if (billId && wargaId) {
+    const result = await pool.query(
+      `SELECT
+         sb.title,
+         TO_CHAR(sb.start_date, 'YYYY-MM-DD') AS start_date,
+         TO_CHAR(sb.end_date, 'YYYY-MM-DD') AS end_date,
+         sbt.target_amount,
+         sbt.paid_amount,
+         GREATEST(sbt.target_amount - sbt.paid_amount, 0) AS remaining_amount,
+         u.id::text AS warga_id,
+         u.nama AS warga_name,
+         u.telegram_chat_id,
+         pic.nama AS pic_name
+       FROM special_bill_targets sbt
+       JOIN special_bills sb ON sb.id = sbt.bill_id
+       JOIN users u ON u.id = sbt.warga_id
+       JOIN users pic ON pic.id = sb.pic_user_id
+       WHERE sbt.bill_id = $1::uuid
+         AND sbt.warga_id = $2::uuid
+       LIMIT 1`,
+      [billId, wargaId]
+    );
+    return result.rows[0] || null;
+  }
+
+  return null;
 }
 
 export async function listSpecialBillPaymentHistory(billId) {

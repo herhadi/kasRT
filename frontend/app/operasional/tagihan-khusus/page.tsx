@@ -239,6 +239,28 @@ export default function TagihanKhususPage() {
     }
   }
 
+  async function editPayment(payment: SpecialBillPaymentRow) {
+    if (!selectedBillId) return setError('Pilih tagihan terlebih dahulu.');
+    if (payment.status !== 'COLLECTED') return setError('Pembayaran yang sudah diajukan/approve tidak bisa diedit langsung.');
+    const nextValue = window.prompt(`Koreksi nominal pembayaran ${payment.warga_name}`, formatRupiahInput(String(payment.amount || 0)));
+    if (nextValue === null) return;
+    const amountValue = parseRupiahInput(nextValue);
+    if (amountValue <= 0) return setError('Nominal koreksi tidak valid.');
+    try {
+      setBusy(true); setError(''); setMessage('');
+      await apiFetch(`/special-bills/${selectedBillId}/payments/${payment.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ amount: amountValue })
+      });
+      await Promise.all([load(), loadTargets(selectedBillId), loadPayments(selectedBillId)]);
+      setMessage(`Pembayaran ${payment.warga_name} berhasil dikoreksi.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal koreksi pembayaran');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitBatch() {
     if (!selectedBillId) return setError('Pilih tagihan terlebih dahulu.');
     try {
@@ -263,7 +285,12 @@ export default function TagihanKhususPage() {
         {canManage ? <Card
           title="Tagihan Khusus"
           subtitle="Buat tagihan temporer, tunjuk PIC warga, dan tampilkan ke dashboard warga"
-          headerRight={<Link href="/operasional" className="btn-action-blue link-action px-3 py-1.5 text-xs">Operasional</Link>}
+          headerRight={
+            <div className="flex flex-wrap justify-end gap-2">
+              <Link href="/panduan#tagihan-khusus" className="btn-action-blue link-action px-3 py-1.5 text-xs">📖 Panduan</Link>
+              <Link href="/operasional" className="btn-action-blue link-action px-3 py-1.5 text-xs">Operasional</Link>
+            </div>
+          }
         >
           <div className="grid gap-3 md:grid-cols-2">
             <Input label="Nama tagihan" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Contoh: Iuran Perbaikan Drainase" />
@@ -375,6 +402,7 @@ export default function TagihanKhususPage() {
                   <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs">Nominal</th>
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Status</th>
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Input Oleh</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -393,9 +421,18 @@ export default function TagihanKhususPage() {
                             : 'Terkumpul di PIC'}
                     </td>
                     <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{payment.collected_by_name || '-'}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-right">
+                      {payment.status === 'COLLECTED' ? (
+                        <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={busy} onClick={() => void editPayment(payment)}>
+                          Koreksi
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-[var(--text-muted)]">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
-                {!payments.length ? <tr><td colSpan={5} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat pembayaran.</td></tr> : null}
+                {!payments.length ? <tr><td colSpan={6} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat pembayaran.</td></tr> : null}
               </tbody>
             </table>
           </div>

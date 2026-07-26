@@ -13,7 +13,8 @@ import {
   hideSpecialBillHandler,
   recordSpecialBillPaymentHandler,
   submitSpecialBillBatchHandler,
-  setSpecialBillTargetActiveHandler
+  setSpecialBillTargetActiveHandler,
+  updateSpecialBillPaymentHandler
 } from '../controllers/specialBillController.js';
 
 const router = express.Router();
@@ -30,6 +31,7 @@ router.get('/:id/targets', asyncHandler(getSpecialBillTargets));
 router.get('/:id/payments', asyncHandler(getSpecialBillPaymentHistory));
 router.post('/:id/targets/set-active', allowRoles('Bendahara', 'root'), asyncHandler(setSpecialBillTargetActiveHandler));
 router.post('/:id/payment', asyncHandler(recordSpecialBillPaymentHandler));
+router.patch('/:id/payments/:paymentId', asyncHandler(updateSpecialBillPaymentHandler));
 router.post('/:id/submit-batch', asyncHandler(submitSpecialBillBatchHandler));
 router.post('/:id/hide', allowRoles('Bendahara', 'root'), asyncHandler(hideSpecialBillHandler));
 

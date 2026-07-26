@@ -1,11 +1,12 @@
 import { delCacheByPrefix } from '../services/cacheService.js';
 import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
-import { notifyRoles } from '../services/approvalNotifier.js';
+import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import {
   approveSpecialBillBatch,
   createSpecialBill,
   createSpecialBillBatch,
   findSpecialBillById,
+  getSpecialBillNotificationContext,
   hideSpecialBillFromDashboard,
   listSpecialBillOptions,
   listSpecialBills,
@@ -15,7 +16,8 @@ import {
   listTelegramTargetsForBill,
   listVisibleSpecialBillsForWarga,
   recordSpecialBillPayment,
-  setSpecialBillTargetActive
+  setSpecialBillTargetActive,
+  updateSpecialBillPayment
 } from '../models/specialBillModel.js';
 
 function isValidDate(value) {
@@ -147,7 +149,43 @@ export async function recordSpecialBillPaymentHandler(req, res) {
   const row = await recordSpecialBillPayment({ billId, wargaId, amount, collectedBy: String(req.user?.user_id || '') });
   if (!row) return res.status(404).json({ success: false, message: 'Target warga aktif tidak ditemukan' });
   await delCacheByPrefix('dashboard:warga:');
+  const context = await getSpecialBillNotificationContext({ billId, wargaId, paymentId: row.payment?.id });
+  if (context?.warga_id) {
+    await notifyUser(
+      context.warga_id,
+      `✅ <b>Pembayaran Tagihan Khusus Dicatat</b>\n\n` +
+        `<b>${context.title}</b>\n` +
+        `Nominal diterima PIC: <b>${formatRupiah(row.payment?.amount || amount)}</b>\n` +
+        `PIC: <b>${context.pic_name || '-'}</b>\n\n` +
+        `Status saat ini: terkumpul di PIC dan menunggu setoran ke Bendahara.`
+    ).catch(() => {});
+  }
   return res.json({ success: true, data: row, message: 'Pembayaran dicatat sebagai terkumpul di PIC.' });
+}
+
+export async function updateSpecialBillPaymentHandler(req, res) {
+  const billId = String(req.params.id || '').trim();
+  const paymentId = String(req.params.paymentId || '').trim();
+  const amount = Number(req.body.amount || 0);
+  if (!billId) return res.status(400).json({ success: false, message: 'ID tagihan tidak valid' });
+  if (!paymentId) return res.status(400).json({ success: false, message: 'ID pembayaran tidak valid' });
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Nominal koreksi tidak valid' });
+  await ensureBillOperator(req, billId);
+  const row = await updateSpecialBillPayment({ billId, paymentId, amount, actorId: String(req.user?.user_id || '') });
+  if (!row) return res.status(404).json({ success: false, message: 'Pembayaran tidak ditemukan' });
+  await delCacheByPrefix('dashboard:warga:');
+  const context = await getSpecialBillNotificationContext({ billId, wargaId: row.warga_id, paymentId });
+  if (context?.warga_id) {
+    await notifyUser(
+      context.warga_id,
+      `✏️ <b>Pembayaran Tagihan Khusus Dikoreksi</b>\n\n` +
+        `<b>${context.title}</b>\n` +
+        `Sebelumnya: <b>${formatRupiah(row.old_amount)}</b>\n` +
+        `Menjadi: <b>${formatRupiah(row.new_amount)}</b>\n\n` +
+        `Status masih terkumpul di PIC sebelum disetor ke Bendahara.`
+    ).catch(() => {});
+  }
+  return res.json({ success: true, data: row, message: 'Pembayaran berhasil dikoreksi.' });
 }
 
 export async function getSpecialBillPaymentHistory(req, res) {
@@ -179,5 +217,21 @@ export async function approveSpecialBillBatchHandler(req, res) {
   if (!batchId) return res.status(400).json({ success: false, message: 'ID batch tidak valid' });
   const approved = await approveSpecialBillBatch({ batchId, approverId: String(req.user?.user_id || '') });
   await delCacheByPrefix('dashboard:warga:');
+  const contexts = await getSpecialBillNotificationContext({ batchId });
+  await notifyUser(
+    approved.pic_user_id,
+    `✅ <b>Setoran Tagihan Khusus Diterima Bendahara</b>\n\n` +
+      `<b>${approved.title}</b>\n` +
+      `Nominal masuk Kas Bendahara: <b>${formatRupiah(approved.amount)}</b>`
+  ).catch(() => {});
+  if (Array.isArray(contexts)) {
+    await Promise.allSettled(contexts.map((row) => notifyUser(
+      row.warga_id,
+      `✅ <b>Tagihan Khusus Masuk Kas Bendahara</b>\n\n` +
+        `<b>${row.title}</b>\n` +
+        `Pembayaran Anda: <b>${formatRupiah(row.warga_amount || 0)}</b>\n\n` +
+        `Status sudah diterima Bendahara.`
+    )));
+  }
   return res.json({ success: true, data: approved, message: 'Setoran tagihan khusus diterima Bendahara.' });
 }

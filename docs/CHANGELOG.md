@@ -13,6 +13,9 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Input pembayaran Tagihan Khusus oleh PIC/Bendahara sebagai dana terkumpul yang belum masuk kas.
 - Batch setoran Tagihan Khusus dengan status `PENDING` dan approval Bendahara sebelum masuk Kas Bendahara.
 - Riwayat pembayaran Tagihan Khusus per tagihan, termasuk status terkumpul di PIC, menunggu approval, dan masuk kas.
+- Panduan Tagihan Khusus di halaman `/panduan` dan tombol cepat dari `/operasional/tagihan-khusus`.
+- Notifikasi Telegram saat pembayaran Tagihan Khusus dicatat, dikoreksi, dan saat setoran diterima Bendahara.
+- Koreksi pembayaran Tagihan Khusus untuk transaksi yang masih berstatus terkumpul di PIC.
 
 ### Diubah
 
@@ -21,6 +24,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Target Tagihan Khusus otomatis mengikuti daftar warga eligible seperti iuran wajib, lalu bisa diaktifkan/nonaktifkan per tagihan.
 - Approval Bendahara kini menampilkan dan memproses Setoran Tagihan Khusus.
 - Setoran Tagihan Khusus hanya mengambil pembayaran yang belum pernah masuk batch, sehingga tidak dobel setor.
+- Pembayaran Tagihan Khusus yang sudah masuk batch approval/approved dikunci dari edit langsung agar alur kas tetap aman.
 
 ## 2026-07-24
 
