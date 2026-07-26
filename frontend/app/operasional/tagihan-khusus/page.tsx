@@ -54,6 +54,7 @@ export default function TagihanKhususPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const canAccess = hasAnyRole(user, ['Bendahara', 'root']);
+  const canManage = canAccess;
   const [users, setUsers] = useState<UserOption[]>([]);
   const [rows, setRows] = useState<SpecialBillRow[]>([]);
   const [title, setTitle] = useState('');
@@ -66,6 +67,7 @@ export default function TagihanKhususPage() {
   const [targets, setTargets] = useState<SpecialBillTargetRow[]>([]);
   const [targetFilter, setTargetFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [targetPage, setTargetPage] = useState(1);
+  const [paymentDrafts, setPaymentDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -75,12 +77,14 @@ export default function TagihanKhususPage() {
   }, [loading, user, router]);
 
   async function load() {
-    const [optionsRes, billsRes] = await Promise.all([
-      apiFetch<{ success: boolean; data: { users: UserOption[] } }>('/special-bills/options'),
-      apiFetch<{ success: boolean; data: SpecialBillRow[] }>('/special-bills')
-    ]);
-    const userOptions = optionsRes.data?.users || [];
-    setUsers(userOptions);
+    const billsUrl = canManage ? '/special-bills' : '/special-bills/pic';
+    const billsRes = await apiFetch<{ success: boolean; data: SpecialBillRow[] }>(billsUrl);
+    let userOptions: UserOption[] = [];
+    if (canManage) {
+      const optionsRes = await apiFetch<{ success: boolean; data: { users: UserOption[] } }>('/special-bills/options');
+      userOptions = optionsRes.data?.users || [];
+      setUsers(userOptions);
+    }
     const billRows = billsRes.data || [];
     setRows(billRows);
     setPicUserId((prev) => prev || String(userOptions[0]?.id || ''));
@@ -88,9 +92,9 @@ export default function TagihanKhususPage() {
   }
 
   useEffect(() => {
-    if (!canAccess) return;
+    if (!user) return;
     void load().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat tagihan khusus'));
-  }, [canAccess]);
+  }, [user?.id, canManage]);
 
   async function loadTargets(billId: string) {
     if (!billId) {
@@ -98,7 +102,12 @@ export default function TagihanKhususPage() {
       return;
     }
     const result = await apiFetch<{ success: boolean; data: SpecialBillTargetRow[] }>(`/special-bills/${billId}/targets`);
-    setTargets(result.data || []);
+    const rows = result.data || [];
+    setTargets(rows);
+    setPaymentDrafts(Object.fromEntries(rows.map((target) => [
+      target.warga_id,
+      formatRupiahInput(String(Math.max(Number(target.target_amount || 0) - Number(target.paid_amount || 0), 0)))
+    ])));
     setTargetPage(1);
   }
 
@@ -178,17 +187,46 @@ export default function TagihanKhususPage() {
     }
   }
 
-  if (loading || !user) return <main className="min-h-screen" />;
-  if (!canAccess) {
-    return <main className="min-h-screen"><Navbar /><div className="mx-auto mt-6 max-w-5xl px-4"><Card title="Tidak Ada Akses" subtitle="Khusus Bendahara/root"><p className="text-sm text-[var(--text-muted)]">Akun Anda tidak memiliki akses ke Tagihan Khusus.</p></Card></div></main>;
+  async function recordPayment(target: SpecialBillTargetRow) {
+    const amountValue = parseRupiahInput(paymentDrafts[target.warga_id] || '');
+    if (!selectedBillId || amountValue <= 0) return setError('Nominal pembayaran tidak valid.');
+    try {
+      setBusy(true); setError(''); setMessage('');
+      await apiFetch(`/special-bills/${selectedBillId}/payment`, {
+        method: 'POST',
+        body: JSON.stringify({ warga_id: target.warga_id, amount: amountValue })
+      });
+      await Promise.all([load(), loadTargets(selectedBillId)]);
+      setMessage(`Pembayaran ${target.nama} dicatat sebagai terkumpul di PIC.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mencatat pembayaran');
+    } finally {
+      setBusy(false);
+    }
   }
+
+  async function submitBatch() {
+    if (!selectedBillId) return setError('Pilih tagihan terlebih dahulu.');
+    try {
+      setBusy(true); setError(''); setMessage('');
+      await apiFetch(`/special-bills/${selectedBillId}/submit-batch`, { method: 'POST', body: JSON.stringify({}) });
+      await Promise.all([load(), loadTargets(selectedBillId)]);
+      setMessage('Setoran tagihan diajukan dan menunggu approval Bendahara.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mengajukan setoran tagihan');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading || !user) return <main className="min-h-screen" />;
 
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={error} message={message} />
       <Navbar />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
-        <Card
+        {canManage ? <Card
           title="Tagihan Khusus"
           subtitle="Buat tagihan temporer, tunjuk PIC warga, dan tampilkan ke dashboard warga"
           headerRight={<Link href="/operasional" className="btn-action-blue link-action px-3 py-1.5 text-xs">Operasional</Link>}
@@ -215,7 +253,7 @@ export default function TagihanKhususPage() {
               {busy ? 'Menyimpan...' : 'Buat Tagihan Khusus'}
             </Button>
           </div>
-        </Card>
+        </Card> : null}
 
         <Card title="Pengaturan Target Tagihan" subtitle="Aktif/nonaktif warga per tagihan, pola sama seperti keanggotaan iuran wajib">
           <div className="mb-3 grid gap-3 md:grid-cols-2">
@@ -227,7 +265,7 @@ export default function TagihanKhususPage() {
               </select>
             </label>
           </div>
-          <MembershipStatusFilter
+          {canManage ? <MembershipStatusFilter
             value={targetFilter}
             activeCount={targets.filter((target) => target.is_active).length}
             inactiveCount={targets.filter((target) => !target.is_active).length}
@@ -235,15 +273,21 @@ export default function TagihanKhususPage() {
               setTargetFilter(value);
               setTargetPage(1);
             }}
-          />
+          /> : null}
+          {!canManage ? (
+            <p className="mb-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-muted)]">
+              Anda adalah PIC tagihan ini. Catat pembayaran warga, lalu ajukan setoran agar Bendahara bisa approve dan memasukkan ke kas.
+            </p>
+          ) : null}
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
               <thead>
                 <tr className="bg-[var(--surface-strong)]">
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Warga</th>
                   <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs">Target</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs">Terkumpul</th>
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs">Status</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs">Aksi</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs">Input/Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,26 +295,43 @@ export default function TagihanKhususPage() {
                   <tr key={target.id}>
                     <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold">{target.nama}<span className="block text-xs font-normal text-[var(--text-muted)]">{target.no_hp || '-'}</span></td>
                     <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{formatRupiah(target.target_amount)}</td>
-                    <td className={`border-b border-[var(--line)] px-3 py-2 text-sm font-semibold ${target.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>{target.is_active ? 'Aktif' : 'Nonaktif'}</td>
+                    <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm">{formatRupiah(target.paid_amount)}</td>
+                    <td className={`border-b border-[var(--line)] px-3 py-2 text-sm font-semibold ${target.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>
+                      {target.is_active ? target.status : 'Nonaktif'}
+                    </td>
                     <td className="border-b border-[var(--line)] px-3 py-2 text-right">
-                      <MemberActionButtons isActive={target.is_active} disabled={busy} onToggle={() => void setTargetActive(target.warga_id, !target.is_active)} />
+                      <div className="flex min-w-[220px] items-center justify-end gap-2">
+                        {target.is_active && target.status !== 'APPROVED' ? (
+                          <>
+                            <input
+                              className="w-28 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2 py-1.5 text-right text-xs"
+                              value={paymentDrafts[target.warga_id] || ''}
+                              onChange={(e) => setPaymentDrafts((prev) => ({ ...prev, [target.warga_id]: formatRupiahInput(e.target.value) }))}
+                              inputMode="numeric"
+                            />
+                            <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={busy} onClick={() => void recordPayment(target)}>Catat</Button>
+                          </>
+                        ) : null}
+                        {canManage ? <MemberActionButtons isActive={target.is_active} disabled={busy} onToggle={() => void setTargetActive(target.warga_id, !target.is_active)} /> : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
-                {!pagedTargets.length ? <tr><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada target pada filter ini.</td></tr> : null}
+                {!pagedTargets.length ? <tr><td colSpan={5} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada target pada filter ini.</td></tr> : null}
               </tbody>
             </table>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
             <span>Halaman {targetPage} dari {totalTargetPages}</span>
             <div className="flex gap-2">
+              <Button variant="ghost" className="btn-action-blue rounded-xl px-3 py-1.5 text-xs" disabled={busy || !selectedBillId} onClick={() => void submitBatch()}>Ajukan Setoran</Button>
               <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={targetPage <= 1} onClick={() => setTargetPage((page) => Math.max(1, page - 1))}>Prev</Button>
               <Button variant="ghost" className="rounded-xl px-3 py-1.5 text-xs" disabled={targetPage >= totalTargetPages} onClick={() => setTargetPage((page) => Math.min(totalTargetPages, page + 1))}>Next</Button>
             </div>
           </div>
         </Card>
 
-        <Card title="Riwayat Tagihan Khusus" subtitle="Tagihan yang sudah selesai bisa disembunyikan dari dashboard warga">
+        {canManage ? <Card title="Riwayat Tagihan Khusus" subtitle="Tagihan yang sudah selesai bisa disembunyikan dari dashboard warga">
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
               <thead>
@@ -302,7 +363,7 @@ export default function TagihanKhususPage() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </Card> : null}
       </div>
     </main>
   );

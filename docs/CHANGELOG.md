@@ -10,12 +10,15 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Dashboard warga menampilkan Tagihan Khusus aktif lengkap dengan PIC, periode, target, sisa, dan status.
 - Notifikasi Telegram dikirim ke warga target yang sudah menghubungkan Telegram saat tagihan khusus dibuat.
 - Pengaturan target Tagihan Khusus dengan filter Aktif/Nonaktif dan pagination 10 item.
+- Input pembayaran Tagihan Khusus oleh PIC/Bendahara sebagai dana terkumpul yang belum masuk kas.
+- Batch setoran Tagihan Khusus dengan status `PENDING` dan approval Bendahara sebelum masuk Kas Bendahara.
 
 ### Diubah
 
 - Menu `/operasional` menampilkan akses Tagihan Khusus untuk Bendahara/root.
 - Bendahara/root dapat menyembunyikan tagihan khusus dari dashboard warga setelah kegiatan selesai.
 - Target Tagihan Khusus otomatis mengikuti daftar warga eligible seperti iuran wajib, lalu bisa diaktifkan/nonaktifkan per tagihan.
+- Approval Bendahara kini menampilkan dan memproses Setoran Tagihan Khusus.
 
 ## 2026-07-24
 

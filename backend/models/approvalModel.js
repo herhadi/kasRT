@@ -196,6 +196,7 @@ export async function listApprovalHistory({
   includeFinance = false,
   includeHandover = false,
   includeAssetRentalPayment = false,
+  includeSpecialBillBatch = false,
   includeSocialReceipt = false,
   limit = 10,
   offset = 0
@@ -288,6 +289,27 @@ export async function listApprovalHistory({
       LEFT JOIN users approver ON approver.id::text = ar.paid_by::text
       WHERE ar.status = 'PAID'
         AND ar.paid_at IS NOT NULL
+    `);
+  }
+
+  if (includeSpecialBillBatch) {
+    selects.push(`
+      SELECT
+        'SPECIAL_BILL_BATCH'::text AS kind,
+        sbb.id::text AS id,
+        'Setoran Tagihan Khusus' AS title,
+        (sb.title || ' • PIC: ' || COALESCE(pic.nama, '-')) AS description,
+        COALESCE(sbb.total_amount, 0)::numeric AS amount,
+        sbb.created_at,
+        sbb.approved_at,
+        sbb.approved_by::text AS approved_by,
+        approver.nama AS approved_by_nama
+      FROM special_bill_batches sbb
+      JOIN special_bills sb ON sb.id = sbb.bill_id
+      LEFT JOIN users pic ON pic.id = sbb.pic_user_id
+      LEFT JOIN users approver ON approver.id = sbb.approved_by
+      WHERE sbb.status = 'APPROVED'
+        AND sbb.approved_at IS NOT NULL
     `);
   }
 

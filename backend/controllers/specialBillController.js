@@ -1,13 +1,19 @@
 import { delCacheByPrefix } from '../services/cacheService.js';
 import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
+import { notifyRoles } from '../services/approvalNotifier.js';
 import {
+  approveSpecialBillBatch,
   createSpecialBill,
+  createSpecialBillBatch,
+  findSpecialBillById,
   hideSpecialBillFromDashboard,
   listSpecialBillOptions,
   listSpecialBills,
+  listSpecialBillsForPic,
   listSpecialBillTargets,
   listTelegramTargetsForBill,
   listVisibleSpecialBillsForWarga,
+  recordSpecialBillPayment,
   setSpecialBillTargetActive
 } from '../models/specialBillModel.js';
 
@@ -29,6 +35,11 @@ export async function getSpecialBillOptions(_req, res) {
 
 export async function getSpecialBills(_req, res) {
   const rows = await listSpecialBills();
+  return res.json({ success: true, data: rows });
+}
+
+export async function getMyPicSpecialBills(req, res) {
+  const rows = await listSpecialBillsForPic(String(req.user?.user_id || ''));
   return res.json({ success: true, data: rows });
 }
 
@@ -92,6 +103,7 @@ export async function getMySpecialBills(req, res) {
 export async function getSpecialBillTargets(req, res) {
   const billId = String(req.params.id || '').trim();
   if (!billId) return res.status(400).json({ success: false, message: 'ID tagihan tidak valid' });
+  await ensureBillOperator(req, billId);
   const rows = await listSpecialBillTargets(billId);
   return res.json({ success: true, data: rows });
 }
@@ -106,4 +118,57 @@ export async function setSpecialBillTargetActiveHandler(req, res) {
   if (!row) return res.status(404).json({ success: false, message: 'Target warga tidak ditemukan' });
   await delCacheByPrefix('dashboard:warga:');
   return res.json({ success: true, data: row });
+}
+
+function userHasAnyRole(req, roles = []) {
+  const userRoles = (req.user?.roles || []).map((role) => String(role).trim().toLowerCase());
+  return roles.some((role) => userRoles.includes(String(role).trim().toLowerCase()));
+}
+
+async function ensureBillOperator(req, billId) {
+  if (userHasAnyRole(req, ['Bendahara', 'root'])) return;
+  const bill = await findSpecialBillById(billId);
+  if (!bill || String(bill.pic_user_id) !== String(req.user?.user_id)) {
+    const error = new Error('Akses input tagihan khusus ditolak');
+    error.status = 403;
+    throw error;
+  }
+}
+
+export async function recordSpecialBillPaymentHandler(req, res) {
+  const billId = String(req.params.id || '').trim();
+  const wargaId = String(req.body.warga_id || '').trim();
+  const amount = Number(req.body.amount || 0);
+  if (!billId) return res.status(400).json({ success: false, message: 'ID tagihan tidak valid' });
+  if (!wargaId) return res.status(400).json({ success: false, message: 'Warga wajib dipilih' });
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Nominal pembayaran tidak valid' });
+  await ensureBillOperator(req, billId);
+  const row = await recordSpecialBillPayment({ billId, wargaId, amount });
+  if (!row) return res.status(404).json({ success: false, message: 'Target warga aktif tidak ditemukan' });
+  await delCacheByPrefix('dashboard:warga:');
+  return res.json({ success: true, data: row, message: 'Pembayaran dicatat sebagai terkumpul di PIC.' });
+}
+
+export async function submitSpecialBillBatchHandler(req, res) {
+  const billId = String(req.params.id || '').trim();
+  if (!billId) return res.status(400).json({ success: false, message: 'ID tagihan tidak valid' });
+  await ensureBillOperator(req, billId);
+  const batch = await createSpecialBillBatch({ billId, actorId: String(req.user?.user_id || '') });
+  await notifyRoles(
+    ['Bendahara', 'root'],
+    `📦 <b>Setoran Tagihan Khusus Menunggu Approval</b>\n` +
+      `Tagihan: <b>${batch.bill_title}</b>\n` +
+      `PIC: <b>${batch.pic_name || '-'}</b>\n` +
+      `Nominal: <b>${formatRupiah(batch.total_amount)}</b>\n\n` +
+      `Buka menu Approval Bendahara untuk menerima setoran.`
+  ).catch(() => {});
+  return res.json({ success: true, data: batch, message: 'Setoran tagihan diajukan dan menunggu approval Bendahara.' });
+}
+
+export async function approveSpecialBillBatchHandler(req, res) {
+  const batchId = String(req.body.batch_id || req.body.id || '').trim();
+  if (!batchId) return res.status(400).json({ success: false, message: 'ID batch tidak valid' });
+  const approved = await approveSpecialBillBatch({ batchId, approverId: String(req.user?.user_id || '') });
+  await delCacheByPrefix('dashboard:warga:');
+  return res.json({ success: true, data: approved, message: 'Setoran tagihan khusus diterima Bendahara.' });
 }

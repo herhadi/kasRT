@@ -255,6 +255,13 @@ export default function ApprovalPage() {
         });
       }
 
+      if (item.kind === 'SPECIAL_BILL_BATCH') {
+        await apiFetch('/special-bills/approve-batch', {
+          method: 'POST',
+          body: JSON.stringify({ batch_id: item.meta.batch_id ?? item.id })
+        });
+      }
+
       if (item.kind === 'PIN_RESET') {
         await apiFetch(`/management/pin-reset-requests/${encodeURIComponent(String(item.meta.request_id ?? item.id))}/reset`, {
           method: 'POST',

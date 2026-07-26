@@ -138,7 +138,7 @@ export type ManagementUserItem = {
 };
 
 export type PendingApprovalItem = {
-  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT' | 'ASSET_RENTAL_PAYMENT' | 'PIN_RESET';
+  kind: 'JIMPITAN_BATCH' | 'TRANSFER' | 'EXPENSE' | 'JIMPITAN_HANDOVER' | 'SOCIAL_RECEIPT' | 'ASSET_RENTAL_PAYMENT' | 'SPECIAL_BILL_BATCH' | 'PIN_RESET';
   id: string | number;
   title: string;
   description: string;

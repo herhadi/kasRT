@@ -37,6 +37,31 @@ export async function ensureSpecialBillTables() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS special_bill_batches (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      bill_id UUID NOT NULL REFERENCES special_bills(id) ON DELETE CASCADE,
+      pic_user_id UUID NOT NULL REFERENCES users(id),
+      total_amount NUMERIC(18, 2) NOT NULL CHECK (total_amount > 0),
+      status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED')),
+      transaction_id BIGINT NULL REFERENCES transactions(id),
+      created_by UUID NULL REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      approved_by UUID NULL REFERENCES users(id),
+      approved_at TIMESTAMPTZ NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS special_bill_batch_items (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      batch_id UUID NOT NULL REFERENCES special_bill_batches(id) ON DELETE CASCADE,
+      target_id UUID NOT NULL REFERENCES special_bill_targets(id) ON DELETE CASCADE,
+      amount NUMERIC(18, 2) NOT NULL CHECK (amount > 0),
+      UNIQUE (batch_id, target_id)
+    )
+  `);
+
+  await pool.query(`
     ALTER TABLE special_bill_targets
       ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE
   `);
@@ -49,6 +74,18 @@ export async function ensureSpecialBillTables() {
     CREATE INDEX IF NOT EXISTS idx_special_bill_targets_warga
     ON special_bill_targets (warga_id, bill_id)
   `);
+}
+
+export async function findSpecialBillById(billId) {
+  await ensureSpecialBillTables();
+  const result = await pool.query(
+    `SELECT id::text, title, pic_user_id::text, amount, status
+     FROM special_bills
+     WHERE id = $1::uuid
+     LIMIT 1`,
+    [billId]
+  );
+  return result.rows[0] || null;
 }
 
 export async function listSpecialBillOptions() {
@@ -140,6 +177,42 @@ export async function listSpecialBills() {
      LEFT JOIN special_bill_targets sbt ON sbt.bill_id = sb.id
      GROUP BY sb.id, pic.nama, creator.nama
      ORDER BY sb.created_at DESC`
+  );
+  return result.rows.map((row) => ({
+    ...row,
+    amount: Number(row.amount || 0),
+    total_target: Number(row.total_target || 0),
+    total_paid: Number(row.total_paid || 0),
+    target_count: Number(row.target_count || 0)
+  }));
+}
+
+export async function listSpecialBillsForPic(picUserId) {
+  await ensureSpecialBillTables();
+  const result = await pool.query(
+    `SELECT
+       sb.id::text,
+       sb.title,
+       sb.description,
+       sb.amount,
+       TO_CHAR(sb.start_date, 'YYYY-MM-DD') AS start_date,
+       TO_CHAR(sb.end_date, 'YYYY-MM-DD') AS end_date,
+       sb.pic_user_id::text,
+       pic.nama AS pic_name,
+       sb.status,
+       sb.dashboard_visible,
+       sb.created_at,
+       COUNT(sbt.id) FILTER (WHERE sbt.is_active = TRUE)::int AS target_count,
+       COALESCE(SUM(sbt.target_amount) FILTER (WHERE sbt.is_active = TRUE), 0) AS total_target,
+       COALESCE(SUM(sbt.paid_amount), 0) AS total_paid
+     FROM special_bills sb
+     JOIN users pic ON pic.id = sb.pic_user_id
+     LEFT JOIN special_bill_targets sbt ON sbt.bill_id = sb.id
+     WHERE sb.pic_user_id = $1::uuid
+       AND sb.status = 'ACTIVE'
+     GROUP BY sb.id, pic.nama
+     ORDER BY sb.end_date ASC, sb.created_at DESC`,
+    [picUserId]
   );
   return result.rows.map((row) => ({
     ...row,
@@ -267,4 +340,176 @@ export async function setSpecialBillTargetActive({ billId, wargaId, isActive }) 
     [billId, wargaId, Boolean(isActive)]
   );
   return result.rows[0] || null;
+}
+
+export async function recordSpecialBillPayment({ billId, wargaId, amount }) {
+  await ensureSpecialBillTables();
+  const result = await pool.query(
+    `UPDATE special_bill_targets
+     SET paid_amount = LEAST(target_amount, paid_amount + $3::numeric),
+         status = CASE
+           WHEN LEAST(target_amount, paid_amount + $3::numeric) >= target_amount THEN 'COLLECTED'
+           WHEN LEAST(target_amount, paid_amount + $3::numeric) > 0 THEN 'PARTIAL'
+           ELSE 'UNPAID'
+         END,
+         updated_at = NOW()
+     WHERE bill_id = $1::uuid
+       AND warga_id = $2::uuid
+       AND is_active = TRUE
+     RETURNING id::text, bill_id::text, warga_id::text, target_amount, paid_amount, status`,
+    [billId, wargaId, amount]
+  );
+  return result.rows[0] || null;
+}
+
+export async function createSpecialBillBatch({ billId, actorId }) {
+  await ensureSpecialBillTables();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const billRes = await client.query(
+      `SELECT sb.id::text, sb.title, sb.pic_user_id::text, pic.nama AS pic_name
+       FROM special_bills sb
+       JOIN users pic ON pic.id = sb.pic_user_id
+       WHERE sb.id = $1::uuid
+       FOR UPDATE`,
+      [billId]
+    );
+    const bill = billRes.rows[0];
+    if (!bill) throw new Error('Tagihan tidak ditemukan');
+    const pendingRes = await client.query(
+      `SELECT id::text
+       FROM special_bill_batches
+       WHERE bill_id = $1::uuid
+         AND status = 'PENDING'
+       LIMIT 1`,
+      [billId]
+    );
+    if (pendingRes.rows.length) throw new Error('Masih ada setoran tagihan yang menunggu approval');
+
+    const itemsRes = await client.query(
+      `SELECT id::text, paid_amount
+       FROM special_bill_targets
+       WHERE bill_id = $1::uuid
+         AND is_active = TRUE
+         AND paid_amount > 0
+         AND status IN ('PARTIAL','COLLECTED')`,
+      [billId]
+    );
+    const total = itemsRes.rows.reduce((sum, row) => sum + Number(row.paid_amount || 0), 0);
+    if (total <= 0) throw new Error('Belum ada pembayaran yang bisa disetorkan');
+
+    const batchRes = await client.query(
+      `INSERT INTO special_bill_batches (bill_id, pic_user_id, total_amount, created_by)
+       VALUES ($1::uuid, $2::uuid, $3::numeric, $4::uuid)
+       RETURNING id::text, total_amount, created_at`,
+      [billId, bill.pic_user_id, total, actorId]
+    );
+    const batch = batchRes.rows[0];
+    await client.query(
+      `INSERT INTO special_bill_batch_items (batch_id, target_id, amount)
+       SELECT $1::uuid, id, paid_amount
+       FROM special_bill_targets
+       WHERE bill_id = $2::uuid
+         AND is_active = TRUE
+         AND paid_amount > 0
+         AND status IN ('PARTIAL','COLLECTED')`,
+      [batch.id, billId]
+    );
+    await client.query(
+      `UPDATE special_bill_targets
+       SET status = 'COLLECTED', updated_at = NOW()
+       WHERE bill_id = $1::uuid
+         AND is_active = TRUE
+         AND paid_amount > 0
+         AND status IN ('PARTIAL','COLLECTED')`,
+      [billId]
+    );
+    await client.query('COMMIT');
+    return { ...batch, bill_title: bill.title, pic_name: bill.pic_name, total_amount: Number(batch.total_amount || 0) };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listPendingSpecialBillBatches() {
+  await ensureSpecialBillTables();
+  const result = await pool.query(
+    `SELECT
+       sbb.id::text,
+       sbb.total_amount,
+       sbb.created_at,
+       sb.title,
+       pic.nama AS pic_name,
+       sbb.created_by::text
+     FROM special_bill_batches sbb
+     JOIN special_bills sb ON sb.id = sbb.bill_id
+     JOIN users pic ON pic.id = sbb.pic_user_id
+     WHERE sbb.status = 'PENDING'
+     ORDER BY sbb.created_at ASC`
+  );
+  return result.rows.map((row) => ({
+    kind: 'SPECIAL_BILL_BATCH',
+    id: row.id,
+    title: `Setoran Tagihan Khusus`,
+    description: `${row.title} • PIC: ${row.pic_name || '-'}`,
+    amount: Number(row.total_amount || 0),
+    created_at: row.created_at,
+    meta: { batch_id: row.id, created_by: row.created_by }
+  }));
+}
+
+export async function approveSpecialBillBatch({ batchId, approverId }) {
+  await ensureSpecialBillTables();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const batchRes = await client.query(
+      `SELECT sbb.id::text, sbb.bill_id::text, sbb.total_amount, sb.title, sbb.transaction_id
+       FROM special_bill_batches sbb
+       JOIN special_bills sb ON sb.id = sbb.bill_id
+       WHERE sbb.id = $1::uuid
+         AND sbb.status = 'PENDING'
+       FOR UPDATE`,
+      [batchId]
+    );
+    const batch = batchRes.rows[0];
+    if (!batch) throw new Error('Setoran tagihan tidak ditemukan atau sudah diproses');
+    const walletRes = await client.query(`SELECT id FROM wallets WHERE LOWER(name) = LOWER('Kas Iuran Wajib') LIMIT 1`);
+    if (!walletRes.rows.length) throw new Error('Wallet Kas Iuran Wajib tidak ditemukan');
+    const txRes = await client.query(
+      `INSERT INTO transactions (type, target_wallet_id, amount, status, description, created_by, approved_by, approved_at)
+       VALUES ('IN', $1, $2::numeric, 'APPROVED', $3, $4::uuid, $4::uuid, NOW())
+       RETURNING id`,
+      [walletRes.rows[0].id, batch.total_amount, `[SPECIAL_BILL] ${batch.title}`, approverId]
+    );
+    await client.query(
+      `UPDATE special_bill_batches
+       SET status = 'APPROVED',
+           transaction_id = $2,
+           approved_by = $3::uuid,
+           approved_at = NOW()
+       WHERE id = $1::uuid`,
+      [batchId, txRes.rows[0].id, approverId]
+    );
+    await client.query(
+      `UPDATE special_bill_targets sbt
+       SET status = 'APPROVED',
+           updated_at = NOW()
+       FROM special_bill_batch_items sbbi
+       WHERE sbbi.target_id = sbt.id
+         AND sbbi.batch_id = $1::uuid`,
+      [batchId]
+    );
+    await client.query('COMMIT');
+    return { id: batch.id, amount: Number(batch.total_amount || 0), title: batch.title };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }

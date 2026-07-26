@@ -6,6 +6,7 @@ import {
   listPendingJimpitanBatches,
   listPendingTransactionApprovals
 } from '../models/approvalModel.js';
+import { listPendingSpecialBillBatches } from '../models/specialBillModel.js';
 import { listPendingPinResetRequests } from '../models/managementModel.js';
 
 function normalizeRoles(userRoles = []) {
@@ -54,14 +55,15 @@ export async function getPendingApprovals(req, res) {
   }
 
   if (canApproveSetorHandover) {
-    const [jimpitanRows, assetRentalRows] = await Promise.all([
+    const [jimpitanRows, assetRentalRows, specialBillRows] = await Promise.all([
       listPendingSetorBendaharaApprovals(),
-      listPendingAssetRentalPaymentApprovals()
+      listPendingAssetRentalPaymentApprovals(),
+      listPendingSpecialBillBatches()
     ]);
     sections.push({
       key: 'bendahara_receipt',
       label: 'Penerimaan Bendahara',
-      items: [...jimpitanRows, ...assetRentalRows]
+      items: [...jimpitanRows, ...assetRentalRows, ...specialBillRows]
     });
   }
 
@@ -112,6 +114,7 @@ export async function getApprovalHistory(req, res) {
     includeFinance: canApproveFinance,
     includeHandover: canApproveSetorHandover,
     includeAssetRentalPayment: canApproveSetorHandover,
+    includeSpecialBillBatch: canApproveSetorHandover,
     includeSocialReceipt: canSeeSocialReceiptHistory,
     limit,
     offset

@@ -12,7 +12,7 @@ import { formatRupiah, formatTanggalIndonesia } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
 import { ApprovalHistoryItem, PendingApprovalItem, PendingApprovalSection } from '@/types';
 
-const BENDAHARA_KINDS = new Set(['JIMPITAN_HANDOVER', 'ASSET_RENTAL_PAYMENT']);
+const BENDAHARA_KINDS = new Set(['JIMPITAN_HANDOVER', 'ASSET_RENTAL_PAYMENT', 'SPECIAL_BILL_BATCH']);
 
 export default function BendaharaApprovalPage() {
   const { user, loading } = useAuth();
@@ -20,6 +20,7 @@ export default function BendaharaApprovalPage() {
   const [items, setItems] = useState<PendingApprovalItem[]>([]);
   const jimpitanItems = items.filter((item) => item.kind === 'JIMPITAN_HANDOVER');
   const assetRentalItems = items.filter((item) => item.kind === 'ASSET_RENTAL_PAYMENT');
+  const specialBillItems = items.filter((item) => item.kind === 'SPECIAL_BILL_BATCH');
   const [historyItems, setHistoryItems] = useState<ApprovalHistoryItem[]>([]);
   const [message, setMessage] = useState('');
   const [loadingList, setLoadingList] = useState(false);
@@ -90,6 +91,13 @@ export default function BendaharaApprovalPage() {
         });
       }
 
+      if (item.kind === 'SPECIAL_BILL_BATCH') {
+        await apiFetch('/special-bills/approve-batch', {
+          method: 'POST',
+          body: JSON.stringify({ batch_id: item.meta.batch_id ?? item.id })
+        });
+      }
+
       setMessage(`${item.title} berhasil diterima Bendahara.`);
       await loadData();
     } catch (error) {
@@ -108,7 +116,7 @@ export default function BendaharaApprovalPage() {
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
         <Card
           title="Approval Bendahara"
-          subtitle="Penerimaan uang fisik: setor jimpitan dan sewa aset"
+          subtitle="Penerimaan uang fisik: setor jimpitan, tagihan khusus, dan sewa aset"
           headerRight={
             <Button variant="ghost" onClick={() => void loadData()} disabled={loadingList}>
               {loadingList ? 'Memuat...' : 'Refresh'}
@@ -144,6 +152,18 @@ export default function BendaharaApprovalPage() {
             subtitle="Pembayaran sewa aset yang baru masuk kas setelah Bendahara menerima uang"
             emptyText="Belum ada sewa aset yang menunggu Bendahara."
             items={assetRentalItems}
+            approvingKey={approvingKey}
+            onApprove={approveItem}
+            loading={loadingList}
+          />
+        ) : null}
+
+        {canApproveBendahara ? (
+          <ApprovalGroup
+            title="Setoran Tagihan Khusus"
+            subtitle="Setoran dari PIC tagihan khusus, masuk Kas Bendahara setelah diterima"
+            emptyText="Belum ada tagihan khusus yang menunggu Bendahara."
+            items={specialBillItems}
             approvingKey={approvingKey}
             onApprove={approveItem}
             loading={loadingList}
