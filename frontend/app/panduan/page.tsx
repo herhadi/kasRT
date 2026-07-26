@@ -272,6 +272,29 @@ const guideSections: GuideSection[] = [
   }
 ];
 
+const guideSectionOrder = [
+  'mulai-cepat',
+  'jimpitan',
+  'bendahara',
+  'tagihan-khusus',
+  'sosial',
+  'lingkungan',
+  'internet',
+  'tabungan',
+  'koperasi',
+  'keamanan',
+  'telegram',
+  'troubleshooting'
+];
+
+function sortGuideSections(sections: GuideSection[]) {
+  return [...sections].sort((left, right) => {
+    const leftIndex = guideSectionOrder.indexOf(left.id);
+    const rightIndex = guideSectionOrder.indexOf(right.id);
+    return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
+  });
+}
+
 export default function PanduanPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -283,8 +306,8 @@ export default function PanduanPage() {
 
   const filteredSections = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    if (!keyword) return guideSections;
-    return guideSections.filter((section) => {
+    if (!keyword) return sortGuideSections(guideSections);
+    return sortGuideSections(guideSections.filter((section) => {
       const haystack = [
         section.title,
         section.summary,
@@ -293,7 +316,7 @@ export default function PanduanPage() {
         ...section.quickLinks.map((link) => link.label)
       ].join(' ').toLowerCase();
       return haystack.includes(keyword);
-    });
+    }));
   }, [query]);
 
   if (loading || !user) return <main className="min-h-screen" />;
@@ -322,7 +345,7 @@ export default function PanduanPage() {
 
         <div className="sticky top-0 z-20 -mx-4 overflow-x-auto border-y border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 md:top-0 md:mx-0 md:rounded-2xl md:border">
           <div className="flex min-w-max gap-2">
-            {guideSections.map((section) => (
+            {sortGuideSections(guideSections).map((section) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
