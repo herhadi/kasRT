@@ -66,6 +66,21 @@ export type DashboardWargaData = {
     kas_internet: number;
     kas_koperasi: number;
   };
+  special_bills?: Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    amount: number;
+    start_date: string;
+    end_date: string;
+    pic_user_id: string;
+    pic_name: string;
+    target_amount: number;
+    paid_amount: number;
+    remaining_amount: number;
+    status: string;
+    display_status: 'BELUM_MULAI' | 'BELUM' | 'SEBAGIAN' | 'LUNAS' | 'TERLAMBAT';
+  }>;
 };
 
 export type MembershipRequestStatus = {

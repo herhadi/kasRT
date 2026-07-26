@@ -45,6 +45,12 @@ const moduleLinks = [
     roles: ['Bendahara']
   },
   {
+    href: '/operasional/tagihan-khusus',
+    title: 'Tagihan Khusus',
+    description: 'Buat tagihan temporer, tunjuk PIC warga, dan tampilkan ke dashboard warga.',
+    roles: ['Bendahara', 'root']
+  },
+  {
     href: '/operasional/sosial',
     title: 'Operasional Sosial',
     description: 'Pengeluaran sosial, approval masuk, dan riwayat sosial.',

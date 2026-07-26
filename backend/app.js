@@ -18,6 +18,7 @@ import koperasiRoutes from './routes/koperasi.js';
 import membershipRequestRoutes from './routes/membershipRequest.js';
 import securityRoutes from './routes/security.js';
 import migrationRoutes from './routes/migration.js';
+import specialBillRoutes from './routes/specialBill.js';
 import { ensureCoreMasterData } from './models/bootstrapModel.js';
 import { ensureInternetTables } from './models/internetModel.js';
 import { ensureLingkunganTables } from './models/lingkunganModel.js';
@@ -76,6 +77,7 @@ app.use('/koperasi', koperasiRoutes);
 app.use('/membership', membershipRequestRoutes);
 app.use('/security', securityRoutes);
 app.use('/migration', migrationRoutes);
+app.use('/special-bills', specialBillRoutes);
 
 app.get('/', (_req, res) => {
   res.json({

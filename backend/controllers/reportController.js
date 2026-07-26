@@ -28,6 +28,7 @@ import {
 } from '../models/reportModel.js';
 import { getLatestMembershipRequestStatusMap } from '../models/membershipRequestModel.js';
 import { getDashboardAdminJimpitan, getEffectiveJimpitanMode } from '../models/jimpitanModel.js';
+import { listVisibleSpecialBillsForWarga } from '../models/specialBillModel.js';
 import { getCacheJson, setCacheJson } from '../services/cacheService.js';
 
 const JIMPITAN_TARGET_BULANAN = 15000;
@@ -81,6 +82,7 @@ export async function dashboardWarga(req, res) {
     const snapshot = await getWargaFinancialSnapshot(user_id);
     const totalKasSemuaTerkini = await getTotalKasSemuaTerkini();
     const kasUmum = await getKasUmumSnapshot();
+    const specialBills = await listVisibleSpecialBillsForWarga(user_id);
 
     let iuran_wajib_bulan_ini = 0;
     let internet_bulan_ini = 0;
@@ -213,7 +215,8 @@ export async function dashboardWarga(req, res) {
           kas_lingkungan: Number(kasUmum.kas_lingkungan || 0),
           kas_internet: Number(kasUmum.kas_internet || 0),
           kas_koperasi: Number(kasUmum.kas_koperasi || 0)
-        }
+        },
+        special_bills: specialBills
       }
     };
     const cacheSaved = await setCacheJson(cacheKey, payload, 60);

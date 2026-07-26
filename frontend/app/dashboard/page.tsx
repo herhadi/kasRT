@@ -50,6 +50,12 @@ type ContributionDetailData = {
   };
 };
 
+function formatDashboardDate(value: string) {
+  const parsed = new Date(`${String(value || '').slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value || '-';
+  return parsed.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 export default function DashboardPage() {
   const { user, loading, refreshUser } = useAuth();
   const router = useRouter();
@@ -390,6 +396,36 @@ export default function DashboardPage() {
                 ) : null}
               </section>
             </Card>
+
+            {wargaData.special_bills?.length ? (
+              <Card title="Tagihan Khusus Aktif" subtitle="Tagihan temporer yang ditunjuk oleh pengurus RT">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {wargaData.special_bills.map((bill) => (
+                    <div key={bill.id} className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold">{bill.title}</p>
+                          <p className="mt-1 text-xs opacity-80">PIC: {bill.pic_name}</p>
+                        </div>
+                        <span className="rounded-full bg-white/70 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800 dark:bg-amber-400/10 dark:text-amber-100">
+                          {bill.display_status === 'TERLAMBAT' ? 'Terlambat' :
+                           bill.display_status === 'LUNAS' ? 'Lunas' :
+                           bill.display_status === 'SEBAGIAN' ? 'Sebagian' :
+                           bill.display_status === 'BELUM_MULAI' ? 'Belum Mulai' : 'Belum'}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <Line label="Target" value={formatRupiah(Number(bill.target_amount || 0))} />
+                        <Line label="Sisa" value={formatRupiah(Number(bill.remaining_amount || 0))} />
+                        <Line label="Mulai" value={formatDashboardDate(bill.start_date)} />
+                        <Line label="Batas" value={formatDashboardDate(bill.end_date)} />
+                      </div>
+                      {bill.description ? <p className="mt-3 text-xs opacity-80">{bill.description}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
 
             <Card title="Kas Umum" subtitle="Ringkasan kas bersama lintas modul">
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
