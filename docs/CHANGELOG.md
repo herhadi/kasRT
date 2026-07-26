@@ -28,6 +28,10 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Setoran Tagihan Khusus hanya mengambil pembayaran yang belum pernah masuk batch, sehingga tidak dobel setor.
 - Pembayaran Tagihan Khusus yang sudah masuk batch approval/approved dikunci dari edit langsung agar alur kas tetap aman.
 
+### Diperbaiki
+
+- Tipe `transaction_id` pada batch Tagihan Khusus disesuaikan ke UUID agar cocok dengan tabel `transactions` dan tidak memicu 500 saat inisialisasi tabel.
+
 ## 2026-07-24
 
 ### Diubah

@@ -43,7 +43,7 @@ export async function ensureSpecialBillTables() {
       pic_user_id UUID NOT NULL REFERENCES users(id),
       total_amount NUMERIC(18, 2) NOT NULL CHECK (total_amount > 0),
       status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED')),
-      transaction_id BIGINT NULL REFERENCES transactions(id),
+      transaction_id UUID NULL REFERENCES transactions(id),
       created_by UUID NULL REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       approved_by UUID NULL REFERENCES users(id),
