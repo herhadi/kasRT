@@ -50,6 +50,20 @@ function ensureChat(db, jid, name = null) {
   return db.chats[jid];
 }
 
+export async function upsertChat({ jid, name = null }) {
+  if (!jid) return null;
+  const db = await readDb();
+  const chat = ensureChat(db, jid, name);
+  await writeDb(db);
+  return {
+    jid: chat.jid,
+    name: chat.name,
+    unread: Number(chat.unread || 0),
+    last_message: chat.last_message || '',
+    last_at: chat.last_at || null
+  };
+}
+
 export async function listChats() {
   const db = await readDb();
   return Object.values(db.chats || {})
@@ -94,7 +108,8 @@ export async function appendChatMessage({ jid, id, direction, text, at, name = n
     id,
     direction,
     text: cleanText,
-    at: at || new Date().toISOString()
+    at: at || new Date().toISOString(),
+    status: direction === 'outgoing' ? 'sent' : undefined
   };
 
   chat.messages.push(message);
@@ -105,4 +120,24 @@ export async function appendChatMessage({ jid, id, direction, text, at, name = n
 
   await writeDb(db);
   return chat;
+}
+
+export async function updateMessageStatus({ jid, id, status }) {
+  if (!jid || !id || !status) return null;
+
+  const db = await readDb();
+  const chat = db.chats?.[jid];
+  if (!chat || !Array.isArray(chat.messages)) return null;
+
+  const message = chat.messages.find((item) => item.id === id);
+  if (!message || message.direction !== 'outgoing') return null;
+
+  const ranks = { sent: 1, delivered: 2, read: 3 };
+  const currentRank = ranks[message.status] || 0;
+  const nextRank = ranks[status] || 0;
+  if (nextRank < currentRank) return message;
+
+  message.status = status;
+  await writeDb(db);
+  return message;
 }

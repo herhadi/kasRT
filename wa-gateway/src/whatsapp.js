@@ -8,7 +8,7 @@ import { wrapSocket } from 'baileys-antiban';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { config } from './config.js';
-import { appendChatMessage, hasChat } from './chatStore.js';
+import { appendChatMessage, hasChat, updateMessageStatus, upsertChat } from './chatStore.js';
 import { assertCanSend, recordSend } from './store.js';
 
 let socket = null;
@@ -72,6 +72,14 @@ function shouldReconnect(update) {
   return statusCode !== DisconnectReason.loggedOut;
 }
 
+function mapMessageStatus(status) {
+  const raw = typeof status === 'number' ? status : Number(status);
+  if (raw >= 4) return 'read';
+  if (raw >= 3) return 'delivered';
+  if (raw >= 1) return 'sent';
+  return null;
+}
+
 async function clearAuthDir() {
   await fs.mkdir(config.authDir, { recursive: true });
   const entries = await fs.readdir(config.authDir, { withFileTypes: true });
@@ -120,6 +128,16 @@ async function recordIncomingMessages(messages = []) {
   }
 }
 
+async function recordMessageUpdates(updates = []) {
+  for (const item of updates) {
+    const jid = item?.key?.remoteJid;
+    const id = item?.key?.id;
+    const status = mapMessageStatus(item?.update?.status ?? item?.status);
+    if (!jid || !id || !status) continue;
+    await updateMessageStatus({ jid, id, status });
+  }
+}
+
 export async function startWhatsApp() {
   if (connecting || socket) return;
   connecting = true;
@@ -148,6 +166,11 @@ export async function startWhatsApp() {
   rawSocket.ev.on('messages.upsert', async ({ messages }) => {
     await recordIncomingMessages(messages).catch((error) => {
       lastDisconnectReason = `message store failed: ${error.message}`;
+    });
+  });
+  rawSocket.ev.on('messages.update', async (updates) => {
+    await recordMessageUpdates(updates).catch((error) => {
+      lastDisconnectReason = `message status failed: ${error.message}`;
     });
   });
   rawSocket.ev.on('connection.update', async (update) => {
@@ -268,6 +291,37 @@ export async function sendChatReply({ jid, text }) {
     direction: 'outgoing',
     text: messageText,
     at: new Date().toISOString()
+  });
+
+  return {
+    jid,
+    message_id: result?.key?.id || null
+  };
+}
+
+export async function startChatMessage({ phone, name, text }) {
+  if (!socket || connectionState !== 'connected') {
+    throw new Error('WhatsApp belum connected. Scan QR dulu.');
+  }
+
+  const normalizedPhone = normalizePhone(phone);
+  const jid = jidFromPhone(normalizedPhone);
+  const messageText = String(text || '').trim();
+  if (messageText.length < config.minTextLength) {
+    throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
+  }
+
+  await assertCanSend(normalizedPhone);
+  await upsertChat({ jid, name: name || normalizedPhone });
+  const result = await socket.sendMessage(jid, { text: messageText }, {});
+  await recordSend(normalizedPhone);
+  await appendChatMessage({
+    jid,
+    id: result?.key?.id || `out-${Date.now()}`,
+    direction: 'outgoing',
+    text: messageText,
+    at: new Date().toISOString(),
+    name: name || normalizedPhone
   });
 
   return {

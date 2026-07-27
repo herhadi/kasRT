@@ -17,11 +17,10 @@
         --bubble-out: #d9fdd3;
         --text: #111b21;
         --danger: #b42318;
+        --blue: #53bdeb;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
 
       body {
         margin: 0;
@@ -30,72 +29,123 @@
         color: var(--text);
       }
 
-      button,
-      input,
-      textarea {
-        font: inherit;
-      }
+      button, input, textarea { font: inherit; }
 
       .app {
         width: min(1180px, calc(100vw - 24px));
         height: calc(100vh - 24px);
         margin: 12px auto;
         display: grid;
-        grid-template-columns: 340px 1fr;
+        grid-template-columns: 360px 1fr;
         background: var(--panel);
         border-radius: 12px;
         overflow: hidden;
         box-shadow: 0 16px 40px rgba(17, 27, 33, 0.22);
       }
 
-      .sidebar,
-      .chat {
-        min-height: 0;
-      }
+      .sidebar, .chat { min-height: 0; }
 
       .sidebar {
         border-right: 1px solid var(--line);
         display: flex;
         flex-direction: column;
+        background: #fff;
       }
 
       .topbar {
-        min-height: 64px;
-        padding: 12px 14px;
+        min-height: 58px;
+        padding: 10px 14px;
         background: #f0f2f5;
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 10px;
       }
 
-      .title {
-        font-weight: 700;
-        line-height: 1.2;
-      }
+      .title { font-weight: 700; line-height: 1.2; }
+      .subtitle { color: var(--muted); font-size: 12px; }
 
-      .subtitle {
+      .icon-button {
+        width: 38px;
+        height: 38px;
+        border: 0;
+        border-radius: 999px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
         color: var(--muted);
-        font-size: 12px;
+        cursor: pointer;
+        font-size: 20px;
       }
 
-      .secret-box {
-        padding: 12px;
-        border-bottom: 1px solid var(--line);
+      .icon-button:hover { background: #e6eaed; }
+
+      .toolbar {
+        padding: 10px;
         display: grid;
+        gap: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .new-chat-row, .settings-row {
+        display: flex;
         gap: 8px;
       }
 
-      .qr-box {
+      input, textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        outline: none;
+        background: #fff;
+      }
+
+      input:focus, textarea:focus { border-color: var(--green); }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: var(--green);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+
+      button.secondary { color: var(--green-dark); background: #e7f7f2; }
+      button.danger { color: #fff; background: var(--danger); }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+      .status {
+        padding: 8px 12px;
+        color: var(--muted);
+        font-size: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .status.error { color: var(--danger); }
+
+      .settings {
         display: none;
         padding: 12px;
         border-bottom: 1px solid var(--line);
         background: #fff;
+        gap: 8px;
       }
 
-      .qr-box.show {
-        display: grid;
+      .settings.show { display: grid; }
+
+      .qr-box {
+        display: none;
+        padding-top: 6px;
         gap: 10px;
       }
+
+      .qr-box.show { display: grid; }
 
       .qr-box img {
         width: 210px;
@@ -107,71 +157,9 @@
         background: #fff;
       }
 
-      .hint {
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.4;
-      }
+      .hint { color: var(--muted); font-size: 12px; line-height: 1.4; }
 
-      .secret-row {
-        display: flex;
-        gap: 8px;
-      }
-
-      input,
-      textarea {
-        width: 100%;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 10px 12px;
-        outline: none;
-        background: #fff;
-      }
-
-      input:focus,
-      textarea:focus {
-        border-color: var(--green);
-      }
-
-      button {
-        border: 0;
-        border-radius: 10px;
-        padding: 10px 14px;
-        background: var(--green);
-        color: #fff;
-        cursor: pointer;
-        font-weight: 650;
-      }
-
-      button.secondary {
-        color: var(--green-dark);
-        background: #e7f7f2;
-      }
-
-      button.danger {
-        color: #fff;
-        background: var(--danger);
-      }
-
-      button:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-      }
-
-      .status {
-        padding: 10px 12px;
-        color: var(--muted);
-        font-size: 13px;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .status.error {
-        color: var(--danger);
-      }
-
-      .chat-list {
-        overflow: auto;
-      }
+      .chat-list { overflow: auto; }
 
       .chat-item {
         width: 100%;
@@ -181,41 +169,41 @@
         color: var(--text);
         border-radius: 0;
         text-align: left;
-        padding: 13px 14px;
+        padding: 9px 12px;
         display: grid;
-        gap: 4px;
+        gap: 2px;
       }
 
-      .chat-item.active {
-        background: #f0f2f5;
-      }
+      .chat-item.active { background: #f0f2f5; }
+      .chat-item:hover { background: #f7f8fa; }
 
       .chat-name {
         display: flex;
         justify-content: space-between;
         gap: 10px;
         font-weight: 650;
+        font-size: 14px;
       }
 
       .chat-last {
         color: var(--muted);
-        font-size: 13px;
+        font-size: 12px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
 
       .badge {
-        min-width: 20px;
-        height: 20px;
-        padding: 2px 6px;
+        min-width: 18px;
+        height: 18px;
+        padding: 1px 6px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         background: var(--green);
         color: #fff;
-        font-size: 12px;
+        font-size: 11px;
       }
 
       .chat {
@@ -235,7 +223,7 @@
 
       .empty {
         margin: auto;
-        max-width: 360px;
+        max-width: 390px;
         padding: 22px;
         text-align: center;
         color: var(--muted);
@@ -245,32 +233,31 @@
 
       .bubble {
         max-width: min(620px, 80%);
-        padding: 8px 10px 6px;
+        padding: 8px 10px 5px;
         border-radius: 10px;
         box-shadow: 0 1px 1px rgba(17, 27, 33, 0.12);
         white-space: pre-wrap;
         word-break: break-word;
       }
 
-      .incoming {
-        align-self: flex-start;
-        background: var(--bubble-in);
-      }
+      .incoming { align-self: flex-start; background: var(--bubble-in); }
+      .outgoing { align-self: flex-end; background: var(--bubble-out); }
 
-      .outgoing {
-        align-self: flex-end;
-        background: var(--bubble-out);
-      }
-
-      .time {
+      .meta {
         margin-top: 4px;
         color: var(--muted);
         font-size: 11px;
-        text-align: right;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 4px;
       }
 
+      .ticks { letter-spacing: -2px; color: var(--muted); font-weight: 700; }
+      .ticks.read { color: var(--blue); }
+
       .composer {
-        padding: 12px;
+        padding: 10px;
         background: #f0f2f5;
         display: flex;
         gap: 10px;
@@ -278,14 +265,12 @@
       }
 
       textarea {
-        min-height: 44px;
-        max-height: 130px;
+        min-height: 42px;
+        max-height: 120px;
         resize: vertical;
       }
 
-      #backButton {
-        display: none;
-      }
+      #backButton { display: none; }
 
       @media (max-width: 760px) {
         .app {
@@ -296,17 +281,8 @@
           grid-template-columns: 1fr;
         }
 
-        .sidebar.hidden-mobile {
-          display: none;
-        }
-
-        .chat.hidden-mobile {
-          display: none;
-        }
-
-        #backButton {
-          display: inline-flex;
-        }
+        .sidebar.hidden-mobile, .chat.hidden-mobile { display: none; }
+        #backButton { display: inline-flex; }
       }
     </style>
   </head>
@@ -315,52 +291,57 @@
       <section id="sidebar" class="sidebar">
         <div class="topbar">
           <div>
-            <div class="title">KasRT WA Lab</div>
+            <div class="title">KasRT WA</div>
             <div id="linkedNumber" class="subtitle">Mini inbox 1:1</div>
           </div>
+          <button id="settingsButton" class="icon-button" title="Pengaturan">⚙</button>
         </div>
 
-        <div class="secret-box">
-          <div class="secret-row">
+        <div id="settingsPanel" class="settings">
+          <div class="settings-row">
             <input id="secretInput" type="password" placeholder="WA Lab Secret" autocomplete="off" />
             <button id="saveSecretButton" class="secondary">Simpan</button>
           </div>
-          <div class="secret-row">
+          <div class="settings-row">
             <button id="checkConnectionButton" class="secondary">Cek Koneksi</button>
             <button id="showQrButton" class="secondary">Ambil QR</button>
           </div>
           <button id="resetSessionButton" class="danger">Reset Session / Ganti Nomor</button>
-          <button id="refreshButton">Refresh Chat</button>
-        </div>
-
-        <div id="qrBox" class="qr-box">
-          <img id="qrImage" alt="QR WhatsApp" />
-          <div id="qrHint" class="hint">
-            Scan dari WhatsApp → Perangkat tertaut → Tautkan perangkat.
+          <div id="qrBox" class="qr-box">
+            <img id="qrImage" alt="QR WhatsApp" />
+            <div id="qrHint" class="hint">Scan dari WhatsApp → Perangkat tertaut → Tautkan perangkat.</div>
           </div>
         </div>
 
-        <div id="statusBox" class="status">Masukkan secret lalu refresh.</div>
+        <div class="toolbar">
+          <div class="new-chat-row">
+            <input id="newPhoneInput" inputmode="tel" placeholder="Nomor WA baru, contoh 62812..." />
+            <button id="newChatButton" class="secondary">Chat</button>
+          </div>
+          <button id="refreshButton">Refresh</button>
+        </div>
+
+        <div id="statusBox" class="status">Masukkan secret di ⚙ lalu refresh.</div>
         <div id="chatList" class="chat-list"></div>
       </section>
 
       <section id="chatPanel" class="chat hidden-mobile">
         <div class="topbar">
-          <button id="backButton" class="secondary">←</button>
-          <div>
-            <div id="chatTitle" class="title">Pilih chat</div>
-            <div id="chatSubtitle" class="subtitle">Hanya percakapan 1:1 yang masuk ke sini</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button id="backButton" class="icon-button">←</button>
+            <div>
+              <div id="chatTitle" class="title">Pilih chat</div>
+              <div id="chatSubtitle" class="subtitle">Mulai chat dari kiri atau tunggu pesan masuk</div>
+            </div>
           </div>
         </div>
 
         <div id="messages" class="messages">
-          <div class="empty">
-            Minta seseorang mengirim pesan ke nomor WA yang tertaut, lalu chat akan muncul di daftar kiri.
-          </div>
+          <div class="empty">Pilih chat di kiri, atau masukkan nomor WA baru lalu klik Chat.</div>
         </div>
 
         <form id="replyForm" class="composer">
-          <textarea id="replyText" placeholder="Tulis balasan..." disabled></textarea>
+          <textarea id="replyText" placeholder="Tulis pesan..." disabled></textarea>
           <button id="sendButton" type="submit" disabled>Kirim</button>
         </form>
       </section>
@@ -369,6 +350,8 @@
     <script>
       const secretInput = document.querySelector('#secretInput');
       const saveSecretButton = document.querySelector('#saveSecretButton');
+      const settingsButton = document.querySelector('#settingsButton');
+      const settingsPanel = document.querySelector('#settingsPanel');
       const checkConnectionButton = document.querySelector('#checkConnectionButton');
       const showQrButton = document.querySelector('#showQrButton');
       const resetSessionButton = document.querySelector('#resetSessionButton');
@@ -377,6 +360,8 @@
       const qrBox = document.querySelector('#qrBox');
       const qrImage = document.querySelector('#qrImage');
       const qrHint = document.querySelector('#qrHint');
+      const newPhoneInput = document.querySelector('#newPhoneInput');
+      const newChatButton = document.querySelector('#newChatButton');
       const chatList = document.querySelector('#chatList');
       const messagesBox = document.querySelector('#messages');
       const replyForm = document.querySelector('#replyForm');
@@ -390,38 +375,30 @@
       const backButton = document.querySelector('#backButton');
 
       let activeJid = null;
+      let activeTitle = '';
       let pollTimer = null;
 
       secretInput.value = localStorage.getItem('kasrt_wa_lab_secret') || '';
 
-      function secret() {
-        return secretInput.value.trim();
-      }
-
-      function headers() {
-        return {
-          'content-type': 'application/json',
-          'x-wa-lab-secret': secret()
-        };
-      }
+      function secret() { return secretInput.value.trim(); }
+      function headers() { return { 'content-type': 'application/json', 'x-wa-lab-secret': secret() }; }
 
       function setStatus(message, isError = false) {
         statusBox.textContent = message;
         statusBox.classList.toggle('error', isError);
       }
 
-      function chatName(chat) {
-        return chat.name || chat.jid.replace('@s.whatsapp.net', '').replace('@lid', '');
+      function normalizePhoneInput(phone) {
+        const digits = String(phone || '').replace(/\D/g, '');
+        if (!digits) return '';
+        return digits.startsWith('0') ? `62${digits.slice(1)}` : digits;
       }
+
+      function chatName(chat) { return chat.name || chat.jid.replace('@s.whatsapp.net', '').replace('@lid', ''); }
 
       function formatTime(value) {
         if (!value) return '';
-        return new Intl.DateTimeFormat('id-ID', {
-          hour: '2-digit',
-          minute: '2-digit',
-          day: '2-digit',
-          month: 'short'
-        }).format(new Date(value));
+        return new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }).format(new Date(value));
       }
 
       function escapeHtml(value) {
@@ -433,30 +410,25 @@
           .replaceAll("'", '&#039;');
       }
 
+      function tickHtml(status) {
+        if (!status) return '';
+        const readClass = status === 'read' ? ' read' : '';
+        const ticks = status === 'sent' ? '✓' : '✓✓';
+        return `<span class="ticks${readClass}">${ticks}</span>`;
+      }
+
       async function api(path, options = {}) {
-        if (!secret()) throw new Error('Secret belum diisi.');
-        const response = await fetch(path, {
-          ...options,
-          headers: {
-            ...headers(),
-            ...(options.headers || {})
-          }
-        });
+        if (!secret()) throw new Error('Secret belum diisi. Buka ⚙ dan simpan secret.');
+        const response = await fetch(path, { ...options, headers: { ...headers(), ...(options.headers || {}) } });
         const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.success) {
-          throw new Error(data?.message || `HTTP ${response.status}`);
-        }
+        if (!response.ok || !data?.success) throw new Error(data?.message || `HTTP ${response.status}`);
         return data.data;
       }
 
       async function loadStatus() {
         const status = await api('/status');
-        linkedNumber.textContent = status.connected
-          ? `Tertaut: ${status.linked_number || '-'}`
-          : `Belum connected (${status.state})`;
-        if (status.connected) {
-          qrBox.classList.remove('show');
-        }
+        linkedNumber.textContent = status.connected ? `Tertaut: ${status.linked_number || '-'}` : `Belum connected (${status.state})`;
+        if (status.connected) qrBox.classList.remove('show');
         return status;
       }
 
@@ -468,44 +440,32 @@
             qrBox.classList.remove('show');
             return;
           }
-
           const qr = await api('/qr');
           if (!qr.has_qr || !qr.qr_data_url) {
             qrBox.classList.remove('show');
             setStatus('QR belum tersedia. Tunggu beberapa detik lalu klik Ambil QR lagi.', true);
             return;
           }
-
           qrImage.src = qr.qr_data_url;
           qrHint.textContent = 'Scan dari WhatsApp → Perangkat tertaut → Tautkan perangkat. QR bisa expired, ambil ulang jika gagal.';
           qrBox.classList.add('show');
           setStatus('QR siap discan.');
-        } catch (error) {
-          setStatus(error.message, true);
-        }
+        } catch (error) { setStatus(error.message, true); }
       }
 
       async function resetSession() {
-        const approved = window.confirm(
-          'Reset session akan menghapus tautan WhatsApp di gateway ini dan membuat QR baru. Lanjut?'
-        );
+        const approved = window.confirm('Reset session akan menghapus tautan WhatsApp di gateway ini dan membuat QR baru. Lanjut?');
         if (!approved) return;
-
         resetSessionButton.disabled = true;
         showQrButton.disabled = true;
         setStatus('Reset session berjalan. Tunggu QR baru...');
-
         try {
           qrBox.classList.remove('show');
-          await api('/session/reset', {
-            method: 'POST',
-            body: JSON.stringify({ confirm: 'RESET' })
-          });
+          await api('/session/reset', { method: 'POST', body: JSON.stringify({ confirm: 'RESET' }) });
           await new Promise((resolve) => setTimeout(resolve, 4000));
           await showQr();
-        } catch (error) {
-          setStatus(error.message, true);
-        } finally {
+        } catch (error) { setStatus(error.message, true); }
+        finally {
           resetSessionButton.disabled = false;
           showQrButton.disabled = false;
         }
@@ -516,11 +476,7 @@
           await loadStatus();
           const chats = await api('/chats');
           chatList.innerHTML = '';
-
-          if (!chats.length) {
-            chatList.innerHTML = '<div class="status">Belum ada chat masuk.</div>';
-          }
-
+          if (!chats.length) chatList.innerHTML = '<div class="status">Belum ada chat.</div>';
           for (const chat of chats) {
             const button = document.createElement('button');
             button.className = `chat-item ${chat.jid === activeJid ? 'active' : ''}`;
@@ -532,21 +488,18 @@
               <div class="chat-last">
                 ${chat.unread ? `<span class="badge">${chat.unread}</span> ` : ''}
                 ${escapeHtml(chat.last_message || '-')}
-              </div>
-            `;
+              </div>`;
             button.addEventListener('click', () => selectChat(chat.jid, chatName(chat)));
             chatList.appendChild(button);
           }
-
           setStatus('Siap. Chat diperbarui otomatis.');
-        } catch (error) {
-          setStatus(error.message, true);
-        }
+        } catch (error) { setStatus(error.message, true); }
       }
 
       async function selectChat(jid, name) {
         activeJid = jid;
-        chatTitle.textContent = name || jid;
+        activeTitle = name || jid;
+        chatTitle.textContent = activeTitle;
         chatSubtitle.textContent = jid;
         replyText.disabled = false;
         sendButton.disabled = false;
@@ -561,76 +514,82 @@
         try {
           const chat = await api(`/chats/${encodeURIComponent(activeJid)}/messages`);
           messagesBox.innerHTML = '';
-
           for (const message of chat.messages) {
             const bubble = document.createElement('div');
             bubble.className = `bubble ${message.direction}`;
             bubble.innerHTML = `
               <div>${escapeHtml(message.text)}</div>
-              <div class="time">${escapeHtml(formatTime(message.at))}</div>
-            `;
+              <div class="meta"><span>${escapeHtml(formatTime(message.at))}</span>${message.direction === 'outgoing' ? tickHtml(message.status) : ''}</div>`;
             messagesBox.appendChild(bubble);
           }
-
           messagesBox.scrollTop = messagesBox.scrollHeight;
-        } catch (error) {
-          setStatus(error.message, true);
-        }
+        } catch (error) { setStatus(error.message, true); }
       }
 
       async function sendReply(event) {
         event.preventDefault();
-        if (!activeJid || !replyText.value.trim()) return;
-
+        if (!replyText.value.trim()) return;
         sendButton.disabled = true;
         try {
-          await api(`/chats/${encodeURIComponent(activeJid)}/reply`, {
-            method: 'POST',
-            body: JSON.stringify({ text: replyText.value.trim() })
-          });
+          if (activeJid) {
+            await api(`/chats/${encodeURIComponent(activeJid)}/reply`, { method: 'POST', body: JSON.stringify({ text: replyText.value.trim() }) });
+          } else {
+            const phone = normalizePhoneInput(newPhoneInput.value);
+            if (!phone) throw new Error('Nomor WA tujuan belum diisi.');
+            const data = await api('/chats/start', { method: 'POST', body: JSON.stringify({ phone, name: phone, text: replyText.value.trim() }) });
+            activeJid = data.jid;
+            activeTitle = phone;
+            chatTitle.textContent = phone;
+            chatSubtitle.textContent = data.jid;
+          }
           replyText.value = '';
           await loadMessages();
           await loadChats();
-        } catch (error) {
-          setStatus(error.message, true);
-        } finally {
-          sendButton.disabled = false;
+        } catch (error) { setStatus(error.message, true); }
+        finally { sendButton.disabled = false; }
+      }
+
+      function prepareNewChat() {
+        const phone = normalizePhoneInput(newPhoneInput.value);
+        if (!phone) {
+          setStatus('Isi nomor WA tujuan dulu.', true);
+          return;
         }
+        activeJid = null;
+        activeTitle = phone;
+        chatTitle.textContent = phone;
+        chatSubtitle.textContent = `Chat baru ke ${phone}`;
+        messagesBox.innerHTML = '<div class="empty">Tulis pesan pertama lalu klik Kirim.</div>';
+        replyText.disabled = false;
+        sendButton.disabled = false;
+        replyText.focus();
+        sidebar.classList.add('hidden-mobile');
+        chatPanel.classList.remove('hidden-mobile');
       }
 
       function startPolling() {
         if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(() => {
-          loadChats();
-          loadMessages();
-        }, 5000);
+        pollTimer = setInterval(() => { loadChats(); loadMessages(); }, 5000);
       }
 
+      settingsButton.addEventListener('click', () => settingsPanel.classList.toggle('show'));
       saveSecretButton.addEventListener('click', () => {
         localStorage.setItem('kasrt_wa_lab_secret', secret());
+        settingsPanel.classList.remove('show');
         loadChats();
         startPolling();
       });
-
       checkConnectionButton.addEventListener('click', async () => {
         try {
           const status = await loadStatus();
           setStatus(status.connected ? `Connected: ${status.linked_number || '-'}` : `Belum connected (${status.state}).`);
-        } catch (error) {
-          setStatus(error.message, true);
-        }
+        } catch (error) { setStatus(error.message, true); }
       });
-
       showQrButton.addEventListener('click', showQr);
       resetSessionButton.addEventListener('click', resetSession);
-
-      refreshButton.addEventListener('click', () => {
-        loadChats();
-        loadMessages();
-      });
-
+      refreshButton.addEventListener('click', () => { loadChats(); loadMessages(); });
+      newChatButton.addEventListener('click', prepareNewChat);
       replyForm.addEventListener('submit', sendReply);
-
       backButton.addEventListener('click', () => {
         sidebar.classList.remove('hidden-mobile');
         chatPanel.classList.add('hidden-mobile');

@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertConfig, config } from './config.js';
-import { getQr, getStatus, resetSession, sendChatReply, sendTestMessage, startWhatsApp } from './whatsapp.js';
+import { getQr, getStatus, resetSession, sendChatReply, sendTestMessage, startChatMessage, startWhatsApp } from './whatsapp.js';
 import { getChatMessages, listChats } from './chatStore.js';
 import { getUsage } from './store.js';
 
@@ -36,6 +36,7 @@ app.get('/', (_req, res) => {
       qr: 'GET /qr',
       send_test: 'POST /send-test',
       chats: 'GET /chats',
+      start_chat: 'POST /chats/start',
       messages: 'GET /chats/:jid/messages',
       reply: 'POST /chats/:jid/reply',
       reset_session: 'POST /session/reset'
@@ -77,6 +78,19 @@ app.post('/send-test', requireSecret, async (req, res) => {
 app.get('/chats', requireSecret, async (_req, res) => {
   const chats = await listChats();
   res.json({ success: true, data: chats });
+});
+
+app.post('/chats/start', requireSecret, async (req, res) => {
+  try {
+    const data = await startChatMessage({
+      phone: req.body?.phone,
+      name: req.body?.name,
+      text: req.body?.text
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
 });
 
 app.get('/chats/:jid/messages', requireSecret, async (req, res) => {

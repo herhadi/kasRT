@@ -74,7 +74,7 @@ sudo systemctl restart cloudflared
 curl --fail-with-body https://wa-kasrt.tripleatech.my.id/health
 ```
 
-Untuk membuka mini inbox, akses `https://wa-kasrt.tripleatech.my.id/`, masukkan `WA_LAB_SECRET`, klik `Ambil QR` jika belum tertaut, atau `Reset Session / Ganti Nomor` jika salah nomor. Gunakan hanya untuk percakapan manual 1:1.
+Untuk membuka mini inbox, akses `https://wa-kasrt.tripleatech.my.id/`, klik gear `⚙`, masukkan `WA_LAB_SECRET`, klik `Ambil QR` jika belum tertaut, atau `Reset Session / Ganti Nomor` jika salah nomor. Gunakan hanya untuk percakapan manual 1:1; untuk nomor baru, isi field nomor lalu klik `Chat`.
 
 Jalankan deploy awal dari VPS:
 
