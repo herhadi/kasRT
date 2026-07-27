@@ -377,9 +377,9 @@ export default function PanduanPage() {
                       ))}
                     </ol>
                   </div>
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-                    <h2 className="text-sm font-bold">Catatan Penting</h2>
-                    <ul className="mt-3 space-y-2 text-sm leading-6">
+                  <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-4 text-[var(--text-primary)]">
+                    <h2 className="text-sm font-bold text-[var(--text-primary)]">Catatan Penting</h2>
+                    <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--text-primary)]">
                       {section.notes.map((note) => (
                         <li key={note} className="flex gap-2">
                           <span aria-hidden="true">•</span>

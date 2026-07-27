@@ -34,6 +34,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 ### Diperbaiki
 
 - Tipe `transaction_id` pada batch Tagihan Khusus disesuaikan ke UUID agar cocok dengan tabel `transactions` dan tidak memicu 500 saat inisialisasi tabel.
+- Card Catatan Penting di Panduan memakai warna token aplikasi agar tetap terbaca di HP light mode.
 
 ## 2026-07-24
 
