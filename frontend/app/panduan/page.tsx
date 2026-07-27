@@ -343,7 +343,7 @@ export default function PanduanPage() {
           </div>
         </section>
 
-        <div className="sticky top-0 z-20 -mx-4 overflow-x-auto border-y border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 md:top-0 md:mx-0 md:rounded-2xl md:border">
+        <div className="-mx-4 overflow-x-auto border-y border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 md:sticky md:top-0 md:z-20 md:mx-0 md:rounded-2xl md:border">
           <div className="flex min-w-max gap-2">
             {sortGuideSections(guideSections).map((section) => (
               <a
