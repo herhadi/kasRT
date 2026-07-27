@@ -64,6 +64,7 @@ Masukkan `WA_LAB_SECRET` pada field secret, lalu:
 2. Klik `Ambil QR` jika belum connected.
 3. Scan QR dari WhatsApp → Perangkat tertaut → Tautkan perangkat.
 4. Setelah connected, tunggu chat 1:1 masuk dari WhatsApp.
+5. Jika salah nomor, klik `Reset Session / Ganti Nomor`, lalu scan QR baru.
 
 Semua endpoint API selain `/health` wajib memakai header secret:
 

@@ -148,6 +148,11 @@
         background: #e7f7f2;
       }
 
+      button.danger {
+        color: #fff;
+        background: var(--danger);
+      }
+
       button:disabled {
         opacity: 0.55;
         cursor: not-allowed;
@@ -324,6 +329,7 @@
             <button id="checkConnectionButton" class="secondary">Cek Koneksi</button>
             <button id="showQrButton" class="secondary">Ambil QR</button>
           </div>
+          <button id="resetSessionButton" class="danger">Reset Session / Ganti Nomor</button>
           <button id="refreshButton">Refresh Chat</button>
         </div>
 
@@ -365,6 +371,7 @@
       const saveSecretButton = document.querySelector('#saveSecretButton');
       const checkConnectionButton = document.querySelector('#checkConnectionButton');
       const showQrButton = document.querySelector('#showQrButton');
+      const resetSessionButton = document.querySelector('#resetSessionButton');
       const refreshButton = document.querySelector('#refreshButton');
       const statusBox = document.querySelector('#statusBox');
       const qrBox = document.querySelector('#qrBox');
@@ -475,6 +482,32 @@
           setStatus('QR siap discan.');
         } catch (error) {
           setStatus(error.message, true);
+        }
+      }
+
+      async function resetSession() {
+        const approved = window.confirm(
+          'Reset session akan menghapus tautan WhatsApp di gateway ini dan membuat QR baru. Lanjut?'
+        );
+        if (!approved) return;
+
+        resetSessionButton.disabled = true;
+        showQrButton.disabled = true;
+        setStatus('Reset session berjalan. Tunggu QR baru...');
+
+        try {
+          qrBox.classList.remove('show');
+          await api('/session/reset', {
+            method: 'POST',
+            body: JSON.stringify({ confirm: 'RESET' })
+          });
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          await showQr();
+        } catch (error) {
+          setStatus(error.message, true);
+        } finally {
+          resetSessionButton.disabled = false;
+          showQrButton.disabled = false;
         }
       }
 
@@ -589,6 +622,7 @@
       });
 
       showQrButton.addEventListener('click', showQr);
+      resetSessionButton.addEventListener('click', resetSession);
 
       refreshButton.addEventListener('click', () => {
         loadChats();
