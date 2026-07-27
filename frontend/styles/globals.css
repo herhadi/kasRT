@@ -181,10 +181,12 @@ body {
   color: var(--text-muted);
   text-decoration: none;
   transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .mobile-bottom-nav-item:active {
-  transform: translateY(1px) scale(0.98);
+  transform: none;
 }
 
 .mobile-bottom-nav-item-active {

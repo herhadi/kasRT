@@ -6,6 +6,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- Root `package.json` sebagai pusat script ringan untuk build/check frontend dan backend.
 - Modul `/operasional/tagihan-khusus` untuk Bendahara/root membuat tagihan temporer, menunjuk PIC warga, dan memilih target warga.
 - Dashboard warga menampilkan Tagihan Khusus aktif lengkap dengan PIC, periode, target, sisa, dan status.
 - Notifikasi Telegram dikirim ke warga target yang sudah menghubungkan Telegram saat tagihan khusus dibuat.

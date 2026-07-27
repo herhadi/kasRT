@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "scripts": {
+    "build:frontend": "npm run build --prefix frontend",
+    "check:backend": "node --check backend/app.js",
+    "check:special-bill": "node --check backend/models/specialBillModel.js && node --check backend/controllers/specialBillController.js && node --check backend/routes/specialBill.js",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "start:frontend": "npm run start --prefix frontend",
+    "start:backend": "npm run start --prefix backend"
+  }
+}
