@@ -58,7 +58,12 @@ UI mini inbox tersedia di root service:
 open http://127.0.0.1:3010/
 ```
 
-Masukkan `WA_LAB_SECRET` pada field secret, lalu tunggu chat 1:1 masuk dari WhatsApp.
+Masukkan `WA_LAB_SECRET` pada field secret, lalu:
+
+1. Klik `Cek Koneksi` untuk melihat status tertaut.
+2. Klik `Ambil QR` jika belum connected.
+3. Scan QR dari WhatsApp → Perangkat tertaut → Tautkan perangkat.
+4. Setelah connected, tunggu chat 1:1 masuk dari WhatsApp.
 
 Semua endpoint API selain `/health` wajib memakai header secret:
 
