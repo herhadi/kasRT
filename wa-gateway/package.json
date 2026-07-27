@@ -6,7 +6,7 @@
   "description": "Experimental manual-only WhatsApp gateway lab for KasRT using Baileys and baileys-antiban.",
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/config.js && node --check src/store.js && node --check src/whatsapp.js && node --check src/server.js"
+    "check": "node --check src/config.js && node --check src/store.js && node --check src/chatStore.js && node --check src/whatsapp.js && node --check src/server.js"
   },
   "dependencies": {
     "baileys": "^6.7.18",

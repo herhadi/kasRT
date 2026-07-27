@@ -38,6 +38,44 @@ Tambahkan domain frontend produksi lain ke `CORS_ORIGINS` dengan pemisah koma. J
 
 Reminder otomatis jimpitan hanya memakai Telegram. Integrasi WA otomatis sudah dihapus dari stack ini.
 
+## WA Gateway Lab
+
+WA Gateway Lab bersifat eksperimen manual 1:1 dan tidak terhubung ke reminder produksi. Service berada di compose root dengan nama `kasrt-wa-lab`.
+
+Siapkan env gateway:
+
+```bash
+cd /srv/kasrt/app
+cp wa-gateway/.env.example wa-gateway/.env
+chmod 600 wa-gateway/.env
+nano wa-gateway/.env
+```
+
+Jalankan hanya service WA lab:
+
+```bash
+docker compose -f docker-compose.vps.yml up -d --build kasrt-wa-lab
+docker logs -f kasrt-wa-lab
+curl --fail-with-body http://127.0.0.1:3010/health
+```
+
+Jika ingin diarahkan ke Cloudflare Tunnel, tambahkan ingress berikut di `/etc/cloudflared/config.yml` sebelum rule `http_status:404`:
+
+```yaml
+- hostname: wa-kasrt.tripleatech.my.id
+  service: http://localhost:3010
+```
+
+Buat DNS route dan restart tunnel:
+
+```bash
+cloudflared tunnel route dns b44654ea-654f-495d-a844-a513255faae3 wa-kasrt.tripleatech.my.id
+sudo systemctl restart cloudflared
+curl --fail-with-body https://wa-kasrt.tripleatech.my.id/health
+```
+
+Untuk membuka mini inbox, akses `https://wa-kasrt.tripleatech.my.id/`, masukkan `WA_LAB_SECRET`, lalu gunakan hanya untuk percakapan manual 1:1.
+
 Jalankan deploy awal dari VPS:
 
 ```bash

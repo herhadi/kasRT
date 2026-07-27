@@ -26,3 +26,29 @@ services:
       timeout: 5s
       start_period: 20s
       retries: 3
+
+  kasrt-wa-lab:
+    build:
+      context: ./wa-gateway
+      dockerfile: Dockerfile
+    container_name: kasrt-wa-lab
+    env_file:
+      - ./wa-gateway/.env
+    ports:
+      - "127.0.0.1:${KASRT_WA_LAB_PORT:-3010}:3010"
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.75
+    volumes:
+      - ./wa-gateway/auth:/app/auth
+      - ./wa-gateway/data:/app/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3010/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3

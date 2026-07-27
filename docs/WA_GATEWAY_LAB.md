@@ -43,16 +43,24 @@ Jika `.env` lama masih memakai `WA_GATEWAY_SECRET`, service tetap bisa membaca s
 ## Setup Docker
 
 ```bash
-cd wa-gateway
-docker compose up -d --build
-docker logs -f kasrt-wa-gateway-lab
+cd /srv/kasrt/app
+docker compose -f docker-compose.vps.yml up -d --build kasrt-wa-lab
+docker logs -f kasrt-wa-lab
 ```
 
 Service bind ke `127.0.0.1:3010` agar tidak terbuka langsung ke publik.
 
 ## Endpoint
 
-Semua endpoint selain `/health` wajib memakai header secret:
+UI mini inbox tersedia di root service:
+
+```bash
+open http://127.0.0.1:3010/
+```
+
+Masukkan `WA_LAB_SECRET` pada field secret, lalu tunggu chat 1:1 masuk dari WhatsApp.
+
+Semua endpoint API selain `/health` wajib memakai header secret:
 
 ```bash
 -H "x-wa-lab-secret: isi_secret_panjang"
@@ -101,6 +109,24 @@ curl -sS -X POST http://127.0.0.1:3010/send-test \
 
 Limit nomor unik harian dikontrol oleh `WA_LAB_DAILY_UNIQUE_LIMIT`.
 
+### Mini Inbox 1:1
+
+```bash
+curl -sS \
+  -H "x-wa-lab-secret: isi_secret_panjang" \
+  http://127.0.0.1:3010/chats
+```
+
+Balasan hanya bisa dikirim ke chat 1:1 yang sudah pernah mengirim pesan masuk.
+Pada WhatsApp baru, chat masuk bisa muncul sebagai `@lid`, bukan `@s.whatsapp.net`; pakai `jid` persis dari endpoint `/chats`.
+
+```bash
+curl -sS -X POST "http://127.0.0.1:3010/chats/6281234567890%40s.whatsapp.net/reply" \
+  -H "content-type: application/json" \
+  -H "x-wa-lab-secret: isi_secret_panjang" \
+  -d '{"text":"Baik, pesan sudah diterima."}'
+```
+
 ### Ganti Nomor
 
 ```bash
@@ -114,14 +140,29 @@ Setelah reset, ambil QR baru dari `/qr`.
 
 ## Deploy via Cloudflare Tunnel
 
-Tambahkan ingress baru hanya jika service perlu diakses dari UI/admin:
+Tambahkan ingress baru hanya jika service perlu diakses dari UI/admin. Karena `cloudflared` berjalan sebagai service systemd, edit config aktif di `/etc/cloudflared/config.yml`, bukan `~/.cloudflared/config.yml`.
 
 ```yaml
 - hostname: wa-lab-kasrt.tripleatech.my.id
   service: http://localhost:3010
 ```
 
-Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`.
+Untuk hostname produksi lab yang dipakai sekarang, gunakan:
+
+```yaml
+- hostname: wa-kasrt.tripleatech.my.id
+  service: http://localhost:3010
+```
+
+Tambahkan sebelum rule akhir `http_status:404`, lalu buat DNS route tunnel:
+
+```bash
+cloudflared tunnel route dns b44654ea-654f-495d-a844-a513255faae3 wa-kasrt.tripleatech.my.id
+sudo systemctl restart cloudflared
+curl -sS https://wa-kasrt.tripleatech.my.id/health
+```
+
+Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika domain publik dibuka, sebaiknya pasang Cloudflare Access karena UI menyimpan secret di browser lokal.
 
 ## Batasan
 

@@ -8,6 +8,7 @@ import { wrapSocket } from 'baileys-antiban';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { config } from './config.js';
+import { appendChatMessage, hasChat } from './chatStore.js';
 import { assertCanSend, recordSend } from './store.js';
 
 let socket = null;
@@ -19,6 +20,9 @@ let connectionState = 'idle';
 let linkedNumber = null;
 let lastDisconnectReason = null;
 let lastConnectedAt = null;
+let lastIncomingEventAt = null;
+let lastStoredMessageAt = null;
+let lastInboxIgnoredReason = null;
 
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -31,14 +35,78 @@ function jidFromPhone(phone) {
   return `${normalizePhone(phone)}@s.whatsapp.net`;
 }
 
+function isPrivateChat(jid) {
+  const value = String(jid || '');
+  return value.endsWith('@s.whatsapp.net') || value.endsWith('@lid');
+}
+
 function parseLinkedNumber(userId) {
   const raw = String(userId || '');
   return raw.split(':')[0] || null;
 }
 
+function toIsoTime(timestamp) {
+  const raw = Number(timestamp || 0);
+  if (!raw) return new Date().toISOString();
+  return new Date(raw * 1000).toISOString();
+}
+
+function extractText(message) {
+  let content = message?.message || {};
+  content = content.ephemeralMessage?.message || content.viewOnceMessage?.message || content;
+  return (
+    content.conversation ||
+    content.extendedTextMessage?.text ||
+    content.imageMessage?.caption ||
+    content.videoMessage?.caption ||
+    content.documentMessage?.caption ||
+    content.buttonsResponseMessage?.selectedDisplayText ||
+    content.listResponseMessage?.title ||
+    content.templateButtonReplyMessage?.selectedDisplayText ||
+    ''
+  );
+}
+
 function shouldReconnect(update) {
   const statusCode = update?.lastDisconnect?.error?.output?.statusCode;
   return statusCode !== DisconnectReason.loggedOut;
+}
+
+async function recordIncomingMessages(messages = []) {
+  lastIncomingEventAt = new Date().toISOString();
+
+  for (const message of messages) {
+    const jid = message?.key?.remoteJid;
+    if (!jid) {
+      lastInboxIgnoredReason = 'remoteJid kosong';
+      continue;
+    }
+    if (!isPrivateChat(jid)) {
+      lastInboxIgnoredReason = `bukan chat 1:1: ${jid}`;
+      continue;
+    }
+    if (message?.key?.fromMe) {
+      lastInboxIgnoredReason = `pesan dari akun sendiri: ${jid}`;
+      continue;
+    }
+
+    const text = extractText(message);
+    if (!String(text || '').trim()) {
+      lastInboxIgnoredReason = `pesan tanpa teks/caption: ${jid}`;
+      continue;
+    }
+
+    await appendChatMessage({
+      jid,
+      id: message.key.id,
+      direction: 'incoming',
+      text,
+      at: toIsoTime(message.messageTimestamp),
+      name: message.pushName || null
+    });
+    lastStoredMessageAt = new Date().toISOString();
+    lastInboxIgnoredReason = null;
+  }
 }
 
 export async function startWhatsApp() {
@@ -61,9 +129,17 @@ export async function startWhatsApp() {
     printQRInTerminal: false
   });
 
-  socket = wrapSocket(rawSocket, config.antiban);
-  socket.ev.on('creds.update', saveCreds);
-  socket.ev.on('connection.update', async (update) => {
+  socket = wrapSocket(rawSocket, config.antiban, undefined, {
+    groupOpGuard: false,
+    legitimacySignals: false
+  });
+  rawSocket.ev.on('creds.update', saveCreds);
+  rawSocket.ev.on('messages.upsert', async ({ messages }) => {
+    await recordIncomingMessages(messages).catch((error) => {
+      lastDisconnectReason = `message store failed: ${error.message}`;
+    });
+  });
+  rawSocket.ev.on('connection.update', async (update) => {
     if (update.qr) {
       latestQr = update.qr;
       latestQrDataUrl = await QRCode.toDataURL(update.qr);
@@ -114,7 +190,12 @@ export function getStatus() {
       min_delay_ms: config.antiban.minDelayMs,
       max_delay_ms: config.antiban.maxDelayMs
     },
-    stats: socket?.antiban?.getStats?.() || null
+    stats: socket?.antiban?.getStats?.() || null,
+    inbox: {
+      last_incoming_event_at: lastIncomingEventAt,
+      last_stored_message_at: lastStoredMessageAt,
+      last_ignored_reason: lastInboxIgnoredReason
+    }
   };
 }
 
@@ -139,7 +220,7 @@ export async function sendTestMessage({ phone, text }) {
 
   await assertCanSend(normalizedPhone);
   const jid = jidFromPhone(normalizedPhone);
-  const result = await socket.sendMessage(jid, { text: messageText });
+  const result = await socket.sendMessage(jid, { text: messageText }, {});
   const usage = await recordSend(normalizedPhone);
 
   return {
@@ -150,6 +231,37 @@ export async function sendTestMessage({ phone, text }) {
       unique_recipients: usage.uniqueRecipients.length,
       daily_unique_limit: config.dailyUniqueLimit
     }
+  };
+}
+
+export async function sendChatReply({ jid, text }) {
+  if (!socket || connectionState !== 'connected') {
+    throw new Error('WhatsApp belum connected. Scan QR dulu.');
+  }
+  if (!isPrivateChat(jid)) {
+    throw new Error('Reply hanya mendukung chat 1:1.');
+  }
+  if (!(await hasChat(jid))) {
+    throw new Error('Chat belum dikenal. Tunggu pesan masuk dulu sebelum membalas.');
+  }
+
+  const messageText = String(text || '').trim();
+  if (messageText.length < config.minTextLength) {
+    throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
+  }
+
+  const result = await socket.sendMessage(jid, { text: messageText }, {});
+  await appendChatMessage({
+    jid,
+    id: result?.key?.id || `out-${Date.now()}`,
+    direction: 'outgoing',
+    text: messageText,
+    at: new Date().toISOString()
+  });
+
+  return {
+    jid,
+    message_id: result?.key?.id || null
   };
 }
 

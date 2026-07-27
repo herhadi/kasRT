@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KasRT WA Lab</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7f0ec;
+        --panel: #ffffff;
+        --muted: #667781;
+        --line: #dfe5e7;
+        --green: #00a884;
+        --green-dark: #008069;
+        --bubble-in: #ffffff;
+        --bubble-out: #d9fdd3;
+        --text: #111b21;
+        --danger: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(180deg, var(--green-dark) 0 110px, var(--bg) 110px 100%);
+        color: var(--text);
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      .app {
+        width: min(1180px, calc(100vw - 24px));
+        height: calc(100vh - 24px);
+        margin: 12px auto;
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        background: var(--panel);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 16px 40px rgba(17, 27, 33, 0.22);
+      }
+
+      .sidebar,
+      .chat {
+        min-height: 0;
+      }
+
+      .sidebar {
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .topbar {
+        min-height: 64px;
+        padding: 12px 14px;
+        background: #f0f2f5;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .title {
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .secret-box {
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 8px;
+      }
+
+      .secret-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        outline: none;
+        background: #fff;
+      }
+
+      input:focus,
+      textarea:focus {
+        border-color: var(--green);
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: var(--green);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 650;
+      }
+
+      button.secondary {
+        color: var(--green-dark);
+        background: #e7f7f2;
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .status {
+        padding: 10px 12px;
+        color: var(--muted);
+        font-size: 13px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .chat-list {
+        overflow: auto;
+      }
+
+      .chat-item {
+        width: 100%;
+        border: 0;
+        border-bottom: 1px solid #f0f2f5;
+        background: #fff;
+        color: var(--text);
+        border-radius: 0;
+        text-align: left;
+        padding: 13px 14px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .chat-item.active {
+        background: #f0f2f5;
+      }
+
+      .chat-name {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-weight: 650;
+      }
+
+      .chat-last {
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .badge {
+        min-width: 20px;
+        height: 20px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--green);
+        color: #fff;
+        font-size: 12px;
+      }
+
+      .chat {
+        display: flex;
+        flex-direction: column;
+        background: #efeae2;
+      }
+
+      .messages {
+        flex: 1;
+        overflow: auto;
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .empty {
+        margin: auto;
+        max-width: 360px;
+        padding: 22px;
+        text-align: center;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.72);
+        border-radius: 16px;
+      }
+
+      .bubble {
+        max-width: min(620px, 80%);
+        padding: 8px 10px 6px;
+        border-radius: 10px;
+        box-shadow: 0 1px 1px rgba(17, 27, 33, 0.12);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .incoming {
+        align-self: flex-start;
+        background: var(--bubble-in);
+      }
+
+      .outgoing {
+        align-self: flex-end;
+        background: var(--bubble-out);
+      }
+
+      .time {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 11px;
+        text-align: right;
+      }
+
+      .composer {
+        padding: 12px;
+        background: #f0f2f5;
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+      }
+
+      textarea {
+        min-height: 44px;
+        max-height: 130px;
+        resize: vertical;
+      }
+
+      #backButton {
+        display: none;
+      }
+
+      @media (max-width: 760px) {
+        .app {
+          width: 100vw;
+          height: 100vh;
+          margin: 0;
+          border-radius: 0;
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar.hidden-mobile {
+          display: none;
+        }
+
+        .chat.hidden-mobile {
+          display: none;
+        }
+
+        #backButton {
+          display: inline-flex;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <section id="sidebar" class="sidebar">
+        <div class="topbar">
+          <div>
+            <div class="title">KasRT WA Lab</div>
+            <div id="linkedNumber" class="subtitle">Mini inbox 1:1</div>
+          </div>
+        </div>
+
+        <div class="secret-box">
+          <div class="secret-row">
+            <input id="secretInput" type="password" placeholder="WA Lab Secret" autocomplete="off" />
+            <button id="saveSecretButton" class="secondary">Simpan</button>
+          </div>
+          <button id="refreshButton">Refresh Chat</button>
+        </div>
+
+        <div id="statusBox" class="status">Masukkan secret lalu refresh.</div>
+        <div id="chatList" class="chat-list"></div>
+      </section>
+
+      <section id="chatPanel" class="chat hidden-mobile">
+        <div class="topbar">
+          <button id="backButton" class="secondary">←</button>
+          <div>
+            <div id="chatTitle" class="title">Pilih chat</div>
+            <div id="chatSubtitle" class="subtitle">Hanya percakapan 1:1 yang masuk ke sini</div>
+          </div>
+        </div>
+
+        <div id="messages" class="messages">
+          <div class="empty">
+            Minta seseorang mengirim pesan ke nomor WA yang tertaut, lalu chat akan muncul di daftar kiri.
+          </div>
+        </div>
+
+        <form id="replyForm" class="composer">
+          <textarea id="replyText" placeholder="Tulis balasan..." disabled></textarea>
+          <button id="sendButton" type="submit" disabled>Kirim</button>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const secretInput = document.querySelector('#secretInput');
+      const saveSecretButton = document.querySelector('#saveSecretButton');
+      const refreshButton = document.querySelector('#refreshButton');
+      const statusBox = document.querySelector('#statusBox');
+      const chatList = document.querySelector('#chatList');
+      const messagesBox = document.querySelector('#messages');
+      const replyForm = document.querySelector('#replyForm');
+      const replyText = document.querySelector('#replyText');
+      const sendButton = document.querySelector('#sendButton');
+      const chatTitle = document.querySelector('#chatTitle');
+      const chatSubtitle = document.querySelector('#chatSubtitle');
+      const linkedNumber = document.querySelector('#linkedNumber');
+      const sidebar = document.querySelector('#sidebar');
+      const chatPanel = document.querySelector('#chatPanel');
+      const backButton = document.querySelector('#backButton');
+
+      let activeJid = null;
+      let pollTimer = null;
+
+      secretInput.value = localStorage.getItem('kasrt_wa_lab_secret') || '';
+
+      function secret() {
+        return secretInput.value.trim();
+      }
+
+      function headers() {
+        return {
+          'content-type': 'application/json',
+          'x-wa-lab-secret': secret()
+        };
+      }
+
+      function setStatus(message, isError = false) {
+        statusBox.textContent = message;
+        statusBox.classList.toggle('error', isError);
+      }
+
+      function chatName(chat) {
+        return chat.name || chat.jid.replace('@s.whatsapp.net', '').replace('@lid', '');
+      }
+
+      function formatTime(value) {
+        if (!value) return '';
+        return new Intl.DateTimeFormat('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          day: '2-digit',
+          month: 'short'
+        }).format(new Date(value));
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#039;');
+      }
+
+      async function api(path, options = {}) {
+        if (!secret()) throw new Error('Secret belum diisi.');
+        const response = await fetch(path, {
+          ...options,
+          headers: {
+            ...headers(),
+            ...(options.headers || {})
+          }
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.message || `HTTP ${response.status}`);
+        }
+        return data.data;
+      }
+
+      async function loadStatus() {
+        const status = await api('/status');
+        linkedNumber.textContent = status.connected
+          ? `Tertaut: ${status.linked_number || '-'}`
+          : `Belum connected (${status.state})`;
+      }
+
+      async function loadChats() {
+        try {
+          await loadStatus();
+          const chats = await api('/chats');
+          chatList.innerHTML = '';
+
+          if (!chats.length) {
+            chatList.innerHTML = '<div class="status">Belum ada chat masuk.</div>';
+          }
+
+          for (const chat of chats) {
+            const button = document.createElement('button');
+            button.className = `chat-item ${chat.jid === activeJid ? 'active' : ''}`;
+            button.innerHTML = `
+              <div class="chat-name">
+                <span>${escapeHtml(chatName(chat))}</span>
+                <small class="subtitle">${escapeHtml(formatTime(chat.last_at))}</small>
+              </div>
+              <div class="chat-last">
+                ${chat.unread ? `<span class="badge">${chat.unread}</span> ` : ''}
+                ${escapeHtml(chat.last_message || '-')}
+              </div>
+            `;
+            button.addEventListener('click', () => selectChat(chat.jid, chatName(chat)));
+            chatList.appendChild(button);
+          }
+
+          setStatus('Siap. Chat diperbarui otomatis.');
+        } catch (error) {
+          setStatus(error.message, true);
+        }
+      }
+
+      async function selectChat(jid, name) {
+        activeJid = jid;
+        chatTitle.textContent = name || jid;
+        chatSubtitle.textContent = jid;
+        replyText.disabled = false;
+        sendButton.disabled = false;
+        sidebar.classList.add('hidden-mobile');
+        chatPanel.classList.remove('hidden-mobile');
+        await loadMessages();
+        await loadChats();
+      }
+
+      async function loadMessages() {
+        if (!activeJid) return;
+        try {
+          const chat = await api(`/chats/${encodeURIComponent(activeJid)}/messages`);
+          messagesBox.innerHTML = '';
+
+          for (const message of chat.messages) {
+            const bubble = document.createElement('div');
+            bubble.className = `bubble ${message.direction}`;
+            bubble.innerHTML = `
+              <div>${escapeHtml(message.text)}</div>
+              <div class="time">${escapeHtml(formatTime(message.at))}</div>
+            `;
+            messagesBox.appendChild(bubble);
+          }
+
+          messagesBox.scrollTop = messagesBox.scrollHeight;
+        } catch (error) {
+          setStatus(error.message, true);
+        }
+      }
+
+      async function sendReply(event) {
+        event.preventDefault();
+        if (!activeJid || !replyText.value.trim()) return;
+
+        sendButton.disabled = true;
+        try {
+          await api(`/chats/${encodeURIComponent(activeJid)}/reply`, {
+            method: 'POST',
+            body: JSON.stringify({ text: replyText.value.trim() })
+          });
+          replyText.value = '';
+          await loadMessages();
+          await loadChats();
+        } catch (error) {
+          setStatus(error.message, true);
+        } finally {
+          sendButton.disabled = false;
+        }
+      }
+
+      function startPolling() {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(() => {
+          loadChats();
+          loadMessages();
+        }, 5000);
+      }
+
+      saveSecretButton.addEventListener('click', () => {
+        localStorage.setItem('kasrt_wa_lab_secret', secret());
+        loadChats();
+        startPolling();
+      });
+
+      refreshButton.addEventListener('click', () => {
+        loadChats();
+        loadMessages();
+      });
+
+      replyForm.addEventListener('submit', sendReply);
+
+      backButton.addEventListener('click', () => {
+        sidebar.classList.remove('hidden-mobile');
+        chatPanel.classList.add('hidden-mobile');
+      });
+
+      if (secret()) {
+        loadChats();
+        startPolling();
+      }
+    </script>
+  </body>
+</html>
