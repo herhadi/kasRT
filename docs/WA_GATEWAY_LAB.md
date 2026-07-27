@@ -36,6 +36,7 @@ WA_LAB_SECRET=isi_secret_panjang
 WA_AUTH_DIR=./auth
 WA_DATA_DIR=./data
 WA_LAB_DAILY_UNIQUE_LIMIT=3
+WA_LAB_MIN_TEXT_LENGTH=2
 ```
 
 Jika `.env` lama masih memakai `WA_GATEWAY_SECRET`, service tetap bisa membaca secret tersebut sebagai fallback.

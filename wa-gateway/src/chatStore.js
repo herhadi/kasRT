@@ -70,6 +70,16 @@ function isPhoneJid(jid) {
   return String(jid || '').endsWith('@s.whatsapp.net');
 }
 
+function phoneFromJid(jid) {
+  return String(jid || '').replace('@s.whatsapp.net', '').replace('@lid', '');
+}
+
+function isBlankOrPhoneName(name, jid) {
+  const cleanName = String(name || '').trim();
+  if (!cleanName) return true;
+  return cleanName === phoneFromJid(jid);
+}
+
 function latestOutgoingPhoneChat(db, incomingAt = new Date().toISOString()) {
   const incomingTime = new Date(incomingAt).getTime();
   const chats = Object.values(db.chats || {})
@@ -94,14 +104,21 @@ function latestOutgoingPhoneChat(db, incomingAt = new Date().toISOString()) {
   return latest.chat;
 }
 
-function linkAlias(db, aliasJid, targetJid) {
+function linkAlias(db, aliasJid, targetJid, aliasName = null) {
   if (!aliasJid || !targetJid || aliasJid === targetJid) return targetJid;
   if (!db.aliases || typeof db.aliases !== 'object') db.aliases = {};
   db.aliases[aliasJid] = targetJid;
 
   const aliasChat = db.chats?.[aliasJid];
-  const targetChat = ensureChat(db, targetJid, aliasChat?.name || null);
+  const candidateName = aliasChat?.name || aliasName || null;
+  const targetChat = ensureChat(db, targetJid, candidateName);
+  if (candidateName && isBlankOrPhoneName(targetChat.name, targetChat.jid)) {
+    targetChat.name = candidateName;
+  }
   if (aliasChat && aliasChat !== targetChat) {
+    if (aliasChat.name && isBlankOrPhoneName(targetChat.name, targetChat.jid)) {
+      targetChat.name = aliasChat.name;
+    }
     targetChat.messages = normalizeMessages([...(targetChat.messages || []), ...(aliasChat.messages || [])]).sort((left, right) =>
       String(left.at || '').localeCompare(String(right.at || ''))
     );
@@ -201,7 +218,7 @@ export async function appendChatMessage({ jid, id, direction, text, at, name = n
   let targetJid = resolveJid(db, jid);
   if (direction === 'incoming' && targetJid === jid && isLidJid(jid)) {
     const targetChat = latestOutgoingPhoneChat(db, messageAt);
-    if (targetChat) targetJid = linkAlias(db, jid, targetChat.jid);
+    if (targetChat) targetJid = linkAlias(db, jid, targetChat.jid, name);
   }
   if (direction === 'incoming' && targetJid === jid) {
     const duplicateChat = findDuplicateIncomingChat(db, jid, cleanText, messageAt);

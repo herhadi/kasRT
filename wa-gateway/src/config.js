@@ -25,7 +25,7 @@ export const config = {
   dataDir: resolveFromRoot(process.env.WA_DATA_DIR, './data'),
   logLevel: String(process.env.WA_LOG_LEVEL || 'silent'),
   dailyUniqueLimit: readNumber('WA_LAB_DAILY_UNIQUE_LIMIT', 3),
-  minTextLength: readNumber('WA_LAB_MIN_TEXT_LENGTH', 8),
+  minTextLength: readNumber('WA_LAB_MIN_TEXT_LENGTH', 2),
   antiban: {
     preset: process.env.WA_ANTIBAN_PRESET || 'conservative',
     maxPerMinute: readNumber('WA_ANTIBAN_MAX_PER_MINUTE', 1),
