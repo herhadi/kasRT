@@ -85,6 +85,7 @@ coverage/
 backend/sql/
 adopsi_ini.*
 wa-gateway/auth/
+wa-gateway/data/
 
 # =========================
 # IGNORE

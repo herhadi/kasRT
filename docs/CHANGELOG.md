@@ -2,6 +2,14 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-07-27
+
+### Ditambahkan
+
+- `wa-gateway` sebagai service lab terpisah untuk uji coba WhatsApp manual berbasis Baileys dan `baileys-antiban`.
+- Endpoint lab untuk status, QR, kirim tes manual, dan reset session tanpa menghubungkannya ke reminder produksi.
+- Dokumentasi `docs/WA_GATEWAY_LAB.md` agar eksperimen WA tetap terpisah dari alur Telegram/reminder utama.
+
 ## 2026-07-26
 
 ### Ditambahkan
