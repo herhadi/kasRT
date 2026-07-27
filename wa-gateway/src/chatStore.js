@@ -4,6 +4,8 @@ import { config } from './config.js';
 
 const chatsFile = path.join(config.dataDir, 'chats.json');
 const maxMessagesPerChat = 300;
+const autoMergeWindowMs = 10 * 60 * 1000;
+const duplicateIncomingWindowMs = 2 * 60 * 1000;
 
 async function ensureDataDir() {
   await fs.mkdir(config.dataDir, { recursive: true });
@@ -68,7 +70,8 @@ function isPhoneJid(jid) {
   return String(jid || '').endsWith('@s.whatsapp.net');
 }
 
-function latestOutgoingPhoneChat(db) {
+function latestOutgoingPhoneChat(db, incomingAt = new Date().toISOString()) {
+  const incomingTime = new Date(incomingAt).getTime();
   const chats = Object.values(db.chats || {})
     .filter((chat) => isPhoneJid(chat.jid) && Array.isArray(chat.messages))
     .map((chat) => ({
@@ -76,13 +79,18 @@ function latestOutgoingPhoneChat(db) {
       latestOutgoing: [...chat.messages].reverse().find((message) => message.direction === 'outgoing')
     }))
     .filter((item) => item.latestOutgoing?.at)
+    .filter((item) => {
+      const outgoingTime = new Date(item.latestOutgoing.at).getTime();
+      if (!Number.isFinite(incomingTime) || !Number.isFinite(outgoingTime)) return false;
+      const diffMs = Math.abs(incomingTime - outgoingTime);
+      return diffMs <= autoMergeWindowMs;
+    })
     .sort((left, right) => String(right.latestOutgoing.at).localeCompare(String(left.latestOutgoing.at)));
+
+  if (chats.length !== 1) return null;
 
   const latest = chats[0];
   if (!latest) return null;
-
-  const ageMs = Date.now() - new Date(latest.latestOutgoing.at).getTime();
-  if (!Number.isFinite(ageMs) || ageMs > 24 * 60 * 60 * 1000) return null;
   return latest.chat;
 }
 
@@ -104,6 +112,39 @@ function linkAlias(db, aliasJid, targetJid) {
     delete db.chats[aliasJid];
   }
   return targetJid;
+}
+
+function latestMessage(chat) {
+  return Array.isArray(chat?.messages) ? chat.messages[chat.messages.length - 1] : null;
+}
+
+function findDuplicateIncomingChat(db, jid, text, at) {
+  const incomingTime = new Date(at).getTime();
+  if (!Number.isFinite(incomingTime)) return null;
+
+  const sourceIsLid = isLidJid(jid);
+  const sourceIsPhone = isPhoneJid(jid);
+  if (!sourceIsLid && !sourceIsPhone) return null;
+
+  const candidates = Object.values(db.chats || {})
+    .filter((chat) => chat.jid !== jid)
+    .filter((chat) => (sourceIsLid ? isPhoneJid(chat.jid) : isLidJid(chat.jid)))
+    .map((chat) => ({ chat, message: latestMessage(chat) }))
+    .filter((item) => item.message?.direction === 'incoming')
+    .filter((item) => item.message.text === text)
+    .filter((item) => {
+      const candidateTime = new Date(item.message.at).getTime();
+      if (!Number.isFinite(candidateTime)) return false;
+      return Math.abs(incomingTime - candidateTime) <= duplicateIncomingWindowMs;
+    })
+    .sort((left, right) => {
+      const leftDiff = Math.abs(incomingTime - new Date(left.message.at).getTime());
+      const rightDiff = Math.abs(incomingTime - new Date(right.message.at).getTime());
+      return leftDiff - rightDiff;
+    });
+
+  if (candidates.length !== 1) return null;
+  return candidates[0].chat;
 }
 
 export async function upsertChat({ jid, name = null }) {
@@ -156,21 +197,44 @@ export async function appendChatMessage({ jid, id, direction, text, at, name = n
   if (!jid || !id || !cleanText) return null;
 
   const db = await readDb();
+  const messageAt = at || new Date().toISOString();
   let targetJid = resolveJid(db, jid);
   if (direction === 'incoming' && targetJid === jid && isLidJid(jid)) {
-    const targetChat = latestOutgoingPhoneChat(db);
+    const targetChat = latestOutgoingPhoneChat(db, messageAt);
     if (targetChat) targetJid = linkAlias(db, jid, targetChat.jid);
+  }
+  if (direction === 'incoming' && targetJid === jid) {
+    const duplicateChat = findDuplicateIncomingChat(db, jid, cleanText, messageAt);
+    if (duplicateChat) {
+      const phoneJid = isPhoneJid(duplicateChat.jid) ? duplicateChat.jid : jid;
+      const lidJid = isLidJid(duplicateChat.jid) ? duplicateChat.jid : jid;
+      if (isPhoneJid(phoneJid) && isLidJid(lidJid)) {
+        targetJid = linkAlias(db, lidJid, phoneJid);
+      }
+    }
   }
 
   const chat = ensureChat(db, targetJid, name);
   const exists = chat.messages.some((message) => message.id === id);
-  if (exists) return chat;
+  const duplicateIncomingExists =
+    direction === 'incoming' &&
+    chat.messages.some((message) => {
+      if (message.direction !== 'incoming' || message.text !== cleanText) return false;
+      const existingTime = new Date(message.at).getTime();
+      const incomingTime = new Date(messageAt).getTime();
+      if (!Number.isFinite(existingTime) || !Number.isFinite(incomingTime)) return false;
+      return Math.abs(existingTime - incomingTime) <= duplicateIncomingWindowMs;
+    });
+  if (exists || duplicateIncomingExists) {
+    await writeDb(db);
+    return chat;
+  }
 
   const message = {
     id,
     direction,
     text: cleanText,
-    at: at || new Date().toISOString(),
+    at: messageAt,
     status: direction === 'outgoing' ? 'sent' : undefined
   };
 

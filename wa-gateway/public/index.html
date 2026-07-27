@@ -233,26 +233,28 @@
 
       .bubble {
         max-width: min(560px, 76%);
-        padding: 5px 8px 4px;
+        padding: 4px 7px 3px;
         border-radius: 8px;
         box-shadow: 0 1px 1px rgba(17, 27, 33, 0.12);
-        white-space: pre-wrap;
         word-break: break-word;
-        line-height: 1.32;
+        line-height: 1.25;
         font-size: 14px;
       }
+
+      .message-text { white-space: pre-wrap; }
 
       .incoming { align-self: flex-start; background: var(--bubble-in); }
       .outgoing { align-self: flex-end; background: var(--bubble-out); }
 
       .meta {
-        margin-top: 1px;
+        margin: 0 0 0 8px;
         color: var(--muted);
         font-size: 11px;
-        display: flex;
-        justify-content: flex-end;
+        display: inline-flex;
+        float: right;
         align-items: center;
         gap: 4px;
+        transform: translateY(3px);
       }
 
       .ticks { letter-spacing: -2px; color: var(--muted); font-weight: 700; }
@@ -528,8 +530,8 @@
             const bubble = document.createElement('div');
             bubble.className = `bubble ${message.direction}`;
             bubble.innerHTML = `
-              <div>${escapeHtml(message.text)}</div>
-              <div class="meta"><span>${escapeHtml(formatTime(message.at))}</span>${message.direction === 'outgoing' ? tickHtml(message.status) : ''}</div>`;
+              <span class="message-text">${escapeHtml(message.text)}</span>
+              <span class="meta"><span>${escapeHtml(formatTime(message.at))}</span>${message.direction === 'outgoing' ? tickHtml(message.status) : ''}</span>`;
             messagesBox.appendChild(bubble);
           }
           messagesBox.scrollTop = messagesBox.scrollHeight;
