@@ -152,6 +152,9 @@ export default function BottomNav() {
             href={item.href}
             className={`mobile-bottom-nav-item mobile-bottom-nav-tone-${item.tone} ${item.active ? 'mobile-bottom-nav-item-active' : ''}`}
             aria-current={item.active ? 'page' : undefined}
+            onClick={(event) => {
+              event.currentTarget.blur();
+            }}
           >
             <span className="mobile-bottom-nav-icon">
               <NavIcon name={item.icon} />
