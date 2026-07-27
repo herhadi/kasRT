@@ -102,8 +102,12 @@ app.post('/session/reset', requireSecret, async (req, res) => {
   if (String(req.body?.confirm || '') !== 'RESET') {
     return res.status(400).json({ success: false, message: 'Kirim body confirm=RESET untuk reset session.' });
   }
-  await resetSession();
-  return res.json({ success: true, message: 'Session direset. Ambil QR baru dari /qr.' });
+  try {
+    await resetSession();
+    return res.json({ success: true, message: 'Session direset. Ambil QR baru dari /qr.' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: `Reset session gagal: ${error.message}` });
+  }
 });
 
 app.listen(config.port, '0.0.0.0', async () => {

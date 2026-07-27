@@ -266,15 +266,27 @@ export async function sendChatReply({ jid, text }) {
 }
 
 export async function resetSession() {
-  if (rawSocket?.logout) {
-    await rawSocket.logout().catch(() => {});
-  }
+  const previousRawSocket = rawSocket;
+
   socket = null;
   rawSocket = null;
+  connecting = false;
   latestQr = null;
   latestQrDataUrl = null;
   linkedNumber = null;
+  lastDisconnectReason = null;
   connectionState = 'resetting';
+
+  if (previousRawSocket?.logout) {
+    await previousRawSocket.logout().catch(() => {});
+  }
+
   await fs.rm(config.authDir, { recursive: true, force: true });
-  await startWhatsApp();
+  try {
+    await startWhatsApp();
+  } catch (error) {
+    lastDisconnectReason = `reset restart failed: ${error.message}`;
+    connectionState = 'reset_failed';
+    throw error;
+  }
 }
