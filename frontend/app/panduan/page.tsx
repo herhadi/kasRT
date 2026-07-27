@@ -343,20 +343,6 @@ export default function PanduanPage() {
           </div>
         </section>
 
-        <div className="-mx-4 overflow-x-auto border-y border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 md:sticky md:top-0 md:z-20 md:mx-0 md:rounded-2xl md:border">
-          <div className="flex min-w-max gap-2">
-            {sortGuideSections(guideSections).map((section) => (
-              <a
-                key={section.id}
-                href={`#${section.id}`}
-                className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                {section.icon} {section.title}
-              </a>
-            ))}
-          </div>
-        </div>
-
         <div className="grid gap-4">
           {filteredSections.map((section) => (
             <Card
