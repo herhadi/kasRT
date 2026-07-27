@@ -14,9 +14,13 @@ async function readDb() {
   try {
     const raw = await fs.readFile(chatsFile, 'utf8');
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : { chats: {} };
+    if (!parsed || typeof parsed !== 'object') return { chats: {}, aliases: {} };
+    return {
+      chats: parsed.chats && typeof parsed.chats === 'object' ? parsed.chats : {},
+      aliases: parsed.aliases && typeof parsed.aliases === 'object' ? parsed.aliases : {}
+    };
   } catch {
-    return { chats: {} };
+    return { chats: {}, aliases: {} };
   }
 }
 
@@ -35,6 +39,7 @@ function normalizeMessages(messages) {
 
 function ensureChat(db, jid, name = null) {
   if (!db.chats || typeof db.chats !== 'object') db.chats = {};
+  if (!db.aliases || typeof db.aliases !== 'object') db.aliases = {};
   if (!db.chats[jid]) {
     db.chats[jid] = {
       jid,
@@ -50,10 +55,61 @@ function ensureChat(db, jid, name = null) {
   return db.chats[jid];
 }
 
+function resolveJid(db, jid) {
+  if (!db.aliases || typeof db.aliases !== 'object') db.aliases = {};
+  return db.aliases[jid] || jid;
+}
+
+function isLidJid(jid) {
+  return String(jid || '').endsWith('@lid');
+}
+
+function isPhoneJid(jid) {
+  return String(jid || '').endsWith('@s.whatsapp.net');
+}
+
+function latestOutgoingPhoneChat(db) {
+  const chats = Object.values(db.chats || {})
+    .filter((chat) => isPhoneJid(chat.jid) && Array.isArray(chat.messages))
+    .map((chat) => ({
+      chat,
+      latestOutgoing: [...chat.messages].reverse().find((message) => message.direction === 'outgoing')
+    }))
+    .filter((item) => item.latestOutgoing?.at)
+    .sort((left, right) => String(right.latestOutgoing.at).localeCompare(String(left.latestOutgoing.at)));
+
+  const latest = chats[0];
+  if (!latest) return null;
+
+  const ageMs = Date.now() - new Date(latest.latestOutgoing.at).getTime();
+  if (!Number.isFinite(ageMs) || ageMs > 24 * 60 * 60 * 1000) return null;
+  return latest.chat;
+}
+
+function linkAlias(db, aliasJid, targetJid) {
+  if (!aliasJid || !targetJid || aliasJid === targetJid) return targetJid;
+  if (!db.aliases || typeof db.aliases !== 'object') db.aliases = {};
+  db.aliases[aliasJid] = targetJid;
+
+  const aliasChat = db.chats?.[aliasJid];
+  const targetChat = ensureChat(db, targetJid, aliasChat?.name || null);
+  if (aliasChat && aliasChat !== targetChat) {
+    targetChat.messages = normalizeMessages([...(targetChat.messages || []), ...(aliasChat.messages || [])]).sort((left, right) =>
+      String(left.at || '').localeCompare(String(right.at || ''))
+    );
+    targetChat.unread = Number(targetChat.unread || 0) + Number(aliasChat.unread || 0);
+    const lastMessage = targetChat.messages[targetChat.messages.length - 1];
+    targetChat.last_message = lastMessage?.text || targetChat.last_message || '';
+    targetChat.last_at = lastMessage?.at || targetChat.last_at || null;
+    delete db.chats[aliasJid];
+  }
+  return targetJid;
+}
+
 export async function upsertChat({ jid, name = null }) {
   if (!jid) return null;
   const db = await readDb();
-  const chat = ensureChat(db, jid, name);
+  const chat = ensureChat(db, resolveJid(db, jid), name);
   await writeDb(db);
   return {
     jid: chat.jid,
@@ -79,7 +135,7 @@ export async function listChats() {
 
 export async function getChatMessages(jid) {
   const db = await readDb();
-  const chat = db.chats?.[jid];
+  const chat = db.chats?.[resolveJid(db, jid)];
   if (!chat) return null;
   chat.unread = 0;
   await writeDb(db);
@@ -92,7 +148,7 @@ export async function getChatMessages(jid) {
 
 export async function hasChat(jid) {
   const db = await readDb();
-  return Boolean(db.chats?.[jid]);
+  return Boolean(db.chats?.[resolveJid(db, jid)]);
 }
 
 export async function appendChatMessage({ jid, id, direction, text, at, name = null }) {
@@ -100,7 +156,13 @@ export async function appendChatMessage({ jid, id, direction, text, at, name = n
   if (!jid || !id || !cleanText) return null;
 
   const db = await readDb();
-  const chat = ensureChat(db, jid, name);
+  let targetJid = resolveJid(db, jid);
+  if (direction === 'incoming' && targetJid === jid && isLidJid(jid)) {
+    const targetChat = latestOutgoingPhoneChat(db);
+    if (targetChat) targetJid = linkAlias(db, jid, targetChat.jid);
+  }
+
+  const chat = ensureChat(db, targetJid, name);
   const exists = chat.messages.some((message) => message.id === id);
   if (exists) return chat;
 
@@ -126,7 +188,7 @@ export async function updateMessageStatus({ jid, id, status }) {
   if (!jid || !id || !status) return null;
 
   const db = await readDb();
-  const chat = db.chats?.[jid];
+  const chat = db.chats?.[resolveJid(db, jid)];
   if (!chat || !Array.isArray(chat.messages)) return null;
 
   const message = chat.messages.find((item) => item.id === id);

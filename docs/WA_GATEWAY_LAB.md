@@ -127,6 +127,7 @@ curl -sS \
 
 Balasan hanya bisa dikirim ke chat 1:1 yang sudah pernah mengirim pesan masuk.
 Pada WhatsApp baru, chat masuk bisa muncul sebagai `@lid`, bukan `@s.whatsapp.net`; pakai `jid` persis dari endpoint `/chats`.
+Gateway akan mencoba menggabungkan balasan `@lid` ke chat nomor terakhir yang baru dikirimi pesan dalam 24 jam agar daftar chat tidak dobel.
 
 ```bash
 curl -sS -X POST "http://127.0.0.1:3010/chats/6281234567890%40s.whatsapp.net/reply" \

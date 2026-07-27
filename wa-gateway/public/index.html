@@ -215,10 +215,10 @@
       .messages {
         flex: 1;
         overflow: auto;
-        padding: 22px;
+        padding: 16px 22px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 4px;
       }
 
       .empty {
@@ -232,19 +232,21 @@
       }
 
       .bubble {
-        max-width: min(620px, 80%);
-        padding: 8px 10px 5px;
-        border-radius: 10px;
+        max-width: min(560px, 76%);
+        padding: 5px 8px 4px;
+        border-radius: 8px;
         box-shadow: 0 1px 1px rgba(17, 27, 33, 0.12);
         white-space: pre-wrap;
         word-break: break-word;
+        line-height: 1.32;
+        font-size: 14px;
       }
 
       .incoming { align-self: flex-start; background: var(--bubble-in); }
       .outgoing { align-self: flex-end; background: var(--bubble-out); }
 
       .meta {
-        margin-top: 4px;
+        margin-top: 1px;
         color: var(--muted);
         font-size: 11px;
         display: flex;
@@ -257,17 +259,25 @@
       .ticks.read { color: var(--blue); }
 
       .composer {
-        padding: 10px;
+        padding: 9px 10px;
         background: #f0f2f5;
         display: flex;
-        gap: 10px;
-        align-items: flex-end;
+        gap: 8px;
+        align-items: center;
       }
 
       textarea {
-        min-height: 42px;
-        max-height: 120px;
+        min-height: 40px;
+        height: 40px;
+        max-height: 96px;
         resize: vertical;
+        padding: 9px 12px;
+        line-height: 20px;
+      }
+
+      #sendButton {
+        height: 40px;
+        padding: 0 16px;
       }
 
       #backButton { display: none; }
