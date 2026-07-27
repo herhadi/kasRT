@@ -72,6 +72,17 @@ function shouldReconnect(update) {
   return statusCode !== DisconnectReason.loggedOut;
 }
 
+async function clearAuthDir() {
+  await fs.mkdir(config.authDir, { recursive: true });
+  const entries = await fs.readdir(config.authDir, { withFileTypes: true });
+  await Promise.all(
+    entries.map((entry) => {
+      const targetPath = `${config.authDir}/${entry.name}`;
+      return fs.rm(targetPath, { recursive: true, force: true });
+    })
+  );
+}
+
 async function recordIncomingMessages(messages = []) {
   lastIncomingEventAt = new Date().toISOString();
 
@@ -281,7 +292,7 @@ export async function resetSession() {
     await previousRawSocket.logout().catch(() => {});
   }
 
-  await fs.rm(config.authDir, { recursive: true, force: true });
+  await clearAuthDir();
   try {
     await startWhatsApp();
   } catch (error) {
