@@ -9,6 +9,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Icon aplikasi KasRT diganti dengan visual rumah warga, tabungan koin, dan tanda cek agar lebih relevan untuk favicon/PWA.
 - Area aman icon diperbesar agar tidak terpotong saat launcher HP menampilkan icon berbentuk lingkaran.
 - WA Lab kini memperlakukan receipt WhatsApp tanpa status eksplisit sebagai `delivered`, sehingga pesan terkirim tampil centang dua abu-abu sebelum dibaca.
+- Jumlah target WA Lab untuk reminder jimpitan kini bisa diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, default `1` dan dibatasi maksimal `3`.
 
 ## 2026-07-27
 
@@ -20,7 +21,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - UI WA Lab dirapikan seperti WA Web mini, dengan pengaturan koneksi di tombol gear, chat ke nomor baru, dan indikator centang pesan keluar.
 - Balasan WhatsApp yang masuk sebagai `@lid` otomatis digabung ke chat nomor terakhir agar percakapan tidak dobel.
 - Pesan incoming duplicate dari `@lid` dan `@s.whatsapp.net` dengan isi sama dan waktu berdekatan kini dideduplikasi.
-- Reminder jimpitan dapat mengirim uji terbatas ke 1 nomor valid random dari petugas shift via WA Lab jika diaktifkan lewat env backend.
+- Reminder jimpitan dapat mengirim uji terbatas ke nomor valid random dari petugas shift via WA Lab jika diaktifkan lewat env backend.
 - WA Lab menambahkan listener receipt untuk memperbarui status pesan keluar hingga delivered/read meski JID receipt berbeda.
 - Dokumentasi `docs/WA_GATEWAY_LAB.md` agar eksperimen WA tetap terpisah dari alur Telegram/reminder utama.
 

@@ -6,6 +6,14 @@ function readBool(key, fallback = false) {
   return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
 }
 
+function readInt(key, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') return fallback;
+  const value = Number.parseInt(String(raw), 10);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(Math.max(value, min), max);
+}
+
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
   if (!digits) return null;
@@ -32,7 +40,11 @@ export function isWaJimpitanReminderEnabled() {
   return readBool('WA_JIMPITAN_REMINDER_ENABLED', false);
 }
 
-export function pickRandomValidWaRecipient(rows = []) {
+export function getWaJimpitanMaxRecipients() {
+  return readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 3 });
+}
+
+export function pickRandomValidWaRecipients(rows = [], limit = getWaJimpitanMaxRecipients()) {
   const candidates = rows
     .map((row) => ({
       id: row.id,
@@ -41,8 +53,12 @@ export function pickRandomValidWaRecipient(rows = []) {
     }))
     .filter((row) => row.phone);
 
-  if (candidates.length === 0) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  const uniqueCandidates = Array.from(new Map(candidates.map((row) => [row.phone, row])).values());
+  return uniqueCandidates
+    .map((row) => ({ row, sort: Math.random() }))
+    .sort((left, right) => left.sort - right.sort)
+    .slice(0, Math.max(0, Number(limit || 0)))
+    .map((item) => item.row);
 }
 
 export async function sendWaJimpitanReminder({ recipient, text }) {

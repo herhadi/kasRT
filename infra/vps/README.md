@@ -38,10 +38,11 @@ Tambahkan domain frontend produksi lain ke `CORS_ORIGINS` dengan pemisah koma. J
 
 Reminder otomatis jimpitan utama tetap memakai Telegram. Integrasi WA massal sudah dihapus dari stack ini.
 
-Untuk uji terbatas WA Lab pada reminder jimpitan, backend dapat mengirim ke 1 nomor valid random dari petugas shift. Default tetap off. Aktifkan hanya jika `kasrt-wa-lab` sudah tertaut:
+Untuk uji terbatas WA Lab pada reminder jimpitan, backend dapat mengirim ke nomor valid random dari petugas shift. Default tetap off. Aktifkan hanya jika `kasrt-wa-lab` sudah tertaut:
 
 ```dotenv
 WA_JIMPITAN_REMINDER_ENABLED=true
+WA_JIMPITAN_MAX_RECIPIENTS=1
 WA_LAB_BASE_URL=https://wa-kasrt.tripleatech.my.id
 WA_LAB_SECRET=secret_yang_sama_dengan_wa_gateway
 ```

@@ -42,7 +42,7 @@ type CronHealthLog = {
         wa_recipients?: number;
         wa_sent?: number;
         wa_failed?: number;
-        wa_target?: { nama?: string | null; no_hp?: string | null } | null;
+        wa_target?: { nama?: string | null; no_hp?: string | null } | Array<{ nama?: string | null; no_hp?: string | null }> | null;
         wa_errors?: Array<{ nama?: string | null; no_hp?: string | null; message?: string }>;
         current_time_wib?: string;
         reminder_date?: string;
@@ -445,9 +445,10 @@ function formatWaError(result: NonNullable<CronHealthLog['payload']>['reminder_r
 
 function formatWaTarget(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
   if (!result?.wa_target) return '-';
-  const name = result.wa_target.nama || 'WA';
-  const phone = result.wa_target.no_hp || '-';
-  return `${name} (${phone})`;
+  const targets = Array.isArray(result.wa_target) ? result.wa_target : [result.wa_target];
+  return targets
+    .map((target) => `${target.nama || 'WA'} (${target.no_hp || '-'})`)
+    .join(', ');
 }
 
 function getShiftDayLabel(value: string) {

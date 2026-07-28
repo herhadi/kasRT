@@ -48,8 +48,9 @@ import {
 } from '../models/jimpitanModel.js';
 import { delCache, delCacheByPrefix, getCacheJson, setCacheJson } from '../services/cacheService.js';
 import {
+  getWaJimpitanMaxRecipients,
   isWaJimpitanReminderEnabled,
-  pickRandomValidWaRecipient,
+  pickRandomValidWaRecipients,
   sendWaJimpitanReminder
 } from '../services/waLabReminderService.js';
 
@@ -816,8 +817,10 @@ export async function sendJimpitanShiftReminder(req, res) {
   try {
     const petugas = await listPetugasByShiftDay(shiftDay);
     const telegramRecipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
-    const waRecipient = isWaJimpitanReminderEnabled() ? pickRandomValidWaRecipient(petugas) : null;
-    const waRecipients = waRecipient ? 1 : 0;
+    const waEnabled = isWaJimpitanReminderEnabled();
+    const waMaxRecipients = getWaJimpitanMaxRecipients();
+    const waRecipientRows = waEnabled ? pickRandomValidWaRecipients(petugas, waMaxRecipients) : [];
+    const waRecipients = waRecipientRows.length;
     const totalRecipients = telegramRecipients.length + waRecipients;
     const lock = await lockDailyJimpitanReminder(reminderDate, reminderType, totalRecipients);
 
@@ -868,18 +871,20 @@ export async function sendJimpitanShiftReminder(req, res) {
       `Pengambilan Mulai 21:00 WIB\n` +
       `📋 Input Jimpitan: https://kas02.vercel.app/` +
       `${testMode ? '\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.' : ''}`;
-    const waResult = waRecipient ? await sendWaJimpitanReminder({ recipient: waRecipient, text: waText }) : null;
-    const waSent = waResult?.success === true ? 1 : 0;
-    const waFailed = waRecipient && waSent === 0 ? 1 : 0;
-    const waErrors = waFailed
-      ? [
-          {
-            nama: waRecipient.nama || null,
-            no_hp: waRecipient.phone,
-            message: waResult?.error || waResult?.reason || 'WA tidak mengirim'
-          }
-        ]
-      : [];
+    const waResults = [];
+    for (const recipient of waRecipientRows) {
+      const result = await sendWaJimpitanReminder({ recipient, text: waText });
+      waResults.push({ recipient, result });
+    }
+    const waSent = waResults.filter((item) => item.result?.success === true).length;
+    const waFailed = waRecipients - waSent;
+    const waErrors = waResults
+      .filter((item) => item.result?.success !== true)
+      .map((item) => ({
+        nama: item.recipient.nama || null,
+        no_hp: item.recipient.phone,
+        message: item.result?.error || item.result?.reason || 'WA tidak mengirim'
+      }));
 
     await updateJimpitanReminderDeliveryLog({
       id: lock.id,
@@ -889,11 +894,13 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegramSent,
       telegramFailed,
       telegramErrors: telegramErrors.slice(0, 5),
-      waProvider: isWaJimpitanReminderEnabled() ? 'wa-lab-random-one' : 'off',
+      waProvider: waEnabled ? `wa-lab-random-${waMaxRecipients}` : 'off',
       waRecipients,
       waSent,
       waFailed,
-      waTarget: waRecipient ? { nama: waRecipient.nama || null, no_hp: waRecipient.phone } : null,
+      waTarget: waRecipientRows.length
+        ? waRecipientRows.map((recipient) => ({ nama: recipient.nama || null, no_hp: recipient.phone }))
+        : null,
       waErrors: waErrors.slice(0, 5)
     });
 
@@ -917,8 +924,9 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegram_sent: telegramSent,
       telegram_failed: telegramFailed,
       telegram_errors: telegramErrors.slice(0, 5),
-      wa_provider: isWaJimpitanReminderEnabled() ? 'wa-lab-random-one' : 'off',
-      wa_recipient: waRecipient ? { nama: waRecipient.nama, no_hp: waRecipient.phone } : null,
+      wa_provider: waEnabled ? `wa-lab-random-${waMaxRecipients}` : 'off',
+      wa_recipient: waRecipientRows[0] ? { nama: waRecipientRows[0].nama, no_hp: waRecipientRows[0].phone } : null,
+      wa_recipients_target: waRecipientRows.map((recipient) => ({ nama: recipient.nama, no_hp: recipient.phone })),
       wa_recipients: waRecipients,
       wa_sent: waSent,
       wa_failed: waFailed,
