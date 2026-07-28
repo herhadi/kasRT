@@ -7,7 +7,7 @@ import BottomNav from '@/components/layout/BottomNav';
 
 export const metadata: Metadata = {
   title: 'KasRT 02/04',
-  description: 'Dashboard kas RT berbasis Next.js',
+  description: 'Perum Griya Kalisalak Asri',
   manifest: '/manifest.webmanifest',
   applicationName: 'KasRT02',
   appleWebApp: {
@@ -16,8 +16,13 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent'
   },
   icons: {
-    icon: '/icons/kasrt-icon-v2.svg',
-    apple: '/icons/kasrt-icon-v2-192.png'
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
+      { url: '/icons/kasrt-icon-v2-192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/icons/kasrt-icon-v2-512.png', type: 'image/png', sizes: '512x512' }
+    ],
+    apple: '/apple-icon.png'
   }
 };
 

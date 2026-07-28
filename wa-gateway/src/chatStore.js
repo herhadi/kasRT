@@ -284,3 +284,25 @@ export async function updateMessageStatus({ jid, id, status }) {
   await writeDb(db);
   return message;
 }
+
+export async function updateMessageStatusById({ id, status }) {
+  if (!id || !status) return null;
+
+  const db = await readDb();
+  for (const chat of Object.values(db.chats || {})) {
+    if (!Array.isArray(chat.messages)) continue;
+    const message = chat.messages.find((item) => item.id === id && item.direction === 'outgoing');
+    if (!message) continue;
+
+    const ranks = { sent: 1, delivered: 2, read: 3 };
+    const currentRank = ranks[message.status] || 0;
+    const nextRank = ranks[status] || 0;
+    if (nextRank >= currentRank) {
+      message.status = status;
+      await writeDb(db);
+    }
+    return message;
+  }
+
+  return null;
+}

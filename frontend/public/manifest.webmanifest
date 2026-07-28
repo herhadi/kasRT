@@ -1,7 +1,7 @@
 {
   "name": "KasRT02",
   "short_name": "KasRT02",
-  "description": "Dashboard kas RT untuk warga dan pengurus.",
+  "description": " untuk warga dan pengurus.",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
@@ -9,6 +9,12 @@
   "theme_color": "#1d4ed8",
   "orientation": "portrait",
   "icons": [
+    {
+      "src": "/icons/kasrt-icon-v2-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icons/kasrt-icon-v2-192.png",
       "sizes": "192x192",
@@ -19,12 +25,6 @@
       "src": "/icons/kasrt-icon-v2-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/kasrt-icon-v2.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],

@@ -8,7 +8,7 @@ import { wrapSocket } from 'baileys-antiban';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { config } from './config.js';
-import { appendChatMessage, hasChat, updateMessageStatus, upsertChat } from './chatStore.js';
+import { appendChatMessage, hasChat, updateMessageStatus, updateMessageStatusById, upsertChat } from './chatStore.js';
 import { assertCanSend, recordSend } from './store.js';
 
 let socket = null;
@@ -23,6 +23,9 @@ let lastConnectedAt = null;
 let lastIncomingEventAt = null;
 let lastStoredMessageAt = null;
 let lastInboxIgnoredReason = null;
+let lastReceiptEventAt = null;
+let lastReceiptStatus = null;
+let lastReceiptMessageId = null;
 
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -80,6 +83,24 @@ function mapMessageStatus(status) {
   return null;
 }
 
+function receiptStatusFromItem(item) {
+  if (item?.receipt?.readTimestamp || item?.readTimestamp || item?.update?.readTimestamp) return 'read';
+  if (item?.receipt?.receiptTimestamp || item?.receiptTimestamp || item?.update?.receiptTimestamp) return 'delivered';
+  return mapMessageStatus(item?.update?.status ?? item?.status ?? item?.receipt?.status);
+}
+
+function receiptMessageId(item) {
+  return (
+    item?.key?.id ||
+    item?.messageId ||
+    item?.id ||
+    item?.receipt?.messageId ||
+    item?.receipt?.id ||
+    item?.update?.id ||
+    null
+  );
+}
+
 async function clearAuthDir() {
   await fs.mkdir(config.authDir, { recursive: true });
   const entries = await fs.readdir(config.authDir, { withFileTypes: true });
@@ -134,7 +155,25 @@ async function recordMessageUpdates(updates = []) {
     const id = item?.key?.id;
     const status = mapMessageStatus(item?.update?.status ?? item?.status);
     if (!jid || !id || !status) continue;
-    await updateMessageStatus({ jid, id, status });
+    const updated = await updateMessageStatus({ jid, id, status });
+    if (!updated) await updateMessageStatusById({ id, status });
+    lastReceiptEventAt = new Date().toISOString();
+    lastReceiptStatus = status;
+    lastReceiptMessageId = id;
+  }
+}
+
+async function recordReceiptUpdates(updates = []) {
+  for (const item of updates) {
+    const jid = item?.key?.remoteJid || item?.remoteJid || item?.jid || item?.receipt?.remoteJid || null;
+    const id = receiptMessageId(item);
+    const status = receiptStatusFromItem(item);
+    if (!id || !status) continue;
+    const updated = jid ? await updateMessageStatus({ jid, id, status }) : null;
+    if (!updated) await updateMessageStatusById({ id, status });
+    lastReceiptEventAt = new Date().toISOString();
+    lastReceiptStatus = status;
+    lastReceiptMessageId = id;
   }
 }
 
@@ -171,6 +210,11 @@ export async function startWhatsApp() {
   rawSocket.ev.on('messages.update', async (updates) => {
     await recordMessageUpdates(updates).catch((error) => {
       lastDisconnectReason = `message status failed: ${error.message}`;
+    });
+  });
+  rawSocket.ev.on('message-receipt.update', async (updates) => {
+    await recordReceiptUpdates(updates).catch((error) => {
+      lastDisconnectReason = `receipt status failed: ${error.message}`;
     });
   });
   rawSocket.ev.on('connection.update', async (update) => {
@@ -228,7 +272,10 @@ export function getStatus() {
     inbox: {
       last_incoming_event_at: lastIncomingEventAt,
       last_stored_message_at: lastStoredMessageAt,
-      last_ignored_reason: lastInboxIgnoredReason
+      last_ignored_reason: lastInboxIgnoredReason,
+      last_receipt_event_at: lastReceiptEventAt,
+      last_receipt_status: lastReceiptStatus,
+      last_receipt_message_id: lastReceiptMessageId
     }
   };
 }

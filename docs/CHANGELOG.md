@@ -2,6 +2,12 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-07-28
+
+### Diubah
+
+- Icon aplikasi KasRT diganti dengan visual rumah warga, tabungan koin, dan tanda cek agar lebih relevan untuk favicon/PWA.
+
 ## 2026-07-27
 
 ### Ditambahkan
@@ -13,6 +19,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Balasan WhatsApp yang masuk sebagai `@lid` otomatis digabung ke chat nomor terakhir agar percakapan tidak dobel.
 - Pesan incoming duplicate dari `@lid` dan `@s.whatsapp.net` dengan isi sama dan waktu berdekatan kini dideduplikasi.
 - Reminder jimpitan dapat mengirim uji terbatas ke 1 nomor valid random dari petugas shift via WA Lab jika diaktifkan lewat env backend.
+- WA Lab menambahkan listener receipt untuk memperbarui status pesan keluar hingga delivered/read meski JID receipt berbeda.
 - Dokumentasi `docs/WA_GATEWAY_LAB.md` agar eksperimen WA tetap terpisah dari alur Telegram/reminder utama.
 
 ## 2026-07-26

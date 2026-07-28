@@ -864,10 +864,9 @@ export async function sendJimpitanShiftReminder(req, res) {
 
     const waText =
       `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +
-      `⏰ Pengingat Jimpitan\n` +
-      `Hari operasional: ${targetLabel}\n` +
-      `Pengambilan jimpitan dimulai pukul 21:00 WIB.\n` +
-      `Pengingat otomatis dikirim sebelum jam operasional.` +
+      `⏰ Jimpitan ${targetLabel}\n` +
+      `Pengambilan Mulai 21:00 WIB\n` +
+      `📋 Input Jimpitan: https://kas02.vercel.app/` +
       `${testMode ? '\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.' : ''}`;
     const waResult = waRecipient ? await sendWaJimpitanReminder({ recipient: waRecipient, text: waText }) : null;
     const waSent = waResult?.success === true ? 1 : 0;
