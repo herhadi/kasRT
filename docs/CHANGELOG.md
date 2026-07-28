@@ -10,6 +10,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Area aman icon diperbesar agar tidak terpotong saat launcher HP menampilkan icon berbentuk lingkaran.
 - WA Lab kini memperlakukan receipt WhatsApp tanpa status eksplisit sebagai `delivered`, sehingga pesan terkirim tampil centang dua abu-abu sebelum dibaca.
 - Jumlah target WA Lab untuk reminder jimpitan kini bisa diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, default `1` dan dibatasi maksimal `3`.
+- Asset SVG template bawaan Next/Vercel yang tidak dipakai dibersihkan dari `frontend/public`.
 
 ## 2026-07-27
 
