@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertConfig, config } from './config.js';
 import { getQr, getStatus, resetSession, sendChatReply, sendTestMessage, startChatMessage, startWhatsApp } from './whatsapp.js';
-import { getChatMessages, listChats } from './chatStore.js';
+import { deleteChat, deleteChatMessage, getChatMessages, listChats } from './chatStore.js';
 import { getUsage } from './store.js';
 
 assertConfig();
@@ -38,6 +38,8 @@ app.get('/', (_req, res) => {
       chats: 'GET /chats',
       start_chat: 'POST /chats/start',
       messages: 'GET /chats/:jid/messages',
+      delete_chat: 'DELETE /chats/:jid',
+      delete_message: 'DELETE /chats/:jid/messages/:messageId',
       reply: 'POST /chats/:jid/reply',
       reset_session: 'POST /session/reset'
     }
@@ -98,6 +100,22 @@ app.get('/chats/:jid/messages', requireSecret, async (req, res) => {
   const chat = await getChatMessages(jid);
   if (!chat) return res.status(404).json({ success: false, message: 'Chat tidak ditemukan.' });
   return res.json({ success: true, data: chat });
+});
+
+app.delete('/chats/:jid', requireSecret, async (req, res) => {
+  const jid = decodeURIComponent(req.params.jid || '');
+  const deleted = await deleteChat(jid);
+  if (!deleted) return res.status(404).json({ success: false, message: 'Chat tidak ditemukan.' });
+  return res.json({ success: true, data: deleted });
+});
+
+app.delete('/chats/:jid/messages/:messageId', requireSecret, async (req, res) => {
+  const deleted = await deleteChatMessage({
+    jid: decodeURIComponent(req.params.jid || ''),
+    id: decodeURIComponent(req.params.messageId || '')
+  });
+  if (!deleted) return res.status(404).json({ success: false, message: 'Pesan tidak ditemukan.' });
+  return res.json({ success: true, data: deleted });
 });
 
 app.post('/chats/:jid/reply', requireSecret, async (req, res) => {

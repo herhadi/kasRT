@@ -26,6 +26,18 @@ let lastInboxIgnoredReason = null;
 let lastReceiptEventAt = null;
 let lastReceiptStatus = null;
 let lastReceiptMessageId = null;
+let resetInProgress = false;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function ignoreShutdownError(action) {
+  try {
+    await action();
+  } catch {
+  }
+}
 
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -108,13 +120,19 @@ function receiptMessageId(item) {
 
 async function clearAuthDir() {
   await fs.mkdir(config.authDir, { recursive: true });
-  const entries = await fs.readdir(config.authDir, { withFileTypes: true });
-  await Promise.all(
-    entries.map((entry) => {
-      const targetPath = `${config.authDir}/${entry.name}`;
-      return fs.rm(targetPath, { recursive: true, force: true });
-    })
-  );
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      const entries = await fs.readdir(config.authDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const targetPath = `${config.authDir}/${entry.name}`;
+        await fs.rm(targetPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 250 });
+      }
+      return;
+    } catch (error) {
+      if (attempt >= 5) throw error;
+      await sleep(500 * attempt);
+    }
+  }
 }
 
 async function recordIncomingMessages(messages = []) {
@@ -244,7 +262,7 @@ export async function startWhatsApp() {
       socket = null;
       rawSocket = null;
       connecting = false;
-      if (shouldReconnect(update)) {
+      if (!resetInProgress && shouldReconnect(update)) {
         setTimeout(() => {
           startWhatsApp().catch((error) => {
             lastDisconnectReason = error.message;
@@ -384,6 +402,7 @@ export async function startChatMessage({ phone, name, text }) {
 
 export async function resetSession() {
   const previousRawSocket = rawSocket;
+  resetInProgress = true;
 
   socket = null;
   rawSocket = null;
@@ -394,16 +413,20 @@ export async function resetSession() {
   lastDisconnectReason = null;
   connectionState = 'resetting';
 
-  if (previousRawSocket?.logout) {
-    await previousRawSocket.logout().catch(() => {});
-  }
-
-  await clearAuthDir();
   try {
+    await ignoreShutdownError(() => previousRawSocket?.logout?.());
+    await ignoreShutdownError(() => previousRawSocket?.ws?.close?.());
+    await ignoreShutdownError(() => previousRawSocket?.end?.());
+    await ignoreShutdownError(() => previousRawSocket?.ev?.removeAllListeners?.());
+    await sleep(1500);
+
+    await clearAuthDir();
     await startWhatsApp();
   } catch (error) {
     lastDisconnectReason = `reset restart failed: ${error.message}`;
     connectionState = 'reset_failed';
     throw error;
+  } finally {
+    resetInProgress = false;
   }
 }

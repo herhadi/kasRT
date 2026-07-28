@@ -135,6 +135,13 @@ function latestMessage(chat) {
   return Array.isArray(chat?.messages) ? chat.messages[chat.messages.length - 1] : null;
 }
 
+function refreshChatSummary(chat) {
+  const lastMessage = latestMessage(chat);
+  chat.last_message = lastMessage?.text || '';
+  chat.last_at = lastMessage?.at || null;
+  chat.unread = Math.min(Number(chat.unread || 0), normalizeMessages(chat.messages).length);
+}
+
 function findDuplicateIncomingChat(db, jid, text, at) {
   const incomingTime = new Date(at).getTime();
   if (!Number.isFinite(incomingTime)) return null;
@@ -202,6 +209,41 @@ export async function getChatMessages(jid) {
     name: chat.name,
     messages: normalizeMessages(chat.messages)
   };
+}
+
+export async function deleteChat(jid) {
+  if (!jid) return null;
+
+  const db = await readDb();
+  const targetJid = resolveJid(db, jid);
+  const chat = db.chats?.[targetJid];
+  if (!chat) return null;
+
+  delete db.chats[targetJid];
+  for (const [aliasJid, aliasTargetJid] of Object.entries(db.aliases || {})) {
+    if (aliasJid === jid || aliasJid === targetJid || aliasTargetJid === targetJid) {
+      delete db.aliases[aliasJid];
+    }
+  }
+
+  await writeDb(db);
+  return { jid: targetJid };
+}
+
+export async function deleteChatMessage({ jid, id }) {
+  if (!jid || !id) return null;
+
+  const db = await readDb();
+  const chat = db.chats?.[resolveJid(db, jid)];
+  if (!chat || !Array.isArray(chat.messages)) return null;
+
+  const beforeCount = chat.messages.length;
+  chat.messages = chat.messages.filter((message) => message.id !== id);
+  if (chat.messages.length === beforeCount) return null;
+
+  refreshChatSummary(chat);
+  await writeDb(db);
+  return { jid: chat.jid, id };
 }
 
 export async function hasChat(jid) {

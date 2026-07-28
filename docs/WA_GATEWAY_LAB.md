@@ -68,6 +68,7 @@ Masukkan `WA_LAB_SECRET` pada field secret, lalu:
 5. Setelah connected, tunggu chat 1:1 masuk dari WhatsApp.
 6. Jika salah nomor, klik `Reset Session / Ganti Nomor`, lalu scan QR baru.
 7. Untuk kirim ke nomor tertentu, isi nomor pada field `Nomor WA baru`, klik `Chat`, tulis pesan pertama, lalu `Kirim`.
+8. Gunakan tombol `Hapus Chat` untuk menghapus riwayat chat lokal WA Lab, atau tombol `×` pada bubble untuk menghapus pesan lokal.
 
 Semua endpoint API selain `/health` wajib memakai header secret:
 
@@ -115,6 +116,20 @@ curl -sS -X POST http://127.0.0.1:3010/send-test \
   -H "x-wa-lab-secret: isi_secret_panjang" \
   -d '{"phone":"6281234567890","text":"Halo, ini tes manual KasRT WA Lab."}'
 ```
+
+### Hapus Chat/Pesan Lokal
+
+```bash
+curl -sS -X DELETE \
+  -H "x-wa-lab-secret: isi_secret_panjang" \
+  "http://127.0.0.1:3010/chats/6281234567890%40s.whatsapp.net"
+
+curl -sS -X DELETE \
+  -H "x-wa-lab-secret: isi_secret_panjang" \
+  "http://127.0.0.1:3010/chats/6281234567890%40s.whatsapp.net/messages/ID_PESAN"
+```
+
+Hapus chat/pesan hanya membersihkan data lokal WA Lab di `wa-gateway/data/chats.json`; chat di aplikasi WhatsApp HP tidak ikut dihapus.
 
 Limit nomor unik harian dikontrol oleh `WA_LAB_DAILY_UNIQUE_LIMIT`.
 

@@ -62,6 +62,19 @@
         gap: 10px;
       }
 
+      .topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .chat-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
       .title { font-weight: 700; line-height: 1.2; }
       .subtitle { color: var(--muted); font-size: 12px; }
 
@@ -118,6 +131,7 @@
 
       button.secondary { color: var(--green-dark); background: #e7f7f2; }
       button.danger { color: #fff; background: var(--danger); }
+      button.small { padding: 7px 10px; font-size: 12px; }
       button:disabled { opacity: 0.55; cursor: not-allowed; }
 
       .status {
@@ -239,6 +253,27 @@
         word-break: break-word;
         line-height: 1.25;
         font-size: 14px;
+        position: relative;
+      }
+
+      .message-delete {
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        margin-left: 6px;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0.35;
+        vertical-align: middle;
+      }
+
+      .message-delete:hover {
+        background: rgba(180, 35, 24, 0.12);
+        color: var(--danger);
+        opacity: 1;
       }
 
       .message-text { white-space: pre-wrap; }
@@ -339,12 +374,15 @@
 
       <section id="chatPanel" class="chat hidden-mobile">
         <div class="topbar">
-          <div style="display:flex;align-items:center;gap:8px">
+          <div class="topbar-left">
             <button id="backButton" class="icon-button">←</button>
             <div>
               <div id="chatTitle" class="title">Pilih chat</div>
               <div id="chatSubtitle" class="subtitle">Mulai chat dari kiri atau tunggu pesan masuk</div>
             </div>
+          </div>
+          <div class="chat-actions">
+            <button id="deleteChatButton" class="danger small" disabled>Hapus Chat</button>
           </div>
         </div>
 
@@ -379,6 +417,7 @@
       const replyForm = document.querySelector('#replyForm');
       const replyText = document.querySelector('#replyText');
       const sendButton = document.querySelector('#sendButton');
+      const deleteChatButton = document.querySelector('#deleteChatButton');
       const chatTitle = document.querySelector('#chatTitle');
       const chatSubtitle = document.querySelector('#chatSubtitle');
       const linkedNumber = document.querySelector('#linkedNumber');
@@ -515,6 +554,7 @@
         chatSubtitle.textContent = jid;
         replyText.disabled = false;
         sendButton.disabled = false;
+        deleteChatButton.disabled = false;
         sidebar.classList.add('hidden-mobile');
         chatPanel.classList.remove('hidden-mobile');
         await loadMessages();
@@ -532,6 +572,16 @@
             bubble.innerHTML = `
               <span class="message-text">${escapeHtml(message.text)}</span>
               <span class="meta"><span>${escapeHtml(formatTime(message.at))}</span>${message.direction === 'outgoing' ? tickHtml(message.status) : ''}</span>`;
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'message-delete';
+            deleteButton.title = 'Hapus pesan di WA Lab';
+            deleteButton.textContent = '×';
+            deleteButton.addEventListener('click', async (event) => {
+              event.stopPropagation();
+              await deleteMessage(message.id);
+            });
+            bubble.appendChild(deleteButton);
             messagesBox.appendChild(bubble);
           }
           messagesBox.scrollTop = messagesBox.scrollHeight;
@@ -553,6 +603,7 @@
             activeTitle = phone;
             chatTitle.textContent = phone;
             chatSubtitle.textContent = data.jid;
+            deleteChatButton.disabled = false;
           }
           replyText.value = '';
           await loadMessages();
@@ -574,9 +625,50 @@
         messagesBox.innerHTML = '<div class="empty">Tulis pesan pertama lalu klik Kirim.</div>';
         replyText.disabled = false;
         sendButton.disabled = false;
+        deleteChatButton.disabled = true;
         replyText.focus();
         sidebar.classList.add('hidden-mobile');
         chatPanel.classList.remove('hidden-mobile');
+      }
+
+      function resetActiveChat() {
+        activeJid = null;
+        activeTitle = '';
+        chatTitle.textContent = 'Pilih chat';
+        chatSubtitle.textContent = 'Mulai chat dari kiri atau tunggu pesan masuk';
+        messagesBox.innerHTML = '<div class="empty">Pilih chat di kiri, atau masukkan nomor WA baru lalu klik Chat.</div>';
+        replyText.value = '';
+        replyText.disabled = true;
+        sendButton.disabled = true;
+        deleteChatButton.disabled = true;
+      }
+
+      async function deleteActiveChat() {
+        if (!activeJid) return;
+        const approved = window.confirm(`Hapus chat ${activeTitle || activeJid} dari WA Lab? Riwayat di HP WhatsApp tidak ikut dihapus.`);
+        if (!approved) return;
+        deleteChatButton.disabled = true;
+        try {
+          await api(`/chats/${encodeURIComponent(activeJid)}`, { method: 'DELETE' });
+          resetActiveChat();
+          await loadChats();
+          setStatus('Chat dihapus dari WA Lab.');
+        } catch (error) {
+          setStatus(error.message, true);
+          deleteChatButton.disabled = false;
+        }
+      }
+
+      async function deleteMessage(messageId) {
+        if (!activeJid || !messageId) return;
+        const approved = window.confirm('Hapus pesan ini dari WA Lab? Pesan di HP WhatsApp tidak ikut dihapus.');
+        if (!approved) return;
+        try {
+          await api(`/chats/${encodeURIComponent(activeJid)}/messages/${encodeURIComponent(messageId)}`, { method: 'DELETE' });
+          await loadMessages();
+          await loadChats();
+          setStatus('Pesan dihapus dari WA Lab.');
+        } catch (error) { setStatus(error.message, true); }
       }
 
       function startPolling() {
@@ -599,6 +691,7 @@
       });
       showQrButton.addEventListener('click', showQr);
       resetSessionButton.addEventListener('click', resetSession);
+      deleteChatButton.addEventListener('click', deleteActiveChat);
       refreshButton.addEventListener('click', () => { loadChats(); loadMessages(); });
       newChatButton.addEventListener('click', prepareNewChat);
       replyForm.addEventListener('submit', sendReply);

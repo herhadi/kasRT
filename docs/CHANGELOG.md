@@ -2,6 +2,16 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-07-29
+
+### Diperbaiki
+
+- Reset session WA Lab dibuat lebih tahan error dengan mematikan reconnect sementara, menutup socket lama, menunggu file auth lepas, lalu menghapus auth dengan retry.
+
+### Ditambahkan
+
+- WA Lab menambahkan endpoint dan tombol UI untuk menghapus chat lokal serta pesan lokal tanpa menghapus chat di HP WhatsApp.
+
 ## 2026-07-28
 
 ### Diubah
