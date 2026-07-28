@@ -205,4 +205,5 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 - `baileys-antiban` hanya mengurangi risiko dengan delay/limit, bukan menjamin aman.
 - Reminder jimpitan backend hanya boleh memakai mode uji terbatas: nomor valid random dari petugas shift jika `WA_JIMPITAN_REMINDER_ENABLED=true`.
 - Jumlah target WA Lab diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, default `1`, dan dibatasi maksimal `3`.
+- Reminder otomatis WA Lab menunggu umur koneksi minimal dari `WA_LAB_MIN_CONNECTED_AGE_MINUTES`, default `180` menit setelah QR connected.
 - Jika nanti dipakai produksi, lebih baik tetap dibuat opt-in dan manual approval.

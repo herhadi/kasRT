@@ -61,7 +61,11 @@ app.get('/status', requireSecret, async (_req, res) => {
   });
 });
 
-app.get('/qr', requireSecret, (_req, res) => {
+app.get('/qr', requireSecret, async (_req, res) => {
+  const status = getStatus();
+  if (!status.connected && !status.has_qr) {
+    await startWhatsApp().catch(() => {});
+  }
   res.json({ success: true, data: getQr() });
 });
 

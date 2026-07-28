@@ -39,6 +39,26 @@ async function ignoreShutdownError(action) {
   }
 }
 
+function randomBetween(min, max) {
+  const safeMin = Math.max(0, Number(min || 0));
+  const safeMax = Math.max(safeMin, Number(max || safeMin));
+  return Math.floor(safeMin + Math.random() * (safeMax - safeMin + 1));
+}
+
+function typingDurationForText(text) {
+  const lengthDelay = String(text || '').length * randomBetween(35, 90);
+  return Math.min(config.typingMaxMs, Math.max(config.typingMinMs, lengthDelay));
+}
+
+async function simulateTyping(jid, text) {
+  if (!rawSocket?.sendPresenceUpdate || !jid) return;
+  const durationMs = typingDurationForText(text);
+  await rawSocket.sendPresenceUpdate('composing', jid).catch(() => {});
+  await sleep(durationMs);
+  await rawSocket.sendPresenceUpdate('paused', jid).catch(() => {});
+  await sleep(randomBetween(350, 1200));
+}
+
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
   if (!digits) throw new Error('Nomor tujuan wajib diisi.');
@@ -324,6 +344,7 @@ export async function sendTestMessage({ phone, text }) {
 
   await assertCanSend(normalizedPhone);
   const jid = jidFromPhone(normalizedPhone);
+  await simulateTyping(jid, messageText);
   const result = await socket.sendMessage(jid, { text: messageText }, {});
   const usage = await recordSend(normalizedPhone);
 
@@ -354,6 +375,7 @@ export async function sendChatReply({ jid, text }) {
     throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
   }
 
+  await simulateTyping(jid, messageText);
   const result = await socket.sendMessage(jid, { text: messageText }, {});
   await appendChatMessage({
     jid,
@@ -383,6 +405,7 @@ export async function startChatMessage({ phone, name, text }) {
 
   await assertCanSend(normalizedPhone);
   await upsertChat({ jid, name: name || normalizedPhone });
+  await simulateTyping(jid, messageText);
   const result = await socket.sendMessage(jid, { text: messageText }, {});
   await recordSend(normalizedPhone);
   await appendChatMessage({

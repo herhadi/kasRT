@@ -44,6 +44,10 @@ export function getWaJimpitanMaxRecipients() {
   return readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 3 });
 }
 
+export function getWaLabMinConnectedAgeMinutes() {
+  return readInt('WA_LAB_MIN_CONNECTED_AGE_MINUTES', 180, { min: 0, max: 1440 });
+}
+
 export function pickRandomValidWaRecipients(rows = [], limit = getWaJimpitanMaxRecipients()) {
   const candidates = rows
     .map((row) => ({
@@ -61,6 +65,34 @@ export function pickRandomValidWaRecipients(rows = [], limit = getWaJimpitanMaxR
     .map((item) => item.row);
 }
 
+async function checkGatewayCooldown({ baseUrl, secret, signal }) {
+  const minAgeMinutes = getWaLabMinConnectedAgeMinutes();
+  if (minAgeMinutes <= 0) return { success: true };
+
+  const response = await fetch(`${baseUrl}/status`, {
+    headers: { 'x-wa-lab-secret': secret },
+    signal
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || data?.success !== true) {
+    return { success: false, error: data?.message || `Status WA Lab HTTP ${response.status}` };
+  }
+  if (data.data?.connected !== true) return { success: false, error: 'WA Lab belum connected' };
+
+  const connectedAt = data.data?.last_connected_at ? new Date(data.data.last_connected_at).getTime() : NaN;
+  if (!Number.isFinite(connectedAt)) return { success: false, error: 'WA Lab belum punya waktu connected' };
+
+  const ageMinutes = Math.floor((Date.now() - connectedAt) / 60_000);
+  if (ageMinutes < minAgeMinutes) {
+    return {
+      success: false,
+      error: `WA Lab baru connected ${ageMinutes} menit, tunggu minimal ${minAgeMinutes} menit`
+    };
+  }
+
+  return { success: true };
+}
+
 export async function sendWaJimpitanReminder({ recipient, text }) {
   if (!isWaJimpitanReminderEnabled()) {
     return { skipped: true, reason: 'WA_JIMPITAN_REMINDER_ENABLED bukan true' };
@@ -76,6 +108,9 @@ export async function sendWaJimpitanReminder({ recipient, text }) {
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
   try {
+    const cooldown = await checkGatewayCooldown({ baseUrl, secret, signal: controller.signal });
+    if (cooldown.success !== true) return cooldown;
+
     const response = await fetch(`${baseUrl}/chats/start`, {
       method: 'POST',
       headers: {

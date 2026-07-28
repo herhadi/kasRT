@@ -132,6 +132,13 @@
       button.secondary { color: var(--green-dark); background: #e7f7f2; }
       button.danger { color: #fff; background: var(--danger); }
       button.small { padding: 7px 10px; font-size: 12px; }
+      button.chat-delete {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #ffe7e5;
+        color: var(--danger);
+      }
       button:disabled { opacity: 0.55; cursor: not-allowed; }
 
       .status {
@@ -257,17 +264,19 @@
       }
 
       .message-delete {
-        width: 18px;
-        height: 18px;
-        padding: 0;
-        margin-left: 6px;
+        width: auto;
+        height: auto;
+        padding: 2px 7px;
+        margin-top: 4px;
         border-radius: 999px;
-        background: transparent;
-        color: var(--muted);
-        font-size: 14px;
-        line-height: 1;
-        opacity: 0.35;
-        vertical-align: middle;
+        background: rgba(180, 35, 24, 0.08);
+        color: var(--danger);
+        font-size: 11px;
+        line-height: 1.2;
+        opacity: 0.9;
+        display: inline-flex;
+        clear: both;
+        float: right;
       }
 
       .message-delete:hover {
@@ -382,7 +391,7 @@
             </div>
           </div>
           <div class="chat-actions">
-            <button id="deleteChatButton" class="danger small" disabled>Hapus Chat</button>
+            <button id="deleteChatButton" class="small chat-delete" disabled>🗑 Hapus</button>
           </div>
         </div>
 
@@ -491,10 +500,10 @@
             qrBox.classList.remove('show');
             return;
           }
-          const qr = await api('/qr');
+          const qr = await waitForQr();
           if (!qr.has_qr || !qr.qr_data_url) {
             qrBox.classList.remove('show');
-            setStatus('QR belum tersedia. Tunggu beberapa detik lalu klik Ambil QR lagi.', true);
+            setStatus('QR belum tersedia. Coba klik Ambil QR lagi atau cek log WA Lab.', true);
             return;
           }
           qrImage.src = qr.qr_data_url;
@@ -502,6 +511,16 @@
           qrBox.classList.add('show');
           setStatus('QR siap discan.');
         } catch (error) { setStatus(error.message, true); }
+      }
+
+      async function waitForQr(maxAttempts = 15) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          const qr = await api('/qr');
+          if (qr.has_qr && qr.qr_data_url) return qr;
+          setStatus(`Menunggu QR tersedia... (${attempt}/${maxAttempts})`);
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+        return { has_qr: false, qr_data_url: null };
       }
 
       async function resetSession() {
@@ -513,7 +532,6 @@
         try {
           qrBox.classList.remove('show');
           await api('/session/reset', { method: 'POST', body: JSON.stringify({ confirm: 'RESET' }) });
-          await new Promise((resolve) => setTimeout(resolve, 4000));
           await showQr();
         } catch (error) { setStatus(error.message, true); }
         finally {
@@ -576,7 +594,7 @@
             deleteButton.type = 'button';
             deleteButton.className = 'message-delete';
             deleteButton.title = 'Hapus pesan di WA Lab';
-            deleteButton.textContent = '×';
+            deleteButton.textContent = '🗑 Hapus';
             deleteButton.addEventListener('click', async (event) => {
               event.stopPropagation();
               await deleteMessage(message.id);

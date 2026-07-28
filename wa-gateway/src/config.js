@@ -26,6 +26,8 @@ export const config = {
   logLevel: String(process.env.WA_LOG_LEVEL || 'silent'),
   dailyUniqueLimit: readNumber('WA_LAB_DAILY_UNIQUE_LIMIT', 3),
   minTextLength: readNumber('WA_LAB_MIN_TEXT_LENGTH', 2),
+  typingMinMs: readNumber('WA_LAB_TYPING_MIN_MS', 2500),
+  typingMaxMs: readNumber('WA_LAB_TYPING_MAX_MS', 9000),
   antiban: {
     preset: process.env.WA_ANTIBAN_PRESET || 'conservative',
     maxPerMinute: readNumber('WA_ANTIBAN_MAX_PER_MINUTE', 1),

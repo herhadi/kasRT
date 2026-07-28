@@ -56,6 +56,29 @@ import {
 
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
+const WA_REMINDER_GREETINGS = ['Halo', 'Hai', 'Selamat malam'];
+
+function pickRandomItem(items = []) {
+  return items[Math.floor(Math.random() * items.length)] || '';
+}
+
+function firstNameOnly(name) {
+  return String(name || '').trim().split(/\s+/)[0] || 'Bapak/Ibu';
+}
+
+function buildWaJimpitanReminderText({ recipient, targetLabel, testMode }) {
+  const greeting = pickRandomItem(WA_REMINDER_GREETINGS);
+  const name = firstNameOnly(recipient?.nama);
+
+  return (
+    `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +
+    `${greeting} ${name},\n` +
+    `Pengingat jimpitan ${targetLabel}.\n` +
+    `Mulai pukul 21:00 WIB.\n` +
+    `Input: https://kas02.vercel.app/` +
+    `${testMode ? '\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.' : ''}`
+  );
+}
 
 function buildApprovalLink(path = '/approval') {
   const base =
@@ -865,14 +888,9 @@ export async function sendJimpitanShiftReminder(req, res) {
       }
     });
 
-    const waText =
-      `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +
-      `⏰ Jimpitan ${targetLabel}\n` +
-      `Pengambilan Mulai 21:00 WIB\n` +
-      `📋 Input Jimpitan: https://kas02.vercel.app/` +
-      `${testMode ? '\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.' : ''}`;
     const waResults = [];
     for (const recipient of waRecipientRows) {
+      const waText = buildWaJimpitanReminderText({ recipient, targetLabel, testMode });
       const result = await sendWaJimpitanReminder({ recipient, text: waText });
       waResults.push({ recipient, result });
     }

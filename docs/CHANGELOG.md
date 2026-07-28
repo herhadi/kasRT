@@ -7,10 +7,12 @@ Semua perubahan penting KasRT dicatat di file ini.
 ### Diperbaiki
 
 - Reset session WA Lab dibuat lebih tahan error dengan mematikan reconnect sementara, menutup socket lama, menunggu file auth lepas, lalu menghapus auth dengan retry.
+- Ambil QR WA Lab kini membangunkan socket saat state `closed` dan menunggu QR beberapa kali setelah reset session.
 
 ### Ditambahkan
 
 - WA Lab menambahkan endpoint dan tombol UI untuk menghapus chat lokal serta pesan lokal tanpa menghapus chat di HP WhatsApp.
+- WA Lab menambahkan simulasi mengetik sebelum kirim pesan, cooldown setelah QR connect untuk reminder otomatis, dan sapaan random ringan pada reminder jimpitan.
 
 ## 2026-07-28
 

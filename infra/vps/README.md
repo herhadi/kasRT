@@ -43,6 +43,7 @@ Untuk uji terbatas WA Lab pada reminder jimpitan, backend dapat mengirim ke nomo
 ```dotenv
 WA_JIMPITAN_REMINDER_ENABLED=true
 WA_JIMPITAN_MAX_RECIPIENTS=1
+WA_LAB_MIN_CONNECTED_AGE_MINUTES=180
 WA_LAB_BASE_URL=https://wa-kasrt.tripleatech.my.id
 WA_LAB_SECRET=secret_yang_sama_dengan_wa_gateway
 ```
