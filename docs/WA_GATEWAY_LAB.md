@@ -187,5 +187,5 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 
 - Library WhatsApp unofficial tetap berisiko banned.
 - `baileys-antiban` hanya mengurangi risiko dengan delay/limit, bukan menjamin aman.
-- Service ini belum terhubung ke backend reminder jimpitan.
+- Reminder jimpitan backend hanya boleh memakai mode uji terbatas: 1 nomor valid random dari petugas shift jika `WA_JIMPITAN_REMINDER_ENABLED=true`.
 - Jika nanti dipakai produksi, lebih baik tetap dibuat opt-in dan manual approval.

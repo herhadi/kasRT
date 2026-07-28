@@ -1,0 +1,93 @@
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+function readBool(key, fallback = false) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
+}
+
+function normalizePhone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return null;
+  const normalized = digits.startsWith('0') ? `62${digits.slice(1)}` : digits;
+  if (!/^62\d{8,14}$/.test(normalized)) return null;
+  return normalized;
+}
+
+function gatewayBaseUrl() {
+  const raw =
+    process.env.WA_LAB_BASE_URL ||
+    process.env.WA_GATEWAY_BASE_URL ||
+    process.env.WA_GATEWAY_URL ||
+    '';
+  if (!raw) return '';
+  return String(raw).trim().replace(/\/send$/, '').replace(/\/+$/, '');
+}
+
+function gatewaySecret() {
+  return String(process.env.WA_LAB_SECRET || process.env.WA_GATEWAY_SECRET || '').trim();
+}
+
+export function isWaJimpitanReminderEnabled() {
+  return readBool('WA_JIMPITAN_REMINDER_ENABLED', false);
+}
+
+export function pickRandomValidWaRecipient(rows = []) {
+  const candidates = rows
+    .map((row) => ({
+      id: row.id,
+      nama: row.nama || row.jimpitan_label || null,
+      phone: normalizePhone(row.no_hp)
+    }))
+    .filter((row) => row.phone);
+
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+export async function sendWaJimpitanReminder({ recipient, text }) {
+  if (!isWaJimpitanReminderEnabled()) {
+    return { skipped: true, reason: 'WA_JIMPITAN_REMINDER_ENABLED bukan true' };
+  }
+
+  const baseUrl = gatewayBaseUrl();
+  const secret = gatewaySecret();
+  if (!baseUrl) return { success: false, error: 'WA_LAB_BASE_URL/WA_GATEWAY_BASE_URL belum diisi' };
+  if (!secret) return { success: false, error: 'WA_LAB_SECRET/WA_GATEWAY_SECRET belum diisi' };
+  if (!recipient?.phone) return { success: false, error: 'Nomor WA recipient tidak valid' };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${baseUrl}/chats/start`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-wa-lab-secret': secret
+      },
+      body: JSON.stringify({
+        phone: recipient.phone,
+        name: recipient.nama || recipient.phone,
+        text
+      }),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || data?.success !== true) {
+      return {
+        success: false,
+        error: data?.message || `HTTP ${response.status}`
+      };
+    }
+    return {
+      success: true,
+      jid: data.data?.jid || null,
+      message_id: data.data?.message_id || null
+    };
+  } catch (error) {
+    return { success: false, error: error.name === 'AbortError' ? 'timeout' : error.message };
+  } finally {
+    clearTimeout(timeout);
+  }
+}

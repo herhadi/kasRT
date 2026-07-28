@@ -36,7 +36,21 @@ BACKEND_PUBLIC_URL=https://api-kasrt.tripleatech.my.id
 
 Tambahkan domain frontend produksi lain ke `CORS_ORIGINS` dengan pemisah koma. Jangan commit file `.env`.
 
-Reminder otomatis jimpitan hanya memakai Telegram. Integrasi WA otomatis sudah dihapus dari stack ini.
+Reminder otomatis jimpitan utama tetap memakai Telegram. Integrasi WA massal sudah dihapus dari stack ini.
+
+Untuk uji terbatas WA Lab pada reminder jimpitan, backend dapat mengirim ke 1 nomor valid random dari petugas shift. Default tetap off. Aktifkan hanya jika `kasrt-wa-lab` sudah tertaut:
+
+```dotenv
+WA_JIMPITAN_REMINDER_ENABLED=true
+WA_LAB_BASE_URL=https://wa-kasrt.tripleatech.my.id
+WA_LAB_SECRET=secret_yang_sama_dengan_wa_gateway
+```
+
+Setelah ubah `backend/.env`, deploy/recreate backend:
+
+```bash
+docker compose -f docker-compose.vps.yml up -d --build kasrt-backend
+```
 
 ## WA Gateway Lab
 

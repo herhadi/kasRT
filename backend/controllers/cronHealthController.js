@@ -27,6 +27,12 @@ export async function cronHealthStatus(req, res) {
           telegram_sent: row.telegram_sent,
           telegram_failed: row.telegram_failed,
           telegram_errors: row.telegram_errors || [],
+          wa_provider: row.wa_provider || 'off',
+          wa_recipients: row.wa_recipients || 0,
+          wa_sent: row.wa_sent || 0,
+          wa_failed: row.wa_failed || 0,
+          wa_target: row.wa_target || null,
+          wa_errors: row.wa_errors || [],
           reminder_date: reminderDate,
           reminder_type: row.reminder_type
         }

@@ -38,6 +38,12 @@ type CronHealthLog = {
         telegram_sent?: number;
         telegram_failed?: number;
         telegram_errors?: Array<{ nama?: string | null; message?: string }>;
+        wa_provider?: string | null;
+        wa_recipients?: number;
+        wa_sent?: number;
+        wa_failed?: number;
+        wa_target?: { nama?: string | null; no_hp?: string | null } | null;
+        wa_errors?: Array<{ nama?: string | null; no_hp?: string | null; message?: string }>;
         current_time_wib?: string;
         reminder_date?: string;
         reminder_type?: string;
@@ -345,6 +351,9 @@ export default function ManagementHomePage() {
                       <InfoLine label="Petugas Shift" value={String(reminderResult.total_target ?? '-')} />
                       <InfoLine label="Telegram Terkirim" value={`${String(reminderResult.telegram_sent ?? reminderResult.telegram_recipients ?? '-')}/${String(reminderResult.telegram_recipients ?? '-')} (gagal ${String(reminderResult.telegram_failed ?? 0)})`} />
                       <InfoLine label="Error Telegram" value={formatTelegramError(reminderResult)} />
+                      <InfoLine label="WA Lab" value={`${String(reminderResult.wa_sent ?? 0)}/${String(reminderResult.wa_recipients ?? 0)} (gagal ${String(reminderResult.wa_failed ?? 0)})`} />
+                      <InfoLine label="Target WA Lab" value={formatWaTarget(reminderResult)} />
+                      <InfoLine label="Error WA Lab" value={formatWaError(reminderResult)} />
                     </div>
                   ) : (
                     <p className="text-sm text-[var(--text-muted)]">Belum ada log cron yang membawa hasil reminder.</p>
@@ -361,7 +370,7 @@ export default function ManagementHomePage() {
                         </div>
                         {log.payload?.reminder_result ? (
                           <p className="mt-1 text-xs text-[var(--text-muted)]">
-                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_sent ?? log.payload.reminder_result.telegram_recipients ?? '-'}/{log.payload.reminder_result.telegram_recipients ?? '-'} | Error Telegram: {formatTelegramError(log.payload.reminder_result)}
+                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_sent ?? log.payload.reminder_result.telegram_recipients ?? '-'}/{log.payload.reminder_result.telegram_recipients ?? '-'} | WA Lab: {log.payload.reminder_result.wa_sent ?? 0}/{log.payload.reminder_result.wa_recipients ?? 0}
                           </p>
                         ) : null}
                       </div>
@@ -425,6 +434,20 @@ function formatTelegramError(result: NonNullable<CronHealthLog['payload']>['remi
   if (!result.telegram_errors?.length) return '-';
   const first = result.telegram_errors[0];
   return `${first.nama || 'Telegram'}: ${first.message || 'Telegram gagal'}`;
+}
+
+function formatWaError(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
+  if (!result) return '-';
+  if (!result.wa_errors?.length) return '-';
+  const first = result.wa_errors[0];
+  return `${first.nama || first.no_hp || 'WA'}: ${first.message || 'WA gagal'}`;
+}
+
+function formatWaTarget(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
+  if (!result?.wa_target) return '-';
+  const name = result.wa_target.nama || 'WA';
+  const phone = result.wa_target.no_hp || '-';
+  return `${name} (${phone})`;
 }
 
 function getShiftDayLabel(value: string) {

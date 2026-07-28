@@ -47,6 +47,11 @@ import {
   updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
 import { delCache, delCacheByPrefix, getCacheJson, setCacheJson } from '../services/cacheService.js';
+import {
+  isWaJimpitanReminderEnabled,
+  pickRandomValidWaRecipient,
+  sendWaJimpitanReminder
+} from '../services/waLabReminderService.js';
 
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
@@ -811,7 +816,9 @@ export async function sendJimpitanShiftReminder(req, res) {
   try {
     const petugas = await listPetugasByShiftDay(shiftDay);
     const telegramRecipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
-    const totalRecipients = telegramRecipients.length;
+    const waRecipient = isWaJimpitanReminderEnabled() ? pickRandomValidWaRecipient(petugas) : null;
+    const waRecipients = waRecipient ? 1 : 0;
+    const totalRecipients = telegramRecipients.length + waRecipients;
     const lock = await lockDailyJimpitanReminder(reminderDate, reminderType, totalRecipients);
 
     if (!lock) {
@@ -855,6 +862,26 @@ export async function sendJimpitanShiftReminder(req, res) {
       }
     });
 
+    const waText =
+      `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +
+      `⏰ Pengingat Jimpitan\n` +
+      `Hari operasional: ${targetLabel}\n` +
+      `Pengambilan jimpitan dimulai pukul 21:00 WIB.\n` +
+      `Pengingat otomatis dikirim sebelum jam operasional.` +
+      `${testMode ? '\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.' : ''}`;
+    const waResult = waRecipient ? await sendWaJimpitanReminder({ recipient: waRecipient, text: waText }) : null;
+    const waSent = waResult?.success === true ? 1 : 0;
+    const waFailed = waRecipient && waSent === 0 ? 1 : 0;
+    const waErrors = waFailed
+      ? [
+          {
+            nama: waRecipient.nama || null,
+            no_hp: waRecipient.phone,
+            message: waResult?.error || waResult?.reason || 'WA tidak mengirim'
+          }
+        ]
+      : [];
+
     await updateJimpitanReminderDeliveryLog({
       id: lock.id,
       totalTarget: petugas.length,
@@ -862,7 +889,13 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegramRecipients: telegramRecipients.length,
       telegramSent,
       telegramFailed,
-      telegramErrors: telegramErrors.slice(0, 5)
+      telegramErrors: telegramErrors.slice(0, 5),
+      waProvider: isWaJimpitanReminderEnabled() ? 'wa-lab-random-one' : 'off',
+      waRecipients,
+      waSent,
+      waFailed,
+      waTarget: waRecipient ? { nama: waRecipient.nama || null, no_hp: waRecipient.phone } : null,
+      waErrors: waErrors.slice(0, 5)
     });
 
     if (!testMode) {
@@ -871,7 +904,8 @@ export async function sendJimpitanShiftReminder(req, res) {
         `✅ <b>Reminder Jimpitan Terkirim</b>\n` +
           `Hari: <b>${targetLabel}</b>\n` +
           `Petugas shift: <b>${petugas.length}</b>\n` +
-          `Telegram: <b>${telegramSent}/${telegramRecipients.length}</b> gagal <b>${telegramFailed}</b>`
+          `Telegram: <b>${telegramSent}/${telegramRecipients.length}</b> gagal <b>${telegramFailed}</b>\n` +
+          `WA Lab: <b>${waSent}/${waRecipients}</b> gagal <b>${waFailed}</b>`
       );
     }
 
@@ -884,6 +918,12 @@ export async function sendJimpitanShiftReminder(req, res) {
       telegram_sent: telegramSent,
       telegram_failed: telegramFailed,
       telegram_errors: telegramErrors.slice(0, 5),
+      wa_provider: isWaJimpitanReminderEnabled() ? 'wa-lab-random-one' : 'off',
+      wa_recipient: waRecipient ? { nama: waRecipient.nama, no_hp: waRecipient.phone } : null,
+      wa_recipients: waRecipients,
+      wa_sent: waSent,
+      wa_failed: waFailed,
+      wa_errors: waErrors.slice(0, 5),
       test_mode: testMode,
       test_shift_day: testMode ? shiftDay : null
     });

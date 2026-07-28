@@ -12,6 +12,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - UI WA Lab dirapikan seperti WA Web mini, dengan pengaturan koneksi di tombol gear, chat ke nomor baru, dan indikator centang pesan keluar.
 - Balasan WhatsApp yang masuk sebagai `@lid` otomatis digabung ke chat nomor terakhir agar percakapan tidak dobel.
 - Pesan incoming duplicate dari `@lid` dan `@s.whatsapp.net` dengan isi sama dan waktu berdekatan kini dideduplikasi.
+- Reminder jimpitan dapat mengirim uji terbatas ke 1 nomor valid random dari petugas shift via WA Lab jika diaktifkan lewat env backend.
 - Dokumentasi `docs/WA_GATEWAY_LAB.md` agar eksperimen WA tetap terpisah dari alur Telegram/reminder utama.
 
 ## 2026-07-26
