@@ -76,6 +76,11 @@ function shouldReconnect(update) {
 }
 
 function mapMessageStatus(status) {
+  const namedStatus = String(status || '').toLowerCase();
+  if (namedStatus.includes('read') || namedStatus.includes('played')) return 'read';
+  if (namedStatus.includes('delivery') || namedStatus.includes('delivered')) return 'delivered';
+  if (namedStatus.includes('server') || namedStatus.includes('pending')) return 'sent';
+
   const raw = typeof status === 'number' ? status : Number(status);
   if (raw >= 4) return 'read';
   if (raw >= 3) return 'delivered';
@@ -86,7 +91,7 @@ function mapMessageStatus(status) {
 function receiptStatusFromItem(item) {
   if (item?.receipt?.readTimestamp || item?.readTimestamp || item?.update?.readTimestamp) return 'read';
   if (item?.receipt?.receiptTimestamp || item?.receiptTimestamp || item?.update?.receiptTimestamp) return 'delivered';
-  return mapMessageStatus(item?.update?.status ?? item?.status ?? item?.receipt?.status);
+  return mapMessageStatus(item?.update?.status ?? item?.status ?? item?.receipt?.status) || 'delivered';
 }
 
 function receiptMessageId(item) {

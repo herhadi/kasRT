@@ -7,6 +7,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 ### Diubah
 
 - Icon aplikasi KasRT diganti dengan visual rumah warga, tabungan koin, dan tanda cek agar lebih relevan untuk favicon/PWA.
+- WA Lab kini memperlakukan receipt WhatsApp tanpa status eksplisit sebagai `delivered`, sehingga pesan terkirim tampil centang dua abu-abu sebelum dibaca.
 
 ## 2026-07-27
 
