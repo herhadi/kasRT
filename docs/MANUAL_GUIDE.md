@@ -19,7 +19,7 @@ KasRT adalah aplikasi kas dan operasional RT untuk:
 | Jimpitan | Input jimpitan harian, setoran shift, dan share rekap manual. |
 | Operasional | Pintu masuk pengurus sesuai jabatan/modul. |
 | Panduan | Pusat bantuan semua modul. |
-| Inbox | Approval transaksi, setoran, atau permintaan yang menunggu persetujuan. |
+| Inbox | Approval transaksi, reset PIN, antrean keanggotaan, dan riwayat tindakan. |
 | Manajemen | Pengaturan user, struktur, Telegram, aset, dan migrasi data. |
 
 ## 2. Login dan Akun
@@ -50,9 +50,16 @@ Dashboard menampilkan:
 
 Gunakan Dashboard sebagai tempat pertama untuk mengecek status pribadi sebelum bertanya ke admin modul.
 
-## 4. Alur Approval
+## 4. Inbox dan Alur Approval
 
 KasRT memakai alur approval untuk menjaga audit kas.
+
+Di Inbox pengurus, bagian ditampilkan berurutan sebagai berikut:
+
+1. **Approval**: seluruh approval transaksi dikelompokkan dalam satu bagian.
+2. **Permintaan Reset PIN**: dipisahkan dari approval transaksi.
+3. **Antrean Keanggotaan**: daftar request Internet, Lingkungan, Koperasi, atau Tabungan berdasarkan akses pengurus.
+4. **Riwayat Persetujuan**: catatan tindakan yang sudah selesai.
 
 ### Prinsip Utama
 
@@ -72,38 +79,67 @@ Jika saldo belum berubah, cek dulu apakah transaksi masih `PENDING`.
 
 ## 5. Jimpitan
 
-Jimpitan adalah modul untuk mencatat setoran harian dari warga/donatur.
+Jimpitan memiliki dua mode operasional. Mode yang aktif dapat dilihat pada halaman **Jimpitan**.
 
-### Petugas Shift
+### Jimpitan V1 — Per Warga
 
-1. Buka menu **Jimpitan**.
-2. Pastikan hari tersebut adalah jadwal shift Anda.
-3. Pada mode V2, pilih **Global** untuk mencatat total pendapatan hari ini.
-4. Isi **Total pendapatan hari ini**.
-5. Klik **Ajukan Setoran Shift**.
-6. Tunggu approval Admin Jimpitan/root.
+Mode V1 memakai input per warga/donatur.
 
-### Aturan Setoran V2
+1. Buka menu **Jimpitan** pada malam jadwal shift.
+2. Pastikan Anda adalah petugas pada hari tersebut.
+3. Ketuk kartu warga/donatur yang belum lunas.
+4. Masukkan nominal jimpitan lalu simpan.
+5. Ulangi sampai setoran warga yang menjadi tanggung jawab Anda selesai.
+6. Periksa bagian **Setor Saya**, lalu tekan **Setor** untuk mengajukan dana ke Admin Jimpitan.
+7. Tunggu approval Admin Jimpitan/root.
 
-- Satu petugas hanya bisa mengajukan satu setoran global untuk tanggal operasional yang sama.
-- Jika sudah mengajukan, tombol dan input akan terkunci.
-- Jika tanggal tersebut memakai mode by name, input global dikunci agar data tidak dobel.
+Aturan penting V1:
+
+- Warga yang sudah tercatat setor tidak dapat diinput ulang oleh petugas untuk tanggal operasional yang sama.
+- Setoran petugas dihitung dari input warga yang dicatat atas nama petugas tersebut.
+- Input hanya tersedia pada jam operasional dan jadwal shift yang sesuai, kecuali akses root.
+- Tahan kartu warga untuk mengatur urutan rute pengambilan; urutan tersimpan otomatis.
+
+### Jimpitan V2 — Setor Shift
+
+Mode V2 menyediakan dua pilihan input untuk satu tanggal operasional:
+
+- **Global**: petugas langsung memasukkan total pendapatan hari itu.
+- **By Name**: petugas mencatat histori nominal per warga/donatur seperti mode V1.
+
+Cara memakai Global:
+
+1. Pilih tab **Global**.
+2. Isi **Total pendapatan hari ini** dan catatan bila diperlukan.
+3. Tekan **Ajukan Setoran Shift**.
+4. Tunggu approval Admin Jimpitan/root.
+
+Aturan penting V2:
+
+- Satu tanggal hanya boleh memakai salah satu mode, Global atau By Name.
+- Jika Global sudah diajukan, By Name terkunci; begitu juga sebaliknya.
+- Satu petugas hanya dapat mengajukan satu setoran Global untuk tanggal operasional yang sama.
+- Jika input sudah terkunci, tekan atau fokus pada kolom untuk melihat alasan pengunciannya.
+- Tab **By Name** digunakan jika pengurus membutuhkan histori detail per warga/donatur.
 
 ### Share WA Manual
 
-Tombol Share WA hanya menyiapkan teks laporan dan membuka WhatsApp manual.
+Tombol Share WA hanya menyiapkan teks laporan lalu membuka fitur berbagi/WhatsApp manual. Tombol yang tampil mengikuti mode, role, dan jadwal petugas.
 
-- **Share Shift WA**: rekap setoran petugas pada bulan berjalan.
-- **Share Bulanan WA**: rekap semua tanggal dalam bulan berjalan.
+- **Share Harian WA**: rekap detail warga/donatur untuk hari operasional.
+- **Share Shift WA**: rekap setoran petugas pada bulan berjalan, terutama pada mode V2 Global.
+- **Share Bulanan WA**: rekap total seluruh tanggal pada bulan berjalan.
 - Tanda `*` pada nominal berarti setoran tersebut belum approve admin.
 - Footer laporan shift menampilkan `_Dilaporkan oleh : nama petugas_`.
+- Rekap yang sudah disetujui tidak diberi tanda bintang.
 
 ### Reminder Jimpitan
 
-- Reminder otomatis dikirim lewat Telegram.
-- Jadwal cron production berjalan di VPS/Debian pukul `20:30 WIB`.
-- Window backend dibatasi sekitar `20:30-20:45 WIB` agar tidak terkirim terlalu awal/terlambat.
-- Integrasi WA otomatis tidak dipakai karena risiko pembatasan nomor.
+- Reminder otomatis utama dikirim lewat bot Telegram kepada penerima yang sudah mengaktifkan Telegram.
+- Scheduler berjalan dari cron Debian/VPS, bukan dari halaman browser.
+- Jadwal pengiriman ditetapkan pukul `20:30 WIB` dengan window backend sampai `20:45 WIB`.
+- Jika WA Lab diaktifkan, reminder WA hanya memakai gateway mandiri dan target terbatas sesuai konfigurasi; Telegram tetap menjadi kanal utama.
+- Log reminder tersimpan di backend dan dapat dipantau dari halaman Jimpitan/management sesuai akses.
 
 ## 6. Bendahara
 
@@ -240,6 +276,10 @@ Telegram dipakai untuk notifikasi dan command cek kewajiban.
 
 Jika Telegram tidak menerima notifikasi, cek apakah akun sudah terhubung dan bot tidak diblokir.
 
+### Notifikasi Reset PIN
+
+Setelah pengurus memproses reset PIN dari Inbox, sistem mencoba mengirim PIN sementara melalui Telegram kepada user yang bersangkutan. Pengiriman hanya berhasil jika user sudah menghubungkan Telegram dan bot dapat diakses.
+
 ## 14. Manajemen
 
 Menu Manajemen digunakan oleh role tertentu seperti Ketua, Sekretaris, dan root.
@@ -251,7 +291,20 @@ Fungsi umum:
 - mengatur Telegram;
 - mengelola aset;
 - melakukan migrasi data histori;
-- mengatur mode Jimpitan.
+- mengatur mode Jimpitan;
+- memproses approval dan permintaan reset PIN;
+- memantau status reminder jimpitan.
+
+### Input Global Admin Jimpitan
+
+Admin Jimpitan dapat mencatat setoran fisik yang diterima terlambat melalui **Operasional → Jimpitan → Pengaturan**:
+
+1. Pilih tanggal operasional.
+2. Masukkan nominal setoran fisik.
+3. Tambahkan catatan bila diperlukan.
+4. Tekan **Simpan Pemasukan Harian**.
+
+Input ini langsung berstatus `APPROVED` karena uang fisik sudah diterima Admin Jimpitan. Satu tanggal tidak boleh memiliki input Global sekaligus By Name/setoran shift.
 
 Gunakan menu ini dengan hati-hati karena berdampak ke akses dan data sistem.
 
@@ -275,7 +328,7 @@ Scope yang tersedia:
 - koperasi iuran;
 - koperasi loans.
 
-Catatan: migrasi sebaiknya dilakukan oleh root/admin yang memahami data awal agar tidak dobel.
+Catatan: migrasi sebaiknya dilakukan oleh root/admin yang memahami data awal agar tidak dobel. Data migrasi berbeda dari input operasional harian; jangan memasukkan data yang sama di kedua tempat.
 
 ## 16. Troubleshooting
 
@@ -286,7 +339,7 @@ Cek:
 - apakah role user sesuai;
 - apakah hari ini jadwal shift;
 - apakah data sudah pernah disetor;
-- apakah mode global/by name sedang mengunci input;
+- apakah mode Global/By Name sedang mengunci input;
 - apakah periode sudah benar.
 
 ### Data Tidak Muncul
@@ -297,6 +350,10 @@ Cek:
 - status approval;
 - koneksi internet;
 - apakah user sedang melihat modul yang benar.
+
+### Setoran Belum Masuk Kas
+
+Setoran Jimpitan yang baru diajukan masih berstatus `PENDING`. Admin Jimpitan/root harus memprosesnya dari Inbox terlebih dahulu.
 
 ### Saldo Belum Berubah
 
@@ -317,5 +374,5 @@ Cek:
 - Jangan mengubah saldo langsung tanpa transaksi.
 - Gunakan catatan transaksi yang jelas.
 - Biasakan cek status `PENDING` dan `APPROVED`.
+- Bedakan input Jimpitan V1 per warga dengan V2 Global per shift agar tidak mencatat tanggal yang sama dua kali.
 - Jika melaporkan bug, sertakan modul, periode, nama warga/petugas, dan screenshot.
-

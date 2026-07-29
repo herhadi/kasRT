@@ -395,6 +395,9 @@ export default function ApprovalPage() {
     );
   }
 
+  const approvalSections = sections.filter((section) => section.key !== 'pin_reset' && section.items.length > 0);
+  const pinResetSections = sections.filter((section) => section.key === 'pin_reset' && section.items.length > 0);
+
   return (
     <main className="min-h-screen pb-10">
       <FeedbackToast error={message && !message.includes('berhasil') ? message : ''} message={message && message.includes('berhasil') ? message : ''} />
@@ -422,6 +425,31 @@ export default function ApprovalPage() {
             </Button>
           </div>
         </Card>
+
+        {approvalSections.length > 0 ? (
+          <Card title="Approval" subtitle={`${approvalSections.reduce((total, section) => total + section.items.length, 0)} item approval transaksi`}>
+            <div className="space-y-4">
+              {approvalSections.map((section) => (
+                <SectionWithPagination
+                  key={section.key}
+                  section={section}
+                  approvingKey={approvingKey}
+                  approveItem={approveItem}
+                  embedded
+                />
+              ))}
+            </div>
+          </Card>
+        ) : null}
+
+        {pinResetSections.map((section) => (
+          <SectionWithPagination
+            key={section.key}
+            section={section}
+            approvingKey={approvingKey}
+            approveItem={approveItem}
+          />
+        ))}
 
         {membershipQueues.length > 0 ? (
           <Card title="Antrean Keanggotaan" subtitle="List request aktif/nonaktif per modul">
@@ -454,17 +482,6 @@ export default function ApprovalPage() {
             <p className="text-sm text-[var(--text-muted)]">Belum ada transaksi atau permintaan baru yang membutuhkan tindakan.</p>
           </Card>
         ) : null}
-
-        {sections.map((section) => (
-          <SectionWithPagination
-            key={section.key}
-            section={section}
-            approvingKey={approvingKey}
-            approveItem={approveItem}
-          />
-        ))}
-
-        <InboxPlaceholderCards />
 
         <Card title="Riwayat Persetujuan" subtitle={`Total ${historyTotal} transaksi`}>
           <div className="space-y-2">
@@ -510,6 +527,8 @@ export default function ApprovalPage() {
           </div>
         </Card>
 
+        <InboxPlaceholderCards />
+
       </div>
     </main>
   );
@@ -518,16 +537,25 @@ export default function ApprovalPage() {
 function SectionWithPagination({
   section,
   approvingKey,
-  approveItem
+  approveItem,
+  embedded = false
 }: {
   section: PendingApprovalSection;
   approvingKey: string;
   approveItem: (item: PendingApprovalItem) => Promise<void>;
+  embedded?: boolean;
 }) {
   const pager = usePagination(section.items, 10);
-  return (
-    <Card title={section.label} subtitle={`${section.items.length} item`}>
-            <div className="space-y-2">
+  const content = (
+    <>
+      <div className="space-y-2">
+        {embedded ? (
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] pb-2">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">{section.label}</h3>
+            <span className="text-xs text-[var(--text-muted)]">{section.items.length} item</span>
+          </div>
+        ) : null}
+        <div className="space-y-2">
               {pager.pagedItems.map((item) => {
                 const actionKey = `${item.kind}-${item.id}`;
                 const isApproving = approvingKey === actionKey;
@@ -553,10 +581,12 @@ function SectionWithPagination({
                   </article>
                 );
               })}
-            </div>
+        </div>
+      </div>
       <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
-    </Card>
+    </>
   );
+  return embedded ? content : <Card title={section.label} subtitle={`${section.items.length} item`}>{content}</Card>;
 }
 
 function InboxPlaceholderCards() {

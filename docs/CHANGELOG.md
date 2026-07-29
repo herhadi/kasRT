@@ -6,17 +6,20 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Diperbaiki
 
+- PIN sementara pada reset PIN dan notifikasi Telegram kini mengikuti `DEFAULT_USER_PIN` dari environment.
 - Reset PIN kini memastikan kolom `users.must_change_pin` tersedia sebelum memproses permintaan.
 - Reset session WA Lab dibuat lebih tahan error dengan mematikan reconnect sementara, menutup socket lama, menunggu file auth lepas, lalu menghapus auth dengan retry.
 - Ambil QR WA Lab kini membangunkan socket saat state `closed` dan menunggu QR beberapa kali setelah reset session.
 
 ### Diubah
 
+- Inbox admin mengelompokkan approval transaksi, memisahkan reset PIN, lalu menampilkan antrean keanggotaan dan riwayat secara berurutan.
 - Inbox Persetujuan memisahkan approval utama dari antrean keanggotaan agar reset PIN tidak terlihat dobel dengan request membership.
 - Badge Inbox desktop/mobile kini menghitung approval utama saja, sedangkan membership tampil sebagai list berlabel per modul.
 
 ### Ditambahkan
 
+- Input Global Jimpitan Admin tetap berada di Pengaturan Jimpitan agar halaman utama tetap ringkas; rekap setor ke Bendahara mengikuti tanggal operasional yang dipilih.
 - WA Lab menambahkan endpoint dan tombol UI untuk menghapus chat lokal serta pesan lokal tanpa menghapus chat di HP WhatsApp.
 - UI hapus pesan WA Lab diubah menjadi mode seleksi ala WhatsApp Web: tahan bubble, checklist muncul, lalu hapus dari tombol di atas textbox.
 - WA Lab menambahkan `Full Reset / Mulai Awal` untuk menghapus session, chat lokal, dan usage lokal saat reset biasa tidak menghasilkan QR.

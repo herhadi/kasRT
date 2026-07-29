@@ -100,7 +100,13 @@ export async function editWargaUser(req, res) {
     return res.status(400).json({ success: false, message: 'nama dan no_hp wajib diisi' });
   }
   try {
-    await updateWargaUser({ userId, nama, noHp, resetPin, defaultPin: '1234' });
+    await updateWargaUser({
+      userId,
+      nama,
+      noHp,
+      resetPin,
+      defaultPin: String(process.env.DEFAULT_USER_PIN || '1234')
+    });
     return res.json({
       success: true,
       message: resetPin
@@ -121,11 +127,12 @@ export async function resetPinRequest(req, res) {
   }
 
   try {
-    const result = await resetPinFromRequest({ requestId, actorId: actor, defaultPin: '1234' });
+    const defaultPin = String(process.env.DEFAULT_USER_PIN || '1234');
+    const result = await resetPinFromRequest({ requestId, actorId: actor, defaultPin });
     await notifyUser(
       result.user_id,
       `✅ <b>PIN KasRT Anda sudah di-reset</b>\n` +
-        `PIN sementara: <b>1234</b>\n` +
+        `PIN sementara: <b>${defaultPin}</b>\n` +
         `Silakan login dan ganti PIN baru.`
     ).catch(() => {});
     return res.json({

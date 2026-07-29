@@ -163,7 +163,7 @@ export async function createWargaUser({ nama, noHp, pin }) {
   }
 }
 
-export async function updateWargaUser({ userId, nama, noHp, resetPin = false, defaultPin = '1234' }) {
+export async function updateWargaUser({ userId, nama, noHp, resetPin = false, defaultPin = process.env.DEFAULT_USER_PIN || '1234' }) {
   await ensureUserManagementColumns();
   const client = await pool.connect();
   try {
@@ -286,7 +286,7 @@ export async function listPendingPinResetRequests() {
   }));
 }
 
-export async function resetPinFromRequest({ requestId, actorId, defaultPin = '1234' }) {
+export async function resetPinFromRequest({ requestId, actorId, defaultPin = process.env.DEFAULT_USER_PIN || '1234' }) {
   await ensurePinResetRequestTable();
   const client = await pool.connect();
   try {

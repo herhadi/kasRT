@@ -1410,7 +1410,7 @@ export async function getApprovedBatchRecapByMonth(period) {
      FROM jimpitan_batches
      WHERE status = 'APPROVED'
        AND approved_at IS NOT NULL
-       AND TO_CHAR(approved_at, 'YYYY-MM') = $1`,
+       AND TO_CHAR(COALESCE(operational_date, approved_at::date), 'YYYY-MM') = $1`,
     [period]
   );
 
