@@ -10,10 +10,6 @@ import type { DashboardWargaData, MembershipRequestStatus } from '@/types';
 
 type NavIconName = 'home' | 'ops' | 'guide' | 'inbox' | 'profile';
 
-function hasExactRole(user: { roles?: string[] } | null, roleName: string) {
-  return (user?.roles || []).some((role) => String(role).trim().toLowerCase() === roleName.toLowerCase());
-}
-
 function NavIcon({ name }: { name: NavIconName }) {
   if (name === 'home') {
     return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.8 12 4l8 6.8v8.7a1.5 1.5 0 0 1-1.5 1.5h-4.2v-5.4H9.7V21H5.5A1.5 1.5 0 0 1 4 19.5v-8.7Z" /></svg>;
@@ -35,15 +31,10 @@ export default function BottomNav() {
   const { user } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
 
-  const isAdminInternet = hasExactRole(user, 'Admin Internet');
-  const isAdminLingkungan = hasExactRole(user, 'Admin Lingkungan');
-  const isAdminKoperasi = hasExactRole(user, 'Admin Koperasi');
-  const isAdminPembangunan = hasExactRole(user, 'Admin Pembangunan');
   const canSeeTransactionApprovals = hasAnyRole(user, [
     'Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara',
     'Admin Jimpitan', 'Admin Sosial', 'root'
   ]);
-  const isRoot = hasExactRole(user, 'root');
   const canSeeOps = hasAnyRole(user, [
     'Bendahara', 'Ketua', 'Plt Ketua', 'Sekretaris', 'Admin Jimpitan',
     'Admin Pembangunan', 'Admin Lingkungan', 'Admin Sosial',
@@ -86,20 +77,8 @@ export default function BottomNav() {
               .then((res) => Number(res.data?.total_pending || 0))
               .catch(() => 0)
           : Promise.resolve(0);
-        const membershipModules = [
-          ...(isAdminInternet || isRoot ? ['internet'] : []),
-          ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
-          ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
-        ];
-        const [approvalCount, ...membershipCounts] = await Promise.all([
-          approvalPending,
-          ...membershipModules.map((moduleKey) =>
-            apiFetch<{ success: boolean; data: unknown[] }>(`/membership/requests?module_key=${moduleKey}`)
-              .then((res) => Number(res.data?.length || 0))
-              .catch(() => 0)
-          )
-        ]);
-        if (!disposed) setPendingCount(approvalCount + membershipCounts.reduce((sum, count) => sum + count, 0));
+        const approvalCount = await approvalPending;
+        if (!disposed) setPendingCount(approvalCount);
       } catch {
         if (!disposed) setPendingCount(0);
       } finally {
@@ -122,7 +101,7 @@ export default function BottomNav() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [canSeeInbox, canSeeTransactionApprovals, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isRoot, user]);
+  }, [canSeeInbox, canSeeTransactionApprovals, user]);
 
   const items = useMemo(
     () => [

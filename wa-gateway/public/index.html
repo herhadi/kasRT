@@ -107,6 +107,10 @@
         gap: 8px;
       }
 
+      .settings-row > button {
+        flex: 1;
+      }
+
       input, textarea {
         width: 100%;
         border: 1px solid var(--line);
@@ -386,8 +390,10 @@
             <button id="checkConnectionButton" class="secondary">Cek Koneksi</button>
             <button id="showQrButton" class="secondary">Ambil QR</button>
           </div>
-          <button id="resetSessionButton" class="danger">Reset Session / Ganti Nomor</button>
-          <button id="fullResetButton" class="danger">Full Reset / Mulai Awal</button>
+          <div class="settings-row">
+            <button id="resetSessionButton" class="danger">Reset Session / Ganti Nomor</button>
+            <button id="fullResetButton" class="danger">Full Reset / Mulai Awal</button>
+          </div>
           <div id="qrBox" class="qr-box">
             <img id="qrImage" alt="QR WhatsApp" />
             <div id="qrHint" class="hint">Scan dari WhatsApp → Perangkat tertaut → Tautkan perangkat.</div>

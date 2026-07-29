@@ -16,6 +16,7 @@ import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
 
 type InboxModuleKey = 'internet' | 'lingkungan' | 'koperasi';
+type MembershipQueueKey = InboxModuleKey | 'tabungan';
 
 const INBOX_MODULES: Array<{
   key: InboxModuleKey;
@@ -26,6 +27,23 @@ const INBOX_MODULES: Array<{
   { key: 'lingkungan', title: 'Lingkungan', adminLabel: 'Admin Lingkungan' },
   { key: 'koperasi', title: 'Koperasi', adminLabel: 'Admin Koperasi' }
 ];
+
+const MEMBERSHIP_QUEUE_MODULES: Array<{
+  key: MembershipQueueKey;
+  title: string;
+  label: string;
+  roles: string[];
+  href: string;
+}> = [
+  { key: 'internet', title: 'Keanggotaan Internet', label: 'internet', roles: ['Admin Internet', 'root'], href: '/approval/internet' },
+  { key: 'lingkungan', title: 'Keanggotaan Lingkungan', label: 'lingkungan', roles: ['Admin Lingkungan', 'root'], href: '/approval/lingkungan' },
+  { key: 'koperasi', title: 'Keanggotaan Koperasi', label: 'koperasi', roles: ['Admin Koperasi', 'root'], href: '/approval/koperasi' },
+  { key: 'tabungan', title: 'Keanggotaan Tabungan', label: 'tabungan', roles: ['Admin Pembangunan', 'root'], href: '/approval/tabungan' }
+];
+
+type MembershipQueueItem = (typeof MEMBERSHIP_QUEUE_MODULES)[number] & {
+  count: number;
+};
 
 function inboxRequestLabel(request?: MembershipRequestStatus | null) {
   if (!request) return 'Belum ada pengajuan';
@@ -58,6 +76,8 @@ export default function ApprovalPage() {
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [membershipQueues, setMembershipQueues] = useState<MembershipQueueItem[]>([]);
+  const [loadingMembershipQueues, setLoadingMembershipQueues] = useState(false);
   const [wargaInboxData, setWargaInboxData] = useState<DashboardWargaData | null>(null);
   const [loadingInbox, setLoadingInbox] = useState(false);
 
@@ -154,6 +174,31 @@ export default function ApprovalPage() {
     [canSeeApproval, canSeeTransactionApprovals]
   );
 
+  const loadMembershipQueues = useCallback(async () => {
+    if (!canSeeApproval || !user) return;
+    const visibleModules = MEMBERSHIP_QUEUE_MODULES.filter((item) => hasAnyRole(user, item.roles));
+
+    if (visibleModules.length === 0) {
+      setMembershipQueues([]);
+      return;
+    }
+
+    try {
+      setLoadingMembershipQueues(true);
+      const counts = await Promise.all(
+        visibleModules.map((item) =>
+          apiFetch<{ success: boolean; data: unknown[] }>(`/membership/requests?module_key=${item.key}`)
+            .then((result) => Number(result.data?.length || 0))
+            .catch(() => 0)
+        )
+      );
+
+      setMembershipQueues(visibleModules.map((item, index) => ({ ...item, count: counts[index] || 0 })));
+    } finally {
+      setLoadingMembershipQueues(false);
+    }
+  }, [canSeeApproval, user]);
+
   const loadWargaInbox = useCallback(async () => {
     if (canSeeApproval || !user) return;
     try {
@@ -177,6 +222,7 @@ export default function ApprovalPage() {
         setHistoryPage(1);
         setHistoryTotalPages(1);
         setHistoryTotal(0);
+        setMembershipQueues([]);
       }, 0);
       return () => window.clearTimeout(resetTimer);
     }
@@ -184,6 +230,7 @@ export default function ApprovalPage() {
     const refreshInbox = () => {
       void loadPending();
       void loadHistory(1);
+      void loadMembershipQueues();
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') refreshInbox();
@@ -199,7 +246,7 @@ export default function ApprovalPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [canSeeApproval, loadPending, loadHistory]);
+  }, [canSeeApproval, loadPending, loadHistory, loadMembershipQueues]);
 
   useEffect(() => {
     if (!loading && user && !canSeeApproval) {
@@ -354,23 +401,53 @@ export default function ApprovalPage() {
       <Navbar />
 
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
-        <Card title="Inbox Persetujuan" subtitle={`${totalPending} pesan menunggu tindak lanjut`}>
+        <Card title="Inbox Persetujuan" subtitle={`${totalPending} approval utama menunggu tindak lanjut`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm text-[var(--text-muted)]">
-                Total pesan menunggu: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
+                Reset PIN dan approval transaksi: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {hasAnyRole(user, ['Admin Internet', 'root']) ? <Link href="/approval/internet" className="btn-action-blue link-action px-3 py-1.5 text-xs">Keanggotaan Internet</Link> : null}
-                {hasAnyRole(user, ['Admin Lingkungan', 'root']) ? <Link href="/approval/lingkungan" className="btn-action-blue link-action px-3 py-1.5 text-xs">Keanggotaan Lingkungan</Link> : null}
-                {hasAnyRole(user, ['Admin Koperasi', 'root']) ? <Link href="/approval/koperasi" className="btn-action-blue link-action px-3 py-1.5 text-xs">Keanggotaan Koperasi</Link> : null}
-              </div>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">Antrean keanggotaan dipisah agar tidak rancu dengan reset PIN.</p>
             </div>
-            <Button variant="ghost" className="text-sm px-3 py-1.5" onClick={() => void loadPending()} disabled={loadingList}>
-              {loadingList ? 'Memuat...' : 'Refresh'}
+            <Button
+              variant="ghost"
+              className="text-sm px-3 py-1.5"
+              onClick={() => {
+                void loadPending();
+                void loadMembershipQueues();
+              }}
+              disabled={loadingList || loadingMembershipQueues}
+            >
+              {loadingList || loadingMembershipQueues ? 'Memuat...' : 'Refresh'}
             </Button>
           </div>
         </Card>
+
+        {membershipQueues.length > 0 ? (
+          <Card title="Antrean Keanggotaan" subtitle="List request aktif/nonaktif per modul">
+            <div className="space-y-2">
+              {membershipQueues.map((item) => (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className="surface-muted flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] px-3 py-2.5 transition hover:border-[var(--accent)] hover:bg-[var(--surface)]"
+                >
+                  <div className="min-w-0">
+                    <span className="inline-flex rounded-full border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs font-bold lowercase text-[var(--text-primary)]">
+                      {item.label}
+                    </span>
+                    <p className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                    item.count > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {loadingMembershipQueues ? '...' : `${item.count} request`}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        ) : null}
 
         {canSeeApproval && sections.length === 0 && !loadingList ? (
           <Card title="Tidak Ada Pending" subtitle="Semua pesan yang bisa Anda tindak lanjuti sudah selesai">

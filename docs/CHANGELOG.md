@@ -9,6 +9,11 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Reset session WA Lab dibuat lebih tahan error dengan mematikan reconnect sementara, menutup socket lama, menunggu file auth lepas, lalu menghapus auth dengan retry.
 - Ambil QR WA Lab kini membangunkan socket saat state `closed` dan menunggu QR beberapa kali setelah reset session.
 
+### Diubah
+
+- Inbox Persetujuan memisahkan approval utama dari antrean keanggotaan agar reset PIN tidak terlihat dobel dengan request membership.
+- Badge Inbox desktop/mobile kini menghitung approval utama saja, sedangkan membership tampil sebagai list berlabel per modul.
+
 ### Ditambahkan
 
 - WA Lab menambahkan endpoint dan tombol UI untuk menghapus chat lokal serta pesan lokal tanpa menghapus chat di HP WhatsApp.

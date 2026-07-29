@@ -54,7 +54,6 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
   const isAdminKeamanan = hasExactRole(user, 'Admin Keamanan');
   const isSekretaris = hasExactRole(user, 'Sekretaris');
   const jimpitanMenuHref = '/jimpitan';
-  const isRoot = hasExactRole(user, 'root');
   const approvalMenuHref = isBendahara
     ? '/approval/bendahara'
     : isAdminInternet
@@ -103,20 +102,8 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
               .then((res) => Number(res.data?.total_pending || 0))
               .catch(() => 0)
           : Promise.resolve(0);
-        const membershipModules = [
-          ...(isAdminInternet || isRoot ? ['internet'] : []),
-          ...(isAdminLingkungan || isRoot ? ['lingkungan'] : []),
-          ...(isAdminKoperasi || isRoot ? ['koperasi'] : [])
-        ];
-        const [approvalCount, ...membershipCounts] = await Promise.all([
-          approvalPending,
-          ...membershipModules.map((moduleKey) =>
-            apiFetch<{ success: boolean; data: unknown[] }>(`/membership/requests?module_key=${moduleKey}`)
-              .then((res) => Number(res.data?.length || 0))
-              .catch(() => 0)
-          )
-        ]);
-        if (!disposed) setPendingCount(approvalCount + membershipCounts.reduce((sum, count) => sum + count, 0));
+        const approvalCount = await approvalPending;
+        if (!disposed) setPendingCount(approvalCount);
       } catch {
         if (!disposed) setPendingCount(0);
       } finally {
@@ -139,7 +126,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [canSeeApproval, canSeeTransactionApprovals, isAdminInternet, isAdminLingkungan, isAdminKoperasi, isRoot, user]);
+  }, [canSeeApproval, canSeeTransactionApprovals, user]);
 
   useEffect(() => {
     const scroller = navScrollerRef.current;
