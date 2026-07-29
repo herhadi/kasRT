@@ -2,10 +2,15 @@ import { pool } from '../db.js';
 import { ELIGIBLE_USERS_CLAUSE } from './eligibleUsersSql.js';
 
 export async function ensureUserManagementColumns() {
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
+  await pool.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS must_change_pin BOOLEAN NOT NULL DEFAULT FALSE
+  `);
 }
 
 export async function ensurePinResetRequestTable() {
+  await ensureUserManagementColumns();
   await pool.query(`
     CREATE TABLE IF NOT EXISTS pin_reset_requests (
       id UUID PRIMARY KEY,
@@ -159,6 +164,7 @@ export async function createWargaUser({ nama, noHp, pin }) {
 }
 
 export async function updateWargaUser({ userId, nama, noHp, resetPin = false, defaultPin = '1234' }) {
+  await ensureUserManagementColumns();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

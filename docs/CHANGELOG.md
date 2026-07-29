@@ -6,6 +6,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Diperbaiki
 
+- Reset PIN kini memastikan kolom `users.must_change_pin` tersedia sebelum memproses permintaan.
 - Reset session WA Lab dibuat lebih tahan error dengan mematikan reconnect sementara, menutup socket lama, menunggu file auth lepas, lalu menghapus auth dengan retry.
 - Ambil QR WA Lab kini membangunkan socket saat state `closed` dan menunggu QR beberapa kali setelah reset session.
 

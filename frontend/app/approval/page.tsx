@@ -401,11 +401,11 @@ export default function ApprovalPage() {
       <Navbar />
 
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
-        <Card title="Inbox Persetujuan" subtitle={`${totalPending} approval utama menunggu tindak lanjut`}>
+        <Card title="Inbox Tindakan" subtitle={`${totalPending} item perlu ditindaklanjuti`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm text-[var(--text-muted)]">
-                Reset PIN dan approval transaksi: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
+                Approval transaksi dan permintaan reset PIN: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
               </p>
               <p className="mt-1 text-xs text-[var(--text-muted)]">Antrean keanggotaan dipisah agar tidak rancu dengan reset PIN.</p>
             </div>
@@ -548,7 +548,7 @@ function SectionWithPagination({
                       onClick={() => void approveItem(item)}
                       disabled={isApproving}
                     >
-                      {isApproving ? '...' : item.kind === 'PIN_RESET' ? 'Reset PIN' : 'Approve'}
+                      {isApproving ? '...' : item.kind === 'PIN_RESET' ? 'Proses Reset PIN' : 'Approve'}
                     </Button>
                   </article>
                 );

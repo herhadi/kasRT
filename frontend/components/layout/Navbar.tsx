@@ -204,7 +204,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
             {canSeeApproval && pendingCount > 0 && (
               <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
                 <span>⏳</span>
-                <span>{pendingCount} menunggu persetujuan</span>
+                <span>{pendingCount} perlu ditindaklanjuti</span>
               </div>
             )}
             <ThemeToggleButton className="md:hidden" />
