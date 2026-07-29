@@ -56,7 +56,7 @@ docker compose -f docker-compose.vps.yml up -d --build kasrt-backend
 
 ## WA Gateway Lab
 
-WA Gateway Lab bersifat eksperimen manual 1:1 dan tidak terhubung ke reminder produksi. Service berada di compose root dengan nama `kasrt-wa-lab`.
+WA Gateway Lab melayani percakapan manual 1:1 dan uji reminder jimpitan terbatas. Service berada di compose root dengan nama `kasrt-wa-lab`, dan seluruh pengiriman melewati `baileys-antiban`.
 
 Siapkan env gateway:
 
@@ -66,6 +66,23 @@ cp wa-gateway/.env.example wa-gateway/.env
 chmod 600 wa-gateway/.env
 nano wa-gateway/.env
 ```
+
+Pastikan konfigurasi anti-ban di VPS tidak masih memakai delay lama:
+
+```dotenv
+TZ=Asia/Jakarta
+WA_ANTIBAN_PRESET=conservative
+WA_ANTIBAN_MAX_PER_MINUTE=2
+WA_ANTIBAN_MAX_PER_HOUR=10
+WA_ANTIBAN_MAX_PER_DAY=20
+WA_ANTIBAN_MIN_DELAY_MS=2500
+WA_ANTIBAN_MAX_DELAY_MS=7000
+WA_ANTIBAN_NEW_CHAT_DELAY_MS=4000
+WA_ANTIBAN_WARMUP_DAYS=7
+WA_ANTIBAN_STATE_FILE=./data/antiban-state.json
+```
+
+Hapus `WA_LAB_DISABLE_ANTIBAN` dan `WA_LAB_MANUAL_DIRECT_SEND` dari `.env` jika masih ada; gateway tidak lagi menyediakan jalur bypass.
 
 Jalankan hanya service WA lab:
 

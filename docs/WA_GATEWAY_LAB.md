@@ -1,8 +1,8 @@
 # WA Gateway Lab
 
-Service ini hanya untuk uji coba manual WhatsApp gateway mandiri berbasis Baileys dan `baileys-antiban`.
+Service ini adalah gateway mandiri berbasis Baileys dan `baileys-antiban` untuk percakapan manual 1:1 serta uji terbatas reminder jimpitan.
 
-> Catatan penting: ini bukan jalur produksi reminder KasRT. Jangan sambungkan ke cron jimpitan otomatis sebelum nomor stabil dan risikonya diterima.
+> Catatan penting: library WhatsApp tidak resmi tetap memiliki risiko pembatasan akun. Gunakan nomor cadangan dan pertahankan batas penerima yang kecil.
 
 ## Tujuan
 
@@ -37,9 +37,21 @@ WA_AUTH_DIR=./auth
 WA_DATA_DIR=./data
 WA_LAB_DAILY_UNIQUE_LIMIT=3
 WA_LAB_MIN_TEXT_LENGTH=2
+TZ=Asia/Jakarta
+WA_ANTIBAN_PRESET=conservative
+WA_ANTIBAN_MAX_PER_MINUTE=2
+WA_ANTIBAN_MAX_PER_HOUR=10
+WA_ANTIBAN_MAX_PER_DAY=20
+WA_ANTIBAN_MIN_DELAY_MS=2500
+WA_ANTIBAN_MAX_DELAY_MS=7000
+WA_ANTIBAN_NEW_CHAT_DELAY_MS=4000
+WA_ANTIBAN_WARMUP_DAYS=7
+WA_ANTIBAN_STATE_FILE=./data/antiban-state.json
 ```
 
 Jika `.env` lama masih memakai `WA_GATEWAY_SECRET`, service tetap bisa membaca secret tersebut sebagai fallback.
+
+Semua jalur kirim memakai socket yang dibungkus `baileys-antiban`. Opsi lama `WA_LAB_DISABLE_ANTIBAN` dan `WA_LAB_MANUAL_DIRECT_SEND` sudah tidak dipakai. Nilai delay 90–300 detik juga harus diganti karena backend reminder memiliki timeout 30 detik.
 
 ## Setup Docker
 
@@ -98,7 +110,7 @@ curl -sS \
   http://127.0.0.1:3010/status
 ```
 
-Status menampilkan state koneksi, nomor tertaut, limit harian, dan statistik antiban jika tersedia.
+Status menampilkan state koneksi, nomor tertaut, limit harian, statistik anti-ban, presence, delivery receipt, dan transport pengiriman terakhir. Nilai `last_outgoing_transport` harus `baileys-antiban`.
 
 ### QR Login
 
@@ -216,6 +228,8 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 
 - Library WhatsApp unofficial tetap berisiko banned.
 - `baileys-antiban` hanya mengurangi risiko dengan delay/limit, bukan menjamin aman.
+- Gateway tidak memiliki jalur kirim langsung melalui raw socket; seluruh pesan melewati `wrapSocket()`.
+- Warm-up dan daftar chat dikenal disimpan di `wa-gateway/data/antiban-state.json` melalui volume Docker.
 - Reminder jimpitan backend hanya boleh memakai mode uji terbatas: nomor valid random dari petugas shift jika `WA_JIMPITAN_REMINDER_ENABLED=true`.
 - Jumlah target WA Lab diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, default `1`, dan dibatasi maksimal `3`.
 - Reminder otomatis WA Lab menunggu umur koneksi minimal dari `WA_LAB_MIN_CONNECTED_AGE_MINUTES`, default `180` menit setelah QR connected.

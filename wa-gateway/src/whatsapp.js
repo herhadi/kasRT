@@ -4,7 +4,7 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
   useMultiFileAuthState
 } from 'baileys';
-import { wrapSocket } from 'baileys-antiban';
+import { PresenceChoreographer, wrapSocket } from 'baileys-antiban';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { config } from './config.js';
@@ -33,6 +33,7 @@ let lastOutgoingTransport = null;
 let lastOutgoingMessageId = null;
 let lastOutgoingError = null;
 let resetInProgress = false;
+const presenceChoreographer = new PresenceChoreographer(config.presence);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,38 +46,23 @@ async function ignoreShutdownError(action) {
   }
 }
 
-function randomBetween(min, max) {
-  const safeMin = Math.max(0, Number(min || 0));
-  const safeMax = Math.max(safeMin, Number(max || safeMin));
-  return Math.floor(safeMin + Math.random() * (safeMax - safeMin + 1));
-}
-
-function typingDurationForText(text) {
-  const lengthDelay = String(text || '').length * randomBetween(35, 90);
-  return Math.min(config.typingMaxMs, Math.max(config.typingMinMs, lengthDelay));
-}
-
 async function simulateTyping(jid, text) {
   if (!rawSocket?.sendPresenceUpdate || !jid) return;
-  const durationMs = typingDurationForText(text);
-  await rawSocket.sendPresenceUpdate('composing', jid).catch(() => {});
-  await sleep(durationMs);
-  await rawSocket.sendPresenceUpdate('paused', jid).catch(() => {});
-  await sleep(randomBetween(350, 1200));
+  const plan = presenceChoreographer.computeTypingPlan(String(text || '').length);
+  await presenceChoreographer.executeTypingPlan(rawSocket, jid, plan).catch(() => {});
 }
 
-async function sendManualMessage(jid, content) {
-  const sender = config.manualDirectSend ? rawSocket : socket;
-  if (!sender) throw new Error('WhatsApp belum connected. Scan QR dulu.');
+async function sendProtectedMessage(jid, content) {
+  if (!socket) throw new Error('WhatsApp belum connected. Scan QR dulu.');
   lastOutgoingAttemptAt = new Date().toISOString();
   lastOutgoingCompletedAt = null;
   lastOutgoingJid = jid;
-  lastOutgoingTransport = sender === rawSocket ? 'raw' : 'wrapped';
+  lastOutgoingTransport = 'baileys-antiban';
   lastOutgoingMessageId = null;
   lastOutgoingError = null;
 
   try {
-    const result = await sender.sendMessage(jid, content, {});
+    const result = await socket.sendMessage(jid, content, {});
     lastOutgoingCompletedAt = new Date().toISOString();
     lastOutgoingMessageId = result?.key?.id || null;
     return result;
@@ -263,6 +249,7 @@ export async function startWhatsApp() {
   connectionState = 'connecting';
 
   await fs.mkdir(config.authDir, { recursive: true });
+  await fs.mkdir(config.dataDir, { recursive: true });
   const logger = pino({ level: config.logLevel });
   const { state, saveCreds } = await useMultiFileAuthState(config.authDir);
   const { version } = await fetchLatestBaileysVersion();
@@ -277,12 +264,11 @@ export async function startWhatsApp() {
     printQRInTerminal: false
   });
 
-  socket = config.disableAntiban
-    ? rawSocket
-    : wrapSocket(rawSocket, config.antiban, undefined, {
-        groupOpGuard: false,
-        legitimacySignals: false
-      });
+  socket = wrapSocket(rawSocket, config.antiban, undefined, {
+    autoRespondToIncoming: false,
+    groupOpGuard: false,
+    legitimacySignals: false
+  });
   rawSocket.ev.on('creds.update', saveCreds);
   rawSocket.ev.on('messages.upsert', async ({ messages }) => {
     await recordIncomingMessages(messages).catch((error) => {
@@ -342,30 +328,33 @@ export function getStatus() {
     linked_number: linkedNumber,
     last_connected_at: lastConnectedAt,
     last_disconnect_reason: lastDisconnectReason,
-    antiban: config.disableAntiban ? { disabled: true } : {
+    antiban: {
+      enabled: true,
       preset: config.antiban.preset,
       max_per_minute: config.antiban.maxPerMinute,
       max_per_hour: config.antiban.maxPerHour,
       max_per_day: config.antiban.maxPerDay,
       min_delay_ms: config.antiban.minDelayMs,
-      max_delay_ms: config.antiban.maxDelayMs
+      max_delay_ms: config.antiban.maxDelayMs,
+      state_file: config.antibanStateFile
     },
     stats: socket?.antiban?.getStats?.() || null,
+    presence: presenceChoreographer.getStats(),
     inbox: {
       last_incoming_event_at: lastIncomingEventAt,
       last_stored_message_at: lastStoredMessageAt,
       last_ignored_reason: lastInboxIgnoredReason,
-    last_receipt_event_at: lastReceiptEventAt,
-    last_receipt_status: lastReceiptStatus,
-    last_receipt_message_id: lastReceiptMessageId,
-    last_outgoing_attempt_at: lastOutgoingAttemptAt,
-    last_outgoing_completed_at: lastOutgoingCompletedAt,
-    last_outgoing_jid: lastOutgoingJid,
-    last_outgoing_transport: lastOutgoingTransport,
-    last_outgoing_message_id: lastOutgoingMessageId,
-    last_outgoing_error: lastOutgoingError
-  }
-};
+      last_receipt_event_at: lastReceiptEventAt,
+      last_receipt_status: lastReceiptStatus,
+      last_receipt_message_id: lastReceiptMessageId,
+      last_outgoing_attempt_at: lastOutgoingAttemptAt,
+      last_outgoing_completed_at: lastOutgoingCompletedAt,
+      last_outgoing_jid: lastOutgoingJid,
+      last_outgoing_transport: lastOutgoingTransport,
+      last_outgoing_message_id: lastOutgoingMessageId,
+      last_outgoing_error: lastOutgoingError
+    }
+  };
 }
 
 export function getQr() {
@@ -390,7 +379,7 @@ export async function sendTestMessage({ phone, text }) {
   await assertCanSend(normalizedPhone);
   const jid = jidFromPhone(normalizedPhone);
   await simulateTyping(jid, messageText);
-  const result = await sendManualMessage(jid, { text: messageText });
+  const result = await sendProtectedMessage(jid, { text: messageText });
   const usage = await recordSend(normalizedPhone);
 
   return {
@@ -421,7 +410,7 @@ export async function sendChatReply({ jid, text }) {
   }
 
   await simulateTyping(jid, messageText);
-  const result = await sendManualMessage(jid, { text: messageText });
+  const result = await sendProtectedMessage(jid, { text: messageText });
   await appendChatMessage({
     jid,
     id: result?.key?.id || `out-${Date.now()}`,
@@ -451,7 +440,7 @@ export async function startChatMessage({ phone, name, text }) {
   await assertCanSend(normalizedPhone);
   await upsertChat({ jid, name: name || normalizedPhone });
   await simulateTyping(jid, messageText);
-  const result = await sendManualMessage(jid, { text: messageText });
+  const result = await sendProtectedMessage(jid, { text: messageText });
   await recordSend(normalizedPhone);
   await appendChatMessage({
     jid,
