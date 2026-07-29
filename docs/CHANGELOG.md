@@ -22,6 +22,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- WA Lab menormalkan chat incoming `@lid` ke nomor `@s.whatsapp.net` jika metadata `senderPn` tersedia agar balasan dikirim ke tujuan yang benar.
 - Input Global Jimpitan Admin tetap berada di Pengaturan Jimpitan agar halaman utama tetap ringkas; rekap setor ke Bendahara mengikuti tanggal operasional yang dipilih.
 - WA Lab menambahkan endpoint dan tombol UI untuk menghapus chat lokal serta pesan lokal tanpa menghapus chat di HP WhatsApp.
 - UI hapus pesan WA Lab diubah menjadi mode seleksi ala WhatsApp Web: tahan bubble, checklist muncul, lalu hapus dari tombol di atas textbox.

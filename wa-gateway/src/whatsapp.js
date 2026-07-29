@@ -75,6 +75,15 @@ function isPrivateChat(jid) {
   return value.endsWith('@s.whatsapp.net') || value.endsWith('@lid');
 }
 
+function incomingChatJid(message) {
+  const remoteJid = String(message?.key?.remoteJid || '').trim();
+  const senderPn = String(message?.key?.senderPn || message?.key?.participantPn || '').trim();
+  if (!remoteJid.endsWith('@lid') || !senderPn) return remoteJid;
+
+  const phone = senderPn.replace(/@s\.whatsapp\.net$/, '').replace(/\D/g, '');
+  return phone ? `${phone}@s.whatsapp.net` : remoteJid;
+}
+
 function parseLinkedNumber(userId) {
   const raw = String(userId || '');
   return raw.split(':')[0] || null;
@@ -180,7 +189,7 @@ async function recordIncomingMessages(messages = []) {
     }
 
     await appendChatMessage({
-      jid,
+      jid: incomingChatJid(message),
       id: message.key.id,
       direction: 'incoming',
       text,
