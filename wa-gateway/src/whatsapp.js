@@ -59,6 +59,12 @@ async function simulateTyping(jid, text) {
   await sleep(randomBetween(350, 1200));
 }
 
+async function sendManualMessage(jid, content) {
+  const sender = config.manualDirectSend ? rawSocket : socket;
+  if (!sender) throw new Error('WhatsApp belum connected. Scan QR dulu.');
+  return sender.sendMessage(jid, content, {});
+}
+
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
   if (!digits) throw new Error('Nomor tujuan wajib diisi.');
@@ -249,10 +255,12 @@ export async function startWhatsApp() {
     printQRInTerminal: false
   });
 
-  socket = wrapSocket(rawSocket, config.antiban, undefined, {
-    groupOpGuard: false,
-    legitimacySignals: false
-  });
+  socket = config.disableAntiban
+    ? rawSocket
+    : wrapSocket(rawSocket, config.antiban, undefined, {
+        groupOpGuard: false,
+        legitimacySignals: false
+      });
   rawSocket.ev.on('creds.update', saveCreds);
   rawSocket.ev.on('messages.upsert', async ({ messages }) => {
     await recordIncomingMessages(messages).catch((error) => {
@@ -312,7 +320,7 @@ export function getStatus() {
     linked_number: linkedNumber,
     last_connected_at: lastConnectedAt,
     last_disconnect_reason: lastDisconnectReason,
-    antiban: {
+    antiban: config.disableAntiban ? { disabled: true } : {
       preset: config.antiban.preset,
       max_per_minute: config.antiban.maxPerMinute,
       max_per_hour: config.antiban.maxPerHour,
@@ -354,7 +362,7 @@ export async function sendTestMessage({ phone, text }) {
   await assertCanSend(normalizedPhone);
   const jid = jidFromPhone(normalizedPhone);
   await simulateTyping(jid, messageText);
-  const result = await socket.sendMessage(jid, { text: messageText }, {});
+  const result = await sendManualMessage(jid, { text: messageText });
   const usage = await recordSend(normalizedPhone);
 
   return {
@@ -385,7 +393,7 @@ export async function sendChatReply({ jid, text }) {
   }
 
   await simulateTyping(jid, messageText);
-  const result = await socket.sendMessage(jid, { text: messageText }, {});
+  const result = await sendManualMessage(jid, { text: messageText });
   await appendChatMessage({
     jid,
     id: result?.key?.id || `out-${Date.now()}`,
@@ -415,7 +423,7 @@ export async function startChatMessage({ phone, name, text }) {
   await assertCanSend(normalizedPhone);
   await upsertChat({ jid, name: name || normalizedPhone });
   await simulateTyping(jid, messageText);
-  const result = await socket.sendMessage(jid, { text: messageText }, {});
+  const result = await sendManualMessage(jid, { text: messageText });
   await recordSend(normalizedPhone);
   await appendChatMessage({
     jid,

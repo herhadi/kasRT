@@ -28,6 +28,8 @@ export const config = {
   minTextLength: readNumber('WA_LAB_MIN_TEXT_LENGTH', 2),
   typingMinMs: readNumber('WA_LAB_TYPING_MIN_MS', 2500),
   typingMaxMs: readNumber('WA_LAB_TYPING_MAX_MS', 9000),
+  manualDirectSend: String(process.env.WA_LAB_MANUAL_DIRECT_SEND || 'false').toLowerCase() === 'true',
+  disableAntiban: String(process.env.WA_LAB_DISABLE_ANTIBAN || 'false').toLowerCase() === 'true',
   antiban: {
     preset: process.env.WA_ANTIBAN_PRESET || 'conservative',
     maxPerMinute: readNumber('WA_ANTIBAN_MAX_PER_MINUTE', 1),

@@ -22,6 +22,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- Opsi `WA_LAB_DISABLE_ANTIBAN` untuk mengisolasi masalah pengiriman dengan menjalankan socket Baileys tanpa wrapper anti-ban.
+- Opsi `WA_LAB_MANUAL_DIRECT_SEND` untuk menguji kirim/balas chat manual langsung melalui socket Baileys tanpa wrapper anti-ban.
 - WA Lab menormalkan chat incoming `@lid` ke nomor `@s.whatsapp.net` jika metadata `senderPn` tersedia agar balasan dikirim ke tujuan yang benar.
 - Input Global Jimpitan Admin tetap berada di Pengaturan Jimpitan agar halaman utama tetap ringkas; rekap setor ke Bendahara mengikuti tanggal operasional yang dipilih.
 - WA Lab menambahkan endpoint dan tombol UI untuk menghapus chat lokal serta pesan lokal tanpa menghapus chat di HP WhatsApp.
