@@ -26,6 +26,12 @@ let lastInboxIgnoredReason = null;
 let lastReceiptEventAt = null;
 let lastReceiptStatus = null;
 let lastReceiptMessageId = null;
+let lastOutgoingAttemptAt = null;
+let lastOutgoingCompletedAt = null;
+let lastOutgoingJid = null;
+let lastOutgoingTransport = null;
+let lastOutgoingMessageId = null;
+let lastOutgoingError = null;
 let resetInProgress = false;
 
 function sleep(ms) {
@@ -62,7 +68,23 @@ async function simulateTyping(jid, text) {
 async function sendManualMessage(jid, content) {
   const sender = config.manualDirectSend ? rawSocket : socket;
   if (!sender) throw new Error('WhatsApp belum connected. Scan QR dulu.');
-  return sender.sendMessage(jid, content, {});
+  lastOutgoingAttemptAt = new Date().toISOString();
+  lastOutgoingCompletedAt = null;
+  lastOutgoingJid = jid;
+  lastOutgoingTransport = sender === rawSocket ? 'raw' : 'wrapped';
+  lastOutgoingMessageId = null;
+  lastOutgoingError = null;
+
+  try {
+    const result = await sender.sendMessage(jid, content, {});
+    lastOutgoingCompletedAt = new Date().toISOString();
+    lastOutgoingMessageId = result?.key?.id || null;
+    return result;
+  } catch (error) {
+    lastOutgoingCompletedAt = new Date().toISOString();
+    lastOutgoingError = error instanceof Error ? error.message : String(error);
+    throw error;
+  }
 }
 
 function normalizePhone(phone) {
@@ -333,11 +355,17 @@ export function getStatus() {
       last_incoming_event_at: lastIncomingEventAt,
       last_stored_message_at: lastStoredMessageAt,
       last_ignored_reason: lastInboxIgnoredReason,
-      last_receipt_event_at: lastReceiptEventAt,
-      last_receipt_status: lastReceiptStatus,
-      last_receipt_message_id: lastReceiptMessageId
-    }
-  };
+    last_receipt_event_at: lastReceiptEventAt,
+    last_receipt_status: lastReceiptStatus,
+    last_receipt_message_id: lastReceiptMessageId,
+    last_outgoing_attempt_at: lastOutgoingAttemptAt,
+    last_outgoing_completed_at: lastOutgoingCompletedAt,
+    last_outgoing_jid: lastOutgoingJid,
+    last_outgoing_transport: lastOutgoingTransport,
+    last_outgoing_message_id: lastOutgoingMessageId,
+    last_outgoing_error: lastOutgoingError
+  }
+};
 }
 
 export function getQr() {
