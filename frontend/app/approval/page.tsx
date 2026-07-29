@@ -67,9 +67,7 @@ export default function ApprovalPage() {
   const router = useRouter();
 
   const [sections, setSections] = useState<PendingApprovalSection[]>([]);
-  const [totalPending, setTotalPending] = useState(0);
   const [message, setMessage] = useState('');
-  const [loadingList, setLoadingList] = useState(false);
   const [approvingKey, setApprovingKey] = useState<string>('');
   const [historyItems, setHistoryItems] = useState<ApprovalHistoryItem[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
@@ -104,6 +102,7 @@ export default function ApprovalPage() {
     'Admin Sosial',
     'root'
   ]);
+  const canManagePinReset = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'root']);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -113,23 +112,18 @@ export default function ApprovalPage() {
     if (!canSeeApproval) return;
     if (!canSeeTransactionApprovals) {
       setSections([]);
-      setTotalPending(0);
       return;
     }
 
     try {
-      setLoadingList(true);
       const result = await apiFetch<{
         success: boolean;
         data: { total_pending: number; sections: PendingApprovalSection[] };
       }>('/approval/pending');
 
       setSections(result.data?.sections || []);
-      setTotalPending(Number(result.data?.total_pending || 0));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Gagal memuat daftar approval');
-    } finally {
-      setLoadingList(false);
     }
   }, [canSeeApproval, canSeeTransactionApprovals]);
 
@@ -217,7 +211,6 @@ export default function ApprovalPage() {
     if (!canSeeApproval) {
       const resetTimer = window.setTimeout(() => {
         setSections([]);
-        setTotalPending(0);
         setHistoryItems([]);
         setHistoryPage(1);
         setHistoryTotalPages(1);
@@ -404,52 +397,42 @@ export default function ApprovalPage() {
       <Navbar />
 
       <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
-        <Card title="Inbox Tindakan" subtitle={`${totalPending} item perlu ditindaklanjuti`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-[var(--text-muted)]">
-                Approval transaksi dan permintaan reset PIN: <strong className="text-[var(--text-primary)]">{totalPending}</strong>
-              </p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">Antrean keanggotaan dipisah agar tidak rancu dengan reset PIN.</p>
-            </div>
-            <Button
-              variant="ghost"
-              className="text-sm px-3 py-1.5"
-              onClick={() => {
-                void loadPending();
-                void loadMembershipQueues();
-              }}
-              disabled={loadingList || loadingMembershipQueues}
-            >
-              {loadingList || loadingMembershipQueues ? 'Memuat...' : 'Refresh'}
-            </Button>
-          </div>
-        </Card>
-
-        {approvalSections.length > 0 ? (
+        {canSeeTransactionApprovals ? (
           <Card title="Approval" subtitle={`${approvalSections.reduce((total, section) => total + section.items.length, 0)} item approval transaksi`}>
-            <div className="space-y-4">
-              {approvalSections.map((section) => (
+            {approvalSections.length > 0 ? (
+              <div className="space-y-4">
+                {approvalSections.map((section) => (
+                  <SectionWithPagination
+                    key={section.key}
+                    section={section}
+                    approvingKey={approvingKey}
+                    approveItem={approveItem}
+                    embedded
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">Belum ada approval transaksi yang perlu diproses.</p>
+            )}
+          </Card>
+        ) : null}
+
+        {canManagePinReset ? (
+          <Card title="Permintaan Reset PIN" subtitle={`${pinResetSections.reduce((total, section) => total + section.items.length, 0)} permintaan perlu ditindaklanjuti`}>
+            {pinResetSections.length > 0 ? (
+              pinResetSections.map((section) => (
                 <SectionWithPagination
                   key={section.key}
                   section={section}
                   approvingKey={approvingKey}
                   approveItem={approveItem}
-                  embedded
                 />
-              ))}
-            </div>
+              ))
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">Belum ada permintaan reset PIN.</p>
+            )}
           </Card>
         ) : null}
-
-        {pinResetSections.map((section) => (
-          <SectionWithPagination
-            key={section.key}
-            section={section}
-            approvingKey={approvingKey}
-            approveItem={approveItem}
-          />
-        ))}
 
         {membershipQueues.length > 0 ? (
           <Card title="Antrean Keanggotaan" subtitle="List request aktif/nonaktif per modul">
@@ -474,12 +457,6 @@ export default function ApprovalPage() {
                 </Link>
               ))}
             </div>
-          </Card>
-        ) : null}
-
-        {canSeeApproval && sections.length === 0 && !loadingList ? (
-          <Card title="Tidak Ada Pending" subtitle="Semua pesan yang bisa Anda tindak lanjuti sudah selesai">
-            <p className="text-sm text-[var(--text-muted)]">Belum ada transaksi atau permintaan baru yang membutuhkan tindakan.</p>
           </Card>
         ) : null}
 

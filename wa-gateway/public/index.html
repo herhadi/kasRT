@@ -108,7 +108,12 @@
       }
 
       .settings-row > button {
-        flex: 1;
+        flex: 0 0 auto;
+      }
+
+      .settings-row > input {
+        flex: 1 1 auto;
+        min-width: 0;
       }
 
       input, textarea {
@@ -391,8 +396,8 @@
             <button id="showQrButton" class="secondary">Ambil QR</button>
           </div>
           <div class="settings-row">
-            <button id="resetSessionButton" class="danger">Reset Session / Ganti Nomor</button>
-            <button id="fullResetButton" class="danger">Full Reset / Mulai Awal</button>
+            <button id="resetSessionButton" class="danger">Ganti Nomor</button>
+            <button id="fullResetButton" class="danger">Full Reset</button>
           </div>
           <div id="qrBox" class="qr-box">
             <img id="qrImage" alt="QR WhatsApp" />

@@ -85,6 +85,8 @@ Jimpitan memiliki dua mode operasional. Mode yang aktif dapat dilihat pada halam
 
 Mode V1 memakai input per warga/donatur.
 
+Untuk warga, input V1 menjadi bagian dari status jimpitan pada Dashboard. Karena itu data V1 dapat memengaruhi penanda sudah setor, belum setor, dan tunggakan sesuai periode operasional.
+
 1. Buka menu **Jimpitan** pada malam jadwal shift.
 2. Pastikan Anda adalah petugas pada hari tersebut.
 3. Ketuk kartu warga/donatur yang belum lunas.
@@ -106,6 +108,8 @@ Mode V2 menyediakan dua pilihan input untuk satu tanggal operasional:
 
 - **Global**: petugas langsung memasukkan total pendapatan hari itu.
 - **By Name**: petugas mencatat histori nominal per warga/donatur seperti mode V1.
+
+V2 dipakai untuk mencatat total uang fisik/shift atau histori penerimaan. Data V2 tidak dihitung sebagai tunggakan per warga di Dashboard. Tab By Name hanya menyimpan histori detail warga/donatur dan tidak mengubah kewajiban warga.
 
 Cara memakai Global:
 

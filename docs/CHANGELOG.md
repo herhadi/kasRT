@@ -6,6 +6,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Diperbaiki
 
+- Kartu ringkasan Inbox Tindakan dan tombol refresh khusus dihapus agar Inbox langsung fokus pada daftar tindakan.
+- Kartu Approval dan Permintaan Reset PIN tetap terlihat meskipun antreannya kosong, sehingga struktur Inbox tidak membingungkan.
 - PIN sementara pada reset PIN dan notifikasi Telegram kini mengikuti `DEFAULT_USER_PIN` dari environment.
 - Reset PIN kini memastikan kolom `users.must_change_pin` tersedia sebelum memproses permintaan.
 - Reset session WA Lab dibuat lebih tahan error dengan mematikan reconnect sementara, menutup socket lama, menunggu file auth lepas, lalu menghapus auth dengan retry.
@@ -13,6 +15,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Diubah
 
+- Dokumentasi menjelaskan bahwa Jimpitan V1 memakai input per warga dan memengaruhi status/tunggakan warga, sedangkan Jimpitan V2 memakai setoran shift atau histori by name tanpa menghitung tunggakan warga di Dashboard.
 - Inbox admin mengelompokkan approval transaksi, memisahkan reset PIN, lalu menampilkan antrean keanggotaan dan riwayat secara berurutan.
 - Inbox Persetujuan memisahkan approval utama dari antrean keanggotaan agar reset PIN tidak terlihat dobel dengan request membership.
 - Badge Inbox desktop/mobile kini menghitung approval utama saja, sedangkan membership tampil sebagai list berlabel per modul.
