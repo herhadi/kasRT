@@ -12,6 +12,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 ### Ditambahkan
 
 - WA Lab menambahkan endpoint dan tombol UI untuk menghapus chat lokal serta pesan lokal tanpa menghapus chat di HP WhatsApp.
+- UI hapus pesan WA Lab diubah menjadi mode seleksi ala WhatsApp Web: tahan bubble, checklist muncul, lalu hapus dari tombol di atas textbox.
+- WA Lab menambahkan `Full Reset / Mulai Awal` untuk menghapus session, chat lokal, dan usage lokal saat reset biasa tidak menghasilkan QR.
 - WA Lab menambahkan simulasi mengetik sebelum kirim pesan, cooldown setelah QR connect untuk reminder otomatis, dan sapaan random ringan pada reminder jimpitan.
 
 ## 2026-07-28

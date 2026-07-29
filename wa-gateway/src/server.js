@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertConfig, config } from './config.js';
-import { getQr, getStatus, resetSession, sendChatReply, sendTestMessage, startChatMessage, startWhatsApp } from './whatsapp.js';
+import { fullResetSession, getQr, getStatus, resetSession, sendChatReply, sendTestMessage, startChatMessage, startWhatsApp } from './whatsapp.js';
 import { deleteChat, deleteChatMessage, getChatMessages, listChats } from './chatStore.js';
 import { getUsage } from './store.js';
 
@@ -41,7 +41,8 @@ app.get('/', (_req, res) => {
       delete_chat: 'DELETE /chats/:jid',
       delete_message: 'DELETE /chats/:jid/messages/:messageId',
       reply: 'POST /chats/:jid/reply',
-      reset_session: 'POST /session/reset'
+      reset_session: 'POST /session/reset',
+      full_reset_session: 'POST /session/full-reset'
     }
   });
 });
@@ -143,6 +144,18 @@ app.post('/session/reset', requireSecret, async (req, res) => {
     return res.json({ success: true, message: 'Session direset. Ambil QR baru dari /qr.' });
   } catch (error) {
     return res.status(500).json({ success: false, message: `Reset session gagal: ${error.message}` });
+  }
+});
+
+app.post('/session/full-reset', requireSecret, async (req, res) => {
+  if (String(req.body?.confirm || '') !== 'FULL_RESET') {
+    return res.status(400).json({ success: false, message: 'Kirim body confirm=FULL_RESET untuk full reset.' });
+  }
+  try {
+    await fullResetSession();
+    return res.json({ success: true, message: 'Full reset selesai. Ambil QR baru dari /qr.' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: `Full reset gagal: ${error.message}` });
   }
 });
 

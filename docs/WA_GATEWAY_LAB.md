@@ -67,8 +67,10 @@ Masukkan `WA_LAB_SECRET` pada field secret, lalu:
 4. Scan QR dari WhatsApp → Perangkat tertaut → Tautkan perangkat.
 5. Setelah connected, tunggu chat 1:1 masuk dari WhatsApp.
 6. Jika salah nomor, klik `Reset Session / Ganti Nomor`, lalu scan QR baru.
-7. Untuk kirim ke nomor tertentu, isi nomor pada field `Nomor WA baru`, klik `Chat`, tulis pesan pertama, lalu `Kirim`.
-8. Gunakan tombol `Hapus Chat` untuk menghapus riwayat chat lokal WA Lab, atau tombol `×` pada bubble untuk menghapus pesan lokal.
+7. Jika reset biasa membandel, klik `Full Reset / Mulai Awal` untuk menghapus session, chat lokal, dan usage lokal, lalu scan QR baru.
+8. Untuk kirim ke nomor tertentu, isi nomor pada field `Nomor WA baru`, klik `Chat`, tulis pesan pertama, lalu `Kirim`.
+9. Gunakan tombol `Hapus Chat` untuk menghapus riwayat chat lokal WA Lab.
+10. Untuk hapus pesan lokal, tahan lama bubble pesan sampai checklist muncul, pilih pesan, lalu klik tombol `Hapus` di atas textbox.
 
 Semua endpoint API selain `/health` wajib memakai header secret:
 
@@ -130,6 +132,17 @@ curl -sS -X DELETE \
 ```
 
 Hapus chat/pesan hanya membersihkan data lokal WA Lab di `wa-gateway/data/chats.json`; chat di aplikasi WhatsApp HP tidak ikut dihapus.
+
+### Full Reset
+
+```bash
+curl -sS -X POST http://127.0.0.1:3010/session/full-reset \
+  -H "content-type: application/json" \
+  -H "x-wa-lab-secret: isi_secret_panjang" \
+  -d '{"confirm":"FULL_RESET"}'
+```
+
+Full reset menghapus session auth, chat lokal, dan usage lokal. Gunakan hanya saat reset biasa tidak menghasilkan QR.
 
 Limit nomor unik harian dikontrol oleh `WA_LAB_DAILY_UNIQUE_LIMIT`.
 

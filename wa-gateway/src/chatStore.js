@@ -31,6 +31,11 @@ async function writeDb(db) {
   await fs.writeFile(chatsFile, JSON.stringify(db, null, 2));
 }
 
+export async function resetChats() {
+  await ensureDataDir();
+  await fs.rm(chatsFile, { force: true });
+}
+
 function sanitizeText(text) {
   return String(text || '').trim();
 }

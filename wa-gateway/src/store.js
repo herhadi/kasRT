@@ -32,6 +32,11 @@ async function writeUsage(usage) {
   await fs.writeFile(usageFile, JSON.stringify(usage, null, 2));
 }
 
+export async function resetUsage() {
+  await ensureDataDir();
+  await fs.rm(usageFile, { force: true });
+}
+
 export async function getUsage() {
   const usage = await readUsage();
   if (usage.date !== todayKey()) {

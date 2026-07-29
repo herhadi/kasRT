@@ -8,8 +8,8 @@ import { wrapSocket } from 'baileys-antiban';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { config } from './config.js';
-import { appendChatMessage, hasChat, updateMessageStatus, updateMessageStatusById, upsertChat } from './chatStore.js';
-import { assertCanSend, recordSend } from './store.js';
+import { appendChatMessage, hasChat, resetChats, updateMessageStatus, updateMessageStatusById, upsertChat } from './chatStore.js';
+import { assertCanSend, recordSend, resetUsage } from './store.js';
 
 let socket = null;
 let rawSocket = null;
@@ -452,4 +452,17 @@ export async function resetSession() {
   } finally {
     resetInProgress = false;
   }
+}
+
+export async function fullResetSession() {
+  let resetError = null;
+  try {
+    await resetSession();
+  } catch (error) {
+    resetError = error;
+  }
+
+  await resetChats();
+  await resetUsage();
+  if (resetError) throw resetError;
 }

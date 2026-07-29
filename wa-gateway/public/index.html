@@ -254,35 +254,46 @@
 
       .bubble {
         max-width: min(560px, 76%);
-        padding: 4px 7px 3px;
+        padding: 4px 7px 3px 28px;
         border-radius: 8px;
         box-shadow: 0 1px 1px rgba(17, 27, 33, 0.12);
         word-break: break-word;
         line-height: 1.25;
         font-size: 14px;
         position: relative;
+        user-select: none;
+        cursor: default;
       }
 
-      .message-delete {
-        width: auto;
-        height: auto;
-        padding: 2px 7px;
-        margin-top: 4px;
+      .bubble.selected {
+        outline: 2px solid rgba(0, 168, 132, 0.55);
+      }
+
+      .message-check {
+        position: absolute;
+        left: 7px;
+        top: 7px;
+        width: 16px;
+        height: 16px;
         border-radius: 999px;
-        background: rgba(180, 35, 24, 0.08);
-        color: var(--danger);
+        border: 1px solid #8fa19b;
+        background: rgba(255, 255, 255, 0.9);
+        color: #fff;
+        display: none;
+        align-items: center;
+        justify-content: center;
         font-size: 11px;
-        line-height: 1.2;
-        opacity: 0.9;
-        display: inline-flex;
-        clear: both;
-        float: right;
+        font-weight: 800;
       }
 
-      .message-delete:hover {
-        background: rgba(180, 35, 24, 0.12);
-        color: var(--danger);
-        opacity: 1;
+      .messages.selecting .message-check,
+      .bubble.selected .message-check {
+        display: inline-flex;
+      }
+
+      .bubble.selected .message-check {
+        border-color: var(--green);
+        background: var(--green);
       }
 
       .message-text { white-space: pre-wrap; }
@@ -311,6 +322,19 @@
         gap: 8px;
         align-items: center;
       }
+
+      .selection-actions {
+        display: none;
+        padding: 8px 10px;
+        background: #f0f2f5;
+        border-top: 1px solid var(--line);
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .selection-actions.show { display: flex; }
+      .selection-actions span { color: var(--muted); font-size: 12px; }
 
       textarea {
         min-height: 40px;
@@ -363,6 +387,7 @@
             <button id="showQrButton" class="secondary">Ambil QR</button>
           </div>
           <button id="resetSessionButton" class="danger">Reset Session / Ganti Nomor</button>
+          <button id="fullResetButton" class="danger">Full Reset / Mulai Awal</button>
           <div id="qrBox" class="qr-box">
             <img id="qrImage" alt="QR WhatsApp" />
             <div id="qrHint" class="hint">Scan dari WhatsApp → Perangkat tertaut → Tautkan perangkat.</div>
@@ -399,6 +424,14 @@
           <div class="empty">Pilih chat di kiri, atau masukkan nomor WA baru lalu klik Chat.</div>
         </div>
 
+        <div id="selectionActions" class="selection-actions">
+          <span id="selectionInfo">0 pesan dipilih</span>
+          <div>
+            <button id="cancelSelectionButton" type="button" class="secondary small">Batal</button>
+            <button id="deleteSelectedMessagesButton" type="button" class="danger small">Hapus</button>
+          </div>
+        </div>
+
         <form id="replyForm" class="composer">
           <textarea id="replyText" placeholder="Tulis pesan..." disabled></textarea>
           <button id="sendButton" type="submit" disabled>Kirim</button>
@@ -414,6 +447,7 @@
       const checkConnectionButton = document.querySelector('#checkConnectionButton');
       const showQrButton = document.querySelector('#showQrButton');
       const resetSessionButton = document.querySelector('#resetSessionButton');
+      const fullResetButton = document.querySelector('#fullResetButton');
       const refreshButton = document.querySelector('#refreshButton');
       const statusBox = document.querySelector('#statusBox');
       const qrBox = document.querySelector('#qrBox');
@@ -427,6 +461,10 @@
       const replyText = document.querySelector('#replyText');
       const sendButton = document.querySelector('#sendButton');
       const deleteChatButton = document.querySelector('#deleteChatButton');
+      const selectionActions = document.querySelector('#selectionActions');
+      const selectionInfo = document.querySelector('#selectionInfo');
+      const cancelSelectionButton = document.querySelector('#cancelSelectionButton');
+      const deleteSelectedMessagesButton = document.querySelector('#deleteSelectedMessagesButton');
       const chatTitle = document.querySelector('#chatTitle');
       const chatSubtitle = document.querySelector('#chatSubtitle');
       const linkedNumber = document.querySelector('#linkedNumber');
@@ -437,6 +475,7 @@
       let activeJid = null;
       let activeTitle = '';
       let pollTimer = null;
+      const selectedMessageIds = new Set();
 
       secretInput.value = localStorage.getItem('kasrt_wa_lab_secret') || '';
 
@@ -540,6 +579,29 @@
         }
       }
 
+      async function fullReset() {
+        const approved = window.confirm('Full reset akan menghapus session WA, chat lokal, dan limit usage WA Lab. Gunakan hanya jika reset biasa gagal. Lanjut?');
+        if (!approved) return;
+        const approvedAgain = window.confirm('Yakin mulai dari awal? Setelah ini perlu scan QR ulang.');
+        if (!approvedAgain) return;
+        resetSessionButton.disabled = true;
+        fullResetButton.disabled = true;
+        showQrButton.disabled = true;
+        setStatus('Full reset berjalan. Tunggu QR baru...');
+        try {
+          qrBox.classList.remove('show');
+          resetActiveChat();
+          chatList.innerHTML = '';
+          await api('/session/full-reset', { method: 'POST', body: JSON.stringify({ confirm: 'FULL_RESET' }) });
+          await showQr();
+        } catch (error) { setStatus(error.message, true); }
+        finally {
+          resetSessionButton.disabled = false;
+          fullResetButton.disabled = false;
+          showQrButton.disabled = false;
+        }
+      }
+
       async function loadChats() {
         try {
           await loadStatus();
@@ -568,6 +630,7 @@
       async function selectChat(jid, name) {
         activeJid = jid;
         activeTitle = name || jid;
+        clearMessageSelection();
         chatTitle.textContent = activeTitle;
         chatSubtitle.textContent = jid;
         replyText.disabled = false;
@@ -586,23 +649,17 @@
           messagesBox.innerHTML = '';
           for (const message of chat.messages) {
             const bubble = document.createElement('div');
-            bubble.className = `bubble ${message.direction}`;
+            bubble.className = `bubble ${message.direction}${selectedMessageIds.has(message.id) ? ' selected' : ''}`;
+            bubble.dataset.messageId = message.id;
             bubble.innerHTML = `
+              <span class="message-check">${selectedMessageIds.has(message.id) ? '✓' : ''}</span>
               <span class="message-text">${escapeHtml(message.text)}</span>
               <span class="meta"><span>${escapeHtml(formatTime(message.at))}</span>${message.direction === 'outgoing' ? tickHtml(message.status) : ''}</span>`;
-            const deleteButton = document.createElement('button');
-            deleteButton.type = 'button';
-            deleteButton.className = 'message-delete';
-            deleteButton.title = 'Hapus pesan di WA Lab';
-            deleteButton.textContent = '🗑 Hapus';
-            deleteButton.addEventListener('click', async (event) => {
-              event.stopPropagation();
-              await deleteMessage(message.id);
-            });
-            bubble.appendChild(deleteButton);
+            attachMessageSelectionEvents(bubble, message.id);
             messagesBox.appendChild(bubble);
           }
-          messagesBox.scrollTop = messagesBox.scrollHeight;
+          updateSelectionUi();
+          if (selectedMessageIds.size === 0) messagesBox.scrollTop = messagesBox.scrollHeight;
         } catch (error) { setStatus(error.message, true); }
       }
 
@@ -652,6 +709,7 @@
       function resetActiveChat() {
         activeJid = null;
         activeTitle = '';
+        clearMessageSelection();
         chatTitle.textContent = 'Pilih chat';
         chatSubtitle.textContent = 'Mulai chat dari kiri atau tunggu pesan masuk';
         messagesBox.innerHTML = '<div class="empty">Pilih chat di kiri, atau masukkan nomor WA baru lalu klik Chat.</div>';
@@ -677,21 +735,82 @@
         }
       }
 
-      async function deleteMessage(messageId) {
-        if (!activeJid || !messageId) return;
-        const approved = window.confirm('Hapus pesan ini dari WA Lab? Pesan di HP WhatsApp tidak ikut dihapus.');
+      function updateSelectionUi() {
+        const count = selectedMessageIds.size;
+        messagesBox.classList.toggle('selecting', count > 0);
+        selectionActions.classList.toggle('show', count > 0);
+        selectionInfo.textContent = `${count} pesan dipilih`;
+      }
+
+      function clearMessageSelection() {
+        selectedMessageIds.clear();
+        updateSelectionUi();
+      }
+
+      function toggleMessageSelection(messageId) {
+        if (!messageId) return;
+        if (selectedMessageIds.has(messageId)) selectedMessageIds.delete(messageId);
+        else selectedMessageIds.add(messageId);
+        for (const bubble of messagesBox.querySelectorAll('.bubble')) {
+          const isSelected = selectedMessageIds.has(bubble.dataset.messageId);
+          bubble.classList.toggle('selected', isSelected);
+          const check = bubble.querySelector('.message-check');
+          if (check) check.textContent = isSelected ? '✓' : '';
+        }
+        updateSelectionUi();
+      }
+
+      function attachMessageSelectionEvents(bubble, messageId) {
+        let longPressTimer = null;
+        let longPressed = false;
+
+        bubble.addEventListener('pointerdown', () => {
+          longPressed = false;
+          longPressTimer = window.setTimeout(() => {
+            longPressed = true;
+            toggleMessageSelection(messageId);
+          }, 550);
+        });
+        bubble.addEventListener('pointerup', () => {
+          if (longPressTimer) clearTimeout(longPressTimer);
+          longPressTimer = null;
+        });
+        bubble.addEventListener('pointerleave', () => {
+          if (longPressTimer) clearTimeout(longPressTimer);
+          longPressTimer = null;
+        });
+        bubble.addEventListener('pointercancel', () => {
+          if (longPressTimer) clearTimeout(longPressTimer);
+          longPressTimer = null;
+        });
+        bubble.addEventListener('click', () => {
+          if (longPressed) return;
+          if (selectedMessageIds.size > 0) toggleMessageSelection(messageId);
+        });
+      }
+
+      async function deleteSelectedMessages() {
+        if (!activeJid || selectedMessageIds.size === 0) return;
+        const count = selectedMessageIds.size;
+        const approved = window.confirm(`Hapus ${count} pesan dari WA Lab? Pesan di HP WhatsApp tidak ikut dihapus.`);
         if (!approved) return;
         try {
-          await api(`/chats/${encodeURIComponent(activeJid)}/messages/${encodeURIComponent(messageId)}`, { method: 'DELETE' });
+          for (const messageId of selectedMessageIds) {
+            await api(`/chats/${encodeURIComponent(activeJid)}/messages/${encodeURIComponent(messageId)}`, { method: 'DELETE' });
+          }
+          clearMessageSelection();
           await loadMessages();
           await loadChats();
-          setStatus('Pesan dihapus dari WA Lab.');
+          setStatus(`${count} pesan dihapus dari WA Lab.`);
         } catch (error) { setStatus(error.message, true); }
       }
 
       function startPolling() {
         if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(() => { loadChats(); loadMessages(); }, 5000);
+        pollTimer = setInterval(() => {
+          loadChats();
+          if (selectedMessageIds.size === 0) loadMessages();
+        }, 5000);
       }
 
       settingsButton.addEventListener('click', () => settingsPanel.classList.toggle('show'));
@@ -709,7 +828,10 @@
       });
       showQrButton.addEventListener('click', showQr);
       resetSessionButton.addEventListener('click', resetSession);
+      fullResetButton.addEventListener('click', fullReset);
       deleteChatButton.addEventListener('click', deleteActiveChat);
+      cancelSelectionButton.addEventListener('click', clearMessageSelection);
+      deleteSelectedMessagesButton.addEventListener('click', deleteSelectedMessages);
       refreshButton.addEventListener('click', () => { loadChats(); loadMessages(); });
       newChatButton.addEventListener('click', prepareNewChat);
       replyForm.addEventListener('submit', sendReply);
