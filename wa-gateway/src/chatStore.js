@@ -216,6 +216,20 @@ export async function getChatMessages(jid) {
   };
 }
 
+export async function getUnreadMessageKeys(jid) {
+  const db = await readDb();
+  const chat = db.chats?.[resolveJid(db, jid)];
+  if (!chat || !Array.isArray(chat.messages)) return [];
+
+  return chat.messages
+    .filter((message) => message.direction === 'incoming')
+    .map((message) => ({
+      remoteJid: chat.jid,
+      id: message.id,
+      fromMe: false
+    }));
+}
+
 export async function deleteChat(jid) {
   if (!jid) return null;
 

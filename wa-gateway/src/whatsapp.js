@@ -26,6 +26,11 @@ let lastInboxIgnoredReason = null;
 let lastReceiptEventAt = null;
 let lastReceiptStatus = null;
 let lastReceiptMessageId = null;
+let lastReadReceiptAttemptAt = null;
+let lastReadReceiptCompletedAt = null;
+let lastReadReceiptJid = null;
+let lastReadReceiptCount = 0;
+let lastReadReceiptError = null;
 let lastOutgoingAttemptAt = null;
 let lastOutgoingCompletedAt = null;
 let lastOutgoingJid = null;
@@ -37,6 +42,12 @@ let lastOutgoingTransport = null;
 let lastOutgoingMessageId = null;
 let lastOutgoingResultJid = null;
 let lastOutgoingError = null;
+let lastRawTraceAttemptAt = null;
+let lastRawTraceCompletedAt = null;
+let lastRawTraceJid = null;
+let lastRawTraceMessageId = null;
+let lastRawTraceResultJid = null;
+let lastRawTraceError = null;
 let resetInProgress = false;
 const presenceChoreographer = new PresenceChoreographer(config.presence);
 
@@ -379,6 +390,11 @@ export function getStatus() {
       last_receipt_event_at: lastReceiptEventAt,
       last_receipt_status: lastReceiptStatus,
       last_receipt_message_id: lastReceiptMessageId,
+      last_read_receipt_attempt_at: lastReadReceiptAttemptAt,
+      last_read_receipt_completed_at: lastReadReceiptCompletedAt,
+      last_read_receipt_jid: lastReadReceiptJid,
+      last_read_receipt_count: lastReadReceiptCount,
+      last_read_receipt_error: lastReadReceiptError,
       last_outgoing_requested_jid: lastOutgoingRequestedJid,
       last_outgoing_resolved_jid: lastOutgoingResolvedJid,
       last_outgoing_resolved_lid: lastOutgoingResolvedLid,
@@ -389,9 +405,35 @@ export function getStatus() {
       last_outgoing_transport: lastOutgoingTransport,
       last_outgoing_message_id: lastOutgoingMessageId,
       last_outgoing_result_jid: lastOutgoingResultJid,
-      last_outgoing_error: lastOutgoingError
+      last_outgoing_error: lastOutgoingError,
+      last_raw_trace_attempt_at: lastRawTraceAttemptAt,
+      last_raw_trace_completed_at: lastRawTraceCompletedAt,
+      last_raw_trace_jid: lastRawTraceJid,
+      last_raw_trace_message_id: lastRawTraceMessageId,
+      last_raw_trace_result_jid: lastRawTraceResultJid,
+      last_raw_trace_error: lastRawTraceError
     }
   };
+}
+
+export async function markMessagesRead({ jid, keys = [] }) {
+  if (!rawSocket?.readMessages || !Array.isArray(keys) || keys.length === 0) return { count: 0 };
+
+  lastReadReceiptAttemptAt = new Date().toISOString();
+  lastReadReceiptCompletedAt = null;
+  lastReadReceiptJid = jid || null;
+  lastReadReceiptCount = keys.length;
+  lastReadReceiptError = null;
+
+  try {
+    await rawSocket.readMessages(keys);
+    lastReadReceiptCompletedAt = new Date().toISOString();
+    return { count: keys.length };
+  } catch (error) {
+    lastReadReceiptCompletedAt = new Date().toISOString();
+    lastReadReceiptError = error instanceof Error ? error.message : String(error);
+    throw error;
+  }
 }
 
 export function getQr() {
@@ -428,6 +470,42 @@ export async function sendTestMessage({ phone, text }) {
       daily_unique_limit: config.dailyUniqueLimit
     }
   };
+}
+
+export async function sendRawTraceMessage({ phone, text }) {
+  if (!rawSocket || connectionState !== 'connected') {
+    throw new Error('WhatsApp belum connected. Scan QR dulu.');
+  }
+
+  const normalizedPhone = normalizePhone(phone);
+  const messageText = String(text || '').trim();
+  if (messageText.length < config.minTextLength) {
+    throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
+  }
+
+  const jid = jidFromPhone(normalizedPhone);
+  lastRawTraceAttemptAt = new Date().toISOString();
+  lastRawTraceCompletedAt = null;
+  lastRawTraceJid = jid;
+  lastRawTraceMessageId = null;
+  lastRawTraceResultJid = null;
+  lastRawTraceError = null;
+
+  try {
+    const result = await rawSocket.sendMessage(jid, { text: messageText });
+    lastRawTraceCompletedAt = new Date().toISOString();
+    lastRawTraceMessageId = result?.key?.id || null;
+    lastRawTraceResultJid = result?.key?.remoteJid || null;
+    return {
+      jid,
+      message_id: lastRawTraceMessageId,
+      result_jid: lastRawTraceResultJid
+    };
+  } catch (error) {
+    lastRawTraceCompletedAt = new Date().toISOString();
+    lastRawTraceError = error instanceof Error ? error.message : String(error);
+    throw error;
+  }
 }
 
 export async function sendChatReply({ jid, text }) {

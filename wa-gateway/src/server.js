@@ -2,8 +2,8 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertConfig, config } from './config.js';
-import { fullResetSession, getQr, getStatus, resetSession, sendChatReply, sendTestMessage, startChatMessage, startWhatsApp } from './whatsapp.js';
-import { deleteChat, deleteChatMessage, getChatMessages, listChats } from './chatStore.js';
+import { fullResetSession, getQr, getStatus, markMessagesRead, resetSession, sendChatReply, sendRawTraceMessage, sendTestMessage, startChatMessage, startWhatsApp } from './whatsapp.js';
+import { deleteChat, deleteChatMessage, getChatMessages, getUnreadMessageKeys, listChats } from './chatStore.js';
 import { getUsage } from './store.js';
 
 assertConfig();
@@ -77,6 +77,7 @@ app.get('/', (_req, res) => {
       status: 'GET /status',
       qr: 'GET /qr',
       send_test: 'POST /send-test',
+      send_raw_trace: 'POST /debug/send-raw',
       chats: 'GET /chats',
       start_chat: 'POST /chats/start',
       messages: 'GET /chats/:jid/messages',
@@ -128,6 +129,21 @@ app.post('/send-test', requireSecret, async (req, res) => {
   }
 });
 
+app.post('/debug/send-raw', requireSecret, async (req, res) => {
+  markSendRequest({ route: '/debug/send-raw', target: req.body?.phone, text: req.body?.text });
+  try {
+    const data = await sendRawTraceMessage({
+      phone: req.body?.phone,
+      text: req.body?.text
+    });
+    markSendSuccess();
+    res.json({ success: true, data });
+  } catch (error) {
+    markSendError(error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 app.get('/chats', requireSecret, async (_req, res) => {
   const chats = await listChats();
   res.json({ success: true, data: chats });
@@ -151,6 +167,10 @@ app.post('/chats/start', requireSecret, async (req, res) => {
 
 app.get('/chats/:jid/messages', requireSecret, async (req, res) => {
   const jid = decodeURIComponent(req.params.jid || '');
+  const keys = await getUnreadMessageKeys(jid);
+  if (keys.length) {
+    await markMessagesRead({ jid, keys }).catch(() => {});
+  }
   const chat = await getChatMessages(jid);
   if (!chat) return res.status(404).json({ success: false, message: 'Chat tidak ditemukan.' });
   return res.json({ success: true, data: chat });
