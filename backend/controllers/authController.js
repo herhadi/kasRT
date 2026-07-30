@@ -89,8 +89,8 @@ export async function changeMyPin(req, res) {
   if (!newPin || !repeatPin) {
     return res.status(400).json({ success: false, message: 'PIN baru wajib diisi.' });
   }
-  if (!/^\d{4,6}$/.test(newPin)) {
-    return res.status(400).json({ success: false, message: 'PIN baru harus 4 sampai 6 digit angka.' });
+  if (!/^\d{6}$/.test(newPin)) {
+    return res.status(400).json({ success: false, message: 'PIN baru harus minimal 6 dan maksimal 6 digit angka.' });
   }
   if (newPin !== repeatPin) {
     return res.status(400).json({ success: false, message: 'Ulangi PIN baru tidak sama.' });

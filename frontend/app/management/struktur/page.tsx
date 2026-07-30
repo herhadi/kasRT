@@ -121,8 +121,8 @@ export default function UserManagementPage() {
       setError('Nama, nomor HP, dan PIN wajib diisi.');
       return;
     }
-    if (!isValidPin(pin)) {
-      setError('PIN harus 4 sampai 6 digit angka.');
+    if (!isValidPin(pin, 6, 6)) {
+      setError('PIN harus minimal 6 digit angka dan maksimal 6 digit.');
       return;
     }
 

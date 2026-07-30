@@ -114,8 +114,8 @@ export default function AkunPage() {
       pushToast('PIN lama dan PIN baru wajib diisi.', 'warning');
       return;
     }
-    if (!isValidPin(pinBaru)) {
-      pushToast('PIN baru harus 4 sampai 6 digit angka.', 'warning');
+    if (!isValidPin(pinBaru, 6, 6)) {
+      pushToast('PIN baru harus minimal 6 digit angka dan maksimal 6 digit.', 'warning');
       return;
     }
     if (pinBaru !== pinBaru2) {

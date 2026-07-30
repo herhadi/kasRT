@@ -26,7 +26,7 @@ KasRT adalah aplikasi kas dan operasional RT untuk:
 
 1. Buka aplikasi KasRT.
 2. Login memakai nomor HP dan PIN.
-3. Jika sistem meminta ganti PIN, buka menu akun lalu buat PIN baru.
+3. Jika sistem meminta ganti PIN, buka menu akun lalu buat PIN baru. PIN baru harus berupa angka dengan minimal 6 digit dan maksimal 6 digit.
 4. Pastikan nama dan nomor HP benar.
 5. Aktifkan Telegram jika ingin menerima notifikasi dan memakai command bot.
 

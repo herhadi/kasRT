@@ -31,8 +31,8 @@ export default function WajibGantiPinPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!isValidPin(pinBaru)) {
-      pushToast('PIN baru harus 4 sampai 6 digit angka.', 'warning');
+    if (!isValidPin(pinBaru, 6, 6)) {
+      pushToast('PIN baru harus minimal 6 digit angka dan maksimal 6 digit.', 'warning');
       return;
     }
     if (pinBaru !== ulangPinBaru) {
@@ -66,6 +66,9 @@ export default function WajibGantiPinPage() {
       <ToastStack toasts={toasts} />
       <div className="mx-auto w-full max-w-lg">
         <Card title="Ganti PIN Pertama Kali" subtitle="Untuk keamanan, silakan ganti PIN default Anda sebelum lanjut">
+          <p className="mb-4 text-sm text-[var(--text-muted)]">
+            PIN harus berupa angka, minimal 6 digit dan maksimal 6 digit.
+          </p>
           <form className="space-y-3" onSubmit={submit}>
             <Input
               label="PIN Baru"
@@ -74,7 +77,7 @@ export default function WajibGantiPinPage() {
               pattern="[0-9]*"
               value={pinBaru}
               onChange={(e) => setPinBaru(normalizePinInput(e.target.value))}
-              minLength={4}
+              minLength={6}
               maxLength={6}
             />
             <Input
@@ -84,7 +87,7 @@ export default function WajibGantiPinPage() {
               pattern="[0-9]*"
               value={ulangPinBaru}
               onChange={(e) => setUlangPinBaru(normalizePinInput(e.target.value))}
-              minLength={4}
+              minLength={6}
               maxLength={6}
             />
             <Button type="submit" className="w-full" disabled={saving}>

@@ -145,7 +145,17 @@ curl -sS -X POST http://127.0.0.1:3010/session/full-reset \
   -d '{"confirm":"FULL_RESET"}'
 ```
 
-Full reset menghapus session auth, chat lokal, dan usage lokal. Gunakan hanya saat reset biasa tidak menghasilkan QR.
+Full reset menghapus session auth, chat lokal, usage lokal, dan state warm-up
+`wa-gateway/data/antiban-state.json`. Setelah itu akun dimulai dari warm-up day 1.
+Penghapusan state dilakukan sebelum session baru dibuat agar `baileys-antiban`
+tidak memuat snapshot lama.
+
+Full reset tidak menghapus batas warm-up. Dengan `WA_ANTIBAN_PRESET=conservative`,
+batas hari pertama tetap `15` pesan; reset hanya mengembalikan hitungan menjadi
+`0/15`. Gunakan preset/config antiban yang sesuai bila membutuhkan batas berbeda.
+
+Gunakan hanya saat memang ingin mulai ulang akun/session. Untuk sekadar mengganti
+nomor tanpa menghapus chat, usage, dan state warm-up, gunakan reset session biasa.
 
 Limit nomor unik harian dikontrol oleh `WA_LAB_DAILY_UNIQUE_LIMIT`.
 
@@ -187,7 +197,8 @@ curl -sS -X POST http://127.0.0.1:3010/session/reset \
   -d '{"confirm":"RESET"}'
 ```
 
-Setelah reset, ambil QR baru dari `/qr`.
+Setelah reset, ambil QR baru dari `/qr`. Reset session biasa hanya menghapus
+session auth dan tidak mereset usage, chat lokal, atau state warm-up.
 
 ## Deploy via Cloudflare Tunnel
 

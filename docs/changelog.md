@@ -128,3 +128,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 ### Dihapus
 
 - Alias `/cek_ling` tidak dipakai; command resmi Lingkungan adalah `/cek_lingk`.
+- PIN baru saat login pertama kali dan perubahan PIN kini wajib 6 digit angka; informasi batas minimal ditampilkan pada form ganti PIN.
