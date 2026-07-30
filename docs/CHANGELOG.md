@@ -10,6 +10,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Delay anti-ban diselaraskan dengan timeout backend agar request reminder tidak berhenti lebih dulu sebelum pesan dikirim.
 - State warm-up dan daftar chat dikenal dari `baileys-antiban` disimpan di `data/antiban-state.json` agar tidak kembali nol setiap container restart.
 - WA Lab meresolve target kirim lewat `onWhatsApp` dan memakai LID jika tersedia untuk mengurangi kasus pesan accepted tetapi tidak sampai ke penerima.
+- WA Lab mengirim indikator mengetik ke target final yang sama dengan pesan dan menampilkan diagnostics typing terakhir.
 - Kartu ringkasan Inbox Tindakan dan tombol refresh khusus dihapus agar Inbox langsung fokus pada daftar tindakan.
 - Kartu Approval dan Permintaan Reset PIN tetap terlihat meskipun antreannya kosong, sehingga struktur Inbox tidak membingungkan.
 - PIN sementara pada reset PIN dan notifikasi Telegram kini mengikuti `DEFAULT_USER_PIN` dari environment.

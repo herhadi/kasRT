@@ -48,6 +48,11 @@ let lastRawTraceJid = null;
 let lastRawTraceMessageId = null;
 let lastRawTraceResultJid = null;
 let lastRawTraceError = null;
+let lastTypingAttemptAt = null;
+let lastTypingCompletedAt = null;
+let lastTypingJid = null;
+let lastTypingDurationMs = 0;
+let lastTypingError = null;
 let resetInProgress = false;
 const presenceChoreographer = new PresenceChoreographer(config.presence);
 
@@ -65,12 +70,24 @@ async function ignoreShutdownError(action) {
 async function simulateTyping(jid, text) {
   if (!rawSocket?.sendPresenceUpdate || !jid) return;
   const plan = presenceChoreographer.computeTypingPlan(String(text || '').length);
-  await presenceChoreographer.executeTypingPlan(rawSocket, jid, plan).catch(() => {});
+  lastTypingAttemptAt = new Date().toISOString();
+  lastTypingCompletedAt = null;
+  lastTypingJid = jid;
+  lastTypingDurationMs = plan.reduce((total, step) => total + Number(step.durationMs || 0), 0);
+  lastTypingError = null;
+  try {
+    await presenceChoreographer.executeTypingPlan(rawSocket, jid, plan);
+    await rawSocket.sendPresenceUpdate('paused', jid).catch(() => {});
+    lastTypingCompletedAt = new Date().toISOString();
+  } catch (error) {
+    lastTypingCompletedAt = new Date().toISOString();
+    lastTypingError = error instanceof Error ? error.message : String(error);
+  }
 }
 
-async function sendProtectedMessage(jid, content) {
+async function sendProtectedMessage(jid, content, options = {}) {
   if (!socket) throw new Error('WhatsApp belum connected. Scan QR dulu.');
-  const resolvedJid = await resolveSendJid(jid);
+  const resolvedJid = options.resolvedJid || await resolveSendJid(jid);
   lastOutgoingAttemptAt = new Date().toISOString();
   lastOutgoingCompletedAt = null;
   lastOutgoingRequestedJid = jid;
@@ -91,6 +108,12 @@ async function sendProtectedMessage(jid, content) {
     lastOutgoingError = error instanceof Error ? error.message : String(error);
     throw error;
   }
+}
+
+async function prepareHumanSend(jid, text) {
+  const resolvedJid = await resolveSendJid(jid);
+  await simulateTyping(resolvedJid, text);
+  return resolvedJid;
 }
 
 function normalizePhone(phone) {
@@ -395,6 +418,11 @@ export function getStatus() {
       last_read_receipt_jid: lastReadReceiptJid,
       last_read_receipt_count: lastReadReceiptCount,
       last_read_receipt_error: lastReadReceiptError,
+      last_typing_attempt_at: lastTypingAttemptAt,
+      last_typing_completed_at: lastTypingCompletedAt,
+      last_typing_jid: lastTypingJid,
+      last_typing_duration_ms: lastTypingDurationMs,
+      last_typing_error: lastTypingError,
       last_outgoing_requested_jid: lastOutgoingRequestedJid,
       last_outgoing_resolved_jid: lastOutgoingResolvedJid,
       last_outgoing_resolved_lid: lastOutgoingResolvedLid,
@@ -457,8 +485,8 @@ export async function sendTestMessage({ phone, text }) {
 
   await assertCanSend(normalizedPhone);
   const jid = jidFromPhone(normalizedPhone);
-  await simulateTyping(jid, messageText);
-  const result = await sendProtectedMessage(jid, { text: messageText });
+  const resolvedJid = await prepareHumanSend(jid, messageText);
+  const result = await sendProtectedMessage(jid, { text: messageText }, { resolvedJid });
   const usage = await recordSend(normalizedPhone);
 
   return {
@@ -524,8 +552,8 @@ export async function sendChatReply({ jid, text }) {
     throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
   }
 
-  await simulateTyping(jid, messageText);
-  const result = await sendProtectedMessage(jid, { text: messageText });
+  const resolvedJid = await prepareHumanSend(jid, messageText);
+  const result = await sendProtectedMessage(jid, { text: messageText }, { resolvedJid });
   await appendChatMessage({
     jid,
     id: result?.key?.id || `out-${Date.now()}`,
@@ -554,8 +582,8 @@ export async function startChatMessage({ phone, name, text }) {
 
   await assertCanSend(normalizedPhone);
   await upsertChat({ jid, name: name || normalizedPhone });
-  await simulateTyping(jid, messageText);
-  const result = await sendProtectedMessage(jid, { text: messageText });
+  const resolvedJid = await prepareHumanSend(jid, messageText);
+  const result = await sendProtectedMessage(jid, { text: messageText }, { resolvedJid });
   await recordSend(normalizedPhone);
   await appendChatMessage({
     jid,
