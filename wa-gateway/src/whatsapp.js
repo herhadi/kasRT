@@ -270,6 +270,10 @@ async function clearAuthDir() {
   }
 }
 
+async function clearAntibanState() {
+  await fs.rm(config.antibanStateFile, { force: true });
+}
+
 async function recordIncomingMessages(messages = []) {
   lastIncomingEventAt = new Date().toISOString();
 
@@ -599,6 +603,9 @@ export async function resetSession() {
 export async function fullResetSession() {
   let resetError = null;
   try {
+    // Remove this before reconnecting so the newly created antiban instance
+    // starts with a fresh warm-up state instead of loading the old snapshot.
+    await clearAntibanState();
     await resetSession();
   } catch (error) {
     resetError = error;
