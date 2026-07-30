@@ -29,8 +29,13 @@ let lastReceiptMessageId = null;
 let lastOutgoingAttemptAt = null;
 let lastOutgoingCompletedAt = null;
 let lastOutgoingJid = null;
+let lastOutgoingRequestedJid = null;
+let lastOutgoingResolvedJid = null;
+let lastOutgoingResolvedLid = null;
+let lastOutgoingResolvedExists = null;
 let lastOutgoingTransport = null;
 let lastOutgoingMessageId = null;
+let lastOutgoingResultJid = null;
 let lastOutgoingError = null;
 let resetInProgress = false;
 const presenceChoreographer = new PresenceChoreographer(config.presence);
@@ -54,17 +59,21 @@ async function simulateTyping(jid, text) {
 
 async function sendProtectedMessage(jid, content) {
   if (!socket) throw new Error('WhatsApp belum connected. Scan QR dulu.');
+  const resolvedJid = await resolveSendJid(jid);
   lastOutgoingAttemptAt = new Date().toISOString();
   lastOutgoingCompletedAt = null;
-  lastOutgoingJid = jid;
+  lastOutgoingRequestedJid = jid;
+  lastOutgoingJid = resolvedJid;
   lastOutgoingTransport = 'baileys-antiban';
   lastOutgoingMessageId = null;
+  lastOutgoingResultJid = null;
   lastOutgoingError = null;
 
   try {
-    const result = await socket.sendMessage(jid, content, {});
+    const result = await socket.sendMessage(resolvedJid, content, {});
     lastOutgoingCompletedAt = new Date().toISOString();
     lastOutgoingMessageId = result?.key?.id || null;
+    lastOutgoingResultJid = result?.key?.remoteJid || null;
     return result;
   } catch (error) {
     lastOutgoingCompletedAt = new Date().toISOString();
@@ -82,6 +91,29 @@ function normalizePhone(phone) {
 
 function jidFromPhone(phone) {
   return `${normalizePhone(phone)}@s.whatsapp.net`;
+}
+
+async function resolveSendJid(jid) {
+  lastOutgoingResolvedJid = null;
+  lastOutgoingResolvedLid = null;
+  lastOutgoingResolvedExists = null;
+
+  if (!rawSocket?.onWhatsApp || !String(jid || '').endsWith('@s.whatsapp.net')) {
+    return jid;
+  }
+
+  const results = await rawSocket.onWhatsApp(jid).catch(() => null);
+  const result = Array.isArray(results) ? results[0] : null;
+  lastOutgoingResolvedJid = result?.jid || null;
+  lastOutgoingResolvedLid = result?.lid || null;
+  lastOutgoingResolvedExists = result?.exists ?? null;
+
+  if (result && !result.exists) {
+    throw new Error(`Nomor tidak terdaftar WhatsApp: ${jid.replace('@s.whatsapp.net', '')}`);
+  }
+
+  if (config.preferLidSend && result?.lid) return result.lid;
+  return result?.jid || jid;
 }
 
 function isPrivateChat(jid) {
@@ -347,11 +379,16 @@ export function getStatus() {
       last_receipt_event_at: lastReceiptEventAt,
       last_receipt_status: lastReceiptStatus,
       last_receipt_message_id: lastReceiptMessageId,
+      last_outgoing_requested_jid: lastOutgoingRequestedJid,
+      last_outgoing_resolved_jid: lastOutgoingResolvedJid,
+      last_outgoing_resolved_lid: lastOutgoingResolvedLid,
+      last_outgoing_resolved_exists: lastOutgoingResolvedExists,
       last_outgoing_attempt_at: lastOutgoingAttemptAt,
       last_outgoing_completed_at: lastOutgoingCompletedAt,
       last_outgoing_jid: lastOutgoingJid,
       last_outgoing_transport: lastOutgoingTransport,
       last_outgoing_message_id: lastOutgoingMessageId,
+      last_outgoing_result_jid: lastOutgoingResultJid,
       last_outgoing_error: lastOutgoingError
     }
   };

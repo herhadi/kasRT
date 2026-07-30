@@ -27,6 +27,7 @@ export const config = {
   logLevel: String(process.env.WA_LOG_LEVEL || 'silent'),
   dailyUniqueLimit: readNumber('WA_LAB_DAILY_UNIQUE_LIMIT', 3),
   minTextLength: readNumber('WA_LAB_MIN_TEXT_LENGTH', 2),
+  preferLidSend: String(process.env.WA_LAB_PREFER_LID_SEND || 'true') !== 'false',
   antiban: {
     preset: process.env.WA_ANTIBAN_PRESET || 'conservative',
     maxPerMinute: readNumber('WA_ANTIBAN_MAX_PER_MINUTE', 2),

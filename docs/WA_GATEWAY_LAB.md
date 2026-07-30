@@ -37,6 +37,7 @@ WA_AUTH_DIR=./auth
 WA_DATA_DIR=./data
 WA_LAB_DAILY_UNIQUE_LIMIT=3
 WA_LAB_MIN_TEXT_LENGTH=2
+WA_LAB_PREFER_LID_SEND=true
 TZ=Asia/Jakarta
 WA_ANTIBAN_PRESET=conservative
 WA_ANTIBAN_MAX_PER_MINUTE=2
@@ -51,7 +52,7 @@ WA_ANTIBAN_STATE_FILE=./data/antiban-state.json
 
 Jika `.env` lama masih memakai `WA_GATEWAY_SECRET`, service tetap bisa membaca secret tersebut sebagai fallback.
 
-Semua jalur kirim memakai socket yang dibungkus `baileys-antiban`. Opsi lama `WA_LAB_DISABLE_ANTIBAN` dan `WA_LAB_MANUAL_DIRECT_SEND` sudah tidak dipakai. Nilai delay 90–300 detik juga harus diganti karena backend reminder memiliki timeout 30 detik.
+Semua jalur kirim memakai socket yang dibungkus `baileys-antiban`. Sebelum kirim ke nomor `@s.whatsapp.net`, gateway memanggil `onWhatsApp` dan secara default memakai LID jika tersedia (`WA_LAB_PREFER_LID_SEND=true`). Opsi lama `WA_LAB_DISABLE_ANTIBAN` dan `WA_LAB_MANUAL_DIRECT_SEND` sudah tidak dipakai. Nilai delay 90–300 detik juga harus diganti karena backend reminder memiliki timeout 30 detik.
 
 ## Setup Docker
 
@@ -110,7 +111,7 @@ curl -sS \
   http://127.0.0.1:3010/status
 ```
 
-Status menampilkan state koneksi, nomor tertaut, limit harian, statistik anti-ban, presence, delivery receipt, dan transport pengiriman terakhir. Nilai `last_outgoing_transport` harus `baileys-antiban`.
+Status menampilkan state koneksi, nomor tertaut, limit harian, statistik anti-ban, presence, delivery receipt, diagnostics request terakhir, serta detail target kirim terakhir. Nilai `last_outgoing_transport` harus `baileys-antiban`. Untuk trace PN/LID, cek `last_outgoing_requested_jid`, `last_outgoing_resolved_jid`, `last_outgoing_resolved_lid`, dan `last_outgoing_jid`.
 
 ### QR Login
 

@@ -9,6 +9,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - WA Lab direfactor agar seluruh kirim manual, balasan, chat baru, dan reminder hanya melewati socket `baileys-antiban`; jalur raw/bypass dihapus.
 - Delay anti-ban diselaraskan dengan timeout backend agar request reminder tidak berhenti lebih dulu sebelum pesan dikirim.
 - State warm-up dan daftar chat dikenal dari `baileys-antiban` disimpan di `data/antiban-state.json` agar tidak kembali nol setiap container restart.
+- WA Lab meresolve target kirim lewat `onWhatsApp` dan memakai LID jika tersedia untuk mengurangi kasus pesan accepted tetapi tidak sampai ke penerima.
 - Kartu ringkasan Inbox Tindakan dan tombol refresh khusus dihapus agar Inbox langsung fokus pada daftar tindakan.
 - Kartu Approval dan Permintaan Reset PIN tetap terlihat meskipun antreannya kosong, sehingga struktur Inbox tidak membingungkan.
 - PIN sementara pada reset PIN dan notifikasi Telegram kini mengikuti `DEFAULT_USER_PIN` dari environment.
@@ -19,7 +20,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 ### Diubah
 
 - Simulasi mengetik WA Lab kini memakai `PresenceChoreographer` dari `baileys-antiban`, bukan perhitungan delay buatan gateway.
-- Status WA Lab selalu menampilkan anti-ban aktif, statistik pengiriman, statistik presence, serta transport terakhir `baileys-antiban`.
+- Status WA Lab selalu menampilkan anti-ban aktif, statistik pengiriman, statistik presence, diagnostics request terakhir, detail PN/LID target, serta transport terakhir `baileys-antiban`.
 - Dokumentasi menjelaskan bahwa Jimpitan V1 memakai input per warga dan memengaruhi status/tunggakan warga, sedangkan Jimpitan V2 memakai setoran shift atau histori by name tanpa menghitung tunggakan warga di Dashboard.
 - Inbox admin mengelompokkan approval transaksi, memisahkan reset PIN, lalu menampilkan antrean keanggotaan dan riwayat secara berurutan.
 - Inbox Persetujuan memisahkan approval utama dari antrean keanggotaan agar reset PIN tidak terlihat dobel dengan request membership.
