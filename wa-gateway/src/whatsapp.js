@@ -53,6 +53,9 @@ let lastTypingCompletedAt = null;
 let lastTypingJid = null;
 let lastTypingDurationMs = 0;
 let lastTypingError = null;
+let lastPresenceSubscribeAt = null;
+let lastPresenceSubscribeJid = null;
+let lastPresenceSubscribeError = null;
 let resetInProgress = false;
 const presenceChoreographer = new PresenceChoreographer(config.presence);
 
@@ -75,13 +78,21 @@ async function simulateTyping(jid, text) {
   lastTypingJid = jid;
   lastTypingDurationMs = plan.reduce((total, step) => total + Number(step.durationMs || 0), 0);
   lastTypingError = null;
+  lastPresenceSubscribeAt = null;
+  lastPresenceSubscribeJid = jid;
+  lastPresenceSubscribeError = null;
   try {
+    if (rawSocket.presenceSubscribe) {
+      await rawSocket.presenceSubscribe(jid);
+      lastPresenceSubscribeAt = new Date().toISOString();
+    }
     await presenceChoreographer.executeTypingPlan(rawSocket, jid, plan);
     await rawSocket.sendPresenceUpdate('paused', jid).catch(() => {});
     lastTypingCompletedAt = new Date().toISOString();
   } catch (error) {
     lastTypingCompletedAt = new Date().toISOString();
     lastTypingError = error instanceof Error ? error.message : String(error);
+    if (!lastPresenceSubscribeAt) lastPresenceSubscribeError = lastTypingError;
   }
 }
 
@@ -423,6 +434,9 @@ export function getStatus() {
       last_typing_jid: lastTypingJid,
       last_typing_duration_ms: lastTypingDurationMs,
       last_typing_error: lastTypingError,
+      last_presence_subscribe_at: lastPresenceSubscribeAt,
+      last_presence_subscribe_jid: lastPresenceSubscribeJid,
+      last_presence_subscribe_error: lastPresenceSubscribeError,
       last_outgoing_requested_jid: lastOutgoingRequestedJid,
       last_outgoing_resolved_jid: lastOutgoingResolvedJid,
       last_outgoing_resolved_lid: lastOutgoingResolvedLid,
