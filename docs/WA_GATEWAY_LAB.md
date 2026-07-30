@@ -36,23 +36,13 @@ WA_LAB_SECRET=isi_secret_panjang
 WA_AUTH_DIR=./auth
 WA_DATA_DIR=./data
 WA_LAB_DAILY_UNIQUE_LIMIT=3
-WA_LAB_MIN_TEXT_LENGTH=2
-WA_LAB_PREFER_LID_SEND=true
+WA_LAB_PREFER_LID_SEND=false
 TZ=Asia/Jakarta
-WA_ANTIBAN_PRESET=conservative
-WA_ANTIBAN_MAX_PER_MINUTE=2
-WA_ANTIBAN_MAX_PER_HOUR=10
-WA_ANTIBAN_MAX_PER_DAY=20
-WA_ANTIBAN_MIN_DELAY_MS=2500
-WA_ANTIBAN_MAX_DELAY_MS=7000
-WA_ANTIBAN_NEW_CHAT_DELAY_MS=4000
-WA_ANTIBAN_WARMUP_DAYS=7
-WA_ANTIBAN_STATE_FILE=./data/antiban-state.json
 ```
 
-Jika `.env` lama masih memakai `WA_GATEWAY_SECRET`, service tetap bisa membaca secret tersebut sebagai fallback.
+Konfigurasi anti-ban, minimal panjang pesan, typing, logging, dan lokasi state memakai default aman dari kode. Nilai override tersedia pada bagian eksperimen di `.env.example`; gunakan nilai konservatif selama pengujian.
 
-Semua jalur kirim memakai socket yang dibungkus `baileys-antiban`. Sebelum kirim ke nomor `@s.whatsapp.net`, gateway memanggil `onWhatsApp` dan secara default memakai LID jika tersedia (`WA_LAB_PREFER_LID_SEND=true`). Opsi lama `WA_LAB_DISABLE_ANTIBAN` dan `WA_LAB_MANUAL_DIRECT_SEND` sudah tidak dipakai. Nilai delay 90–300 detik juga harus diganti karena backend reminder memiliki timeout 30 detik.
+Semua jalur kirim memakai socket yang dibungkus `baileys-antiban`. Sebelum kirim ke nomor `@s.whatsapp.net`, gateway memanggil `onWhatsApp`, tetapi secara default tetap mengirim ke JID nomor telepon (`WA_LAB_PREFER_LID_SEND=false`). Aktifkan LID hanya bila sudah terbukti stabil untuk nomor terkait. Opsi lama `WA_LAB_DISABLE_ANTIBAN` dan `WA_LAB_MANUAL_DIRECT_SEND` sudah tidak dipakai. Nilai delay 90–300 detik juga harus diganti karena backend reminder memiliki timeout 30 detik.
 
 ## Setup Docker
 
@@ -111,7 +101,7 @@ curl -sS \
   http://127.0.0.1:3010/status
 ```
 
-Status menampilkan state koneksi, nomor tertaut, limit harian, statistik anti-ban, presence, delivery receipt, diagnostics request terakhir, serta detail target kirim terakhir. Nilai `last_outgoing_transport` harus `baileys-antiban`. Untuk trace PN/LID, cek `last_outgoing_requested_jid`, `last_outgoing_resolved_jid`, `last_outgoing_resolved_lid`, dan `last_outgoing_jid`.
+Status menampilkan state koneksi, nomor tertaut, limit harian, statistik anti-ban, presence, delivery receipt, serta detail target kirim terakhir. Nilai `last_outgoing_transport` harus `baileys-antiban`. Untuk trace PN/LID, cek `last_outgoing_requested_jid`, `last_outgoing_resolved_jid`, `last_outgoing_resolved_lid`, dan `last_outgoing_jid`.
 
 ### QR Login
 

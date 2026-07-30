@@ -42,12 +42,6 @@ let lastOutgoingTransport = null;
 let lastOutgoingMessageId = null;
 let lastOutgoingResultJid = null;
 let lastOutgoingError = null;
-let lastRawTraceAttemptAt = null;
-let lastRawTraceCompletedAt = null;
-let lastRawTraceJid = null;
-let lastRawTraceMessageId = null;
-let lastRawTraceResultJid = null;
-let lastRawTraceError = null;
 let lastTypingAttemptAt = null;
 let lastTypingCompletedAt = null;
 let lastTypingJid = null;
@@ -121,10 +115,31 @@ async function sendProtectedMessage(jid, content, options = {}) {
   }
 }
 
+function assertConnected() {
+  if (!socket || connectionState !== 'connected') {
+    throw new Error('WhatsApp belum connected. Scan QR dulu.');
+  }
+}
+
+function validateMessageText(text) {
+  const messageText = String(text || '').trim();
+  if (messageText.length < config.minTextLength) {
+    throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
+  }
+  return messageText;
+}
+
 async function prepareHumanSend(jid, text) {
   const resolvedJid = await resolveSendJid(jid);
   await simulateTyping(resolvedJid, text);
   return resolvedJid;
+}
+
+async function sendTextMessage(jid, text) {
+  const messageText = validateMessageText(text);
+  const resolvedJid = await prepareHumanSend(jid, messageText);
+  const result = await sendProtectedMessage(jid, { text: messageText }, { resolvedJid });
+  return { messageText, result };
 }
 
 function normalizePhone(phone) {
@@ -269,7 +284,7 @@ async function recordIncomingMessages(messages = []) {
       continue;
     }
     if (message?.key?.fromMe) {
-      lastInboxIgnoredReason = `pesan dari akun sendiri: ${jid}`;
+      lastInboxIgnoredReason = `pesan keluar dari akun tertaut ${linkedNumber || '-'} ke ${jid}`;
       continue;
     }
 
@@ -447,13 +462,7 @@ export function getStatus() {
       last_outgoing_transport: lastOutgoingTransport,
       last_outgoing_message_id: lastOutgoingMessageId,
       last_outgoing_result_jid: lastOutgoingResultJid,
-      last_outgoing_error: lastOutgoingError,
-      last_raw_trace_attempt_at: lastRawTraceAttemptAt,
-      last_raw_trace_completed_at: lastRawTraceCompletedAt,
-      last_raw_trace_jid: lastRawTraceJid,
-      last_raw_trace_message_id: lastRawTraceMessageId,
-      last_raw_trace_result_jid: lastRawTraceResultJid,
-      last_raw_trace_error: lastRawTraceError
+      last_outgoing_error: lastOutgoingError
     }
   };
 }
@@ -487,20 +496,13 @@ export function getQr() {
 }
 
 export async function sendTestMessage({ phone, text }) {
-  if (!socket || connectionState !== 'connected') {
-    throw new Error('WhatsApp belum connected. Scan QR dulu.');
-  }
+  assertConnected();
 
   const normalizedPhone = normalizePhone(phone);
-  const messageText = String(text || '').trim();
-  if (messageText.length < config.minTextLength) {
-    throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
-  }
-
+  const messageText = validateMessageText(text);
   await assertCanSend(normalizedPhone);
   const jid = jidFromPhone(normalizedPhone);
-  const resolvedJid = await prepareHumanSend(jid, messageText);
-  const result = await sendProtectedMessage(jid, { text: messageText }, { resolvedJid });
+  const { result } = await sendTextMessage(jid, messageText);
   const usage = await recordSend(normalizedPhone);
 
   return {
@@ -514,46 +516,8 @@ export async function sendTestMessage({ phone, text }) {
   };
 }
 
-export async function sendRawTraceMessage({ phone, text }) {
-  if (!rawSocket || connectionState !== 'connected') {
-    throw new Error('WhatsApp belum connected. Scan QR dulu.');
-  }
-
-  const normalizedPhone = normalizePhone(phone);
-  const messageText = String(text || '').trim();
-  if (messageText.length < config.minTextLength) {
-    throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
-  }
-
-  const jid = jidFromPhone(normalizedPhone);
-  lastRawTraceAttemptAt = new Date().toISOString();
-  lastRawTraceCompletedAt = null;
-  lastRawTraceJid = jid;
-  lastRawTraceMessageId = null;
-  lastRawTraceResultJid = null;
-  lastRawTraceError = null;
-
-  try {
-    const result = await rawSocket.sendMessage(jid, { text: messageText });
-    lastRawTraceCompletedAt = new Date().toISOString();
-    lastRawTraceMessageId = result?.key?.id || null;
-    lastRawTraceResultJid = result?.key?.remoteJid || null;
-    return {
-      jid,
-      message_id: lastRawTraceMessageId,
-      result_jid: lastRawTraceResultJid
-    };
-  } catch (error) {
-    lastRawTraceCompletedAt = new Date().toISOString();
-    lastRawTraceError = error instanceof Error ? error.message : String(error);
-    throw error;
-  }
-}
-
 export async function sendChatReply({ jid, text }) {
-  if (!socket || connectionState !== 'connected') {
-    throw new Error('WhatsApp belum connected. Scan QR dulu.');
-  }
+  assertConnected();
   if (!isPrivateChat(jid)) {
     throw new Error('Reply hanya mendukung chat 1:1.');
   }
@@ -561,13 +525,7 @@ export async function sendChatReply({ jid, text }) {
     throw new Error('Chat belum dikenal. Tunggu pesan masuk dulu sebelum membalas.');
   }
 
-  const messageText = String(text || '').trim();
-  if (messageText.length < config.minTextLength) {
-    throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
-  }
-
-  const resolvedJid = await prepareHumanSend(jid, messageText);
-  const result = await sendProtectedMessage(jid, { text: messageText }, { resolvedJid });
+  const { messageText, result } = await sendTextMessage(jid, text);
   await appendChatMessage({
     jid,
     id: result?.key?.id || `out-${Date.now()}`,
@@ -583,21 +541,14 @@ export async function sendChatReply({ jid, text }) {
 }
 
 export async function startChatMessage({ phone, name, text }) {
-  if (!socket || connectionState !== 'connected') {
-    throw new Error('WhatsApp belum connected. Scan QR dulu.');
-  }
+  assertConnected();
 
   const normalizedPhone = normalizePhone(phone);
   const jid = jidFromPhone(normalizedPhone);
-  const messageText = String(text || '').trim();
-  if (messageText.length < config.minTextLength) {
-    throw new Error(`Teks minimal ${config.minTextLength} karakter.`);
-  }
-
+  const messageText = validateMessageText(text);
   await assertCanSend(normalizedPhone);
   await upsertChat({ jid, name: name || normalizedPhone });
-  const resolvedJid = await prepareHumanSend(jid, messageText);
-  const result = await sendProtectedMessage(jid, { text: messageText }, { resolvedJid });
+  const { result } = await sendTextMessage(jid, messageText);
   await recordSend(normalizedPhone);
   await appendChatMessage({
     jid,
