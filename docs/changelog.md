@@ -2,6 +2,12 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-07-31
+
+### Diubah
+
+- WA Gateway meng-upgrade `baileys` ke versi stabil `6.7.24`; `baileys-antiban` tetap pada `4.10.0`.
+
 ## 2026-07-29
 
 ### Diperbaiki
