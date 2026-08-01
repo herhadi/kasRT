@@ -6,6 +6,8 @@ type MemberActionButtonsProps = {
   isActive: boolean;
   disabled?: boolean;
   onToggle: () => void;
+  activeActionLabel?: string;
+  inactiveActionLabel?: string;
 };
 
 const buttonStyle: CSSProperties = {
@@ -24,11 +26,11 @@ const buttonStyle: CSSProperties = {
 const enableStyle: CSSProperties = { ...buttonStyle, borderColor: '#86efac', background: '#f0fdf4', color: '#166534' };
 const disableStyle: CSSProperties = { ...buttonStyle, borderColor: '#fda4af', background: '#fff1f2', color: '#9f1239' };
 
-export default function MemberActionButtons({ isActive, disabled = false, onToggle }: MemberActionButtonsProps) {
+export default function MemberActionButtons({ isActive, disabled = false, onToggle, activeActionLabel = 'Nonaktifkan', inactiveActionLabel = 'Aktifkan' }: MemberActionButtonsProps) {
   return (
     <div className="inline-flex justify-end">
       <button type="button" style={isActive ? disableStyle : enableStyle} onClick={onToggle} disabled={disabled}>
-        {isActive ? 'Nonaktifkan' : 'Aktifkan'}
+        {isActive ? activeActionLabel : inactiveActionLabel}
       </button>
     </div>
   );

@@ -1,18 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import ToastStack from '@/components/ui/ToastStack';
 import { apiFetch } from '@/lib/api';
 import useToast from '@/lib/hooks/useToast';
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
+import MembershipStatusFilter from '@/components/membership/MembershipStatusFilter';
+import PaginationControls from '@/components/pagination/PaginationControls';
+import usePagination from '@/lib/hooks/usePagination';
 
-type AttendanceItem = { warga_id: string; nama: string; status: 'HADIR' | 'IJIN' | 'TIDAK_HADIR' };
+type AttendanceItem = { warga_id: string; nama: string; status: 'HADIR' | 'IJIN' | 'TIDAK_HADIR'; is_active: boolean };
 
 export default function PresensiSekretarisPage() {
   const { toasts, pushToast } = useToast();
@@ -22,12 +26,25 @@ export default function PresensiSekretarisPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [filter, setFilter] = useState<'semua' | 'hadir' | 'ijin' | 'tidak_hadir'>('semua');
+  const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [selected, setSelected] = useState<AttendanceItem | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<AttendanceItem['status']>('TIDAK_HADIR');
 
   async function load() {
     const res = await apiFetch<{ success: boolean; data: AttendanceItem[] }>(`/management/meeting-attendance?month=${encodeURIComponent(month)}`);
     setAttendance(res.data || []);
+  }
+
+  async function setMemberActive(item: AttendanceItem) {
+    try {
+      await apiFetch('/management/meeting-attendance/member-status', {
+        method: 'POST',
+        body: JSON.stringify({ warga_id: item.warga_id, is_active: !item.is_active })
+      });
+      setAttendance((prev) => prev.map((row) => row.warga_id === item.warga_id ? { ...row, is_active: !row.is_active } : row));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mengubah status presensi');
+    }
   }
 
   useEffect(() => {
@@ -51,12 +68,15 @@ export default function PresensiSekretarisPage() {
     }
   }
 
-  const filtered = attendance.filter((a) => {
+  const filtered = useMemo(() => attendance.filter((a) => {
+    if (memberFilter === 'aktif' && !a.is_active) return false;
+    if (memberFilter === 'nonaktif' && a.is_active) return false;
     if (filter === 'hadir') return a.status === 'HADIR';
     if (filter === 'ijin') return a.status === 'IJIN';
     if (filter === 'tidak_hadir') return a.status === 'TIDAK_HADIR';
     return true;
-  });
+  }), [attendance, filter, memberFilter]);
+  const pager = usePagination(filtered, 12);
 
   function openModal(item: AttendanceItem) {
     setSelected(item);
@@ -71,9 +91,10 @@ export default function PresensiSekretarisPage() {
   }
 
   function kirimRekapHadirWA() {
-    const hadir = attendance.filter((a) => a.status === 'HADIR');
-    const ijin = attendance.filter((a) => a.status === 'IJIN');
-    const tanpaKeterangan = attendance.filter((a) => a.status === 'TIDAK_HADIR');
+    const activeAttendance = attendance.filter((a) => a.is_active);
+    const hadir = activeAttendance.filter((a) => a.status === 'HADIR');
+    const ijin = activeAttendance.filter((a) => a.status === 'IJIN');
+    const tanpaKeterangan = activeAttendance.filter((a) => a.status === 'TIDAK_HADIR');
     if (attendance.length === 0) {
       pushToast('Data presensi belum tersedia.', 'warning');
       return;
@@ -136,17 +157,18 @@ export default function PresensiSekretarisPage() {
           headerRight={<PeriodPickerCompact label="Periode" value={month} onChange={setMonth} />}
         >
           <div className="mb-3 grid grid-cols-4 gap-2">
-            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Hadir: <b>{attendance.filter((a) => a.status === 'HADIR').length}</b></div>
-            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Izin: <b>{attendance.filter((a) => a.status === 'IJIN').length}</b></div>
-            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Tidak Hadir: <b>{attendance.filter((a) => a.status === 'TIDAK_HADIR').length}</b></div>
-            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Total: <b>{attendance.length}</b></div>
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Hadir: <b>{attendance.filter((a) => a.is_active && a.status === 'HADIR').length}</b></div>
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Izin: <b>{attendance.filter((a) => a.is_active && a.status === 'IJIN').length}</b></div>
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Tidak Hadir: <b>{attendance.filter((a) => a.is_active && a.status === 'TIDAK_HADIR').length}</b></div>
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Wajib Hadir: <b>{attendance.filter((a) => a.is_active).length}</b></div>
           </div>
           <div className="mb-3 grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+            <MembershipStatusFilter value={memberFilter} activeCount={attendance.filter((a) => a.is_active).length} inactiveCount={attendance.filter((a) => !a.is_active).length} onChange={setMemberFilter} activeLabel="Wajib Hadir" inactiveLabel="Dikecualikan" />
             {[
               { key: 'semua', label: `Semua (${attendance.length})` },
-              { key: 'hadir', label: `Hadir (${attendance.filter((a) => a.status === 'HADIR').length})` },
-              { key: 'ijin', label: `Izin (${attendance.filter((a) => a.status === 'IJIN').length})` },
-              { key: 'tidak_hadir', label: `Tidak Hadir (${attendance.filter((a) => a.status === 'TIDAK_HADIR').length})` }
+              { key: 'hadir', label: `Hadir (${attendance.filter((a) => a.is_active && a.status === 'HADIR').length})` },
+              { key: 'ijin', label: `Izin (${attendance.filter((a) => a.is_active && a.status === 'IJIN').length})` },
+              { key: 'tidak_hadir', label: `Tidak Hadir (${attendance.filter((a) => a.is_active && a.status === 'TIDAK_HADIR').length})` }
             ].map((f) => (
               <button
                 key={f.key}
@@ -163,20 +185,22 @@ export default function PresensiSekretarisPage() {
             ))}
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            {filtered.map((a) => (
+              {pager.pagedItems.map((a) => (
               <div
                 key={a.warga_id}
                 role="button"
                 tabIndex={0}
-                onClick={() => openModal(a)}
+                onClick={() => a.is_active && openModal(a)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    openModal(a);
+                    if (a.is_active) openModal(a);
                   }
                 }}
                 className={`rounded-2xl border p-4 ${
-                  a.status === 'HADIR'
+                  !a.is_active
+                    ? 'border-dashed opacity-60'
+                    : a.status === 'HADIR'
                     ? 'card-status-paid'
                     : a.status === 'IJIN'
                       ? 'card-status-empty'
@@ -185,10 +209,14 @@ export default function PresensiSekretarisPage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{a.nama}</p>
+                  <MemberActionButtons isActive={a.is_active} disabled={saving} onToggle={() => void setMemberActive(a)} activeActionLabel="Kecualikan" inactiveActionLabel="Masukkan Wajib Hadir" />
                 </div>
+                {!a.is_active ? <p className="mt-1 text-xs text-[var(--text-muted)]">Dikecualikan dari presensi — tidak dihitung wajib hadir</p> : null}
               </div>
             ))}
           </div>
+          {!filtered.length ? <p className="mt-3 text-sm text-[var(--text-muted)]">Tidak ada data presensi pada filter ini.</p> : null}
+          <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
           <div className="mt-3 grid w-full grid-cols-1 gap-2 md:grid-cols-2">
             <Button className="btn-action-green" onClick={saveAttendance} disabled={saving}>
               {saving ? 'Menyimpan...' : 'Simpan Presensi'}

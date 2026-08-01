@@ -6,12 +6,14 @@ type Props = {
   inactiveCount: number;
   onChange: (value: StatusKey) => void;
   className?: string;
+  activeLabel?: string;
+  inactiveLabel?: string;
 };
 
-export default function MembershipStatusFilter({ value, activeCount, inactiveCount, onChange, className = '' }: Props) {
+export default function MembershipStatusFilter({ value, activeCount, inactiveCount, onChange, className = '', activeLabel = 'Aktif', inactiveLabel = 'Nonaktif' }: Props) {
   const items: Array<{ key: StatusKey; label: string; count: number }> = [
-    { key: 'aktif', label: 'Aktif', count: activeCount },
-    { key: 'nonaktif', label: 'Nonaktif', count: inactiveCount }
+    { key: 'aktif', label: activeLabel, count: activeCount },
+    { key: 'nonaktif', label: inactiveLabel, count: inactiveCount }
   ];
 
   return (

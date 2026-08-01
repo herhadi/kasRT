@@ -1,6 +1,7 @@
 import {
   getMeetingAttendanceByMonth,
   getMeetingNoteByMonth,
+  setMeetingAttendanceMemberActive,
   upsertMeetingAttendanceByMonth,
   upsertMeetingNoteByMonth
 } from '../models/managementModel.js';
@@ -75,6 +76,18 @@ export async function saveMeetingAttendance(req, res) {
   try {
     await upsertMeetingAttendanceByMonth({ month, attendance, actorId });
     return res.json({ success: true });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+export async function setMeetingAttendanceMember(req, res) {
+  const wargaId = String(req.body?.warga_id || '').trim();
+  const actorId = String(req.user?.user_id || '').trim();
+  if (!wargaId) return res.status(400).json({ success: false, message: 'warga_id wajib diisi' });
+  try {
+    const data = await setMeetingAttendanceMemberActive({ wargaId, isActive: Boolean(req.body?.is_active), actorId });
+    return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

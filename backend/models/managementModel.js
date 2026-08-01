@@ -59,6 +59,14 @@ export async function ensureNotulenTable() {
     )
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS meeting_attendance_members (
+      warga_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_by UUID REFERENCES users(id),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
     ALTER TABLE monthly_meeting_attendance
       ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'TIDAK_HADIR'
   `);
@@ -463,15 +471,29 @@ export async function getMeetingAttendanceByMonth(month) {
      SELECT
        p.id AS warga_id,
        p.nama,
-       COALESCE(a.status, 'TIDAK_HADIR') AS status
+       COALESCE(a.status, 'TIDAK_HADIR') AS status,
+       COALESCE(m.is_active, TRUE) AS is_active
      FROM peserta p
      LEFT JOIN monthly_meeting_attendance a
        ON a.warga_id = p.id
       AND a.month = $1
+     LEFT JOIN meeting_attendance_members m ON m.warga_id = p.id
      ORDER BY p.nama ASC`,
     [month]
   );
   return result.rows;
+}
+
+export async function setMeetingAttendanceMemberActive({ wargaId, isActive, actorId }) {
+  await ensureNotulenTable();
+  await pool.query(
+    `INSERT INTO meeting_attendance_members (warga_id, is_active, updated_by, updated_at)
+     VALUES ($1::uuid, $2::boolean, $3::uuid, NOW())
+     ON CONFLICT (warga_id)
+     DO UPDATE SET is_active = EXCLUDED.is_active, updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
+    [wargaId, Boolean(isActive), actorId]
+  );
+  return { warga_id: wargaId, is_active: Boolean(isActive) };
 }
 
 export async function upsertMeetingAttendanceByMonth({ month, attendance, actorId }) {
@@ -484,6 +506,8 @@ export async function upsertMeetingAttendanceByMonth({ month, attendance, actorI
       const status = String(item.status || 'TIDAK_HADIR').trim().toUpperCase();
       if (!wargaId) continue;
       if (!['HADIR', 'IJIN', 'TIDAK_HADIR'].includes(status)) continue;
+      const active = await client.query('SELECT COALESCE(is_active, TRUE) AS is_active FROM meeting_attendance_members WHERE warga_id = $1::uuid', [wargaId]);
+      if (active.rows[0] && !active.rows[0].is_active) continue;
       await client.query(
         `INSERT INTO monthly_meeting_attendance (month, warga_id, status, updated_by, updated_at)
          VALUES ($1, $2::uuid, $3, $4::uuid, NOW())
