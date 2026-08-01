@@ -6,6 +6,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Diubah
 
+- WA Lab menyimpan waktu pertama nomor tertaut secara persisten agar restart/redeploy tidak mengulang cooldown umur koneksi 180 menit; pergantian nomor tetap memulai cooldown baru.
 - WA Gateway meng-upgrade `baileys` ke versi stabil `6.7.24`; `baileys-antiban` tetap pada `4.10.0`.
 
 ## 2026-07-29

@@ -79,7 +79,11 @@ async function checkGatewayCooldown({ baseUrl, secret, signal }) {
   }
   if (data.data?.connected !== true) return { success: false, error: 'WA Lab belum connected' };
 
-  const connectedAt = data.data?.last_connected_at ? new Date(data.data.last_connected_at).getTime() : NaN;
+  const connectedAt = data.data?.first_linked_at
+    ? new Date(data.data.first_linked_at).getTime()
+    : data.data?.last_connected_at
+      ? new Date(data.data.last_connected_at).getTime()
+      : NaN;
   if (!Number.isFinite(connectedAt)) return { success: false, error: 'WA Lab belum punya waktu connected' };
 
   const ageMinutes = Math.floor((Date.now() - connectedAt) / 60_000);

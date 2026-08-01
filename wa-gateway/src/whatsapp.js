@@ -18,6 +18,7 @@ let latestQr = null;
 let latestQrDataUrl = null;
 let connectionState = 'idle';
 let linkedNumber = null;
+let firstLinkedAt = null;
 let lastDisconnectReason = null;
 let lastConnectedAt = null;
 let lastIncomingEventAt = null;
@@ -52,6 +53,7 @@ let lastPresenceSubscribeJid = null;
 let lastPresenceSubscribeError = null;
 let resetInProgress = false;
 const presenceChoreographer = new PresenceChoreographer(config.presence);
+const connectionStateFile = `${config.dataDir}/connection-state.json`;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -270,6 +272,23 @@ async function clearAuthDir() {
   }
 }
 
+async function persistLinkedConnection(number) {
+  if (!number) return;
+  let saved = null;
+  try {
+    saved = JSON.parse(await fs.readFile(connectionStateFile, 'utf8'));
+  } catch {
+    saved = null;
+  }
+  const sameNumber = saved?.linkedNumber === number && saved?.firstLinkedAt;
+  firstLinkedAt = sameNumber ? saved.firstLinkedAt : new Date().toISOString();
+  await fs.mkdir(config.dataDir, { recursive: true });
+  await fs.writeFile(connectionStateFile, JSON.stringify({
+    linkedNumber: number,
+    firstLinkedAt
+  }, null, 2));
+}
+
 async function clearAntibanState() {
   await fs.rm(config.antibanStateFile, { force: true });
 }
@@ -395,6 +414,9 @@ export async function startWhatsApp() {
       connectionState = 'connected';
       linkedNumber = parseLinkedNumber(socket?.user?.id || rawSocket?.user?.id);
       lastConnectedAt = new Date().toISOString();
+      await persistLinkedConnection(linkedNumber).catch((error) => {
+        lastDisconnectReason = `connection state store failed: ${error.message}`;
+      });
     }
 
     if (update.connection === 'close') {
@@ -423,6 +445,7 @@ export function getStatus() {
     has_qr: Boolean(latestQr),
     linked_number: linkedNumber,
     last_connected_at: lastConnectedAt,
+    first_linked_at: firstLinkedAt,
     last_disconnect_reason: lastDisconnectReason,
     antiban: {
       enabled: true,
