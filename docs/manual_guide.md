@@ -32,6 +32,8 @@ KasRT adalah aplikasi kas dan operasional RT untuk:
 
 Pada Presensi Rapat, daftar awal mengikuti eligible user global. Pengaturan pengecualian tersedia di `/operasional/sekretaris/presensi/setting`; Sekretaris dapat mengecualikan warga khusus untuk presensi. Warga tersebut tidak tampil di input presensi, tidak dihitung sebagai wajib hadir, dan tidak masuk rekap.
 
+Pengajuan penarikan Tabungan dilakukan dari detail saldo Tabungan di dashboard melalui tombol `Ajukan Penarikan Tabungan`, lalu diproses Admin Pembangunan pada halaman pencairan.
+
 ### Jika Lupa PIN
 
 - Hubungi pengurus yang memiliki akses manajemen user.
