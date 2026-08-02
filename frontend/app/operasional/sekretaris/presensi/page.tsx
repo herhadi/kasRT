@@ -1,20 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import OperationalSubmenuHeader from '@/components/layout/OperationalSubmenuHeader';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import MemberActionButtons from '@/components/ui/MemberActionButtons';
 import FeedbackToast from '@/components/ui/FeedbackToast';
 import ToastStack from '@/components/ui/ToastStack';
 import { apiFetch } from '@/lib/api';
 import useToast from '@/lib/hooks/useToast';
 import PeriodPickerCompact from '@/components/contribution/PeriodPickerCompact';
-import MembershipStatusFilter from '@/components/membership/MembershipStatusFilter';
-import PaginationControls from '@/components/pagination/PaginationControls';
-import usePagination from '@/lib/hooks/usePagination';
 
 type AttendanceItem = { warga_id: string; nama: string; status: 'HADIR' | 'IJIN' | 'TIDAK_HADIR'; is_active: boolean };
 
@@ -26,25 +22,12 @@ export default function PresensiSekretarisPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [filter, setFilter] = useState<'semua' | 'hadir' | 'ijin' | 'tidak_hadir'>('semua');
-  const [memberFilter, setMemberFilter] = useState<'aktif' | 'nonaktif'>('aktif');
   const [selected, setSelected] = useState<AttendanceItem | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<AttendanceItem['status']>('TIDAK_HADIR');
 
   async function load() {
     const res = await apiFetch<{ success: boolean; data: AttendanceItem[] }>(`/management/meeting-attendance?month=${encodeURIComponent(month)}`);
-    setAttendance(res.data || []);
-  }
-
-  async function setMemberActive(item: AttendanceItem) {
-    try {
-      await apiFetch('/management/meeting-attendance/member-status', {
-        method: 'POST',
-        body: JSON.stringify({ warga_id: item.warga_id, is_active: !item.is_active })
-      });
-      setAttendance((prev) => prev.map((row) => row.warga_id === item.warga_id ? { ...row, is_active: !row.is_active } : row));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal mengubah status presensi');
-    }
+    setAttendance((res.data || []).filter((item) => item.is_active));
   }
 
   useEffect(() => {
@@ -68,15 +51,12 @@ export default function PresensiSekretarisPage() {
     }
   }
 
-  const filtered = useMemo(() => attendance.filter((a) => {
-    if (memberFilter === 'aktif' && !a.is_active) return false;
-    if (memberFilter === 'nonaktif' && a.is_active) return false;
+  const filtered = attendance.filter((a) => {
     if (filter === 'hadir') return a.status === 'HADIR';
     if (filter === 'ijin') return a.status === 'IJIN';
     if (filter === 'tidak_hadir') return a.status === 'TIDAK_HADIR';
     return true;
-  }), [attendance, filter, memberFilter]);
-  const pager = usePagination(filtered, 12);
+  });
 
   function openModal(item: AttendanceItem) {
     setSelected(item);
@@ -163,7 +143,6 @@ export default function PresensiSekretarisPage() {
             <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">Wajib Hadir: <b>{attendance.filter((a) => a.is_active).length}</b></div>
           </div>
           <div className="mb-3 grid w-full grid-cols-2 gap-2 md:grid-cols-4">
-            <MembershipStatusFilter value={memberFilter} activeCount={attendance.filter((a) => a.is_active).length} inactiveCount={attendance.filter((a) => !a.is_active).length} onChange={setMemberFilter} activeLabel="Wajib Hadir" inactiveLabel="Dikecualikan" />
             {[
               { key: 'semua', label: `Semua (${attendance.length})` },
               { key: 'hadir', label: `Hadir (${attendance.filter((a) => a.is_active && a.status === 'HADIR').length})` },
@@ -185,7 +164,7 @@ export default function PresensiSekretarisPage() {
             ))}
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-              {pager.pagedItems.map((a) => (
+              {filtered.map((a) => (
               <div
                 key={a.warga_id}
                 role="button"
@@ -209,14 +188,11 @@ export default function PresensiSekretarisPage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{a.nama}</p>
-                  <MemberActionButtons isActive={a.is_active} disabled={saving} onToggle={() => void setMemberActive(a)} activeActionLabel="Kecualikan" inactiveActionLabel="Masukkan Wajib Hadir" />
                 </div>
-                {!a.is_active ? <p className="mt-1 text-xs text-[var(--text-muted)]">Dikecualikan dari presensi — tidak dihitung wajib hadir</p> : null}
               </div>
             ))}
           </div>
           {!filtered.length ? <p className="mt-3 text-sm text-[var(--text-muted)]">Tidak ada data presensi pada filter ini.</p> : null}
-          <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
           <div className="mt-3 grid w-full grid-cols-1 gap-2 md:grid-cols-2">
             <Button className="btn-action-green" onClick={saveAttendance} disabled={saving}>
               {saving ? 'Menyimpan...' : 'Simpan Presensi'}

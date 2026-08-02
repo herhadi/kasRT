@@ -30,7 +30,7 @@ KasRT adalah aplikasi kas dan operasional RT untuk:
 4. Pastikan nama dan nomor HP benar.
 5. Aktifkan Telegram jika ingin menerima notifikasi dan memakai command bot.
 
-Pada Presensi Rapat, daftar awal mengikuti eligible user global. Sekretaris dapat mengecualikan warga khusus untuk presensi; warga tersebut tetap terlihat di daftar, tetapi tidak dihitung sebagai wajib hadir dan tidak masuk rekap.
+Pada Presensi Rapat, daftar awal mengikuti eligible user global. Pengaturan pengecualian tersedia di `/operasional/sekretaris/presensi/setting`; Sekretaris dapat mengecualikan warga khusus untuk presensi. Warga tersebut tidak tampil di input presensi, tidak dihitung sebagai wajib hadir, dan tidak masuk rekap.
 
 ### Jika Lupa PIN
 
