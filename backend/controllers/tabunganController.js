@@ -1,5 +1,6 @@
 import {
   closeTabunganYear,
+  createTabunganWithdrawalRequest,
   createTabunganEvent,
   getTabunganYearlyBook,
   getTabunganDanaSummary,
@@ -12,12 +13,14 @@ import {
   listTabunganTariffs,
   listTabunganLedgerByMonth,
   listTabunganWargaSummary,
+  listPendingTabunganWithdrawals,
   openTabunganYear,
   setTabunganMemberActive,
   setTabunganTariff,
+  decideTabunganWithdrawal,
   updateTabunganSetoran
 } from '../models/tabunganModel.js';
-import { notifyUser } from '../services/approvalNotifier.js';
+import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah } from '../services/telegramService.js';
 
 export async function getTabunganSummary(req, res) {
@@ -42,6 +45,39 @@ export async function getTabunganSummary(req, res) {
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
+}
+
+export async function requestTabunganWithdrawal(req, res) {
+  const wargaId = String(req.user.user_id || '').trim();
+  const amount = Number(req.body?.amount || 0);
+  const reason = String(req.body?.reason || '').trim();
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Nominal penarikan tidak valid' });
+  try {
+    const data = await createTabunganWithdrawalRequest({ wargaId, amount, reason });
+    await notifyUser(wargaId, `📥 <b>Pengajuan Penarikan Tabungan Diterima</b>\nNominal: <b>${formatRupiah(amount)}</b>\nSaldo tersedia: <b>${formatRupiah(data.available_balance)}</b>\nStatus: <b>PENDING</b>\n\nPengajuan menunggu pemeriksaan Admin Pembangunan.`);
+    await notifyRoles(['Admin Pembangunan', 'root'], `📥 <b>Pengajuan Penarikan Tabungan Baru</b>\nNominal: <b>${formatRupiah(amount)}</b>\nSaldo warga: <b>${formatRupiah(data.available_balance)}</b>\nStatus: <b>PENDING</b>`);
+    return res.json({ success: true, data });
+  } catch (error) { return res.status(400).json({ success: false, message: error.message }); }
+}
+
+export async function getPendingTabunganWithdrawals(req, res) {
+  try { return res.json({ success: true, data: await listPendingTabunganWithdrawals() }); }
+  catch (error) { return res.status(400).json({ success: false, message: error.message }); }
+}
+
+export async function decideTabunganWithdrawalHandler(req, res) {
+  const requestId = String(req.params.id || '').trim();
+  const action = String(req.body?.action || '').trim().toUpperCase();
+  const reason = String(req.body?.reason || '').trim();
+  const actorId = String(req.user.user_id || '').trim();
+  try {
+    const data = await decideTabunganWithdrawal({ requestId, action, actorId, reason });
+    const balance = Number(data.available_balance || 0);
+    const amount = Number(data.amount || 0);
+    const statusText = action === 'REJECT' ? `❌ <b>Pengajuan Penarikan Tabungan Ditolak</b>\nAlasan: ${data.rejection_reason}` : action === 'APPROVE' ? '✅ <b>Pengajuan Penarikan Tabungan Disetujui</b>' : '💵 <b>Penarikan Tabungan Dibayarkan</b>';
+    await notifyUser(data.warga_id, `${statusText}\nNominal pengajuan: <b>${formatRupiah(amount)}</b>\nSaldo tersedia: <b>${formatRupiah(balance)}</b>${data.remaining_balance !== undefined ? `\nSaldo setelah penarikan: <b>${formatRupiah(data.remaining_balance)}</b>` : ''}`);
+    return res.json({ success: true, data });
+  } catch (error) { return res.status(400).json({ success: false, message: error.message }); }
 }
 
 export async function inputTabunganWarga(req, res) {

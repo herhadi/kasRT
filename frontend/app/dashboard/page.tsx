@@ -365,6 +365,7 @@ export default function DashboardPage() {
                   value={formatRupiah(personalObligations.iuranWajib)}
                   tone={personalObligations.iuranWajib < 0 ? 'danger' : 'accent'}
                 />
+                <Link href="/tabungan/penarikan" className="btn-action-blue inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-semibold">Ajukan Penarikan Tabungan</Link>
                 <Metric
                   title="Saldo Tabungan Pembangunan"
                   value={formatRupiah(wargaData.tabungan_saldo)}

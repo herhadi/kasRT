@@ -488,6 +488,7 @@ export default function TabunganPage() {
               <div className="ml-auto flex gap-2">
                 <Link href="/panduan#tabungan" className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold">📖 Panduan</Link>
                 <Link href="/operasional/tabungan/setting" className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold">⚙️ Pengaturan</Link>
+                <Link href="/operasional/tabungan/penarikan" className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold">💵 Pencairan</Link>
               </div>
             </div>
           ) : null}

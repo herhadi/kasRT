@@ -6,7 +6,10 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Diubah
 
+- Aturan arsitektur modul independen dan hubungan terbatas dengan Bendahara dicatat di `docs/project_rules.md`.
+- Alur pencairan Tabungan ditambahkan: pengajuan warga, inbox Admin Pembangunan, approval/reject, pembayaran `PAID`, ledger `WITHDRAW`, dan notifikasi detail saldo.
 - Presensi rapat kini memakai daftar eligible user global sebagai dasar, lalu menyediakan halaman pengaturan pengecualian khusus presensi; warga yang dikecualikan tidak masuk input, jumlah wajib hadir, atau rekap.
+- Card Presensi di halaman Operasional Sekretaris kini memiliki tombol Pengaturan Presensi dengan ikon roda gigi.
 - WA Lab menyimpan waktu pertama nomor tertaut secara persisten agar restart/redeploy tidak mengulang cooldown umur koneksi 180 menit; pergantian nomor tetap memulai cooldown baru.
 - WA Gateway meng-upgrade `baileys` ke versi stabil `6.7.24`; `baileys-antiban` tetap pada `4.10.0`.
 

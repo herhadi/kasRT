@@ -15,6 +15,7 @@ import {
   patchTabunganSetoran,
   postTabunganMemberSetActiveHandler,
   postTabunganTariffHandler
+  , requestTabunganWithdrawal, getPendingTabunganWithdrawals, decideTabunganWithdrawalHandler
 } from '../controllers/tabunganController.js';
 
 const router = express.Router();
@@ -27,6 +28,9 @@ router.get('/history', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), a
 router.get('/event-detail', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), asyncHandler(getKebutuhanKhususDetail));
 router.get('/yearly-book', allowRoles('Admin Pembangunan', 'Ketua', 'Sekretaris'), asyncHandler(getTabunganYearlyBookHandler));
 router.post('/setor', allowRoles('Admin Pembangunan'), asyncHandler(inputTabunganWarga));
+router.post('/withdrawal-requests', allowRoles('Warga'), asyncHandler(requestTabunganWithdrawal));
+router.get('/withdrawal-requests/pending', allowRoles('Admin Pembangunan', 'root'), asyncHandler(getPendingTabunganWithdrawals));
+router.post('/withdrawal-requests/:id/decision', allowRoles('Admin Pembangunan', 'root'), asyncHandler(decideTabunganWithdrawalHandler));
 router.patch('/setor', allowRoles('Admin Pembangunan'), asyncHandler(patchTabunganSetoran));
 router.post('/members/set-active', allowRoles('Admin Pembangunan'), asyncHandler(postTabunganMemberSetActiveHandler));
 router.post('/tariff', allowRoles('Admin Pembangunan'), asyncHandler(postTabunganTariffHandler));

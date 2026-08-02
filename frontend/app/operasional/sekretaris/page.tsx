@@ -539,9 +539,14 @@ export default function OperasionalSekretarisPage() {
           </div>
         </Card>
         <Card title="Presensi Kehadiran Warga" subtitle="Input presensi rapat bulanan dipisah seperti modul iuran">
-          <Link href="/operasional/sekretaris/presensi" className="btn-action-blue link-action px-3 py-1.5 text-xs">
-            Input Presensi
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/operasional/sekretaris/presensi" className="btn-action-blue link-action px-3 py-1.5 text-xs">
+              Input Presensi
+            </Link>
+            <Link href="/operasional/sekretaris/presensi/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs" title="Pengaturan pengecualian presensi">
+              ⚙️ Pengaturan Presensi
+            </Link>
+          </div>
         </Card>
         <Card title="Riwayat Notulen" subtitle="Arsip notulen per bulan">
           <PeriodPickerCompact label="Periode Riwayat" value={historyMonth} onChange={setHistoryMonth} />

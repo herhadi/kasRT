@@ -35,6 +35,23 @@ export async function ensureTabunganTables() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tab_withdrawal_requests (
+      id UUID PRIMARY KEY,
+      warga_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount NUMERIC(18,2) NOT NULL CHECK (amount > 0),
+      reason TEXT,
+      status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','PAID')),
+      rejection_reason TEXT,
+      created_by UUID NOT NULL REFERENCES users(id),
+      approved_by UUID REFERENCES users(id),
+      approved_at TIMESTAMPTZ,
+      paid_by UUID REFERENCES users(id),
+      paid_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tab_events (
@@ -558,6 +575,89 @@ export async function updateTabunganSetoran({ ledgerId, amount, description, mon
   } finally {
     client.release();
   }
+}
+
+export async function createTabunganWithdrawalRequest({ wargaId, amount, reason }) {
+  await ensureTabunganTables();
+  const member = await pool.query(
+    `SELECT 1 FROM tab_savings_members WHERE warga_id = $1::uuid AND is_active = TRUE`,
+    [wargaId]
+  );
+  if (!member.rowCount) throw new Error('Warga bukan anggota tabungan aktif');
+  const balance = await pool.query(
+    `SELECT COALESCE(total_balance, 0) AS total_balance FROM tab_savings_accounts WHERE warga_id = $1::uuid`,
+    [wargaId]
+  );
+  const available = Number(balance.rows[0]?.total_balance || 0);
+  if (amount > available) throw new Error(`Saldo tersedia ${available}, pengajuan ${amount}`);
+  const pending = await pool.query(`SELECT 1 FROM tab_withdrawal_requests WHERE warga_id = $1::uuid AND status IN ('PENDING','APPROVED')`, [wargaId]);
+  if (pending.rowCount) throw new Error('Masih ada pengajuan penarikan yang belum selesai');
+  const id = randomUUID();
+  await pool.query(
+    `INSERT INTO tab_withdrawal_requests (id, warga_id, amount, reason, created_by)
+     VALUES ($1, $2::uuid, $3, $4, $2::uuid)`,
+    [id, wargaId, amount, reason || null]
+  );
+  return { id, warga_id: wargaId, amount, available_balance: available, reason: reason || null };
+}
+
+export async function listPendingTabunganWithdrawals() {
+  await ensureTabunganTables();
+  const result = await pool.query(
+    `SELECT wr.id::text AS id, wr.warga_id::text AS warga_id, u.nama,
+            wr.amount, wr.reason, wr.status, wr.created_at,
+            COALESCE(sa.total_balance, 0) AS available_balance
+     FROM tab_withdrawal_requests wr
+     JOIN users u ON u.id = wr.warga_id
+     LEFT JOIN tab_savings_accounts sa ON sa.warga_id = wr.warga_id
+     WHERE wr.status IN ('PENDING','APPROVED')
+     ORDER BY wr.created_at ASC`
+  );
+  return result.rows.map((row) => ({ ...row, amount: Number(row.amount || 0), available_balance: Number(row.available_balance || 0) }));
+}
+
+export async function decideTabunganWithdrawal({ requestId, action, actorId, reason }) {
+  await ensureTabunganTables();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query(
+      `SELECT wr.*, u.nama, COALESCE(sa.total_balance, 0) AS available_balance
+       FROM tab_withdrawal_requests wr JOIN users u ON u.id = wr.warga_id
+       LEFT JOIN tab_savings_accounts sa ON sa.warga_id = wr.warga_id
+       WHERE wr.id = $1::uuid FOR UPDATE`, [requestId]
+    );
+    if (!found.rowCount) throw new Error('Pengajuan penarikan tidak ditemukan');
+    const row = found.rows[0];
+    const amount = Number(row.amount || 0);
+    const available = Number(row.available_balance || 0);
+    if (action === 'REJECT') {
+      if (!['PENDING', 'APPROVED'].includes(row.status)) throw new Error('Pengajuan sudah selesai');
+      await client.query(`UPDATE tab_withdrawal_requests SET status='REJECTED', rejection_reason=$2, approved_by=$3::uuid, approved_at=NOW(), updated_at=NOW() WHERE id=$1::uuid`, [requestId, reason || 'Ditolak Admin Pembangunan', actorId]);
+      await client.query('COMMIT');
+      return { ...row, status: 'REJECTED', amount, available_balance: available, rejection_reason: reason || 'Ditolak Admin Pembangunan' };
+    }
+    if (action === 'APPROVE') {
+      if (row.status !== 'PENDING') throw new Error('Pengajuan bukan status PENDING');
+      if (amount > available) throw new Error(`Saldo tersedia ${available}, pengajuan ${amount}`);
+      await client.query(`UPDATE tab_withdrawal_requests SET status='APPROVED', approved_by=$2::uuid, approved_at=NOW(), updated_at=NOW() WHERE id=$1::uuid`, [requestId, actorId]);
+      await client.query('COMMIT');
+      return { ...row, status: 'APPROVED', amount, available_balance: available };
+    }
+    if (action === 'PAID') {
+      if (row.status !== 'APPROVED') throw new Error('Pengajuan harus disetujui sebelum dibayar');
+      if (amount > available) throw new Error(`Saldo tersedia ${available}, pengajuan ${amount}`);
+      await client.query(`UPDATE tab_withdrawal_requests SET status='PAID', paid_by=$2::uuid, paid_at=NOW(), updated_at=NOW() WHERE id=$1::uuid`, [requestId, actorId]);
+      await client.query(`INSERT INTO tab_ledger (id, warga_id, tx_type, direction, month_key, amount, description, status, created_by, approved_by, approved_at) VALUES ($1, $2::uuid, 'WITHDRAW', 'DEBIT', TO_CHAR(CURRENT_DATE, 'YYYY-MM'), $3, $4, 'APPROVED', $5::uuid, $5::uuid, NOW())`, [randomUUID(), row.warga_id, amount, `Penarikan tabungan${row.reason ? `: ${row.reason}` : ''}`, actorId]);
+      await client.query(`UPDATE tab_savings_accounts SET total_balance=total_balance-$1, updated_at=NOW() WHERE warga_id=$2::uuid`, [amount, row.warga_id]);
+      await client.query('COMMIT');
+      return { ...row, status: 'PAID', amount, available_balance: available, remaining_balance: available - amount };
+    }
+    throw new Error('Action penarikan tidak valid');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
 }
 
 export async function createTabunganEvent({ title, eventDate, totalAmount, perWargaAmount, notes, createdBy }) {
