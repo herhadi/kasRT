@@ -12,6 +12,11 @@ services:
     ports:
       - "127.0.0.1:${KASRT_BACKEND_PORT:-3005}:3005"
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     mem_limit: 512m
     cpus: 1.0
     volumes:
@@ -37,6 +42,11 @@ services:
     ports:
       - "127.0.0.1:${KASRT_WA_LAB_PORT:-3010}:3010"
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     mem_limit: 384m
     cpus: 0.75
     volumes:

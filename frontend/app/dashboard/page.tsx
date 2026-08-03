@@ -365,7 +365,6 @@ export default function DashboardPage() {
                   value={formatRupiah(personalObligations.iuranWajib)}
                   tone={personalObligations.iuranWajib < 0 ? 'danger' : 'accent'}
                 />
-                <Link href="/tabungan/penarikan" className="btn-action-blue inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-semibold">Ajukan Penarikan Tabungan</Link>
                 <Metric
                   title="Saldo Tabungan Pembangunan"
                   value={formatRupiah(wargaData.tabungan_saldo)}
@@ -741,8 +740,9 @@ function formatMonthKey(monthKey: string) {
 }
 
 function ContributionDetailView({ data }: { data: ContributionDetailData }) {
-  const allRows = [...(data.opening_rows || []), ...(data.rows || [])];
   const isTabungan = data.module_key === 'tabungan';
+  const allRows = [...(data.opening_rows || []), ...(data.rows || [])]
+    .sort((left, right) => isTabungan ? String(right.period).localeCompare(String(left.period)) : 0);
   const arrearsRows = (data.rows || []).filter((row) => row.status === 'TUNGGAK');
 
   return (
