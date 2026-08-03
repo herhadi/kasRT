@@ -11,6 +11,7 @@ import {
   inputTabunganSetoran,
   listTabunganMembers,
   listTabunganTariffs,
+  listTabunganSurplusHistory,
   listTabunganLedgerByMonth,
   listTabunganWargaSummary,
   listPendingTabunganWithdrawals,
@@ -19,6 +20,8 @@ import {
   setTabunganTariff,
   decideTabunganWithdrawal,
   updateTabunganSetoran
+  , recordTabunganYearlySurplus
+  , setTabunganSurplusCash
 } from '../models/tabunganModel.js';
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah } from '../services/telegramService.js';
@@ -144,6 +147,27 @@ export async function getTabunganMembersHandler(_req, res) {
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
+}
+
+export async function getTabunganSurplusHistoryHandler(_req, res) {
+  try { return res.json({ success: true, data: await listTabunganSurplusHistory() }); }
+  catch (error) { return res.status(400).json({ success: false, message: error.message }); }
+}
+
+export async function postTabunganYearlySurplusHandler(req, res) {
+  const year = Number(req.body?.year || 0);
+  const title = String(req.body?.title || '').trim();
+  const amount = Number(req.body?.amount || 0);
+  if (!Number.isInteger(year) || year < 2013 || year > 2100) return res.status(400).json({ success: false, message: 'Tahun tidak valid' });
+  if (!title) return res.status(400).json({ success: false, message: 'Nama kegiatan wajib diisi' });
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
+  try { return res.json({ success: true, data: await recordTabunganYearlySurplus({ year, title, amount, createdBy: String(req.user.user_id) }) }); }
+  catch (error) { return res.status(400).json({ success: false, message: error.message }); }
+}
+
+export async function patchTabunganSurplusCashHandler(req, res) {
+  try { return res.json({ success: true, data: await setTabunganSurplusCash({ id: String(req.params.id), addToCash: req.body?.add_to_cash === true, actorId: String(req.user.user_id) }) }); }
+  catch (error) { return res.status(400).json({ success: false, message: error.message }); }
 }
 
 export async function postTabunganMemberSetActiveHandler(req, res) {

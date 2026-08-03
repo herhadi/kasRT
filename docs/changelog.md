@@ -10,6 +10,9 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Alur pencairan Tabungan ditambahkan: pengajuan warga, inbox Admin Pembangunan, approval/reject, pembayaran `PAID`, ledger `WITHDRAW`, dan notifikasi detail saldo.
 - Detail Tabungan warga dipindahkan dari modal dashboard ke halaman `/tabungan/detail`; form pengajuan penarikan kini berbentuk modal di halaman detail.
 - Docker Compose VPS menambahkan rotasi log JSON untuk backend dan WA Lab: maksimal 10 MB per file dengan 3 file rotasi.
+- Masa berlaku session login JWT KasRT diubah dari 1 hari menjadi default 1 minggu (`7d`) dan dapat dikonfigurasi melalui `JWT_EXPIRES_IN`.
+- Urutan top navbar desktop diseragamkan menjadi Dashboard, Operasional, Jimpitan, Panduan, Inbox, lalu Manajemen.
+- Halaman Tabungan mengganti tombol Panduan menjadi Pencairan, membuat saldo awal migrasi collapse secara default, dan menambahkan histori/input sisa kegiatan pembangunan per tahun beserta nama kegiatan.
 - Presensi rapat kini memakai daftar eligible user global sebagai dasar, lalu menyediakan halaman pengaturan pengecualian khusus presensi; warga yang dikecualikan tidak masuk input, jumlah wajib hadir, atau rekap.
 - Card Presensi di halaman Operasional Sekretaris kini memiliki tombol Pengaturan Presensi dengan ikon roda gigi.
 - WA Lab menyimpan waktu pertama nomor tertaut secara persisten agar restart/redeploy tidak mengulang cooldown umur koneksi 180 menit; pergantian nomor tetap memulai cooldown baru.
@@ -142,3 +145,5 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 - Alias `/cek_ling` tidak dipakai; command resmi Lingkungan adalah `/cek_lingk`.
 - PIN baru saat login pertama kali dan perubahan PIN kini wajib 6 digit angka; informasi batas minimal ditampilkan pada form ganti PIN.
+- Tabungan: histori sisa kegiatan tahunan kini default tidak menambah kas; tersedia checklist opsional untuk memasukkannya ke kas total saat ini.
+- Tabungan: input histori selalu default tidak masuk kas; admin menentukan per baris melalui checklist histori.

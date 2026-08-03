@@ -75,6 +75,18 @@ export async function ensureTabunganTables() {
   await pool.query(`ALTER TABLE tab_events ADD COLUMN IF NOT EXISTS per_warga_amount NUMERIC(18, 2) NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE tab_events ADD COLUMN IF NOT EXISTS charged_total NUMERIC(18, 2) NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE tab_events ADD COLUMN IF NOT EXISTS surplus_amount NUMERIC(18, 2) NOT NULL DEFAULT 0`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tab_surplus_history (
+      id UUID PRIMARY KEY,
+      year INTEGER NOT NULL,
+      title VARCHAR(200) NOT NULL,
+      amount NUMERIC(18, 2) NOT NULL CHECK (amount > 0),
+      added_to_cash BOOLEAN NOT NULL DEFAULT FALSE,
+      created_by UUID NOT NULL REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`ALTER TABLE tab_surplus_history ADD COLUMN IF NOT EXISTS cash_post_id UUID REFERENCES tab_cash_posts(id)`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tab_event_allocations (
@@ -352,6 +364,50 @@ export async function getTabunganCashSummary() {
      FROM tab_cash_posts`
   );
   return { sisa_kas_kegiatan: Number(result.rows[0]?.sisa_kas_kegiatan || 0) };
+}
+
+export async function recordTabunganYearlySurplus({ year, title, amount, createdBy }) {
+  await ensureTabunganTables();
+  const historyId = randomUUID();
+  await pool.query(
+    `INSERT INTO tab_surplus_history (id, year, title, amount, added_to_cash, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6::uuid)`,
+    [historyId, year, title, amount, false, createdBy]
+  );
+  return { id: historyId, year, title, amount, added_to_cash: false };
+}
+
+export async function setTabunganSurplusCash({ id, addToCash, actorId }) {
+  await ensureTabunganTables();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query('SELECT * FROM tab_surplus_history WHERE id = $1::uuid FOR UPDATE', [id]);
+    const item = result.rows[0];
+    if (!item) throw new Error('Histori sisa kegiatan tidak ditemukan');
+    if (Boolean(item.added_to_cash) === addToCash) { await client.query('COMMIT'); return { ...item, added_to_cash: addToCash }; }
+    if (addToCash) {
+      const postId = randomUUID();
+      await client.query(`INSERT INTO tab_cash_posts (id, post_date, direction, amount, description, created_by) VALUES ($1, $2::date, 'CREDIT', $3, $4, $5::uuid)`, [postId, `${item.year}-12-31`, item.amount, `Sisa kegiatan ${item.title}`, actorId]);
+      await client.query('UPDATE tab_surplus_history SET added_to_cash = TRUE, cash_post_id = $1 WHERE id = $2::uuid', [postId, id]);
+    } else {
+      await client.query('DELETE FROM tab_cash_posts WHERE id = $1::uuid', [item.cash_post_id]);
+      await client.query('UPDATE tab_surplus_history SET added_to_cash = FALSE, cash_post_id = NULL WHERE id = $1::uuid', [id]);
+    }
+    await client.query('COMMIT');
+    return { ...item, added_to_cash: addToCash };
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function listTabunganSurplusHistory() {
+  await ensureTabunganTables();
+  const result = await pool.query(
+    `SELECT id::text AS id, year, amount, title AS description,
+            added_to_cash, created_at AS post_date
+     FROM tab_surplus_history
+     ORDER BY year DESC, created_at DESC`
+  );
+  return result.rows.map((row) => ({ ...row, amount: Number(row.amount || 0) }));
 }
 
 export async function getTabunganDanaSummary() {

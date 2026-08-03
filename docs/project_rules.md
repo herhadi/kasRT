@@ -72,3 +72,8 @@ secara otomatis.
 - Jika sebuah modul membutuhkan transaksi pencairan atau pengeluaran, catat pada
   ledger modul tersebut terlebih dahulu.
 - Dokumentasikan setiap pengecualian arsitektur baru di file ini dan changelog.
+
+## Session Login
+
+Session login KasRT menggunakan JWT dengan masa berlaku default 1 minggu (`7d`).
+Masa berlaku dapat diubah melalui `JWT_EXPIRES_IN` pada environment backend.

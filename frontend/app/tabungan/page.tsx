@@ -52,6 +52,7 @@ type TabunganOpeningBalance = {
   amount: number;
   description: string;
 };
+type TabunganSurplus = { id: string; year: number; amount: number; description: string; post_date: string; added_to_cash?: boolean };
 
 function formatPeriodLabel(monthKey: string) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) return monthKey;
@@ -104,6 +105,12 @@ export default function TabunganPage() {
     total_kas_dana: 0
   });
   const [openingBalances, setOpeningBalances] = useState<TabunganOpeningBalance[]>([]);
+  const [showOpeningBalances, setShowOpeningBalances] = useState(false);
+  const [surplusHistory, setSurplusHistory] = useState<TabunganSurplus[]>([]);
+  const [surplusYear, setSurplusYear] = useState(String(new Date().getFullYear()));
+  const [surplusTitle, setSurplusTitle] = useState('');
+  const [surplusAmount, setSurplusAmount] = useState('');
+  const [surplusAddedToCash, setSurplusAddedToCash] = useState(false);
   const historyMonthInitializedRef = useRef(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressNextClickRef = useRef(false);
@@ -128,6 +135,8 @@ export default function TabunganPage() {
       total_kas_dana: Number(result.total_kas_dana || 0)
     });
     setOpeningBalances(result.opening_balances || []);
+    const surplus = await apiFetch<{ success: boolean; data: TabunganSurplus[] }>('/tabungan/surplus-history');
+    setSurplusHistory(surplus.data || []);
     const latestHistoryMonth = String(result.latest_history_month || '');
     if (!historyMonthInitializedRef.current && /^\d{4}-(0[1-9]|1[0-2])$/.test(latestHistoryMonth)) {
       historyMonthInitializedRef.current = true;
@@ -486,7 +495,6 @@ export default function TabunganPage() {
                 Input Tabungan
               </Link>
               <div className="ml-auto flex gap-2">
-                <Link href="/panduan#tabungan" className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold">📖 Panduan</Link>
                 <Link href="/operasional/tabungan/setting" className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold">⚙️ Pengaturan</Link>
                 <Link href="/operasional/tabungan/penarikan" className="btn-action-blue inline-flex rounded-xl px-4 py-2 text-sm font-semibold">💵 Pencairan</Link>
               </div>
@@ -723,6 +731,10 @@ export default function TabunganPage() {
               <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
             </Card>
             <Card title="Saldo Awal Migrasi Tabungan" subtitle="Riwayat saldo awal per warga dari input migrasi, dipisah dari setoran bulanan">
+              <button type="button" className="btn-action-blue rounded-xl px-3 py-2 text-sm" onClick={() => setShowOpeningBalances((value) => !value)}>
+                {showOpeningBalances ? 'Sembunyikan Saldo Awal' : 'Tampilkan Saldo Awal'}
+              </button>
+              {showOpeningBalances ? <>
               <div className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
                   <thead>
@@ -755,6 +767,17 @@ export default function TabunganPage() {
                 </table>
               </div>
               <PaginationControls page={openingPager.page} totalPages={openingPager.totalPages} onPrev={openingPager.prev} onNext={openingPager.next} />
+              </> : null}
+            </Card>
+            <Card title="Sisa Kegiatan Pembangunan per Tahun" subtitle="Catat sisa kegiatan lama dan histori kas pembangunan berdasarkan tahun serta nama kegiatan.">
+              <div className="grid gap-3 md:grid-cols-3">
+                <Input label="Tahun" type="number" min={2013} value={surplusYear} onChange={(e) => setSurplusYear(e.target.value)} />
+                <Input label="Nama Kegiatan" value={surplusTitle} onChange={(e) => setSurplusTitle(e.target.value)} placeholder="Contoh: Sisa pembangunan pos ronda" />
+                <Input label="Nominal Sisa" inputMode="numeric" value={formatRupiahInput(surplusAmount)} onChange={(e) => setSurplusAmount(e.target.value)} />
+              </div>
+              <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={surplusAddedToCash} onChange={(e) => setSurplusAddedToCash(e.target.checked)} /> Tambahkan ke kas total saat ini</label>
+              <button type="button" className="btn-action-blue mt-3 rounded-xl px-4 py-2 text-sm" onClick={async () => { try { await apiFetch('/tabungan/surplus-history', { method: 'POST', body: JSON.stringify({ year: Number(surplusYear), title: surplusTitle, amount: parseRupiahInput(surplusAmount), added_to_cash: surplusAddedToCash }) }); setSurplusTitle(''); setSurplusAmount(''); setMessage('Sisa kegiatan tahunan berhasil dicatat.'); const result = await apiFetch<{ success: boolean; data: TabunganSurplus[] }>('/tabungan/surplus-history'); setSurplusHistory(result.data || []); } catch (e) { setError(e instanceof Error ? e.message : 'Gagal mencatat sisa kegiatan'); } }}>Simpan Sisa Kegiatan</button>
+              <div className="mt-4 overflow-x-auto"><table className="min-w-full"><thead><tr><th className="px-3 py-2 text-left text-xs">Tahun</th><th className="px-3 py-2 text-left text-xs">Nama Kegiatan</th><th className="px-3 py-2 text-right text-xs">Nominal</th><th className="px-3 py-2 text-center text-xs">Masuk Kas</th></tr></thead><tbody>{surplusHistory.map((item) => <tr key={item.id}><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{item.year}</td><td className="border-t border-[var(--line)] px-3 py-2 text-sm">{item.description}</td><td className="border-t border-[var(--line)] px-3 py-2 text-right text-sm font-semibold">{formatRupiah(item.amount)}</td><td className="border-t border-[var(--line)] px-3 py-2 text-center"><input type="checkbox" checked={Boolean(item.added_to_cash)} onChange={async (e) => { try { await apiFetch(`/tabungan/surplus-history/${item.id}/cash`, { method: 'PATCH', body: JSON.stringify({ add_to_cash: e.target.checked }) }); const result = await apiFetch<{ success: boolean; data: TabunganSurplus[] }>('/tabungan/surplus-history'); setSurplusHistory(result.data || []); } catch (error) { setError(error instanceof Error ? error.message : 'Gagal mengubah status kas'); } }} /></td></tr>)}</tbody></table></div>
             </Card>
           </>
         ) : null}

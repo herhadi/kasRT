@@ -185,10 +185,10 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
 
   const menus = [
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
+    { ...opsMenu, opsOnly: true },
     { href: jimpitanMenuHref, label: 'Jimpitan', icon: '💰' },
     { href: '/panduan', label: 'Panduan', icon: '📖' },
     { href: approvalMenuHref, label: 'Inbox', icon: '✉️', gated: true },
-    { ...opsMenu, opsOnly: true },
     { href: '/management', label: 'Manajemen', icon: '🛠️', managerOnly: true }
   ];
 
