@@ -269,6 +269,10 @@ export default function DashboardPage() {
   }
 
   async function openContributionDetail(moduleKey: ContributionDetailModule) {
+    if (moduleKey === 'tabungan') {
+      router.push('/tabungan/detail');
+      return;
+    }
     try {
       setDetailLoading(true);
       setDetailError('');
