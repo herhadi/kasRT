@@ -675,21 +675,19 @@ export default function TabunganPage() {
                     <tr className="bg-[var(--surface-strong)]">
                       <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
                       <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga</th>
-                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
                       <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
                     </tr>
                   </thead>
                   <tbody>
                     {creditRows.length === 0 ? (
                       <tr className="bg-[var(--surface)]">
-                        <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada setoran pada periode ini.</td>
+                        <td colSpan={3} className="px-3 py-2 text-sm text-[var(--text-muted)]">Belum ada setoran pada periode ini.</td>
                       </tr>
                     ) : (
                       historyPager.pagedItems.map((row) => (
                         <tr key={row.id} className="bg-[var(--surface)]">
                           <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{new Date(row.created_at).toLocaleDateString('id-ID')}</td>
                           <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.nama}</td>
-                          <td className="border-b border-[var(--line)] px-3 py-2 text-sm break-words whitespace-normal">{row.description || '-'}</td>
                           <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-emerald-700">+ {formatRupiah(Number(row.amount || 0))}</td>
                         </tr>
                       ))
@@ -741,8 +739,8 @@ export default function TabunganPage() {
                     <tr className="bg-[var(--surface-strong)]">
                       <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
                       <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
-                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
                       <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -756,10 +754,10 @@ export default function TabunganPage() {
                         <tr key={row.id} className="bg-[var(--surface)]">
                           <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{formatTanggalDdMmYyyy(row.tanggal)}</td>
                           <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.opening_year}</td>
-                          <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.description || '-'}</td>
                           <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${amount < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
                             {formatRupiah(amount)}
                           </td>
+                          <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{row.description || '-'}</td>
                         </tr>
                       );
                     })}

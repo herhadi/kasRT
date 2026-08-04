@@ -147,3 +147,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - PIN baru saat login pertama kali dan perubahan PIN kini wajib 6 digit angka; informasi batas minimal ditampilkan pada form ganti PIN.
 - Tabungan: histori sisa kegiatan tahunan kini default tidak menambah kas; tersedia checklist opsional untuk memasukkannya ke kas total saat ini.
 - Tabungan: input histori selalu default tidak masuk kas; admin menentukan per baris melalui checklist histori.
+- Tabungan: kolom keterangan di riwayat setoran dihapus; pada saldo awal migrasi dipindahkan ke kolom paling kanan.
