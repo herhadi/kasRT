@@ -490,7 +490,7 @@ export default function OperasionalInternetPage() {
                 <tr className="bg-[var(--surface-strong)]">
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga</th>
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status Iuran</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal Setor</th>
                 </tr>
               </thead>
               <tbody>
@@ -506,7 +506,7 @@ export default function OperasionalInternetPage() {
                         {row.total_arrears > 0 ? 'Menunggak' : Number(row.surplus_amount || 0) > 0 ? 'Surplus' : 'Lunas'}
                       </td>
                       <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : Number(row.surplus_amount || 0) > 0 ? 'text-sky-700' : 'text-emerald-700'}`}>
-                        {formatRupiah(row.total_arrears > 0 ? row.total_arrears : Number(row.surplus_amount || 0))}
+                        {formatRupiah(row.paid_amount)}
                       </td>
                     </tr>
                   ))

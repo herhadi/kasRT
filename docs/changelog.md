@@ -150,4 +150,5 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Tabungan: kolom keterangan di riwayat setoran dihapus; pada saldo awal migrasi dipindahkan ke kolom paling kanan.
 - Internet: tombol Panduan dihapus; status iuran warga dibuat ringkas menjadi satu kolom status dan default tertutup.
 - Internet: status ringkas membedakan kondisi Menunggak, Surplus, dan Lunas.
-- Internet: status iuran ditampilkan dalam tiga kolom; Lunas hijau, Surplus biru/teal, dan Menunggak merah, dengan nominal 0 untuk Lunas.
+- Internet: status iuran ditampilkan dalam tiga kolom; Lunas hijau, Surplus biru/teal, dan Menunggak merah.
+- Internet: kolom nominal status iuran diganti menjadi Nominal Setor dan menampilkan total setoran aktual.
