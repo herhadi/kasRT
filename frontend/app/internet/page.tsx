@@ -489,20 +489,24 @@ export default function OperasionalInternetPage() {
               <thead>
                 <tr className="bg-[var(--surface-strong)]">
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status Iuran</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status Iuran</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
                 </tr>
               </thead>
               <tbody>
                 {pager.pagedItems.length === 0 ? (
                   <tr className="bg-[var(--surface)]">
-                    <td colSpan={2} className="px-3 py-2 text-sm text-[var(--text-muted)]">Tidak ada data warga untuk filter ini.</td>
+                    <td colSpan={3} className="px-3 py-2 text-sm text-[var(--text-muted)]">Tidak ada data warga untuk filter ini.</td>
                   </tr>
                 ) : (
                   pager.pagedItems.map((row) => (
                     <tr key={row.warga_id} className="bg-[var(--surface)]">
                       <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">{row.nama}</td>
-                      <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                        {row.total_arrears > 0 ? `Menunggak ${formatRupiah(row.total_arrears)}` : 'Lunas'}
+                      <td className={`border-b border-[var(--line)] px-3 py-2 text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : Number(row.surplus_amount || 0) > 0 ? 'text-sky-700' : 'text-emerald-700'}`}>
+                        {row.total_arrears > 0 ? 'Menunggak' : Number(row.surplus_amount || 0) > 0 ? 'Surplus' : 'Lunas'}
+                      </td>
+                      <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : Number(row.surplus_amount || 0) > 0 ? 'text-sky-700' : 'text-emerald-700'}`}>
+                        {formatRupiah(row.total_arrears > 0 ? row.total_arrears : Number(row.surplus_amount || 0))}
                       </td>
                     </tr>
                   ))
