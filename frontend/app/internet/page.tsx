@@ -506,7 +506,7 @@ export default function OperasionalInternetPage() {
                         {row.total_arrears > 0 ? 'Menunggak' : Number(row.surplus_amount || 0) > 0 ? 'Surplus' : 'Lunas'}
                       </td>
                       <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : Number(row.surplus_amount || 0) > 0 ? 'text-sky-700' : 'text-emerald-700'}`}>
-                        {formatRupiah(row.paid_amount)}
+                        {formatRupiah(row.total_arrears > 0 ? row.total_arrears : row.paid_amount)}
                       </td>
                     </tr>
                   ))

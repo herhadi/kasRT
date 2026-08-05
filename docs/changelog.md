@@ -152,3 +152,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Internet: status ringkas membedakan kondisi Menunggak, Surplus, dan Lunas.
 - Internet: status iuran ditampilkan dalam tiga kolom; Lunas hijau, Surplus biru/teal, dan Menunggak merah.
 - Internet: kolom nominal status iuran diganti menjadi Nominal Setor dan menampilkan total setoran aktual.
+- Internet: untuk status Menunggak, Nominal Setor menampilkan total tunggakan sampai bulan berjalan.
