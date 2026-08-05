@@ -511,6 +511,7 @@ export default function OperasionalInternetPage() {
             </table>
           </div>
           <PaginationControls page={pager.page} totalPages={pager.totalPages} onPrev={pager.prev} onNext={pager.next} />
+          </> : null}
         </Card>
 
         {canWrite && !iuranOnlyMode ? (
@@ -549,7 +550,6 @@ export default function OperasionalInternetPage() {
               </div>
               <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
           </div>
-          </> : null}
         </Card>
         ) : null}
 
