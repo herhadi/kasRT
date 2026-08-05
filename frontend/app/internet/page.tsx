@@ -85,6 +85,7 @@ export default function OperasionalInternetPage() {
   const [tariffMonth, setTariffMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [tariffValue, setTariffValue] = useState('');
   const [filter, setFilter] = useState<'semua' | 'belum' | 'sudah'>('semua');
+  const [showContributionStatus, setShowContributionStatus] = useState(false);
   const [selectedRow, setSelectedRow] = useState<WargaContributionRow | null>(null);
   const [editContributionMode, setEditContributionMode] = useState(false);
   const [members, setMembers] = useState<InternetMember[]>([]);
@@ -471,7 +472,11 @@ export default function OperasionalInternetPage() {
           ]}
         />
 
-        <Card title="Status Iuran Warga" subtitle="Hitungan tunggakan mengikuti tarif efektif per bulan">
+        <Card title="Status Iuran Warga" subtitle="Ringkasan status iuran berdasarkan tunggakan">
+          <button type="button" className="btn-action-blue mb-3 rounded-xl px-3 py-1.5 text-xs" onClick={() => setShowContributionStatus((value) => !value)}>
+            {showContributionStatus ? 'Sembunyikan Status Iuran' : 'Tampilkan Status Iuran'}
+          </button>
+          {showContributionStatus ? <>
           <div className="mb-3 flex w-full gap-2">
             {(['semua', 'belum', 'sudah'] as const).map((f) => (
               <button key={f} type="button" onClick={() => { setFilter(f); pager.reset(); }} className={`btn-action-blue rounded-xl px-3 py-1.5 text-xs ${filter === f ? 'opacity-100' : 'opacity-70'}`}>
@@ -484,28 +489,20 @@ export default function OperasionalInternetPage() {
               <thead>
                 <tr className="bg-[var(--surface-strong)]">
                   <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Warga</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Bayar/Target</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tunggakan Bulan</th>
-                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Total Tunggakan</th>
+                  <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Status Iuran</th>
                 </tr>
               </thead>
               <tbody>
                 {pager.pagedItems.length === 0 ? (
                   <tr className="bg-[var(--surface)]">
-                    <td colSpan={4} className="px-3 py-2 text-sm text-[var(--text-muted)]">Tidak ada data warga untuk filter ini.</td>
+                    <td colSpan={2} className="px-3 py-2 text-sm text-[var(--text-muted)]">Tidak ada data warga untuk filter ini.</td>
                   </tr>
                 ) : (
                   pager.pagedItems.map((row) => (
                     <tr key={row.warga_id} className="bg-[var(--surface)]">
                       <td className="border-b border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">{row.nama}</td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm text-[var(--text-primary)]">
-                        {formatRupiah(row.paid_amount)} / {formatRupiah(row.target_amount)}
-                      </td>
-                      <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-[var(--text-primary)]">
-                        {row.arrears_months} dari {row.chargeable_months} bulan
-                      </td>
                       <td className={`border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold ${row.total_arrears > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                        {formatRupiah(row.total_arrears)}
+                        {row.total_arrears > 0 ? `Menunggak ${formatRupiah(row.total_arrears)}` : 'Lunas'}
                       </td>
                     </tr>
                   ))
@@ -551,8 +548,9 @@ export default function OperasionalInternetPage() {
                 </table>
               </div>
               <PaginationControls page={expensePager.page} totalPages={expensePager.totalPages} onPrev={expensePager.prev} onNext={expensePager.next} />
-            </div>
-          </Card>
+          </div>
+          </> : null}
+        </Card>
         ) : null}
 
         {!iuranOnlyMode ? (

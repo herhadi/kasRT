@@ -148,3 +148,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Tabungan: histori sisa kegiatan tahunan kini default tidak menambah kas; tersedia checklist opsional untuk memasukkannya ke kas total saat ini.
 - Tabungan: input histori selalu default tidak masuk kas; admin menentukan per baris melalui checklist histori.
 - Tabungan: kolom keterangan di riwayat setoran dihapus; pada saldo awal migrasi dipindahkan ke kolom paling kanan.
+- Internet: tombol Panduan dihapus; status iuran warga dibuat ringkas menjadi satu kolom status dan default tertutup.
