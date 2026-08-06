@@ -458,7 +458,6 @@ export default function OperasionalInternetPage() {
             <div className="mt-4 flex items-center justify-between gap-2">
               <Link href="/operasional/internet/iuran" className="btn-action-blue link-action px-3 py-1.5 text-xs">Input Iuran</Link>
               <div className="flex gap-2">
-                <Link href="/panduan#internet" className="btn-action-blue link-action px-3 py-1.5 text-xs">📖 Panduan</Link>
                 <Link href="/operasional/internet/setting" className="btn-action-blue link-action px-3 py-1.5 text-xs">⚙️ Pengaturan</Link>
               </div>
             </div>
@@ -533,18 +532,16 @@ export default function OperasionalInternetPage() {
                   <thead>
                     <tr className="bg-[var(--surface-strong)]">
                       <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Tanggal</th>
-                      <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Periode</th>
                       <th className="border-b border-[var(--line)] px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Keterangan</th>
                       <th className="border-b border-[var(--line)] px-3 py-2 text-right text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Nominal</th>
                     </tr>
                   </thead>
                   <tbody>
                     {expensePager.pagedItems.length === 0 ? (
-                      <tr className="bg-[var(--surface)]"><td colSpan={4} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat pengeluaran.</td></tr>
+                      <tr className="bg-[var(--surface)]"><td colSpan={3} className="px-3 py-3 text-sm text-[var(--text-muted)]">Belum ada riwayat pengeluaran.</td></tr>
                     ) : expensePager.pagedItems.map((expense) => (
                       <tr key={expense.id} className="bg-[var(--surface)]">
                         <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{formatTanggalDdMmYyyy(expense.expense_date)}</td>
-                        <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{expense.expense_month || '-'}</td>
                         <td className="border-b border-[var(--line)] px-3 py-2 text-sm">{expense.description || '-'}</td>
                         <td className="border-b border-[var(--line)] px-3 py-2 text-right text-sm font-semibold text-rose-600">{formatRupiah(Number(expense.amount || 0))}</td>
                       </tr>
