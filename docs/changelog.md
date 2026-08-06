@@ -154,3 +154,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Internet: kolom nominal status iuran diganti menjadi Nominal Setor dan menampilkan total setoran aktual.
 - Internet: untuk status Menunggak, Nominal Setor menampilkan total tunggakan sampai bulan berjalan.
 - Internet: tombol Panduan dihapus dan kolom Periode pada riwayat Pengeluaran Internet dihapus.
+- Lingkungan: tombol Panduan dihapus; Status Iuran Warga default tertutup dan kolom Bayar/Target diganti menjadi Nominal Setor.
