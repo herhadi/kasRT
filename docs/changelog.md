@@ -155,3 +155,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Internet: untuk status Menunggak, Nominal Setor menampilkan total tunggakan sampai bulan berjalan.
 - Internet: tombol Panduan dihapus dan kolom Periode pada riwayat Pengeluaran Internet dihapus.
 - Lingkungan: tombol Panduan dihapus; Status Iuran Warga default tertutup dan kolom Bayar/Target diganti menjadi Nominal Setor.
+- WA Jimpitan: penerima random kini memakai rotasi persisten; nomor yang sudah berhasil dikirimi ditandai dan nomor valid lain diprioritaskan sampai seluruh kandidat mendapat giliran.

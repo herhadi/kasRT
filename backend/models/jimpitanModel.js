@@ -54,6 +54,35 @@ export async function ensureJimpitanReminderLogTable() {
       ADD COLUMN IF NOT EXISTS wa_target JSONB NULL,
       ADD COLUMN IF NOT EXISTS wa_errors JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jimpitan_wa_reminder_rotation (
+      phone VARCHAR(20) PRIMARY KEY,
+      last_sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+export async function listUnsentJimpitanWaPhones(phones = []) {
+  await ensureJimpitanReminderLogTable();
+  const values = Array.from(new Set(phones.map((phone) => String(phone || '').trim()).filter(Boolean)));
+  if (!values.length) return [];
+  const result = await pool.query(
+    `SELECT phone FROM unnest($1::text[]) AS candidate(phone)
+     WHERE NOT EXISTS (SELECT 1 FROM jimpitan_wa_reminder_rotation r WHERE r.phone = candidate.phone)`,
+    [values]
+  );
+  if (result.rows.length > 0) return result.rows.map((row) => row.phone);
+  await pool.query('DELETE FROM jimpitan_wa_reminder_rotation WHERE phone = ANY($1::text[])', [values]);
+  return values;
+}
+
+export async function markJimpitanWaPhoneSent(phone) {
+  await ensureJimpitanReminderLogTable();
+  await pool.query(
+    `INSERT INTO jimpitan_wa_reminder_rotation (phone, last_sent_at) VALUES ($1, NOW())
+     ON CONFLICT (phone) DO UPDATE SET last_sent_at = EXCLUDED.last_sent_at`,
+    [String(phone || '').trim()]
+  );
 }
 
 export async function ensureJimpitanRouteOrderTable() {

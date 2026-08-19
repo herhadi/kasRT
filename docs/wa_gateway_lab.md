@@ -113,6 +113,8 @@ curl -sS \
 
 Gunakan nilai `qr_data_url` untuk membuka QR di browser, lalu scan dari WhatsApp. Mini inbox memperbarui QR otomatis setiap 5 detik selama panel QR terbuka, sehingga QR terbaru akan tampil ketika Baileys menerbitkan QR pengganti yang lama.
 
+Reminder WA Jimpitan memilih penerima secara acak dari nomor valid yang belum berhasil dikirimi pada siklus berjalan. Setelah seluruh kandidat mendapat giliran, rotasi dimulai kembali.
+
 ### Kirim Tes Manual
 
 ```bash

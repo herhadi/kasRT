@@ -14,7 +14,7 @@ function readInt(key, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {})
   return Math.min(Math.max(value, min), max);
 }
 
-function normalizePhone(phone) {
+export function normalizeWaPhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
   if (!digits) return null;
   const normalized = digits.startsWith('0') ? `62${digits.slice(1)}` : digits;
@@ -48,17 +48,21 @@ export function getWaLabMinConnectedAgeMinutes() {
   return readInt('WA_LAB_MIN_CONNECTED_AGE_MINUTES', 180, { min: 0, max: 1440 });
 }
 
-export function pickRandomValidWaRecipients(rows = [], limit = getWaJimpitanMaxRecipients()) {
+export async function pickRandomValidWaRecipients(rows = [], limit = getWaJimpitanMaxRecipients(), getUnsentPhones = null) {
   const candidates = rows
     .map((row) => ({
       id: row.id,
       nama: row.nama || row.jimpitan_label || null,
-      phone: normalizePhone(row.no_hp)
+      phone: normalizeWaPhone(row.no_hp)
     }))
     .filter((row) => row.phone);
 
   const uniqueCandidates = Array.from(new Map(candidates.map((row) => [row.phone, row])).values());
+  const eligible = getUnsentPhones
+    ? new Set(await getUnsentPhones(uniqueCandidates.map((item) => item.phone)))
+    : null;
   return uniqueCandidates
+    .filter((row) => !eligible || eligible.has(row.phone))
     .map((row) => ({ row, sort: Math.random() }))
     .sort((left, right) => left.sort - right.sort)
     .slice(0, Math.max(0, Number(limit || 0)))

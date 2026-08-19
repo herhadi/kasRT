@@ -37,6 +37,8 @@ import {
   listJimpitanExternalParticipants,
   listWargaTotalsInBatch,
   lockDailyJimpitanReminder,
+  listUnsentJimpitanWaPhones,
+  markJimpitanWaPhoneSent,
   resetBulananJimpitanSaldo,
   saveJimpitanRouteOrder,
   setJimpitanMode,
@@ -842,7 +844,9 @@ export async function sendJimpitanShiftReminder(req, res) {
     const telegramRecipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
     const waEnabled = isWaJimpitanReminderEnabled();
     const waMaxRecipients = getWaJimpitanMaxRecipients();
-    const waRecipientRows = waEnabled ? pickRandomValidWaRecipients(petugas, waMaxRecipients) : [];
+    const waRecipientRows = waEnabled
+      ? await pickRandomValidWaRecipients(petugas, waMaxRecipients, listUnsentJimpitanWaPhones)
+      : [];
     const waRecipients = waRecipientRows.length;
     const totalRecipients = telegramRecipients.length + waRecipients;
     const lock = await lockDailyJimpitanReminder(reminderDate, reminderType, totalRecipients);
@@ -892,6 +896,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     for (const recipient of waRecipientRows) {
       const waText = buildWaJimpitanReminderText({ recipient, targetLabel, testMode });
       const result = await sendWaJimpitanReminder({ recipient, text: waText });
+      if (result?.success === true) await markJimpitanWaPhoneSent(recipient.phone);
       waResults.push({ recipient, result });
     }
     const waSent = waResults.filter((item) => item.result?.success === true).length;
