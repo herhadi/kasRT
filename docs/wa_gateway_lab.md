@@ -111,7 +111,7 @@ curl -sS \
   http://127.0.0.1:3010/qr
 ```
 
-Gunakan nilai `qr_data_url` untuk membuka QR di browser, lalu scan dari WhatsApp.
+Gunakan nilai `qr_data_url` untuk membuka QR di browser, lalu scan dari WhatsApp. Mini inbox memperbarui QR otomatis setiap 5 detik selama panel QR terbuka, sehingga QR terbaru akan tampil ketika Baileys menerbitkan QR pengganti yang lama.
 
 ### Kirim Tes Manual
 

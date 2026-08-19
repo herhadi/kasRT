@@ -473,6 +473,7 @@
       const sendButton = document.querySelector('#sendButton');
       const deleteChatButton = document.querySelector('#deleteChatButton');
       const selectionActions = document.querySelector('#selectionActions');
+      let qrRefreshTimer = null;
       const selectionInfo = document.querySelector('#selectionInfo');
       const cancelSelectionButton = document.querySelector('#cancelSelectionButton');
       const deleteSelectedMessagesButton = document.querySelector('#deleteSelectedMessagesButton');
@@ -538,8 +539,33 @@
       async function loadStatus() {
         const status = await api('/status');
         linkedNumber.textContent = status.connected ? `Tertaut: ${status.linked_number || '-'}` : `Belum connected (${status.state})`;
-        if (status.connected) qrBox.classList.remove('show');
+        if (status.connected) {
+          qrBox.classList.remove('show');
+          stopQrRefresh();
+        }
         return status;
+      }
+
+      function stopQrRefresh() {
+        if (qrRefreshTimer) clearInterval(qrRefreshTimer);
+        qrRefreshTimer = null;
+      }
+
+      function startQrRefresh() {
+        stopQrRefresh();
+        qrRefreshTimer = setInterval(async () => {
+          try {
+            const status = await loadStatus();
+            if (status.connected) return;
+            const qr = await api('/qr');
+            if (qr.has_qr && qr.qr_data_url && qr.qr_data_url !== qrImage.src) {
+              qrImage.src = qr.qr_data_url;
+              setStatus('QR diperbarui otomatis. Scan QR terbaru.');
+            }
+          } catch (error) {
+            setStatus(error.message, true);
+          }
+        }, 5000);
       }
 
       async function showQr() {
@@ -557,8 +583,9 @@
             return;
           }
           qrImage.src = qr.qr_data_url;
-          qrHint.textContent = 'Scan dari WhatsApp → Perangkat tertaut → Tautkan perangkat. QR bisa expired, ambil ulang jika gagal.';
+          qrHint.textContent = 'QR diperbarui otomatis setiap 5 detik. Scan QR terbaru dari WhatsApp → Perangkat tertaut → Tautkan perangkat.';
           qrBox.classList.add('show');
+          startQrRefresh();
           setStatus('QR siap discan.');
         } catch (error) { setStatus(error.message, true); }
       }
