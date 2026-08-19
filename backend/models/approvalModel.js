@@ -20,14 +20,19 @@ export async function listPendingJimpitanBatches() {
 
   return result.rows.map((row) => {
     const isShiftTotal = String(row.batch_mode || '').toUpperCase() === 'SHIFT_TOTAL';
-    const tanggal = row.operational_date ? String(row.operational_date).slice(0, 10) : '-';
+    const tanggal = row.operational_date
+      ? new Intl.DateTimeFormat('id-ID', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta'
+      }).format(new Date(`${String(row.operational_date).slice(0, 10)}T00:00:00+07:00`))
+      : '-';
+    const namaPembuat = row.petugas_nama || 'Petugas Jimpitan';
     return {
       kind: 'JIMPITAN_BATCH',
       id: row.id,
-      title: isShiftTotal ? `Setoran Shift Jimpitan #${row.id}` : `Batch Jimpitan #${row.id}`,
+      title: `Setoran Jimpitan ${tanggal} oleh ${namaPembuat}`,
       description: isShiftTotal
-        ? `Petugas: ${row.petugas_nama || row.petugas_id} • Tanggal: ${tanggal}${row.note ? ` • ${row.note}` : ''}`
-        : `Petugas: ${row.petugas_nama || row.petugas_id} • Rumah: ${row.total_rumah || '-'}`,
+        ? `Setoran shift${row.note ? ` • ${row.note}` : ''}`
+        : `Setoran per warga • Rumah: ${row.total_rumah || '-'}`,
       amount: Number(row.total_amount || 0),
       created_at: row.created_at,
       meta: {

@@ -392,8 +392,7 @@ export async function setorJimpitan(req, res) {
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
       `🔔 <b>Approval Setoran Jimpitan Dibutuhkan</b>\n` +
-        `Batch ID: <b>${batch.batch_id}</b>\n` +
-        `Petugas ID: <b>${petugas_id}</b>\n` +
+        `Petugas: <b>${petugas_id}</b>\n` +
         `Total: <b>${formatRupiah(batch.total)}</b>\n` +
         `Rumah: <b>${batch.total_rumah}</b>` +
         linkSection
@@ -461,8 +460,6 @@ export async function setorJimpitanShiftTotal(req, res) {
       ['Admin Jimpitan', 'root'],
       `🔔 <b>Approval Setoran Jimpitan Shift Dibutuhkan</b>\n` +
         `Tanggal: <b>${operationalDateIso}</b>\n` +
-        `Batch ID: <b>${batch.batch_id}</b>\n` +
-        `Petugas ID: <b>${petugas_id}</b>\n` +
         `Total: <b>${formatRupiah(batch.total)}</b>` +
         (note ? `\nCatatan: ${note}` : '') +
         linkSection
