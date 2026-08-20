@@ -704,7 +704,7 @@ export default function JimpitanPage() {
 
       <Navbar sticky={false} />
 
-      <div className="mx-auto mt-4 w-full max-w-none px-4 md:px-6">
+      <div className="page-container mt-4">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
           <p className="text-xs text-[var(--text-muted)]">Operasional</p>
           <p className="text-sm font-semibold text-[var(--text-primary)]">{operationalDate}</p>
@@ -712,7 +712,7 @@ export default function JimpitanPage() {
       </div>
 
       <OperationalStickySummary
-        className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-none md:w-[calc(100%-3rem)]"
+        className="page-container mt-3"
         items={jimpitanMode === 'SHIFT_TOTAL'
           ? [
               { label: 'Mode', value: 'Setor Shift', tone: 'sky' },
@@ -727,7 +727,7 @@ export default function JimpitanPage() {
       />
 
       {jimpitanMode === 'SHIFT_TOTAL' ? (
-        <div className="mx-auto mt-4 w-full max-w-none px-4 md:px-6">
+        <div className="page-container mt-4">
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Jimpitan V2</p>
             <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Input Jimpitan Hybrid</h2>
@@ -828,7 +828,7 @@ export default function JimpitanPage() {
           </div>
       ) : null}
 
-      {showByNameInput ? <div className="mx-auto mt-3 w-full max-w-none px-4 md:px-6">
+      {showByNameInput ? <div className="page-container mt-3">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
           <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
             {(['semua', 'belum', 'lunas', 'kosong'] as FilterStatus[]).map((f) => (
@@ -852,7 +852,7 @@ export default function JimpitanPage() {
       </div> : null}
 
       {/* Buttons placed above the card warga list */}
-      {showByNameInput ? <div className="mx-auto mt-4 w-full max-w-none space-y-4 px-4 md:px-6">
+      {showByNameInput ? <div className="page-container mt-4 space-y-4">
         <div className="flex flex-wrap gap-3 pt-4">
           <Button
             variant="ghost"
@@ -920,7 +920,7 @@ export default function JimpitanPage() {
 
       </div> : null}
 
-      {showByNameInput ? <div className="mx-auto mt-4 w-full max-w-none space-y-4 px-4 md:px-6">
+      {showByNameInput ? <div className="page-container mt-4 space-y-4">
         <div>
           <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
             Daftar Warga ({orderedItems.length})

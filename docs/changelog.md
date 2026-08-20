@@ -158,3 +158,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - WA Jimpitan: penerima random kini memakai rotasi persisten; nomor yang sudah berhasil dikirimi ditandai dan nomor valid lain diprioritaskan sampai seluruh kandidat mendapat giliran.
 - Jimpitan: judul approval setoran dibuat lebih ramah pengguna dengan format hari, tanggal, dan nama petugas; UUID tidak lagi ditampilkan pada judul/deskripsi utama.
 - Perbaikan approval: formatter tanggal setoran Jimpitan dibuat aman terhadap format DATE PostgreSQL agar endpoint `/approval/pending` tidak gagal 500.
+- Frontend: ditambahkan aturan global `page-container` selebar Navbar (`max-w-6xl`) agar card halaman utama sejajar di desktop, termasuk Jimpitan, Operasional, dan Approval.

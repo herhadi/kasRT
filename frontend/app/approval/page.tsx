@@ -396,7 +396,7 @@ export default function ApprovalPage() {
       <FeedbackToast error={message && !message.includes('berhasil') ? message : ''} message={message && message.includes('berhasil') ? message : ''} />
       <Navbar />
 
-      <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
+      <div className="page-container mt-6 space-y-5">
         {canSeeTransactionApprovals ? (
           <Card title="Approval" subtitle={`${approvalSections.reduce((total, section) => total + section.items.length, 0)} item approval transaksi`}>
             {approvalSections.length > 0 ? (

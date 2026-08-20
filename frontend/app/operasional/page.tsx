@@ -135,7 +135,7 @@ export default function OperasionalHomePage() {
     return (
       <main className="min-h-screen pb-10">
         <Navbar sticky={false} />
-        <div className="mx-auto mt-6 w-full max-w-5xl px-4 md:px-6">
+        <div className="page-container mt-6">
           <Card title="Tidak Ada Akses" subtitle="Menu operasional hanya untuk role terkait">
             <p className="text-sm text-[var(--text-muted)]">Akun Anda tidak memiliki akses ke menu operasional.</p>
           </Card>
@@ -147,7 +147,7 @@ export default function OperasionalHomePage() {
   return (
     <main className="min-h-screen pb-10">
       <Navbar sticky={false} />
-      <div className="mx-auto mt-6 w-full max-w-5xl space-y-5 px-4 md:px-6">
+      <div className="page-container mt-6 space-y-5">
         <Card
           title={isRoot ? 'Operasional Root' : isKetua ? 'Operasional Ketua' : 'Operasional'}
           subtitle={isRoot ? 'Akses CRUD semua modul' : isKetua ? 'Monitoring lintas modul' : 'Pilih menu operasional sesuai akses role'}

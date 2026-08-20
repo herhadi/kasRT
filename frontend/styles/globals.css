@@ -701,3 +701,23 @@ html.dark .segmented-toggle-btn-inactive:hover {
 /* =========================================================
    SEGMENTED TOGGLE — END
    ========================================================= */
+
+/* =========================================================
+   PAGE CONTAINER — START
+   Lebar konten utama harus sejajar dengan container Navbar.
+   ========================================================= */
+.page-container {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    padding-inline: 1.5rem;
+  }
+}
+/* =========================================================
+   PAGE CONTAINER — END
+   ========================================================= */
