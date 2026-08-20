@@ -157,3 +157,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Lingkungan: tombol Panduan dihapus; Status Iuran Warga default tertutup dan kolom Bayar/Target diganti menjadi Nominal Setor.
 - WA Jimpitan: penerima random kini memakai rotasi persisten; nomor yang sudah berhasil dikirimi ditandai dan nomor valid lain diprioritaskan sampai seluruh kandidat mendapat giliran.
 - Jimpitan: judul approval setoran dibuat lebih ramah pengguna dengan format hari, tanggal, dan nama petugas; UUID tidak lagi ditampilkan pada judul/deskripsi utama.
+- Perbaikan approval: formatter tanggal setoran Jimpitan dibuat aman terhadap format DATE PostgreSQL agar endpoint `/approval/pending` tidak gagal 500.

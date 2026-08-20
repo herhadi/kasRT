@@ -1,5 +1,12 @@
 import { pool } from '../db.js';
 
+function dateOnly(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return value.slice(0, 10);
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  return null;
+}
+
 export async function listPendingJimpitanBatches() {
   const result = await pool.query(
     `SELECT
@@ -20,10 +27,11 @@ export async function listPendingJimpitanBatches() {
 
   return result.rows.map((row) => {
     const isShiftTotal = String(row.batch_mode || '').toUpperCase() === 'SHIFT_TOTAL';
-    const tanggal = row.operational_date
+    const tanggalIso = dateOnly(row.operational_date);
+    const tanggal = tanggalIso
       ? new Intl.DateTimeFormat('id-ID', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta'
-      }).format(new Date(`${String(row.operational_date).slice(0, 10)}T00:00:00+07:00`))
+      }).format(new Date(`${tanggalIso}T00:00:00+07:00`))
       : '-';
     const namaPembuat = row.petugas_nama || 'Petugas Jimpitan';
     return {
