@@ -2,6 +2,18 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-08-22
+
+### Ditambahkan
+
+- WA Gateway kini memasang `link-preview-js` dan mengaktifkan high-quality link preview Baileys agar URL pada reminder menampilkan judul, deskripsi, dan thumbnail di perangkat penerima.
+- Root layout frontend menyediakan metadata Open Graph dan Twitter Card untuk URL KasRT, dengan base URL dari `NEXT_PUBLIC_APP_URL` atau fallback `https://kas02.vercel.app`.
+
+### Keamanan
+
+- `link-preview-js` menggunakan versi `4.0.4` yang sudah memperbaiki celah SSRF pada versi lama; audit dependensi WA Gateway tidak menemukan vulnerability.
+- Konfigurasi npm WA Gateway menerima peer override versi aman tersebut karena deklarasi peer Baileys 6.7.24 masih membatasi versi 3.x; Dockerfile menyalin `.npmrc` agar clean install tetap konsisten.
+
 ## 2026-07-31
 
 ### Diubah

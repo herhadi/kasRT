@@ -5,7 +5,10 @@ import AuthProvider from '@/components/providers/AuthProvider';
 import PwaRegister from '@/components/pwa/PwaRegister';
 import BottomNav from '@/components/layout/BottomNav';
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kas02.vercel.app';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: 'KasRT 02/04',
   description: 'Perum Griya Kalisalak Asri',
   manifest: '/manifest.webmanifest',
@@ -23,6 +26,28 @@ export const metadata: Metadata = {
       { url: '/icons/kasrt-icon-v2-512.png', type: 'image/png', sizes: '512x512' }
     ],
     apple: '/apple-icon.png'
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'id_ID',
+    url: '/',
+    siteName: 'KasRT 02/04',
+    title: 'KasRT 02/04',
+    description: 'Portal layanan warga Perum Griya Kalisalak Asri',
+    images: [
+      {
+        url: '/icons/kasrt-icon-v3-source.png',
+        width: 1024,
+        height: 1024,
+        alt: 'KasRT 02/04'
+      }
+    ]
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'KasRT 02/04',
+    description: 'Portal layanan warga Perum Griya Kalisalak Asri',
+    images: ['/icons/kasrt-icon-v3-source.png']
   }
 };
 

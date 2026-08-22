@@ -44,6 +44,22 @@ Konfigurasi anti-ban, minimal panjang pesan, typing, logging, dan lokasi state m
 
 Semua jalur kirim memakai socket yang dibungkus `baileys-antiban`. Sebelum kirim ke nomor `@s.whatsapp.net`, gateway memanggil `onWhatsApp`, tetapi secara default tetap mengirim ke JID nomor telepon (`WA_LAB_PREFER_LID_SEND=false`). Aktifkan LID hanya bila sudah terbukti stabil untuk nomor terkait. Opsi lama `WA_LAB_DISABLE_ANTIBAN` dan `WA_LAB_MANUAL_DIRECT_SEND` sudah tidak dipakai. Nilai delay 90–300 detik juga harus diganti karena backend reminder memiliki timeout 30 detik.
 
+Pesan teks yang memuat URL akan dibuatkan link preview oleh Baileys memakai
+`link-preview-js`. Gateway mengaktifkan high-quality preview agar thumbnail ikut
+diunggah ke WhatsApp dan lebih konsisten tampil di perangkat penerima. Halaman
+tujuan harus bisa diakses publik melalui HTTPS dan menyediakan metadata Open
+Graph minimal `og:title`, `og:description`, dan `og:image`. Frontend KasRT sudah
+menyediakan metadata tersebut dari root layout; `NEXT_PUBLIC_APP_URL` dapat
+diisi jika domain produksinya bukan `https://kas02.vercel.app`.
+
+Jika pesan tetap hanya menampilkan URL, periksa log gateway untuk kegagalan
+mengambil metadata/gambar, pastikan `og:image` dapat diakses tanpa autentikasi,
+dan pastikan deploy gateway memasang dependensi sesuai `package-lock.json`.
+File `wa-gateway/.npmrc` mengaktifkan `legacy-peer-deps` karena Baileys 6.7.24
+masih mendeklarasikan peer `link-preview-js` 3.x, sedangkan gateway memakai
+4.0.4 yang kompatibel dengan API generator Baileys dan sudah memperbaiki celah
+SSRF versi lama. Dockerfile wajib ikut menyalin `.npmrc` sebelum `npm install`.
+
 ## Setup Docker
 
 ```bash
@@ -233,6 +249,7 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 - Library WhatsApp unofficial tetap berisiko banned.
 - `baileys-antiban` hanya mengurangi risiko dengan delay/limit, bukan menjamin aman.
 - Gateway tidak memiliki jalur kirim langsung melalui raw socket; seluruh pesan melewati `wrapSocket()`.
+- Link preview hanya terbentuk jika gateway dapat mengambil halaman dan gambar Open Graph sebelum timeout; kegagalan preview tidak menggagalkan pengiriman teks.
 - Warm-up dan daftar chat dikenal disimpan di `wa-gateway/data/antiban-state.json` melalui volume Docker.
 - Waktu pertama nomor tertaut disimpan di `wa-gateway/data/connection-state.json`; restart/redeploy gateway tidak mengulang cooldown umur koneksi, tetapi pergantian nomor membuat timestamp baru.
 - Reminder jimpitan backend hanya boleh memakai mode uji terbatas: nomor valid random dari petugas shift jika `WA_JIMPITAN_REMINDER_ENABLED=true`.

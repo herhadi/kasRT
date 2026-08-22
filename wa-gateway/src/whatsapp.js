@@ -374,6 +374,10 @@ export async function startWhatsApp() {
     version,
     logger,
     browser: ['KasRT WA Lab', 'Chrome', '1.0'],
+    // Baileys generates the preview from Open Graph metadata when
+    // link-preview-js is installed. Uploading the thumbnail makes the preview
+    // render consistently on recipient devices, including Android.
+    generateHighQualityLinkPreview: true,
     markOnlineOnConnect: false,
     syncFullHistory: false,
     printQRInTerminal: false
