@@ -289,39 +289,42 @@ export default function ManagementHomePage() {
             <div className="space-y-3">
               {loginAuditPager.pagedItems.map((item) => (
                 <article key={item.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
-                  <div className="flex flex-col gap-2 border-b border-[var(--line)] pb-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="font-semibold text-[var(--text-primary)]">{item.user_name}</p>
                       <p className="text-xs text-[var(--text-muted)]">
                         {item.user_phone || '-'} • {(item.roles || []).join(', ') || 'Tanpa role'}
                       </p>
                     </div>
-                    <time className="text-sm font-semibold text-[var(--accent)]" dateTime={item.login_at}>
-                      {formatLoginDateTime(item.login_at)}
-                    </time>
+                    <div className="sm:text-right">
+                      <time className="block text-sm font-semibold text-[var(--accent)]" dateTime={item.login_at}>
+                        {formatLoginDateTime(item.login_at)}
+                      </time>
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--accent)]">
+                          Lihat detail login
+                        </summary>
+                        <dl className="mt-3 grid gap-x-5 gap-y-2 border-t border-[var(--line)] pt-3 text-left text-sm sm:grid-cols-2 lg:grid-cols-3">
+                          <LoginAuditDetail label="Perangkat" value={item.device_type || '-'} />
+                          <LoginAuditDetail label="Browser" value={item.browser || '-'} />
+                          <LoginAuditDetail label="Sistem Operasi" value={item.operating_system || '-'} />
+                          <LoginAuditDetail label="Platform" value={item.platform || '-'} />
+                          <LoginAuditDetail label="IP Publik/Client" value={item.ip_address || '-'} />
+                          <LoginAuditDetail label="Negara Jaringan" value={item.country_code || 'Tidak tersedia'} />
+                          <LoginAuditDetail label="Zona Waktu" value={item.timezone || '-'} />
+                          <LoginAuditDetail label="Bahasa" value={item.language || '-'} />
+                          <LoginAuditDetail label="Host Backend" value={item.host || '-'} />
+                          <LoginAuditDetail label="Origin Aplikasi" value={item.origin || '-'} />
+                          <LoginAuditDetail label="Forwarded IP" value={item.forwarded_for || '-'} />
+                          <LoginAuditDetail label="Referer" value={item.referer || '-'} />
+                          <div className="min-w-0 sm:col-span-2 lg:col-span-3">
+                            <dt className="text-xs font-semibold text-[var(--text-muted)]">User Agent lengkap</dt>
+                            <dd className="break-all text-xs text-[var(--text-primary)]">{item.user_agent || '-'}</dd>
+                          </div>
+                        </dl>
+                      </details>
+                    </div>
                   </div>
-
-                  <details className="surface-muted mt-3 rounded-xl border border-[var(--line)] px-3 py-2">
-                    <summary className="cursor-pointer text-sm font-semibold text-[var(--accent)]">Lihat detail login</summary>
-                    <dl className="mt-3 grid gap-x-5 gap-y-2 border-t border-[var(--line)] pt-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                      <LoginAuditDetail label="Perangkat" value={item.device_type || '-'} />
-                      <LoginAuditDetail label="Browser" value={item.browser || '-'} />
-                      <LoginAuditDetail label="Sistem Operasi" value={item.operating_system || '-'} />
-                      <LoginAuditDetail label="Platform" value={item.platform || '-'} />
-                      <LoginAuditDetail label="IP Publik/Client" value={item.ip_address || '-'} />
-                      <LoginAuditDetail label="Negara Jaringan" value={item.country_code || 'Tidak tersedia'} />
-                      <LoginAuditDetail label="Zona Waktu" value={item.timezone || '-'} />
-                      <LoginAuditDetail label="Bahasa" value={item.language || '-'} />
-                      <LoginAuditDetail label="Host Backend" value={item.host || '-'} />
-                      <LoginAuditDetail label="Origin Aplikasi" value={item.origin || '-'} />
-                      <LoginAuditDetail label="Forwarded IP" value={item.forwarded_for || '-'} />
-                      <LoginAuditDetail label="Referer" value={item.referer || '-'} />
-                      <div className="min-w-0 sm:col-span-2 lg:col-span-3">
-                        <dt className="text-xs font-semibold text-[var(--text-muted)]">User Agent lengkap</dt>
-                        <dd className="break-all text-xs text-[var(--text-primary)]">{item.user_agent || '-'}</dd>
-                      </div>
-                    </dl>
-                  </details>
                 </article>
               ))}
             </div>
