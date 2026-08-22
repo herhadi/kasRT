@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
+  getUrlInfo,
   useMultiFileAuthState
 } from 'baileys';
 import { PresenceChoreographer, wrapSocket } from 'baileys-antiban';
@@ -43,6 +44,11 @@ let lastOutgoingTransport = null;
 let lastOutgoingMessageId = null;
 let lastOutgoingResultJid = null;
 let lastOutgoingError = null;
+let lastLinkPreviewAttemptAt = null;
+let lastLinkPreviewUrl = null;
+let lastLinkPreviewTitle = null;
+let lastLinkPreviewThumbnailBytes = 0;
+let lastLinkPreviewError = null;
 let lastTypingAttemptAt = null;
 let lastTypingCompletedAt = null;
 let lastTypingJid = null;
@@ -139,9 +145,36 @@ async function prepareHumanSend(jid, text) {
 
 async function sendTextMessage(jid, text) {
   const messageText = validateMessageText(text);
+  const linkPreview = await buildLinkPreview(messageText);
   const resolvedJid = await prepareHumanSend(jid, messageText);
-  const result = await sendProtectedMessage(jid, { text: messageText }, { resolvedJid });
+  const content = linkPreview ? { text: messageText, linkPreview } : { text: messageText };
+  const result = await sendProtectedMessage(jid, content, { resolvedJid });
   return { messageText, result };
+}
+
+async function buildLinkPreview(messageText) {
+  const matchedUrl = String(messageText || '').match(/https?:\/\/[^\s<>]+/i)?.[0] || null;
+  const url = matchedUrl?.replace(/[),.!?;]+$/, '') || null;
+  lastLinkPreviewAttemptAt = url ? new Date().toISOString() : null;
+  lastLinkPreviewUrl = url;
+  lastLinkPreviewTitle = null;
+  lastLinkPreviewThumbnailBytes = 0;
+  lastLinkPreviewError = null;
+  if (!url) return undefined;
+
+  try {
+    const preview = await getUrlInfo(url, {
+      thumbnailWidth: 192,
+      fetchOpts: { timeout: 8_000 }
+    });
+    lastLinkPreviewTitle = preview?.title || null;
+    lastLinkPreviewThumbnailBytes = preview?.jpegThumbnail?.length || 0;
+    if (!preview?.title) lastLinkPreviewError = 'Metadata preview tidak memiliki title';
+    return preview;
+  } catch (error) {
+    lastLinkPreviewError = error instanceof Error ? error.message : String(error);
+    return undefined;
+  }
 }
 
 function normalizePhone(phone) {
@@ -493,7 +526,12 @@ export function getStatus() {
       last_outgoing_transport: lastOutgoingTransport,
       last_outgoing_message_id: lastOutgoingMessageId,
       last_outgoing_result_jid: lastOutgoingResultJid,
-      last_outgoing_error: lastOutgoingError
+      last_outgoing_error: lastOutgoingError,
+      last_link_preview_attempt_at: lastLinkPreviewAttemptAt,
+      last_link_preview_url: lastLinkPreviewUrl,
+      last_link_preview_title: lastLinkPreviewTitle,
+      last_link_preview_thumbnail_bytes: lastLinkPreviewThumbnailBytes,
+      last_link_preview_error: lastLinkPreviewError
     }
   };
 }

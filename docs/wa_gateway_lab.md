@@ -55,6 +55,12 @@ diisi jika domain produksinya bukan `https://kas02.vercel.app`.
 Jika pesan tetap hanya menampilkan URL, periksa log gateway untuk kegagalan
 mengambil metadata/gambar, pastikan `og:image` dapat diakses tanpa autentikasi,
 dan pastikan deploy gateway memasang dependensi sesuai `package-lock.json`.
+Gateway membentuk `linkPreview` secara eksplisit sebelum pesan masuk ke wrapper
+anti-ban, sehingga pengiriman tidak bergantung pada generator implisit
+`sendMessage`. Endpoint `/status` menyediakan diagnostic
+`last_link_preview_url`, `last_link_preview_title`,
+`last_link_preview_thumbnail_bytes`, dan `last_link_preview_error`. Nilai byte
+thumbnail harus lebih dari `0` agar gambar benar-benar ikut dalam payload.
 File `wa-gateway/.npmrc` mengaktifkan `legacy-peer-deps` karena Baileys 6.7.24
 masih mendeklarasikan peer `link-preview-js` 3.x, sedangkan gateway memakai
 4.0.4 yang kompatibel dengan API generator Baileys dan sudah memperbaiki celah
