@@ -17,6 +17,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Approval Setoran Jimpitan tidak lagi menyatukan tanggal dan nama petugas dalam judul panjang; informasi tersebut disajikan sebagai metadata terpisah agar tidak terpotong pada layar kecil.
 - Halaman Approval utama dan Approval Bendahara memakai komponen kartu approval global yang sama agar modul approval berikutnya memiliki pola tampilan konsisten.
 - Kartu Login Terakhir lama di `/management/struktur` dihapus; pemantauan login dipusatkan di audit lengkap `/management`, sedangkan halaman Struktur kembali fokus pada warga, role, dan organisasi.
+- Detail teknis setiap audit login di `/management` dibuat collapse secara default; identitas dan waktu login tetap terlihat agar daftar mudah dipindai di mobile maupun desktop.
 
 ### Keamanan
 
