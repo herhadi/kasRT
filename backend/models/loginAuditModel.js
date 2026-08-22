@@ -17,6 +17,10 @@ export async function ensureLoginAuditTable() {
       browser TEXT,
       operating_system TEXT,
       platform TEXT,
+      platform_version TEXT,
+      device_model TEXT,
+      architecture TEXT,
+      bitness TEXT,
       language TEXT,
       timezone TEXT,
       origin TEXT,
@@ -24,6 +28,13 @@ export async function ensureLoginAuditTable() {
       host TEXT,
       login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  await pool.query(`
+    ALTER TABLE login_audit_logs
+      ADD COLUMN IF NOT EXISTS platform_version TEXT,
+      ADD COLUMN IF NOT EXISTS device_model TEXT,
+      ADD COLUMN IF NOT EXISTS architecture TEXT,
+      ADD COLUMN IF NOT EXISTS bitness TEXT
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS login_audit_logs_login_at_idx
@@ -37,16 +48,18 @@ export async function recordLoginAudit({ user, roles, context }) {
     `INSERT INTO login_audit_logs
       (id, user_id, user_name, user_phone, roles, ip_address, forwarded_for,
        country_code, user_agent, device_type, browser, operating_system,
-       platform, language, timezone, origin, referer, host)
+       platform, platform_version, device_model, architecture, bitness,
+       language, timezone, origin)
      VALUES
       ($1, $2::uuid, $3, $4, $5::text[], $6, $7, $8, $9, $10, $11, $12,
-       $13, $14, $15, $16, $17, $18)`,
+       $13, $14, $15, $16, $17, $18, $19, $20)`,
     [
       randomUUID(), user.id, user.nama, user.no_hp, roles, context.ipAddress,
       context.forwardedFor, context.countryCode, context.userAgent,
       context.deviceType, context.browser, context.operatingSystem,
-      context.platform, context.language, context.timezone, context.origin,
-      context.referer, context.host
+      context.platform, context.platformVersion, context.deviceModel,
+      context.architecture, context.bitness, context.language,
+      context.timezone, context.origin
     ]
   );
 }
@@ -69,11 +82,13 @@ export async function listRecentLoginAudits(limit = 30) {
        browser,
        operating_system,
        platform,
+       platform_version,
+       device_model,
+       architecture,
+       bitness,
        language,
        timezone,
        origin,
-       referer,
-       host,
        login_at
      FROM login_audit_logs
      ORDER BY login_at DESC, id DESC

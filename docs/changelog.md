@@ -18,6 +18,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Halaman Approval utama dan Approval Bendahara memakai komponen kartu approval global yang sama agar modul approval berikutnya memiliki pola tampilan konsisten.
 - Kartu Login Terakhir lama di `/management/struktur` dihapus; pemantauan login dipusatkan di audit lengkap `/management`, sedangkan halaman Struktur kembali fokus pada warga, role, dan organisasi.
 - Detail teknis setiap audit login di `/management` dibuat collapse secara default melalui toggle inline di bawah waktu login, tanpa subcard; identitas dan waktu tetap terlihat agar daftar ringkas di mobile maupun desktop.
+- Detail audit login mengganti Host Backend dan Referer dengan model perangkat serta detail platform (versi, arsitektur, dan bitness) dari User-Agent Client Hints jika didukung browser.
+- Urutan detail audit login dikelompokkan menjadi perangkat, software/platform, lokal browser, lalu jaringan agar alur informasinya konsisten pada tampilan mobile dan desktop.
 
 ### Keamanan
 

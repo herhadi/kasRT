@@ -53,11 +53,13 @@ function detectLoginClient(req) {
     browser,
     operatingSystem,
     platform: String(clientContext.platform || '').slice(0, 100) || null,
+    platformVersion: String(clientContext.platform_version || '').slice(0, 100) || null,
+    deviceModel: String(clientContext.device_model || '').slice(0, 150) || null,
+    architecture: String(clientContext.architecture || '').slice(0, 50) || null,
+    bitness: String(clientContext.bitness || '').slice(0, 20) || null,
     language: String(clientContext.language || req.headers['accept-language'] || '').slice(0, 100) || null,
     timezone: String(clientContext.timezone || '').slice(0, 100) || null,
-    origin: String(req.headers.origin || '').slice(0, 500) || null,
-    referer: String(req.headers.referer || '').slice(0, 500) || null,
-    host: String(req.headers.host || '').slice(0, 255) || null
+    origin: String(req.headers.origin || '').slice(0, 500) || null
   };
 }
 

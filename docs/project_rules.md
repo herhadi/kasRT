@@ -83,4 +83,6 @@ menyimpan snapshot user/role, waktu login, IP dan header jaringan, perangkat,
 browser, sistem operasi, serta konteks browser non-sensitif. PIN dan token JWT
 tidak boleh disimpan. UI `/management` hanya mengambil 30 kejadian terbaru dan
 menampilkannya 10 item per halaman, terbaru lebih dulu. Informasi negara bersifat
-best effort dari header proxy dan bukan lokasi GPS pengguna.
+best effort dari header proxy dan bukan lokasi GPS pengguna. Model perangkat,
+versi platform, arsitektur, dan bitness juga best effort dari Client Hints;
+browser tertentu, terutama Safari/iPhone, dapat tidak memberikannya.

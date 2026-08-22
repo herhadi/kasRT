@@ -10,6 +10,43 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 
+type NavigatorWithUserAgentData = Navigator & {
+  userAgentData?: {
+    getHighEntropyValues?: (hints: string[]) => Promise<{
+      model?: string;
+      platform?: string;
+      platformVersion?: string;
+      architecture?: string;
+      bitness?: string;
+    }>;
+  };
+};
+
+type HighEntropyClientHints = {
+  model?: string;
+  platform?: string;
+  platformVersion?: string;
+  architecture?: string;
+  bitness?: string;
+};
+
+async function getLoginClientContext() {
+  const userAgentData = (navigator as NavigatorWithUserAgentData).userAgentData;
+  const highEntropy: HighEntropyClientHints = userAgentData?.getHighEntropyValues
+    ? await userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion', 'architecture', 'bitness']).catch(() => ({}))
+    : {};
+
+  return {
+    platform: highEntropy.platform || navigator.platform || null,
+    platform_version: highEntropy.platformVersion || null,
+    device_model: highEntropy.model || null,
+    architecture: highEntropy.architecture || null,
+    bitness: highEntropy.bitness || null,
+    language: navigator.language || null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null
+  };
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { user, login } = useAuth();
@@ -46,17 +83,14 @@ export default function LoginPage() {
 
     try {
       setLoading(true);
+      const clientContext = await getLoginClientContext();
       const result = await apiFetch<LoginResponse>('/auth/login', {
         method: 'POST',
         auth: false,
         body: JSON.stringify({
           no_hp: noHp.trim(),
           pin: pin.trim(),
-          client_context: {
-            platform: navigator.platform || null,
-            language: navigator.language || null,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null
-          }
+          client_context: clientContext
         })
       });
 

@@ -79,11 +79,13 @@ type LoginAuditItem = {
   browser: string | null;
   operating_system: string | null;
   platform: string | null;
+  platform_version: string | null;
+  device_model: string | null;
+  architecture: string | null;
+  bitness: string | null;
   language: string | null;
   timezone: string | null;
   origin: string | null;
-  referer: string | null;
-  host: string | null;
   login_at: string;
 };
 
@@ -307,18 +309,18 @@ export default function ManagementHomePage() {
                       Lihat detail login
                     </summary>
                     <dl className="mt-3 grid w-full gap-x-5 gap-y-2 border-t border-[var(--line)] pt-3 text-left text-sm sm:grid-cols-2 lg:grid-cols-3">
-                      <LoginAuditDetail label="Perangkat" value={item.device_type || '-'} />
-                      <LoginAuditDetail label="Browser" value={item.browser || '-'} />
+                      <LoginAuditDetail label="Model Perangkat" value={item.device_model || 'Tidak diberikan browser'} />
+                      <LoginAuditDetail label="Jenis Perangkat" value={item.device_type || '-'} />
                       <LoginAuditDetail label="Sistem Operasi" value={item.operating_system || '-'} />
                       <LoginAuditDetail label="Platform" value={item.platform || '-'} />
-                      <LoginAuditDetail label="IP Publik/Client" value={item.ip_address || '-'} />
-                      <LoginAuditDetail label="Negara Jaringan" value={item.country_code || 'Tidak tersedia'} />
+                      <LoginAuditDetail label="Detail Platform" value={formatPlatformDetail(item)} />
+                      <LoginAuditDetail label="Browser" value={item.browser || '-'} />
                       <LoginAuditDetail label="Zona Waktu" value={item.timezone || '-'} />
                       <LoginAuditDetail label="Bahasa" value={item.language || '-'} />
-                      <LoginAuditDetail label="Host Backend" value={item.host || '-'} />
                       <LoginAuditDetail label="Origin Aplikasi" value={item.origin || '-'} />
+                      <LoginAuditDetail label="IP Publik/Client" value={item.ip_address || '-'} />
                       <LoginAuditDetail label="Forwarded IP" value={item.forwarded_for || '-'} />
-                      <LoginAuditDetail label="Referer" value={item.referer || '-'} />
+                      <LoginAuditDetail label="Negara Jaringan" value={item.country_code || 'Tidak tersedia'} />
                       <div className="min-w-0 sm:col-span-2 lg:col-span-3">
                         <dt className="text-xs font-semibold text-[var(--text-muted)]">User Agent lengkap</dt>
                         <dd className="break-all text-xs text-[var(--text-primary)]">{item.user_agent || '-'}</dd>
@@ -539,6 +541,15 @@ function formatLoginDateTime(value: string) {
     hour12: false,
     timeZoneName: 'short'
   });
+}
+
+function formatPlatformDetail(item: LoginAuditItem) {
+  const parts = [
+    item.platform_version ? `versi ${item.platform_version}` : '',
+    item.architecture || '',
+    item.bitness ? `${item.bitness}-bit` : ''
+  ].filter(Boolean);
+  return parts.join(' • ') || 'Tidak diberikan browser';
 }
 
 function formatDateTimeWib(value: string) {
