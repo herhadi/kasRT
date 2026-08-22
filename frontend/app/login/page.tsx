@@ -49,7 +49,15 @@ export default function LoginPage() {
       const result = await apiFetch<LoginResponse>('/auth/login', {
         method: 'POST',
         auth: false,
-        body: JSON.stringify({ no_hp: noHp.trim(), pin: pin.trim() })
+        body: JSON.stringify({
+          no_hp: noHp.trim(),
+          pin: pin.trim(),
+          client_context: {
+            platform: navigator.platform || null,
+            language: navigator.language || null,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null
+          }
+        })
       });
 
       login({ token: result.token, user: result.user });

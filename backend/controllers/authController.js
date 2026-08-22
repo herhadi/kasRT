@@ -9,7 +9,57 @@ import {
   updateUserProfileById
 } from '../models/authModel.js';
 import { createPinResetRequestByNoHp } from '../models/managementModel.js';
+import { recordLoginAudit } from '../models/loginAuditModel.js';
 import { notifyRoles } from '../services/approvalNotifier.js';
+
+function detectLoginClient(req) {
+  const userAgent = String(req.headers['user-agent'] || '').slice(0, 1000);
+  const forwardedFor = String(req.headers['x-forwarded-for'] || '').slice(0, 500);
+  const clientContext = req.body?.client_context || {};
+  const ipAddress = String(
+    req.headers['cf-connecting-ip'] ||
+    forwardedFor.split(',')[0]?.trim() ||
+    req.headers['x-real-ip'] ||
+    req.socket?.remoteAddress ||
+    ''
+  ).slice(0, 100);
+
+  let deviceType = 'Desktop';
+  if (/ipad|tablet|kindle|silk/i.test(userAgent)) deviceType = 'Tablet';
+  else if (/mobile|iphone|ipod|android/i.test(userAgent)) deviceType = 'Mobile';
+
+  let browser = 'Lainnya';
+  if (/edg\//i.test(userAgent)) browser = 'Microsoft Edge';
+  else if (/opr\//i.test(userAgent)) browser = 'Opera';
+  else if (/crios\//i.test(userAgent)) browser = 'Google Chrome iOS';
+  else if (/chrome\//i.test(userAgent)) browser = 'Google Chrome';
+  else if (/fxios\//i.test(userAgent)) browser = 'Firefox iOS';
+  else if (/firefox\//i.test(userAgent)) browser = 'Mozilla Firefox';
+  else if (/safari\//i.test(userAgent) && /version\//i.test(userAgent)) browser = 'Safari';
+
+  let operatingSystem = 'Lainnya';
+  if (/windows nt/i.test(userAgent)) operatingSystem = 'Windows';
+  else if (/android/i.test(userAgent)) operatingSystem = 'Android';
+  else if (/iphone|ipad|ipod/i.test(userAgent)) operatingSystem = 'iOS/iPadOS';
+  else if (/mac os x|macintosh/i.test(userAgent)) operatingSystem = 'macOS';
+  else if (/linux/i.test(userAgent)) operatingSystem = 'Linux';
+
+  return {
+    ipAddress: ipAddress || null,
+    forwardedFor: forwardedFor || null,
+    countryCode: String(req.headers['cf-ipcountry'] || '').slice(0, 8) || null,
+    userAgent: userAgent || null,
+    deviceType,
+    browser,
+    operatingSystem,
+    platform: String(clientContext.platform || '').slice(0, 100) || null,
+    language: String(clientContext.language || req.headers['accept-language'] || '').slice(0, 100) || null,
+    timezone: String(clientContext.timezone || '').slice(0, 100) || null,
+    origin: String(req.headers.origin || '').slice(0, 500) || null,
+    referer: String(req.headers.referer || '').slice(0, 500) || null,
+    host: String(req.headers.host || '').slice(0, 255) || null
+  };
+}
 
 export async function login(req, res) {
   const { no_hp, pin } = req.body;
@@ -25,6 +75,9 @@ export async function login(req, res) {
 
   const roles = await findUserRoles(user.id);
   await updateLastLoginById(user.id);
+  await recordLoginAudit({ user, roles, context: detectLoginClient(req) }).catch((error) => {
+    console.error('Gagal mencatat audit login:', error.message);
+  });
 
   const token = jwt.sign(
     {

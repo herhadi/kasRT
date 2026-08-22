@@ -11,6 +11,8 @@ import { apiFetch } from '@/lib/api';
 import { hasAnyRole } from '@/lib/auth';
 import { formatTanggalIndonesia } from '@/lib/helpers';
 import { useAuth } from '@/lib/useAuth';
+import usePagination from '@/lib/hooks/usePagination';
+import PaginationControls from '@/components/pagination/PaginationControls';
 
 type CronHealthStatus = {
   job_name: string;
@@ -63,6 +65,28 @@ type JimpitanModeHistoryItem = {
   created_by_name?: string | null;
 };
 
+type LoginAuditItem = {
+  id: string;
+  user_id: string | null;
+  user_name: string;
+  user_phone: string | null;
+  roles: string[];
+  ip_address: string | null;
+  forwarded_for: string | null;
+  country_code: string | null;
+  user_agent: string | null;
+  device_type: string | null;
+  browser: string | null;
+  operating_system: string | null;
+  platform: string | null;
+  language: string | null;
+  timezone: string | null;
+  origin: string | null;
+  referer: string | null;
+  host: string | null;
+  login_at: string;
+};
+
 export default function ManagementHomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -78,11 +102,15 @@ export default function ManagementHomePage() {
   const [modeHistory, setModeHistory] = useState<JimpitanModeHistoryItem[]>([]);
   const [savingMode, setSavingMode] = useState(false);
   const [modeMessage, setModeMessage] = useState('');
+  const [loginAudits, setLoginAudits] = useState<LoginAuditItem[]>([]);
+  const [loginAuditError, setLoginAuditError] = useState('');
+  const [loadingLoginAudits, setLoadingLoginAudits] = useState(false);
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
   const latestReminderLog = cronStatus?.logs?.find((log) => Boolean(log.payload?.reminder_result));
   const reminderResult = latestReminderLog?.payload?.reminder_result;
+  const loginAuditPager = usePagination(loginAudits, 10);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -116,6 +144,23 @@ export default function ManagementHomePage() {
       }
     } catch (error) {
       setModeMessage(error instanceof Error ? error.message : 'Gagal memuat mode Jimpitan');
+    }
+  }
+
+  async function loadLoginAudits() {
+    if (!isRoot) return;
+    setLoginAuditError('');
+    setLoadingLoginAudits(true);
+    try {
+      const res = await apiFetch<{
+        success: boolean;
+        data: { items: LoginAuditItem[]; total: number; limit: number };
+      }>('/management/login-audits');
+      setLoginAudits(res.data?.items || []);
+    } catch (error) {
+      setLoginAuditError(error instanceof Error ? error.message : 'Gagal memuat audit login');
+    } finally {
+      setLoadingLoginAudits(false);
     }
   }
 
@@ -165,6 +210,7 @@ export default function ManagementHomePage() {
     if (!loading && user && isRoot) {
       void loadCronStatus();
       void loadJimpitanMode();
+      void loadLoginAudits();
     }
   }, [loading, user?.id, isRoot]);
 
@@ -223,6 +269,71 @@ export default function ManagementHomePage() {
             ) : null}
           </div>
         </Card>
+        {isRoot ? (
+          <Card
+            title="30 Login Terakhir"
+            subtitle="Audit login berhasil terbaru • 10 data per halaman • khusus root"
+            headerRight={
+              <Button variant="ghost" onClick={loadLoginAudits} disabled={loadingLoginAudits}>
+                {loadingLoginAudits ? 'Memuat...' : 'Refresh'}
+              </Button>
+            }
+          >
+            {loginAuditError ? <p className="mb-3 text-sm text-red-600">{loginAuditError}</p> : null}
+            {!loadingLoginAudits && loginAudits.length === 0 ? (
+              <p className="text-sm text-[var(--text-muted)]">
+                Belum ada audit login. Data akan tercatat mulai login berhasil berikutnya setelah backend ini dideploy.
+              </p>
+            ) : null}
+
+            <div className="space-y-3">
+              {loginAuditPager.pagedItems.map((item) => (
+                <article key={item.id} className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+                  <div className="flex flex-col gap-2 border-b border-[var(--line)] pb-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-[var(--text-primary)]">{item.user_name}</p>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {item.user_phone || '-'} • {(item.roles || []).join(', ') || 'Tanpa role'}
+                      </p>
+                    </div>
+                    <time className="text-sm font-semibold text-[var(--accent)]" dateTime={item.login_at}>
+                      {formatLoginDateTime(item.login_at)}
+                    </time>
+                  </div>
+
+                  <dl className="mt-3 grid gap-x-5 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                    <LoginAuditDetail label="Perangkat" value={item.device_type || '-'} />
+                    <LoginAuditDetail label="Browser" value={item.browser || '-'} />
+                    <LoginAuditDetail label="Sistem Operasi" value={item.operating_system || '-'} />
+                    <LoginAuditDetail label="Platform" value={item.platform || '-'} />
+                    <LoginAuditDetail label="IP Publik/Client" value={item.ip_address || '-'} />
+                    <LoginAuditDetail label="Negara Jaringan" value={item.country_code || 'Tidak tersedia'} />
+                    <LoginAuditDetail label="Zona Waktu" value={item.timezone || '-'} />
+                    <LoginAuditDetail label="Bahasa" value={item.language || '-'} />
+                    <LoginAuditDetail label="Host Backend" value={item.host || '-'} />
+                    <LoginAuditDetail label="Origin Aplikasi" value={item.origin || '-'} />
+                    <LoginAuditDetail label="Forwarded IP" value={item.forwarded_for || '-'} />
+                    <LoginAuditDetail label="Referer" value={item.referer || '-'} />
+                  </dl>
+
+                  <details className="surface-muted mt-3 rounded-xl border border-[var(--line)] px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-semibold text-[var(--text-muted)]">User Agent lengkap</summary>
+                    <p className="mt-2 break-all text-xs text-[var(--text-muted)]">{item.user_agent || '-'}</p>
+                  </details>
+                </article>
+              ))}
+            </div>
+
+            {loginAudits.length > 0 ? (
+              <PaginationControls
+                page={loginAuditPager.page}
+                totalPages={loginAuditPager.totalPages}
+                onPrev={loginAuditPager.prev}
+                onNext={loginAuditPager.next}
+              />
+            ) : null}
+          </Card>
+        ) : null}
         {isRoot ? (
           <Card
             title="Mode Operasional Jimpitan"
@@ -397,6 +508,32 @@ function InfoLine({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{value}</p>
     </div>
   );
+}
+
+function LoginAuditDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs font-semibold text-[var(--text-muted)]">{label}</dt>
+      <dd className="break-words font-medium text-[var(--text-primary)]">{value}</dd>
+    </div>
+  );
+}
+
+function formatLoginDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZoneName: 'short'
+  });
 }
 
 function formatDateTimeWib(value: string) {

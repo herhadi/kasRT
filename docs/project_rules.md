@@ -77,3 +77,10 @@ secara otomatis.
 
 Session login KasRT menggunakan JWT dengan masa berlaku default 1 minggu (`7d`).
 Masa berlaku dapat diubah melalui `JWT_EXPIRES_IN` pada environment backend.
+
+Setiap login berhasil dicatat pada `login_audit_logs` untuk audit root. Audit
+menyimpan snapshot user/role, waktu login, IP dan header jaringan, perangkat,
+browser, sistem operasi, serta konteks browser non-sensitif. PIN dan token JWT
+tidak boleh disimpan. UI `/management` hanya mengambil 30 kejadian terbaru dan
+menampilkannya 10 item per halaman, terbaru lebih dulu. Informasi negara bersifat
+best effort dari header proxy dan bukan lokasi GPS pengguna.

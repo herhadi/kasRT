@@ -302,6 +302,13 @@ Fungsi umum:
 - mengatur mode Jimpitan;
 - memproses approval dan permintaan reset PIN;
 - memantau status reminder jimpitan.
+- memantau 30 login berhasil terbaru khusus root, ditampilkan 10 item per halaman
+  dari yang paling baru, lengkap dengan waktu WIB, user/role, perangkat,
+  browser, sistem operasi, dan konteks jaringan yang tersedia.
+
+Audit login mulai terisi setelah fitur ini dideploy dan hanya mencatat login
+berhasil. Informasi negara berasal dari header proxy bila tersedia dan bukan
+lokasi GPS. PIN maupun token sesi tidak ditampilkan atau disimpan dalam audit.
 
 ### Input Global Admin Jimpitan
 

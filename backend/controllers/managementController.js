@@ -9,6 +9,19 @@ import {
   ,
   upsertMeetingAttendanceByMonth
 } from '../models/managementModel.js';
+import { listRecentLoginAudits } from '../models/loginAuditModel.js';
+
+export async function getRecentLoginAudits(_req, res) {
+  const items = await listRecentLoginAudits(30);
+  return res.json({
+    success: true,
+    data: {
+      items,
+      total: items.length,
+      limit: 30
+    }
+  });
+}
 
 export async function getUserManagementData(_req, res) {
   try {

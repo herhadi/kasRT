@@ -2,12 +2,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { pool } from '../db.js';
+import { ensureLoginAuditTable } from '../models/loginAuditModel.js';
 
 const INDEX_QUERIES = [
   // transactions: banyak filter status/type/waktu + source/target wallet
   `CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions (created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_transactions_status_type_created_at ON transactions (status, type, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_transactions_target_status_created_at ON transactions (target_wallet_id, status, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS login_audit_logs_login_at_idx ON login_audit_logs (login_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_transactions_source_status_created_at ON transactions (source_wallet_id, status, created_at DESC)`,
 
   // iuran wajib
@@ -36,6 +38,7 @@ const INDEX_QUERIES = [
 ];
 
 async function main() {
+  await ensureLoginAuditTable();
   console.log(`Applying ${INDEX_QUERIES.length} performance indexes...`);
   for (const sql of INDEX_QUERIES) {
     await pool.query(sql);
@@ -51,4 +54,3 @@ main()
   .finally(async () => {
     await pool.end();
   });
-
