@@ -300,31 +300,31 @@ export default function ManagementHomePage() {
                       <time className="block text-sm font-semibold text-[var(--accent)]" dateTime={item.login_at}>
                         {formatLoginDateTime(item.login_at)}
                       </time>
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--accent)]">
-                          Lihat detail login
-                        </summary>
-                        <dl className="mt-3 grid gap-x-5 gap-y-2 border-t border-[var(--line)] pt-3 text-left text-sm sm:grid-cols-2 lg:grid-cols-3">
-                          <LoginAuditDetail label="Perangkat" value={item.device_type || '-'} />
-                          <LoginAuditDetail label="Browser" value={item.browser || '-'} />
-                          <LoginAuditDetail label="Sistem Operasi" value={item.operating_system || '-'} />
-                          <LoginAuditDetail label="Platform" value={item.platform || '-'} />
-                          <LoginAuditDetail label="IP Publik/Client" value={item.ip_address || '-'} />
-                          <LoginAuditDetail label="Negara Jaringan" value={item.country_code || 'Tidak tersedia'} />
-                          <LoginAuditDetail label="Zona Waktu" value={item.timezone || '-'} />
-                          <LoginAuditDetail label="Bahasa" value={item.language || '-'} />
-                          <LoginAuditDetail label="Host Backend" value={item.host || '-'} />
-                          <LoginAuditDetail label="Origin Aplikasi" value={item.origin || '-'} />
-                          <LoginAuditDetail label="Forwarded IP" value={item.forwarded_for || '-'} />
-                          <LoginAuditDetail label="Referer" value={item.referer || '-'} />
-                          <div className="min-w-0 sm:col-span-2 lg:col-span-3">
-                            <dt className="text-xs font-semibold text-[var(--text-muted)]">User Agent lengkap</dt>
-                            <dd className="break-all text-xs text-[var(--text-primary)]">{item.user_agent || '-'}</dd>
-                          </div>
-                        </dl>
-                      </details>
                     </div>
                   </div>
+                  <details className="mt-1 w-full">
+                    <summary className="cursor-pointer text-right text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--accent)]">
+                      Lihat detail login
+                    </summary>
+                    <dl className="mt-3 grid w-full gap-x-5 gap-y-2 border-t border-[var(--line)] pt-3 text-left text-sm sm:grid-cols-2 lg:grid-cols-3">
+                      <LoginAuditDetail label="Perangkat" value={item.device_type || '-'} />
+                      <LoginAuditDetail label="Browser" value={item.browser || '-'} />
+                      <LoginAuditDetail label="Sistem Operasi" value={item.operating_system || '-'} />
+                      <LoginAuditDetail label="Platform" value={item.platform || '-'} />
+                      <LoginAuditDetail label="IP Publik/Client" value={item.ip_address || '-'} />
+                      <LoginAuditDetail label="Negara Jaringan" value={item.country_code || 'Tidak tersedia'} />
+                      <LoginAuditDetail label="Zona Waktu" value={item.timezone || '-'} />
+                      <LoginAuditDetail label="Bahasa" value={item.language || '-'} />
+                      <LoginAuditDetail label="Host Backend" value={item.host || '-'} />
+                      <LoginAuditDetail label="Origin Aplikasi" value={item.origin || '-'} />
+                      <LoginAuditDetail label="Forwarded IP" value={item.forwarded_for || '-'} />
+                      <LoginAuditDetail label="Referer" value={item.referer || '-'} />
+                      <div className="min-w-0 sm:col-span-2 lg:col-span-3">
+                        <dt className="text-xs font-semibold text-[var(--text-muted)]">User Agent lengkap</dt>
+                        <dd className="break-all text-xs text-[var(--text-primary)]">{item.user_agent || '-'}</dd>
+                      </div>
+                    </dl>
+                  </details>
                 </article>
               ))}
             </div>
