@@ -92,6 +92,17 @@ docker logs -f kasrt-wa-lab
 curl --fail-with-body http://127.0.0.1:3010/health
 ```
 
+Workflow `.github/workflows/deploy-vps.yml` otomatis terpicu jika ada perubahan
+di `wa-gateway/**`. Workflow membandingkan commit push dan hanya melakukan
+build/recreate `kasrt-wa-lab` jika file gateway atau `docker-compose.vps.yml`
+berubah. Setelah recreate, workflow menunggu endpoint `/health` maksimal 60
+detik. Volume `wa-gateway/auth` dan `wa-gateway/data` tetap terpasang sehingga
+session WhatsApp, chat lokal, dan state anti-ban tidak hilang.
+
+Pada eksekusi manual GitHub Actions, aktifkan input
+`deploy_wa_gateway=true` untuk memaksa rebuild WA Gateway meskipun tidak ada
+perubahan file WA pada commit terakhir.
+
 Jika ingin diarahkan ke Cloudflare Tunnel, tambahkan ingress berikut di `/etc/cloudflared/config.yml` sebelum rule `http_status:404`:
 
 ```yaml
@@ -148,4 +159,4 @@ Clone repository pada `/srv/kasrt/app` lalu pastikan user runner:
 - dapat membaca `/srv/kasrt/app/backend/.env`;
 - dapat menulis `/srv/kasrt/logs/deploy`.
 
-Jika lokasi clone berbeda, ubah `KASRT_DEPLOY_PATH` dan `KASRT_LOG_DIR` di `.github/workflows/deploy-vps.yml`. Workflow deploy hanya ketika backend atau aset deployment berubah. Script deployment memakai lock, log, cek worktree, `git fetch` lalu `git reset --hard` ke `origin/main`, build container, dan health check. Script selalu menolak worktree yang kotor sebelum reset; file `.env` tetap aman karena tidak di-track Git.
+Jika lokasi clone berbeda, ubah `KASRT_DEPLOY_PATH` dan `KASRT_LOG_DIR` di `.github/workflows/deploy-vps.yml`. Workflow deploy berjalan ketika backend, WA Gateway, atau aset deployment berubah. Script deployment memakai lock, log, cek worktree, `git fetch` lalu `git reset --hard` ke `origin/main`, build container, dan health check. Script selalu menolak worktree yang kotor sebelum reset; file `.env` tetap aman karena tidak di-track Git.

@@ -1,4 +1,4 @@
-name: Deploy KasRT Backend to VPS
+name: Deploy KasRT Services to VPS
 
 on:
   push:
@@ -6,10 +6,17 @@ on:
       - main
     paths:
       - backend/**
+      - wa-gateway/**
       - docker-compose.vps.yml
       - infra/vps/deploy-backend.sh
       - .github/workflows/deploy-vps.yml
   workflow_dispatch:
+    inputs:
+      deploy_wa_gateway:
+        description: Force rebuild dan deploy WA Gateway
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -24,11 +31,41 @@ env:
 
 jobs:
   deploy:
-    name: Deploy backend production
+    name: Deploy backend and changed services
     runs-on: [self-hosted, linux, x64, kasrt-vps]
     timeout-minutes: 30
 
     steps:
+      - name: Detect WA Gateway changes
+        id: wa_changes
+        env:
+          DEPLOY_BRANCH: main
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          TARGET_SHA: ${{ github.sha }}
+          FORCE_WA_DEPLOY: ${{ inputs.deploy_wa_gateway || 'false' }}
+        run: |
+          set -Eeuo pipefail
+          cd "$KASRT_DEPLOY_PATH"
+          git fetch origin "$DEPLOY_BRANCH"
+
+          deploy_wa=false
+          if [ "$FORCE_WA_DEPLOY" = "true" ]; then
+            deploy_wa=true
+          elif [ "$EVENT_NAME" = "push" ]; then
+            if [ -z "$BEFORE_SHA" ] || [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
+              deploy_wa=true
+            elif ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              echo "Commit awal tidak tersedia; WA Gateway akan dideploy sebagai langkah aman."
+              deploy_wa=true
+            elif ! git diff --quiet "$BEFORE_SHA" "$TARGET_SHA" -- wa-gateway docker-compose.vps.yml; then
+              deploy_wa=true
+            fi
+          fi
+
+          echo "deploy_wa=$deploy_wa" >> "$GITHUB_OUTPUT"
+          echo "Deploy WA Gateway: $deploy_wa"
+
       - name: Deploy backend container
         env:
           DEPLOY_BRANCH: main
@@ -36,6 +73,28 @@ jobs:
         run: |
           cd "$KASRT_DEPLOY_PATH"
           KASRT_PROJECT_DIR="$KASRT_DEPLOY_PATH" bash ./infra/vps/deploy-backend.sh
+
+      - name: Deploy WA Gateway container
+        if: steps.wa_changes.outputs.deploy_wa == 'true'
+        run: |
+          set -Eeuo pipefail
+          cd "$KASRT_DEPLOY_PATH"
+
+          docker compose -f docker-compose.vps.yml build kasrt-wa-lab
+          docker compose -f docker-compose.vps.yml up --detach --no-deps --force-recreate kasrt-wa-lab
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:3010/health >/dev/null; then
+              echo "Deploy WA Gateway berhasil."
+              docker compose -f docker-compose.vps.yml ps kasrt-wa-lab
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Health check WA Gateway gagal setelah 60 detik." >&2
+          docker compose -f docker-compose.vps.yml logs --tail=100 kasrt-wa-lab >&2
+          exit 1
 
       - name: Show deploy logs on failure
         if: failure()
