@@ -153,6 +153,8 @@ export type PendingApprovalItem = {
     petugas_id?: string | number;
     created_by?: string | number;
     created_by_nama?: string | null;
+    batch_mode?: string;
+    operational_date?: string | null;
     request_id?: string | number;
     rental_id?: string | number;
     asset_name?: string;

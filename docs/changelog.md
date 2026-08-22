@@ -8,6 +8,12 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 - WA Gateway kini memasang `link-preview-js` dan mengaktifkan high-quality link preview Baileys agar URL pada reminder menampilkan judul, deskripsi, dan thumbnail di perangkat penerima.
 - Root layout frontend menyediakan metadata Open Graph dan Twitter Card untuk URL KasRT, dengan base URL dari `NEXT_PUBLIC_APP_URL` atau fallback `https://kas02.vercel.app`.
+- Kartu approval responsif global ditambahkan untuk menampilkan judul, tanggal operasional, pembuat/petugas, detail, tanggal pengajuan, nominal, dan aksi secara utuh di mobile maupun desktop.
+
+### Diubah
+
+- Approval Setoran Jimpitan tidak lagi menyatukan tanggal dan nama petugas dalam judul panjang; informasi tersebut disajikan sebagai metadata terpisah agar tidak terpotong pada layar kecil.
+- Halaman Approval utama dan Approval Bendahara memakai komponen kartu approval global yang sama agar modul approval berikutnya memiliki pola tampilan konsisten.
 
 ### Keamanan
 

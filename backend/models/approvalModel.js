@@ -1,12 +1,5 @@
 import { pool } from '../db.js';
 
-function dateOnly(value) {
-  if (!value) return null;
-  if (typeof value === 'string') return value.slice(0, 10);
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
-  return null;
-}
-
 export async function listPendingJimpitanBatches() {
   const result = await pool.query(
     `SELECT
@@ -27,17 +20,11 @@ export async function listPendingJimpitanBatches() {
 
   return result.rows.map((row) => {
     const isShiftTotal = String(row.batch_mode || '').toUpperCase() === 'SHIFT_TOTAL';
-    const tanggalIso = dateOnly(row.operational_date);
-    const tanggal = tanggalIso
-      ? new Intl.DateTimeFormat('id-ID', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta'
-      }).format(new Date(`${tanggalIso}T00:00:00+07:00`))
-      : '-';
     const namaPembuat = row.petugas_nama || 'Petugas Jimpitan';
     return {
       kind: 'JIMPITAN_BATCH',
       id: row.id,
-      title: `Setoran Jimpitan ${tanggal} oleh ${namaPembuat}`,
+      title: 'Setoran Jimpitan',
       description: isShiftTotal
         ? `Setoran shift${row.note ? ` • ${row.note}` : ''}`
         : `Setoran per warga • Rumah: ${row.total_rumah || '-'}`,
@@ -46,6 +33,8 @@ export async function listPendingJimpitanBatches() {
       meta: {
         batch_id: row.id,
         petugas_id: row.petugas_id,
+        created_by: row.petugas_id,
+        created_by_nama: namaPembuat,
         batch_mode: row.batch_mode,
         operational_date: row.operational_date
       }
@@ -120,12 +109,13 @@ export async function listPendingSosialReceiptApprovals() {
     kind: 'SOCIAL_RECEIPT',
     id: row.id,
     title: 'Konfirmasi Dana Masuk Kas Sosial',
-    description: `${row.source_wallet_name || '-'} -> ${row.target_wallet_name || '-'} • ${row.created_by_nama || row.created_by}`,
+    description: `${row.source_wallet_name || '-'} -> ${row.target_wallet_name || '-'}`,
     amount: Number(row.amount || 0),
     created_at: row.created_at,
     meta: {
       transaction_id: row.id,
-      created_by: row.created_by
+      created_by: row.created_by,
+      created_by_nama: row.created_by_nama || null
     }
   }));
 }

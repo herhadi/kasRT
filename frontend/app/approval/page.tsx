@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/useAuth';
 import { ApprovalHistoryItem, DashboardWargaData, MembershipRequestStatus, PendingApprovalItem, PendingApprovalSection } from '@/types';
 import usePagination from '@/lib/hooks/usePagination';
 import PaginationControls from '@/components/pagination/PaginationControls';
+import ApprovalItemCard from '@/components/approval/ApprovalItemCard';
 
 type InboxModuleKey = 'internet' | 'lingkungan' | 'koperasi';
 type MembershipQueueKey = InboxModuleKey | 'tabungan';
@@ -538,24 +539,13 @@ function SectionWithPagination({
                 const isApproving = approvingKey === actionKey;
 
                 return (
-                  <article key={actionKey} className="surface-muted flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
-                      <p className="text-xs text-[var(--text-muted)]">{formatTanggalIndonesia(item.created_at)}</p>
-                    </div>
-                    {item.kind !== 'PIN_RESET' ? (
-                      <div className="text-right">
-                        <p className="metric-value text-base font-bold text-[var(--accent)]">{formatRupiah(item.amount)}</p>
-                      </div>
-                    ) : null}
-                    <Button
-                      className="whitespace-nowrap text-sm px-3 py-1.5"
-                      onClick={() => void approveItem(item)}
-                      disabled={isApproving}
-                    >
-                      {isApproving ? '...' : item.kind === 'PIN_RESET' ? 'Proses Reset PIN' : 'Approve'}
-                    </Button>
-                  </article>
+                  <ApprovalItemCard
+                    key={actionKey}
+                    item={item}
+                    busy={isApproving}
+                    actionLabel={item.kind === 'PIN_RESET' ? 'Proses Reset PIN' : 'Approve'}
+                    onAction={(selectedItem) => void approveItem(selectedItem)}
+                  />
                 );
               })}
         </div>
