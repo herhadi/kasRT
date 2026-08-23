@@ -149,7 +149,20 @@ async function sendTextMessage(jid, text) {
   const resolvedJid = await prepareHumanSend(jid, messageText);
   const content = linkPreview ? { text: messageText, linkPreview } : { text: messageText };
   const result = await sendProtectedMessage(jid, content, { resolvedJid });
-  return { messageText, result };
+  return { messageText, result, linkPreview };
+}
+
+function storedLinkPreview(preview) {
+  if (!preview) return null;
+  const thumbnail = preview.jpegThumbnail?.length
+    ? `data:image/jpeg;base64,${Buffer.from(preview.jpegThumbnail).toString('base64')}`
+    : preview.originalThumbnailUrl || null;
+  return {
+    url: preview['canonical-url'] || preview['matched-text'] || null,
+    title: preview.title || null,
+    description: preview.description || null,
+    thumbnail
+  };
 }
 
 async function buildLinkPreview(messageText) {
@@ -242,9 +255,13 @@ function toIsoTime(timestamp) {
   return new Date(raw * 1000).toISOString();
 }
 
-function extractText(message) {
+function messageContent(message) {
   let content = message?.message || {};
-  content = content.ephemeralMessage?.message || content.viewOnceMessage?.message || content;
+  return content.ephemeralMessage?.message || content.viewOnceMessage?.message || content;
+}
+
+function extractText(message) {
+  const content = messageContent(message);
   return (
     content.conversation ||
     content.extendedTextMessage?.text ||
@@ -256,6 +273,20 @@ function extractText(message) {
     content.templateButtonReplyMessage?.selectedDisplayText ||
     ''
   );
+}
+
+function extractIncomingLinkPreview(message) {
+  const preview = messageContent(message).extendedTextMessage;
+  const url = preview?.canonicalUrl || preview?.matchedText;
+  if (!url) return null;
+  return {
+    url,
+    title: preview.title || null,
+    description: preview.description || null,
+    thumbnail: preview.jpegThumbnail?.length
+      ? `data:image/jpeg;base64,${Buffer.from(preview.jpegThumbnail).toString('base64')}`
+      : null
+  };
 }
 
 function shouldReconnect(update) {
@@ -362,7 +393,8 @@ async function recordIncomingMessages(messages = []) {
       direction: 'incoming',
       text,
       at: toIsoTime(message.messageTimestamp),
-      name: message.pushName || null
+      name: message.pushName || null,
+      linkPreview: extractIncomingLinkPreview(message)
     });
     lastStoredMessageAt = new Date().toISOString();
     lastInboxIgnoredReason = null;
@@ -577,8 +609,18 @@ export async function sendTestMessage({ phone, text }) {
   const messageText = validateMessageText(text);
   await assertCanSend(normalizedPhone);
   const jid = jidFromPhone(normalizedPhone);
-  const { result } = await sendTextMessage(jid, messageText);
+  const { result, linkPreview } = await sendTextMessage(jid, messageText);
   const usage = await recordSend(normalizedPhone);
+  await upsertChat({ jid, name: normalizedPhone });
+  await appendChatMessage({
+    jid,
+    id: result?.key?.id || `out-${Date.now()}`,
+    direction: 'outgoing',
+    text: messageText,
+    at: new Date().toISOString(),
+    name: normalizedPhone,
+    linkPreview: storedLinkPreview(linkPreview)
+  });
 
   return {
     jid,
@@ -600,13 +642,14 @@ export async function sendChatReply({ jid, text }) {
     throw new Error('Chat belum dikenal. Tunggu pesan masuk dulu sebelum membalas.');
   }
 
-  const { messageText, result } = await sendTextMessage(jid, text);
+  const { messageText, result, linkPreview } = await sendTextMessage(jid, text);
   await appendChatMessage({
     jid,
     id: result?.key?.id || `out-${Date.now()}`,
     direction: 'outgoing',
     text: messageText,
-    at: new Date().toISOString()
+    at: new Date().toISOString(),
+    linkPreview: storedLinkPreview(linkPreview)
   });
 
   return {
@@ -623,7 +666,7 @@ export async function startChatMessage({ phone, name, text }) {
   const messageText = validateMessageText(text);
   await assertCanSend(normalizedPhone);
   await upsertChat({ jid, name: name || normalizedPhone });
-  const { result } = await sendTextMessage(jid, messageText);
+  const { result, linkPreview } = await sendTextMessage(jid, messageText);
   await recordSend(normalizedPhone);
   await appendChatMessage({
     jid,
@@ -631,7 +674,8 @@ export async function startChatMessage({ phone, name, text }) {
     direction: 'outgoing',
     text: messageText,
     at: new Date().toISOString(),
-    name: name || normalizedPhone
+    name: name || normalizedPhone,
+    linkPreview: storedLinkPreview(linkPreview)
   });
 
   return {

@@ -188,6 +188,11 @@ Limit nomor unik harian dikontrol oleh `WA_LAB_DAILY_UNIQUE_LIMIT`.
 
 ### Mini Inbox 1:1
 
+Bubble pesan pada mini inbox menampilkan kartu link preview berisi thumbnail,
+judul, deskripsi, dan domain jika metadata tersedia. Pesan keluar dari endpoint
+`/send-test`, chat baru, dan balasan disimpan bersama metadata preview; pesan
+masuk juga membaca preview dari payload WhatsApp.
+
 ```bash
 curl -sS \
   -H "x-wa-lab-secret: isi_secret_panjang" \

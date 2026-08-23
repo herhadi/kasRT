@@ -307,6 +307,23 @@
 
       .message-text { white-space: pre-wrap; }
 
+      .link-preview {
+        display: block;
+        margin: 3px 0 6px;
+        overflow: hidden;
+        border-radius: 7px;
+        background: rgba(17, 27, 33, 0.06);
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      .link-preview:hover { background: rgba(17, 27, 33, 0.1); }
+      .link-preview img { display: block; width: 100%; max-height: 220px; object-fit: cover; background: #eef1f2; }
+      .link-preview-copy { display: grid; gap: 2px; padding: 8px 9px; }
+      .link-preview-title { font-weight: 700; line-height: 1.3; }
+      .link-preview-description { color: var(--muted); font-size: 12px; line-height: 1.35; }
+      .link-preview-domain { color: var(--muted); font-size: 11px; text-transform: lowercase; }
+
       .incoming { align-self: flex-start; background: var(--bubble-in); }
       .outgoing { align-self: flex-end; background: var(--bubble-out); }
 
@@ -528,6 +545,20 @@
         return `<span class="ticks${readClass}">${ticks}</span>`;
       }
 
+      function linkPreviewHtml(preview) {
+        if (!preview?.url || !/^https?:\/\//i.test(preview.url)) return '';
+        let domain = preview.url;
+        try { domain = new URL(preview.url).hostname; } catch {}
+        const thumbnail = /^(data:image\/jpeg;base64,|https?:\/\/)/i.test(preview.thumbnail || '')
+          ? `<img src="${escapeHtml(preview.thumbnail)}" alt="" loading="lazy">`
+          : '';
+        const title = preview.title ? `<span class="link-preview-title">${escapeHtml(preview.title)}</span>` : '';
+        const description = preview.description
+          ? `<span class="link-preview-description">${escapeHtml(preview.description)}</span>`
+          : '';
+        return `<a class="link-preview" href="${escapeHtml(preview.url)}" target="_blank" rel="noopener noreferrer">${thumbnail}<span class="link-preview-copy">${title}${description}<span class="link-preview-domain">${escapeHtml(domain)}</span></span></a>`;
+      }
+
       async function api(path, options = {}) {
         if (!secret()) throw new Error('Secret belum diisi. Buka ⚙ dan simpan secret.');
         const response = await fetch(path, { ...options, headers: { ...headers(), ...(options.headers || {}) } });
@@ -691,6 +722,7 @@
             bubble.dataset.messageId = message.id;
             bubble.innerHTML = `
               <span class="message-check">${selectedMessageIds.has(message.id) ? '✓' : ''}</span>
+              ${linkPreviewHtml(message.link_preview)}
               <span class="message-text">${escapeHtml(message.text)}</span>
               <span class="meta"><span>${escapeHtml(formatTime(message.at))}</span>${message.direction === 'outgoing' ? tickHtml(message.status) : ''}</span>`;
             attachMessageSelectionEvents(bubble, message.id);

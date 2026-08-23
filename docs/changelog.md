@@ -22,6 +22,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Urutan detail audit login dikelompokkan menjadi perangkat, software/platform, lokal browser, lalu jaringan agar alur informasinya konsisten pada tampilan mobile dan desktop.
 - WA Gateway kini membentuk payload `linkPreview` secara eksplisit sebelum melewati wrapper anti-ban dan menampilkan diagnostic URL, judul, ukuran thumbnail, serta error preview terakhir di `/status`.
 - WA Gateway menjadikan `sharp` sebagai dependensi production eksplisit agar gambar Open Graph dapat dikonversi menjadi thumbnail JPEG; diagnostic preview kini juga menjelaskan saat `og:image` tidak tersedia atau konversinya gagal.
+- Mini inbox WA Gateway kini menampilkan kartu link preview pada bubble pesan dengan thumbnail, judul, deskripsi, dan domain serta menyimpan preview untuk pesan keluar dan masuk.
 - Workflow VPS otomatis mendeteksi perubahan `wa-gateway/**` atau `docker-compose.vps.yml`, lalu rebuild/recreate dan health-check `kasrt-wa-lab`; workflow manual menyediakan opsi force deploy tanpa menghapus volume session/data WA.
 
 ### Keamanan

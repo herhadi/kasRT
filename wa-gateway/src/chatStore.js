@@ -40,6 +40,20 @@ function sanitizeText(text) {
   return String(text || '').trim();
 }
 
+function sanitizeLinkPreview(preview) {
+  if (!preview || typeof preview !== 'object') return undefined;
+  const clean = (value, maxLength) => String(value || '').trim().slice(0, maxLength);
+  const url = clean(preview.url, 2048);
+  if (!/^https?:\/\//i.test(url)) return undefined;
+  const thumbnail = clean(preview.thumbnail, 150_000);
+  return {
+    url,
+    title: clean(preview.title, 300) || null,
+    description: clean(preview.description, 600) || null,
+    thumbnail: /^(data:image\/jpeg;base64,|https?:\/\/)/i.test(thumbnail) ? thumbnail : null
+  };
+}
+
 function normalizeMessages(messages) {
   return Array.isArray(messages) ? messages.slice(-maxMessagesPerChat) : [];
 }
@@ -270,7 +284,7 @@ export async function hasChat(jid) {
   return Boolean(db.chats?.[resolveJid(db, jid)]);
 }
 
-export async function appendChatMessage({ jid, id, direction, text, at, name = null }) {
+export async function appendChatMessage({ jid, id, direction, text, at, name = null, linkPreview = null }) {
   const cleanText = sanitizeText(text);
   if (!jid || !id || !cleanText) return null;
 
@@ -315,6 +329,8 @@ export async function appendChatMessage({ jid, id, direction, text, at, name = n
     at: messageAt,
     status: direction === 'outgoing' ? 'sent' : undefined
   };
+  const sanitizedPreview = sanitizeLinkPreview(linkPreview);
+  if (sanitizedPreview) message.link_preview = sanitizedPreview;
 
   chat.messages.push(message);
   chat.messages = normalizeMessages(chat.messages);
