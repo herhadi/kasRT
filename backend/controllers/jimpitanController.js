@@ -74,7 +74,7 @@ function buildWaJimpitanReminderText({ recipient, targetLabel, testMode }) {
 
   return (
     `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +
-    `${greeting} ${name},\n` +
+    `${greeting} *${name}*,\n` +
     `Pengingat jimpitan ${targetLabel}.\n` +
     `Mulai pukul 21:00 WIB.\n` +
     `Input: https://kas02.vercel.app/` +
@@ -88,9 +88,9 @@ function buildApprovalLink(path = '/approval') {
     process.env.FRONTEND_URL ||
     process.env.APP_BASE_URL ||
     '';
-  
+
   if (!base) return '';
-  
+
   const normalized = String(base).trim().replace(/\/+$/, '');
   return `${normalized}${path}`;
 }
@@ -179,26 +179,26 @@ function canInputByTime(userRoles = [], now = new Date()) {
   const isRoot = normalizedRoles.includes('root');
   console.log('[JIMPITAN][SHIFT] role check', { userRoles, normalizedRoles, isRoot });
   if (isRoot) return true;
-  
+
   const hour = getJakartaTimeParts(now).hour;
   return hour >= 21 || hour < 6;
 }
 
 function calculateNominalSaran(saldo, hariKe) {
   const totalKewajibanHarian = hariKe * BIAYA_HARIAN;
-  
+
   if (saldo >= TARGET_BULANAN || saldo >= totalKewajibanHarian) {
     return 0;
   }
-  
+
   const kekuranganHarian = totalKewajibanHarian - saldo;
   const sisaPlafonBulanan = TARGET_BULANAN - saldo;
   let nominalSaran = Math.min(kekuranganHarian, sisaPlafonBulanan);
-  
+
   if (nominalSaran < BIAYA_HARIAN && nominalSaran > 0) {
     nominalSaran = BIAYA_HARIAN;
   }
-  
+
   return Math.max(nominalSaran, 0);
 }
 
@@ -213,7 +213,7 @@ export async function inputJimpitan(req, res) {
   const debug = process.env.DEBUG_JIMPITAN === 'true';
   const targetType = String(target_type || 'WARGA').trim().toUpperCase();
   const externalId = String(external_participant_id || '').trim();
-  
+
   if (debug) {
     console.log('[JIMPITAN][INPUT] start', {
       warga_id,
@@ -224,7 +224,7 @@ export async function inputJimpitan(req, res) {
       roles
     });
   }
-  
+
   const tanggalOperasional = getOperationalDate();
   const effectiveMode = await getEffectiveJimpitanMode(tanggalOperasional.toISOString().slice(0, 10));
   if (effectiveMode.mode === 'SHIFT_TOTAL') {
@@ -249,12 +249,12 @@ export async function inputJimpitan(req, res) {
       message: 'Bukan shift Anda hari ini.'
     });
   }
-  
+
   const nilaiNominal = Number(nominal || 0);
   if (nilaiNominal < 0) {
     return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
   }
-  
+
   try {
     if (targetType === 'DONATUR') {
       if (!externalId) return res.status(400).json({ success: false, message: 'external_participant_id wajib untuk donatur' });
@@ -274,9 +274,9 @@ export async function inputJimpitan(req, res) {
       await notifyUser(
         String(warga_id),
         `🧾 <b>Input Jimpitan Tercatat</b>\n` +
-          `Tanggal Operasional: <b>${tanggalOperasional.toISOString().slice(0, 10)}</b>\n` +
-          `Nominal: <b>${formatRupiah(nilaiNominal)}</b>\n` +
-          `Status: <b>DRAFT (menunggu setor/approval)</b>`
+        `Tanggal Operasional: <b>${tanggalOperasional.toISOString().slice(0, 10)}</b>\n` +
+        `Nominal: <b>${formatRupiah(nilaiNominal)}</b>\n` +
+        `Status: <b>DRAFT (menunggu setor/approval)</b>`
       );
     }
     if (debug) {
@@ -345,7 +345,7 @@ export async function setorJimpitan(req, res) {
   const petugas_id = req.user.user_id;
   const inputDetailIds = Array.isArray(req.body.detail_ids) ? req.body.detail_ids : null;
   const debug = process.env.DEBUG_JIMPITAN === 'true';
-  
+
   if (debug) {
     console.log('[JIMPITAN][SETOR] start', {
       petugas_id,
@@ -368,7 +368,7 @@ export async function setorJimpitan(req, res) {
       message: 'Bukan shift Anda hari ini.'
     });
   }
-  
+
   try {
     const batch = await createSetorBatch({ petugasId: petugas_id, detailIds: inputDetailIds });
     if (!batch) {
@@ -383,21 +383,21 @@ export async function setorJimpitan(req, res) {
         total_rumah: batch.total_rumah
       });
     }
-    
+
     const approvalLink = buildApprovalLink();
     const linkSection = approvalLink
       ? `\n\n🔗 <a href="${approvalLink}">Buka Approval di Web</a>`
       : '';
-    
+
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
       `🔔 <b>Approval Setoran Jimpitan Dibutuhkan</b>\n` +
-        `Petugas: <b>${petugas_id}</b>\n` +
-        `Total: <b>${formatRupiah(batch.total)}</b>\n` +
-        `Rumah: <b>${batch.total_rumah}</b>` +
-        linkSection
+      `Petugas: <b>${petugas_id}</b>\n` +
+      `Total: <b>${formatRupiah(batch.total)}</b>\n` +
+      `Rumah: <b>${batch.total_rumah}</b>` +
+      linkSection
     );
-    
+
     return res.json({
       success: true,
       batch_id: batch.batch_id,
@@ -459,10 +459,10 @@ export async function setorJimpitanShiftTotal(req, res) {
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
       `🔔 <b>Approval Setoran Jimpitan Shift Dibutuhkan</b>\n` +
-        `Tanggal: <b>${operationalDateIso}</b>\n` +
-        `Total: <b>${formatRupiah(batch.total)}</b>` +
-        (note ? `\nCatatan: ${note}` : '') +
-        linkSection
+      `Tanggal: <b>${operationalDateIso}</b>\n` +
+      `Total: <b>${formatRupiah(batch.total)}</b>` +
+      (note ? `\nCatatan: ${note}` : '') +
+      linkSection
     );
 
     return res.json({
@@ -479,33 +479,33 @@ export async function setorJimpitanShiftTotal(req, res) {
 export async function approveJimpitan(req, res) {
   const { batch_id } = req.body;
   const admin_id = req.user.user_id;
-  
+
   try {
     await approveJimpitanBatch({ batchId: batch_id, adminId: admin_id });
-    
+
     const creator = await findBatchCreator(batch_id);
     if (creator) {
       await notifyUser(
         creator.petugas_id,
         `✅ <b>Setoran Jimpitan Disetujui</b>\n` +
-          `Batch ID: <b>${batch_id}</b>\n` +
-          `Total: <b>${formatRupiah(creator.total_amount)}</b>`
+        `Batch ID: <b>${batch_id}</b>\n` +
+        `Total: <b>${formatRupiah(creator.total_amount)}</b>`
       );
     }
-    
+
     const wargaInBatch = await listWargaTotalsInBatch(batch_id);
     await Promise.all(
       wargaInBatch.map((row) =>
         notifyUser(
           row.warga_id,
           `✅ <b>Iuran Jimpitan Anda Sudah Disetujui</b>\n` +
-            `Batch ID: <b>${batch_id}</b>\n` +
-            `Nominal: <b>${formatRupiah(row.total_nominal)}</b>\n` +
-            `Status: <b>APPROVED</b>`
+          `Batch ID: <b>${batch_id}</b>\n` +
+          `Nominal: <b>${formatRupiah(row.total_nominal)}</b>\n` +
+          `Status: <b>APPROVED</b>`
         )
       )
     );
-    
+
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -529,20 +529,20 @@ export async function listJimpitan(req, res) {
       const totalKewajibanHarian = hariKe * BIAYA_HARIAN;
       const targetType = String(row.target_type || 'WARGA').toUpperCase();
       const isDonatur = targetType === 'DONATUR';
-      
+
       const lunasByInput = nominalHariIni > 0 || nominalHariIni === 0 && row.petugas;
       const lunasBySaldo = effectiveMode.mode === 'SHIFT_TOTAL'
         ? false
         : !isDonatur && (saldo >= TARGET_BULANAN || saldo >= totalKewajibanHarian);
       const isLunasUI = Boolean(lunasByInput || lunasBySaldo);
-      
+
       const nominalSaran = effectiveMode.mode === 'SHIFT_TOTAL'
         ? BIAYA_HARIAN
         : isLunasUI ? 0 : (isDonatur ? BIAYA_HARIAN : calculateNominalSaran(saldo, hariKe));
       const detailStatus = String(row.detail_status || '').toUpperCase();
       const batchStatus = String(row.batch_status || '').toUpperCase();
       const canEditNominal = !isDonatur && detailStatus !== '' && detailStatus !== 'APPROVED' && batchStatus !== 'APPROVED';
-      
+
       return {
         id: row.id,
         nama: row.nama,
@@ -559,7 +559,7 @@ export async function listJimpitan(req, res) {
         canEditNominal
       };
     });
-    
+
     return res.json({
       success: true,
       operational_date: operationalDate,
@@ -829,12 +829,12 @@ export async function sendJimpitanShiftReminder(req, res) {
   const targetLabel = testMode
     ? getShiftDayLabel(shiftDay)
     : new Intl.DateTimeFormat('id-ID', {
-    timeZone: 'Asia/Jakarta',
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }).format(now);
+      timeZone: 'Asia/Jakarta',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }).format(now);
 
   try {
     const petugas = await listPetugasByShiftDay(shiftDay);
@@ -928,10 +928,10 @@ export async function sendJimpitanShiftReminder(req, res) {
       await notifyRoles(
         ['root'],
         `✅ <b>Reminder Jimpitan Terkirim</b>\n` +
-          `Hari: <b>${targetLabel}</b>\n` +
-          `Petugas shift: <b>${petugas.length}</b>\n` +
-          `Telegram: <b>${telegramSent}/${telegramRecipients.length}</b> gagal <b>${telegramFailed}</b>\n` +
-          `WA Lab: <b>${waSent}/${waRecipients}</b> gagal <b>${waFailed}</b>`
+        `Hari: <b>${targetLabel}</b>\n` +
+        `Petugas shift: <b>${petugas.length}</b>\n` +
+        `Telegram: <b>${telegramSent}/${telegramRecipients.length}</b> gagal <b>${telegramFailed}</b>\n` +
+        `WA Lab: <b>${waSent}/${waRecipients}</b> gagal <b>${waFailed}</b>`
       );
     }
 
@@ -963,7 +963,7 @@ export async function topUpJimpitan(req, res) {
   const { warga_id, nominal, note, month_key } = req.body;
   const admin_id = req.user.user_id;
   const monthKey = String(month_key || '').trim();
-  
+
   const nilaiNominal = Number(nominal || 0);
   if (nilaiNominal <= 0) {
     return res.status(400).json({ success: false, message: 'Nominal topup harus lebih dari 0' });
@@ -971,7 +971,7 @@ export async function topUpJimpitan(req, res) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) {
     return res.status(400).json({ success: false, message: 'Periode topup tidak valid' });
   }
-  
+
   try {
     const saldoAkhir = await topUpJimpitanSaldo({
       wargaId: warga_id,
@@ -980,7 +980,7 @@ export async function topUpJimpitan(req, res) {
       adminId: admin_id,
       note: note || null
     });
-    
+
     return res.json({
       success: true,
       saldo_akhir: saldoAkhir
@@ -1073,11 +1073,11 @@ export async function getJimpitanV2AdminEntries(_req, res) {
 export async function editNominalJimpitan(req, res) {
   const { warga_id, nominal } = req.body;
   const nilaiNominal = Number(nominal ?? NaN);
-  
+
   if (!Number.isFinite(nilaiNominal) || nilaiNominal < 0) {
     return res.status(400).json({ success: false, message: 'Nominal tidak valid' });
   }
-  
+
   try {
     const tanggalOperasional = getOperationalDate().toISOString().slice(0, 10);
     const result = await editNominalJimpitanByAdmin({
@@ -1085,7 +1085,7 @@ export async function editNominalJimpitan(req, res) {
       nominalBaru: nilaiNominal,
       tanggalOperasional
     });
-    
+
     return res.json({
       success: true,
       data: result
@@ -1111,17 +1111,17 @@ export async function ajukanSetorKeBendahara(req, res) {
   const period = monthPattern.test(requestedMonth)
     ? requestedMonth
     : new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString().slice(0, 7);
-  
+
   try {
     const { totalBatch, totalNominal } = await getApprovedBatchRecapByMonth(period);
-    
+
     if (totalNominal <= 0) {
       return res.status(400).json({
         success: false,
         message: `Tidak ada rekap jimpitan APPROVED untuk periode ${period}`
       });
     }
-    
+
     const kasJimpitan = await findWalletByName('Kas Jimpitan');
     const kasIuranWajib = await findWalletByName('Kas Iuran Wajib');
     if (!kasJimpitan || !kasIuranWajib) {
@@ -1155,13 +1155,13 @@ export async function ajukanSetorKeBendahara(req, res) {
     await notifyRoles(
       ['Bendahara', 'root'],
       `📦 <b>Pengajuan Setor Jimpitan ke Bendahara</b>\n` +
-        `Periode: <b>${period}</b>\n` +
-        `Batch APPROVED: <b>${totalBatch}</b>\n` +
-        `Total Rekap: <b>${formatRupiah(totalNominal)}</b>\n` +
-        `Diajukan oleh Admin Jimpitan ID: <b>${adminId}</b>` +
-        linkSection
+      `Periode: <b>${period}</b>\n` +
+      `Batch APPROVED: <b>${totalBatch}</b>\n` +
+      `Total Rekap: <b>${formatRupiah(totalNominal)}</b>\n` +
+      `Diajukan oleh Admin Jimpitan ID: <b>${adminId}</b>` +
+      linkSection
     );
-    
+
     return res.json({
       success: true,
       data: {
@@ -1202,7 +1202,7 @@ export async function approveSetorJimpitanKeBendahara(req, res) {
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
       `✅ <b>Setor Jimpitan Diterima Bendahara</b>\n` +
-        `Transaksi ID: <b>${transactionId}</b>`
+      `Transaksi ID: <b>${transactionId}</b>`
     );
 
     return res.json({ success: true });
