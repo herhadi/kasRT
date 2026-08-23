@@ -42,11 +42,13 @@ Untuk uji terbatas WA Lab pada reminder jimpitan, backend dapat mengirim ke nomo
 
 ```dotenv
 WA_JIMPITAN_REMINDER_ENABLED=true
-WA_JIMPITAN_MAX_RECIPIENTS=1
+WA_JIMPITAN_MAX_RECIPIENTS=2
 WA_LAB_MIN_CONNECTED_AGE_MINUTES=180
 WA_LAB_BASE_URL=https://wa-kasrt.tripleatech.my.id
 WA_LAB_SECRET=secret_yang_sama_dengan_wa_gateway
 ```
+
+Kedua variabel `WA_JIMPITAN_*` di atas dipasang pada environment **backend KasRT**, bukan pada container `wa-gateway`. Contoh tersebut memilih maksimal 2 nomor valid per pengiriman; nilai yang didukung adalah 1–3 dan fallback aplikasi tetap 1 jika variabel tidak diisi.
 
 Setelah ubah `backend/.env`, deploy/recreate backend:
 

@@ -259,6 +259,6 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 - Warm-up dan daftar chat dikenal disimpan di `wa-gateway/data/antiban-state.json` melalui volume Docker.
 - Waktu pertama nomor tertaut disimpan di `wa-gateway/data/connection-state.json`; restart/redeploy gateway tidak mengulang cooldown umur koneksi, tetapi pergantian nomor membuat timestamp baru.
 - Reminder jimpitan backend hanya boleh memakai mode uji terbatas: nomor valid random dari petugas shift jika `WA_JIMPITAN_REMINDER_ENABLED=true`.
-- Jumlah target WA Lab diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, default `1`, dan dibatasi maksimal `3`.
+- Jumlah target WA Lab diatur pada environment backend lewat `WA_JIMPITAN_MAX_RECIPIENTS`. Contoh operasional menggunakan `2`; fallback aplikasi tetap `1` jika variabel tidak diisi dan nilainya dibatasi maksimal `3`.
 - Reminder otomatis WA Lab menunggu umur koneksi minimal dari `WA_LAB_MIN_CONNECTED_AGE_MINUTES`, default `180` menit sejak nomor pertama kali tertaut pada gateway.
 - Jika nanti dipakai produksi, lebih baik tetap dibuat opt-in dan manual approval.

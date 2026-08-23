@@ -87,7 +87,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Icon aplikasi KasRT diganti dengan visual rumah warga, tabungan koin, dan tanda cek agar lebih relevan untuk favicon/PWA.
 - Area aman icon diperbesar agar tidak terpotong saat launcher HP menampilkan icon berbentuk lingkaran.
 - WA Lab kini memperlakukan receipt WhatsApp tanpa status eksplisit sebagai `delivered`, sehingga pesan terkirim tampil centang dua abu-abu sebelum dibaca.
-- Jumlah target WA Lab untuk reminder jimpitan kini bisa diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, default `1` dan dibatasi maksimal `3`.
+- Jumlah target WA Lab untuk reminder jimpitan kini bisa diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, dengan contoh operasional `2`, fallback `1`, dan batas maksimal `3`.
+- Contoh dan dokumentasi `WA_JIMPITAN_REMINDER_ENABLED` serta `WA_JIMPITAN_MAX_RECIPIENTS` kini ditempatkan pada konfigurasi backend KasRT agar tidak disalahartikan sebagai env milik WA Gateway.
 - Asset SVG template bawaan Next/Vercel yang tidak dipakai dibersihkan dari `frontend/public`.
 
 ## 2026-07-27
