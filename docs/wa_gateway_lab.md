@@ -61,6 +61,9 @@ anti-ban, sehingga pengiriman tidak bergantung pada generator implisit
 `last_link_preview_url`, `last_link_preview_title`,
 `last_link_preview_thumbnail_bytes`, dan `last_link_preview_error`. Nilai byte
 thumbnail harus lebih dari `0` agar gambar benar-benar ikut dalam payload.
+Gateway memasang `sharp` sebagai dependensi production eksplisit karena Baileys
+memerlukannya untuk mengubah `og:image` menjadi thumbnail JPEG. Tanpa pemroses
+gambar tersebut, judul preview masih dapat terbaca tetapi byte thumbnail tetap `0`.
 File `wa-gateway/.npmrc` mengaktifkan `legacy-peer-deps` karena Baileys 6.7.24
 masih mendeklarasikan peer `link-preview-js` 3.x, sedangkan gateway memakai
 4.0.4 yang kompatibel dengan API generator Baileys dan sudah memperbaiki celah

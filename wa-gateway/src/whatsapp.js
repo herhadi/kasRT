@@ -169,7 +169,13 @@ async function buildLinkPreview(messageText) {
     });
     lastLinkPreviewTitle = preview?.title || null;
     lastLinkPreviewThumbnailBytes = preview?.jpegThumbnail?.length || 0;
-    if (!preview?.title) lastLinkPreviewError = 'Metadata preview tidak memiliki title';
+    if (!preview?.title) {
+      lastLinkPreviewError = 'Metadata preview tidak memiliki title';
+    } else if (!preview?.jpegThumbnail?.length) {
+      lastLinkPreviewError = preview?.originalThumbnailUrl
+        ? 'Gambar preview ditemukan tetapi gagal dikonversi menjadi thumbnail JPEG'
+        : 'Metadata preview tidak memiliki og:image yang dapat digunakan';
+    }
     return preview;
   } catch (error) {
     lastLinkPreviewError = error instanceof Error ? error.message : String(error);
