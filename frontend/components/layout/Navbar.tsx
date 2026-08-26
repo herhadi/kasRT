@@ -198,9 +198,9 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
         <div className="mb-0 flex items-center justify-between md:mb-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <img
-              src="/icons/kasrt-icon-v2-192.png"
+              src="/icons/kasrt-navbar-icon-256.png"
               alt=""
-              className="h-10 w-10 shrink-0 rounded-xl shadow-sm"
+              className="h-11 w-11 shrink-0 rounded-2xl border-2 border-[var(--accent)]/65 shadow-md ring-2 ring-[var(--surface-strong)]"
             />
             <div>
               <h1 className="font-[var(--font-space-grotesk)] text-xl font-bold text-[var(--text-primary)]">KasRT</h1>
