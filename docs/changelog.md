@@ -26,6 +26,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - WA Gateway memiliki ikon layanan khusus berupa rumah lingkungan, gelembung percakapan, cek, dan sinyal notifikasi; ikon digunakan pada favicon serta header mini inbox.
 - Membuka `/status` langsung dari browser kini menampilkan halaman diagnostic yang memakai secret tersimpan pada mini inbox; API JSON `/status` tetap dilindungi header secret.
 - Sapaan reminder WA Jimpitan kini diacak tanpa pengulangan dalam satu eksekusi, sehingga dua nomor penerima tidak lagi menerima sapaan yang sama.
+- Navbar dashboard kini menampilkan ikon KasRT di sebelah kiri judul dan subjudul agar identitas aplikasi lebih mudah dikenali.
 - Workflow VPS otomatis mendeteksi perubahan `wa-gateway/**` atau `docker-compose.vps.yml`, lalu rebuild/recreate dan health-check `kasrt-wa-lab`; workflow manual menyediakan opsi force deploy tanpa menghapus volume session/data WA.
 
 ### Keamanan

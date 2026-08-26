@@ -196,9 +196,16 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
     <header className={`${sticky ? 'sticky top-0 z-50' : 'relative z-30'} border-b border-[var(--line)] bg-[var(--surface-strong)] shadow-sm backdrop-blur`}>
       <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
         <div className="mb-0 flex items-center justify-between md:mb-3">
-          <div>
-            <h1 className="font-[var(--font-space-grotesk)] text-xl font-bold text-[var(--text-primary)]">KasRT</h1>
-            <p className="text-xs font-medium text-[var(--text-muted)]">Kas warga RT 02 / RW 04</p>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <img
+              src="/icons/kasrt-icon-v2-192.png"
+              alt=""
+              className="h-10 w-10 shrink-0 rounded-xl shadow-sm"
+            />
+            <div>
+              <h1 className="font-[var(--font-space-grotesk)] text-xl font-bold text-[var(--text-primary)]">KasRT</h1>
+              <p className="text-xs font-medium text-[var(--text-muted)]">Kas warga RT 02 / RW 04</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {canSeeApproval && pendingCount > 0 && (
