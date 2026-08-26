@@ -64,17 +64,26 @@ function pickRandomItem(items = []) {
   return items[Math.floor(Math.random() * items.length)] || '';
 }
 
+function pickDistinctWaGreetings(count) {
+  const shuffled = [...WA_REMINDER_GREETINGS];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const targetIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[targetIndex]] = [shuffled[targetIndex], shuffled[index]];
+  }
+  return shuffled.slice(0, Math.max(0, Number(count || 0)));
+}
+
 function firstNameOnly(name) {
   return String(name || '').trim().split(/\s+/)[0] || 'Bapak/Ibu';
 }
 
-function buildWaJimpitanReminderText({ recipient, targetLabel, testMode }) {
-  const greeting = pickRandomItem(WA_REMINDER_GREETINGS);
+function buildWaJimpitanReminderText({ recipient, targetLabel, testMode, greeting }) {
+  const selectedGreeting = greeting || pickRandomItem(WA_REMINDER_GREETINGS);
   const name = firstNameOnly(recipient?.nama);
 
   return (
     `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +
-    `${greeting} *${name}*,\n` +
+    `${selectedGreeting} *${name}*,\n` +
     `Pengingat jimpitan ${targetLabel}.\n` +
     `Mulai pukul 21:00 WIB.\n` +
     `Input: https://kas02.vercel.app/` +
@@ -890,8 +899,14 @@ export async function sendJimpitanShiftReminder(req, res) {
     });
 
     const waResults = [];
-    for (const recipient of waRecipientRows) {
-      const waText = buildWaJimpitanReminderText({ recipient, targetLabel, testMode });
+    const waGreetings = pickDistinctWaGreetings(waRecipientRows.length);
+    for (const [index, recipient] of waRecipientRows.entries()) {
+      const waText = buildWaJimpitanReminderText({
+        recipient,
+        targetLabel,
+        testMode,
+        greeting: waGreetings[index]
+      });
       const result = await sendWaJimpitanReminder({ recipient, text: waText });
       if (result?.success === true) await markJimpitanWaPhoneSent(recipient.phone);
       waResults.push({ recipient, result });
