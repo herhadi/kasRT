@@ -58,7 +58,18 @@ app.get('/', (_req, res) => {
   });
 });
 
-app.get('/status', requireSecret, async (_req, res) => {
+function isBrowserNavigation(req) {
+  return String(req.headers.accept || '').includes('text/html');
+}
+
+app.get('/status', (req, res, next) => {
+  // Browser navigation cannot attach the secret header. Serve a small local
+  // status page that reads the secret saved by the mini inbox instead.
+  if (isBrowserNavigation(req) && !req.headers['x-wa-lab-secret'] && !req.headers['x-wa-gateway-secret'] && !req.headers.authorization) {
+    return res.sendFile(path.join(publicDir, 'status.html'));
+  }
+  return requireSecret(req, res, next);
+}, async (_req, res) => {
   const usage = await getUsage();
   res.json({
     success: true,

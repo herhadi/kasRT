@@ -135,6 +135,8 @@ curl -sS \
 
 Status menampilkan state koneksi, nomor tertaut, limit harian, statistik anti-ban, presence, delivery receipt, serta detail target kirim terakhir. Nilai `last_outgoing_transport` harus `baileys-antiban`. Untuk trace PN/LID, cek `last_outgoing_requested_jid`, `last_outgoing_resolved_jid`, `last_outgoing_resolved_lid`, dan `last_outgoing_jid`.
 
+Saat dibuka langsung lewat browser, `/status` menampilkan halaman status yang memakai `WA_LAB_SECRET` tersimpan dari mini inbox pada browser dan origin yang sama. Endpoint JSON tetap hanya dapat diakses dengan header secret; `curl` dan backend tidak berubah.
+
 ### QR Login
 
 ```bash
