@@ -71,6 +71,13 @@ SSRF versi lama. Dockerfile wajib ikut menyalin `.npmrc` sebelum `npm install`.
 
 ## Setup Docker
 
+### Identitas visual
+
+WA Gateway memakai ikon `wa-gateway/public/kasrt-wa-gateway-icon-512.png` sebagai
+favicon, Apple touch icon, dan identitas pada header mini inbox. Ikon ini
+menggabungkan rumah lingkungan, gelembung percakapan, tanda cek, dan sinyal
+notifikasi sebagai penanda layanan komunikasi warga KasRT.
+
 ```bash
 cd /srv/kasrt/app
 docker compose -f docker-compose.vps.yml up -d --build kasrt-wa-lab

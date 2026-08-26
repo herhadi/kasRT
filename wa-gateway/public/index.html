@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KasRT WA Lab</title>
+    <link rel="icon" type="image/png" href="/kasrt-wa-gateway-icon-512.png" />
+    <link rel="apple-touch-icon" href="/kasrt-wa-gateway-icon-512.png" />
     <style>
       :root {
         color-scheme: light;
@@ -67,6 +69,22 @@
         align-items: center;
         gap: 8px;
         min-width: 0;
+      }
+
+      .brand {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .brand-icon {
+        width: 36px;
+        height: 36px;
+        flex: 0 0 36px;
+        border-radius: 11px;
+        object-fit: cover;
+        box-shadow: 0 2px 6px rgba(0, 128, 105, 0.2);
       }
 
       .chat-actions {
@@ -396,9 +414,12 @@
     <main class="app">
       <section id="sidebar" class="sidebar">
         <div class="topbar">
-          <div>
-            <div class="title">KasRT WA</div>
-            <div id="linkedNumber" class="subtitle">Mini inbox 1:1</div>
+          <div class="brand">
+            <img class="brand-icon" src="/kasrt-wa-gateway-icon-512.png" alt="KasRT WA Gateway" />
+            <div>
+              <div class="title">KasRT WA</div>
+              <div id="linkedNumber" class="subtitle">Mini inbox 1:1</div>
+            </div>
           </div>
           <button id="settingsButton" class="icon-button" title="Pengaturan">⚙</button>
         </div>
