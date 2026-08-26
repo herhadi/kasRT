@@ -200,7 +200,7 @@ export default function Navbar({ sticky = true }: { sticky?: boolean }) {
             <img
               src="/icons/kasrt-navbar-icon-256.png"
               alt=""
-              className="h-11 w-11 shrink-0 rounded-2xl border-2 border-[var(--accent)]/65 shadow-md ring-2 ring-[var(--surface-strong)]"
+              className="h-11 w-11 shrink-0 rounded-2xl border border-white/80 shadow-md ring-1 ring-[var(--line)]"
             />
             <div>
               <h1 className="font-[var(--font-space-grotesk)] text-xl font-bold text-[var(--text-primary)]">KasRT</h1>
