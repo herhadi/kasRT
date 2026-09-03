@@ -121,7 +121,6 @@ export default function ManagementHomePage() {
   const [waGatewayStatus, setWaGatewayStatus] = useState<any>(null);
   const [waGatewayQr, setWaGatewayQr] = useState<any>(null);
   const [loadingWaQr, setLoadingWaQr] = useState(false);
-  const [waPanelOpen, setWaPanelOpen] = useState(false);
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
@@ -342,20 +341,19 @@ export default function ManagementHomePage() {
             {hasAnyRole(user, ['root']) ? (
               <button
                 type="button"
-                onClick={() => setWaPanelOpen((open) => !open)}
+                onClick={() => window.open('/management?wa_gateway=1', '_blank', 'noopener,noreferrer')}
                 className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-left transition hover:bg-[var(--surface-strong)]"
-                aria-expanded={waPanelOpen}
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">WA Gateway — Reminder Jimpitan</p>
-                  <span className="text-xs font-bold text-[var(--accent)]">{waPanelOpen ? 'Tutup' : 'Buka'}</span>
+                  <span className="text-xs font-bold text-[var(--accent)]">Buka ↗</span>
                 </div>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Atur reminder, jumlah penerima, status nomor, dan QR koneksi.</p>
               </button>
             ) : null}
           </div>
         </Card>
-        {isRoot && waPanelOpen ? (
+        {isRoot && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('wa_gateway') === '1' ? (
           <Card
             title="WA Gateway — Reminder Jimpitan"
             subtitle="Khusus root. Pengaturan ini mengalahkan fallback env backend. URL gateway dan secret tetap dikelola melalui env."
@@ -372,9 +370,29 @@ export default function ManagementHomePage() {
                     <p className="text-sm font-semibold text-[var(--text-primary)]">Koneksi nomor WA</p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">{waGatewayStatus?.connected ? `Connected: ${waGatewayStatus.linked_number || '-'}` : `Status: ${waGatewayStatus?.state || 'belum diperiksa'}`}</p>
                   </div>
-                  <Button variant="ghost" onClick={loadWaGatewayQr} disabled={loadingWaQr}>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" onClick={loadWaGatewayQr} disabled={loadingWaQr}>
                     {loadingWaQr ? 'Memuat QR...' : waGatewayStatus?.connected ? 'Refresh Status / QR' : 'Ambil QR'}
-                  </Button>
+                    </Button>
+                    <Button variant="ghost" onClick={async () => {
+                      if (!window.confirm('Ganti nomor akan memutus session WA saat ini. Lanjutkan?')) return;
+                      setLoadingWaQr(true);
+                      try {
+                        await apiFetch('/management/wa-gateway/reset', { method: 'POST' });
+                        setWaGatewayQr(null);
+                        for (let attempt = 0; attempt < 8; attempt += 1) {
+                          await new Promise((resolve) => window.setTimeout(resolve, 1000));
+                          await loadWaGatewayQr();
+                          const nextQr = await apiFetch<{ success: boolean; data: any }>('/management/wa-gateway/qr');
+                          setWaGatewayQr(nextQr.data);
+                          if (nextQr.data?.qr_data_url) break;
+                        }
+                      } catch (error) { setWaSettingsMessage(error instanceof Error ? error.message : 'Gagal mengganti nomor WA'); }
+                      finally { setLoadingWaQr(false); }
+                    }} disabled={loadingWaQr}>
+                      Ganti Nomor
+                    </Button>
+                  </div>
                 </div>
                 {waGatewayQr?.qr_data_url ? <div className="flex justify-center rounded-2xl border border-[var(--line)] bg-white p-4"><img src={waGatewayQr.qr_data_url} alt="QR koneksi WhatsApp Gateway" className="h-64 w-64" /></div> : null}
                 <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">

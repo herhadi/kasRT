@@ -6,7 +6,7 @@ import { getMeetingAttendance, getMeetingNote, saveMeetingAttendance, saveMeetin
 import { deleteTelegramWebhook, getTelegramWebhookInfo, setTelegramWebhook } from '../controllers/telegramController.js';
 import { cronHealthStatus } from '../controllers/cronHealthController.js';
 import { confirmAssetRentalPaymentHandler, getAssetManagementData, recordAssetRental, saveAsset, updateAssetStatus } from '../controllers/assetController.js';
-import { getRecentLoginAudits, getWaGatewayQr, getWaGatewayStatus, getWaJimpitanReminderConfig, saveWaJimpitanReminderConfig } from '../controllers/managementController.js';
+import { getRecentLoginAudits, getWaGatewayQr, getWaGatewayStatus, getWaJimpitanReminderConfig, resetWaGatewaySession, saveWaJimpitanReminderConfig } from '../controllers/managementController.js';
 
 const router = express.Router();
 
@@ -31,6 +31,7 @@ router.get('/wa-jimpitan-reminder', allowRoles('root'), asyncHandler(getWaJimpit
 router.put('/wa-jimpitan-reminder', allowRoles('root'), asyncHandler(saveWaJimpitanReminderConfig));
 router.get('/wa-gateway/status', allowRoles('root'), asyncHandler(getWaGatewayStatus));
 router.get('/wa-gateway/qr', allowRoles('root'), asyncHandler(getWaGatewayQr));
+router.post('/wa-gateway/reset', allowRoles('root'), asyncHandler(resetWaGatewaySession));
 router.get('/assets', allowRoles('Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root'), asyncHandler(getAssetManagementData));
 router.post('/assets', allowRoles('Sekretaris', 'root'), asyncHandler(saveAsset));
 router.post('/assets/:id/status', allowRoles('Sekretaris', 'root'), asyncHandler(updateAssetStatus));

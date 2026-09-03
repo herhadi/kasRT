@@ -19,10 +19,10 @@ function waGatewayConfig() {
   return { base, secret };
 }
 
-async function proxyWaGateway(path) {
+async function proxyWaGateway(path, options = {}) {
   const { base, secret } = waGatewayConfig();
   if (!base || !secret) throw new Error('WA Gateway belum dikonfigurasi di env backend.');
-  const response = await fetch(`${base}${path}`, { headers: { 'x-wa-lab-secret': secret } });
+  const response = await fetch(`${base}${path}`, { ...options, headers: { 'x-wa-lab-secret': secret, ...(options.headers || {}) } });
   const data = await response.json().catch(() => null);
   if (!response.ok || data?.success !== true) throw new Error(data?.message || `WA Gateway HTTP ${response.status}`);
   return data.data;
@@ -34,6 +34,14 @@ export async function getWaGatewayStatus(_req, res) {
 
 export async function getWaGatewayQr(_req, res) {
   return res.json({ success: true, data: await proxyWaGateway('/qr') });
+}
+
+export async function resetWaGatewaySession(_req, res) {
+  return res.json({ success: true, data: await proxyWaGateway('/session/reset', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ confirm: 'RESET' })
+  }) });
 }
 
 export async function getWaJimpitanReminderConfig(_req, res) {
