@@ -278,6 +278,7 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 - Reminder jimpitan backend hanya boleh memakai mode uji terbatas: nomor valid random dari petugas shift jika `WA_JIMPITAN_REMINDER_ENABLED=true`.
 - Jumlah target WA Lab diatur pada environment backend lewat `WA_JIMPITAN_MAX_RECIPIENTS`. Contoh operasional menggunakan `2`; fallback aplikasi tetap `1` jika variabel tidak diisi dan dapat diatur sampai `20` per eksekusi, mengikuti limit harian gateway saat ini.
 - Root dapat mengatur status reminder WA, maksimum penerima, dan minimum umur koneksi dari `/management`. Nilai tersebut disimpan di `app_settings` dengan key `wa_jimpitan_reminder` dan mengalahkan fallback env backend; URL gateway dan secret tetap hanya tersedia lewat env.
+- `/management` mengambil status dan QR melalui proxy backend root-only; proxy memakai session gateway yang sama dengan mini inbox. Mini inbox tidak membuat koneksi atau QR kedua.
 - Sapaan reminder diacak sebagai satu paket tanpa pengulangan jika jumlah penerima tidak melebihi pilihan sapaan; setelah pilihan habis, sapaan dapat berulang.
 - Reminder otomatis WA Lab menunggu umur koneksi minimal dari `WA_LAB_MIN_CONNECTED_AGE_MINUTES`, default `180` menit sejak nomor pertama kali tertaut pada gateway.
 - Jika nanti dipakai produksi, lebih baik tetap dibuat opt-in dan manual approval.

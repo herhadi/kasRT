@@ -2,7 +2,7 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
-## 2026-08-22
+## 2026-09-03
 
 ### Ditambahkan
 
@@ -27,6 +27,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Membuka `/status` langsung dari browser kini menampilkan halaman diagnostic yang memakai secret tersimpan pada mini inbox; API JSON `/status` tetap dilindungi header secret.
 - Sapaan reminder WA Jimpitan kini diacak tanpa pengulangan dalam satu eksekusi, sehingga dua nomor penerima tidak lagi menerima sapaan yang sama.
 - Root kini dapat mengatur reminder WA Jimpitan dari `/management`: aktif/nonaktif, jumlah penerima bertahap sampai 20 per eksekusi, dan minimum umur koneksi WA Gateway tanpa perlu redeploy backend.
+- `/management` kini menyediakan status dan QR WA Gateway melalui proxy backend terautentikasi, menggunakan session gateway yang sama dengan mini inbox tanpa menduplikasi tautan atau session.
+- Ringkasan WA Gateway dipindahkan ke dalam card Manajemen di bawah Telegram Webhook; detail konfigurasi, status, dan QR kini collapse secara default dan dibuka saat kartu dipilih.
 - Navbar dashboard kini menampilkan ikon KasRT di sebelah kiri judul dan subjudul agar identitas aplikasi lebih mudah dikenali.
 - Ikon navbar KasRT didesain ulang dengan komposisi rumah, tabungan, koin, dan cek yang lebih proporsional serta latar biru-aqua terang untuk light dan dark mode.
 - Workflow VPS otomatis mendeteksi perubahan `wa-gateway/**` atau `docker-compose.vps.yml`, lalu rebuild/recreate dan health-check `kasrt-wa-lab`; workflow manual menyediakan opsi force deploy tanpa menghapus volume session/data WA.

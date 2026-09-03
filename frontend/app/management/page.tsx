@@ -118,6 +118,10 @@ export default function ManagementHomePage() {
   const [waSettingsMessage, setWaSettingsMessage] = useState('');
   const [loadingWaSettings, setLoadingWaSettings] = useState(false);
   const [savingWaSettings, setSavingWaSettings] = useState(false);
+  const [waGatewayStatus, setWaGatewayStatus] = useState<any>(null);
+  const [waGatewayQr, setWaGatewayQr] = useState<any>(null);
+  const [loadingWaQr, setLoadingWaQr] = useState(false);
+  const [waPanelOpen, setWaPanelOpen] = useState(false);
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
@@ -213,6 +217,23 @@ export default function ManagementHomePage() {
     }
   }
 
+  async function loadWaGatewayStatus() {
+    try {
+      const res = await apiFetch<{ success: boolean; data: any }>('/management/wa-gateway/status');
+      setWaGatewayStatus(res.data);
+    } catch (error) { setWaSettingsMessage(error instanceof Error ? error.message : 'Gagal memuat status WA Gateway'); }
+  }
+
+  async function loadWaGatewayQr() {
+    setLoadingWaQr(true);
+    try {
+      const res = await apiFetch<{ success: boolean; data: any }>('/management/wa-gateway/qr');
+      setWaGatewayQr(res.data);
+      await loadWaGatewayStatus();
+    } catch (error) { setWaSettingsMessage(error instanceof Error ? error.message : 'Gagal memuat QR WA Gateway'); }
+    finally { setLoadingWaQr(false); }
+  }
+
   async function saveJimpitanMode() {
     setSavingMode(true);
     setModeMessage('');
@@ -261,6 +282,7 @@ export default function ManagementHomePage() {
       void loadJimpitanMode();
       void loadLoginAudits();
       void loadWaSettings();
+      void loadWaGatewayStatus();
     }
   }, [loading, user?.id, isRoot]);
 
@@ -317,9 +339,23 @@ export default function ManagementHomePage() {
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Cek status, set, dan hapus webhook bot Telegram.</p>
               </Link>
             ) : null}
+            {hasAnyRole(user, ['root']) ? (
+              <button
+                type="button"
+                onClick={() => setWaPanelOpen((open) => !open)}
+                className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-left transition hover:bg-[var(--surface-strong)]"
+                aria-expanded={waPanelOpen}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">WA Gateway — Reminder Jimpitan</p>
+                  <span className="text-xs font-bold text-[var(--accent)]">{waPanelOpen ? 'Tutup' : 'Buka'}</span>
+                </div>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Atur reminder, jumlah penerima, status nomor, dan QR koneksi.</p>
+              </button>
+            ) : null}
           </div>
         </Card>
-        {isRoot ? (
+        {isRoot && waPanelOpen ? (
           <Card
             title="WA Gateway — Reminder Jimpitan"
             subtitle="Khusus root. Pengaturan ini mengalahkan fallback env backend. URL gateway dan secret tetap dikelola melalui env."
@@ -331,6 +367,16 @@ export default function ManagementHomePage() {
           >
             {waSettings ? (
               <div className="space-y-4">
+                <div className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Koneksi nomor WA</p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">{waGatewayStatus?.connected ? `Connected: ${waGatewayStatus.linked_number || '-'}` : `Status: ${waGatewayStatus?.state || 'belum diperiksa'}`}</p>
+                  </div>
+                  <Button variant="ghost" onClick={loadWaGatewayQr} disabled={loadingWaQr}>
+                    {loadingWaQr ? 'Memuat QR...' : waGatewayStatus?.connected ? 'Refresh Status / QR' : 'Ambil QR'}
+                  </Button>
+                </div>
+                {waGatewayQr?.qr_data_url ? <div className="flex justify-center rounded-2xl border border-[var(--line)] bg-white p-4"><img src={waGatewayQr.qr_data_url} alt="QR koneksi WhatsApp Gateway" className="h-64 w-64" /></div> : null}
                 <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
                   <span>
                     <span className="block text-sm font-semibold text-[var(--text-primary)]">Aktifkan reminder WhatsApp</span>

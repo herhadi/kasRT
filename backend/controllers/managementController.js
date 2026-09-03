@@ -13,6 +13,29 @@ import { listRecentLoginAudits } from '../models/loginAuditModel.js';
 import { upsertAppSetting } from '../models/appSettingModel.js';
 import { getWaJimpitanReminderSettings } from '../services/waLabReminderService.js';
 
+function waGatewayConfig() {
+  const base = String(process.env.WA_LAB_BASE_URL || process.env.WA_GATEWAY_BASE_URL || '').trim().replace(/\/+$/, '');
+  const secret = String(process.env.WA_LAB_SECRET || process.env.WA_GATEWAY_SECRET || '').trim();
+  return { base, secret };
+}
+
+async function proxyWaGateway(path) {
+  const { base, secret } = waGatewayConfig();
+  if (!base || !secret) throw new Error('WA Gateway belum dikonfigurasi di env backend.');
+  const response = await fetch(`${base}${path}`, { headers: { 'x-wa-lab-secret': secret } });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || data?.success !== true) throw new Error(data?.message || `WA Gateway HTTP ${response.status}`);
+  return data.data;
+}
+
+export async function getWaGatewayStatus(_req, res) {
+  return res.json({ success: true, data: await proxyWaGateway('/status') });
+}
+
+export async function getWaGatewayQr(_req, res) {
+  return res.json({ success: true, data: await proxyWaGateway('/qr') });
+}
+
 export async function getWaJimpitanReminderConfig(_req, res) {
   const settings = await getWaJimpitanReminderSettings();
   return res.json({ success: true, data: settings });
