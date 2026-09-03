@@ -26,6 +26,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - WA Gateway memiliki ikon layanan khusus berupa rumah lingkungan, gelembung percakapan, cek, dan sinyal notifikasi; ikon digunakan pada favicon serta header mini inbox.
 - Membuka `/status` langsung dari browser kini menampilkan halaman diagnostic yang memakai secret tersimpan pada mini inbox; API JSON `/status` tetap dilindungi header secret.
 - Sapaan reminder WA Jimpitan kini diacak tanpa pengulangan dalam satu eksekusi, sehingga dua nomor penerima tidak lagi menerima sapaan yang sama.
+- Root kini dapat mengatur reminder WA Jimpitan dari `/management`: aktif/nonaktif, jumlah penerima bertahap sampai 20 per eksekusi, dan minimum umur koneksi WA Gateway tanpa perlu redeploy backend.
 - Navbar dashboard kini menampilkan ikon KasRT di sebelah kiri judul dan subjudul agar identitas aplikasi lebih mudah dikenali.
 - Ikon navbar KasRT didesain ulang dengan komposisi rumah, tabungan, koin, dan cek yang lebih proporsional serta latar biru-aqua terang untuk light dan dark mode.
 - Workflow VPS otomatis mendeteksi perubahan `wa-gateway/**` atau `docker-compose.vps.yml`, lalu rebuild/recreate dan health-check `kasrt-wa-lab`; workflow manual menyediakan opsi force deploy tanpa menghapus volume session/data WA.
@@ -94,7 +95,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Icon aplikasi KasRT diganti dengan visual rumah warga, tabungan koin, dan tanda cek agar lebih relevan untuk favicon/PWA.
 - Area aman icon diperbesar agar tidak terpotong saat launcher HP menampilkan icon berbentuk lingkaran.
 - WA Lab kini memperlakukan receipt WhatsApp tanpa status eksplisit sebagai `delivered`, sehingga pesan terkirim tampil centang dua abu-abu sebelum dibaca.
-- Jumlah target WA Lab untuk reminder jimpitan kini bisa diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, dengan contoh operasional `2`, fallback `1`, dan batas maksimal `3`.
+- Jumlah target WA Lab untuk reminder jimpitan kini bisa diatur lewat `WA_JIMPITAN_MAX_RECIPIENTS`, dengan contoh operasional `2`, fallback `1`, dan batas operasional `20` per eksekusi.
+- Batas penerima WA Lab tidak lagi dikunci maksimal 3; pengamatan bertahap dapat dilakukan sampai 20 penerima per eksekusi sesuai limit harian gateway.
 - Contoh dan dokumentasi `WA_JIMPITAN_REMINDER_ENABLED` serta `WA_JIMPITAN_MAX_RECIPIENTS` kini ditempatkan pada konfigurasi backend KasRT agar tidak disalahartikan sebagai env milik WA Gateway.
 - Asset SVG template bawaan Next/Vercel yang tidak dipakai dibersihkan dari `frontend/public`.
 

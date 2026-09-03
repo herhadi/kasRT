@@ -50,8 +50,7 @@ import {
 } from '../models/jimpitanModel.js';
 import { delCache, delCacheByPrefix, getCacheJson, setCacheJson } from '../services/cacheService.js';
 import {
-  getWaJimpitanMaxRecipients,
-  isWaJimpitanReminderEnabled,
+  getWaJimpitanReminderSettings,
   pickRandomValidWaRecipients,
   sendWaJimpitanReminder
 } from '../services/waLabReminderService.js';
@@ -848,8 +847,9 @@ export async function sendJimpitanShiftReminder(req, res) {
   try {
     const petugas = await listPetugasByShiftDay(shiftDay);
     const telegramRecipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
-    const waEnabled = isWaJimpitanReminderEnabled();
-    const waMaxRecipients = getWaJimpitanMaxRecipients();
+    const waSettings = await getWaJimpitanReminderSettings();
+    const waEnabled = waSettings.enabled;
+    const waMaxRecipients = waSettings.max_recipients;
     const waRecipientRows = waEnabled
       ? await pickRandomValidWaRecipients(petugas, waMaxRecipients, listUnsentJimpitanWaPhones)
       : [];
@@ -907,7 +907,7 @@ export async function sendJimpitanShiftReminder(req, res) {
         testMode,
         greeting: waGreetings[index]
       });
-      const result = await sendWaJimpitanReminder({ recipient, text: waText });
+      const result = await sendWaJimpitanReminder({ recipient, text: waText, settings: waSettings });
       if (result?.success === true) await markJimpitanWaPhoneSent(recipient.phone);
       waResults.push({ recipient, result });
     }

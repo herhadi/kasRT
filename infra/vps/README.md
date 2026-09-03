@@ -48,7 +48,7 @@ WA_LAB_BASE_URL=https://wa-kasrt.tripleatech.my.id
 WA_LAB_SECRET=secret_yang_sama_dengan_wa_gateway
 ```
 
-Kedua variabel `WA_JIMPITAN_*` di atas dipasang pada environment **backend KasRT**, bukan pada container `wa-gateway`. Contoh tersebut memilih maksimal 2 nomor valid per pengiriman; nilai yang didukung adalah 1–3 dan fallback aplikasi tetap 1 jika variabel tidak diisi.
+Variabel `WA_JIMPITAN_*` dan `WA_LAB_MIN_CONNECTED_AGE_MINUTES` di atas dipasang pada environment **backend KasRT**, bukan pada container `wa-gateway`. Setelah root menyimpan pengaturan pada `/management`, nilai UI tersebut mengalahkan fallback env untuk status WA, batas penerima, dan umur koneksi. Batas penerima yang dapat diatur adalah 1–20 per eksekusi, mengikuti limit harian gateway saat ini. `WA_LAB_BASE_URL` serta `WA_LAB_SECRET` tetap wajib berada di env karena merupakan konfigurasi infrastruktur dan kredensial gateway.
 
 Setelah ubah `backend/.env`, deploy/recreate backend:
 

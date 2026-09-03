@@ -89,6 +89,13 @@ type LoginAuditItem = {
   login_at: string;
 };
 
+type WaJimpitanReminderSettings = {
+  enabled: boolean;
+  max_recipients: number;
+  min_connected_age_minutes: number;
+  source: 'env' | 'management';
+};
+
 export default function ManagementHomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -107,6 +114,10 @@ export default function ManagementHomePage() {
   const [loginAudits, setLoginAudits] = useState<LoginAuditItem[]>([]);
   const [loginAuditError, setLoginAuditError] = useState('');
   const [loadingLoginAudits, setLoadingLoginAudits] = useState(false);
+  const [waSettings, setWaSettings] = useState<WaJimpitanReminderSettings | null>(null);
+  const [waSettingsMessage, setWaSettingsMessage] = useState('');
+  const [loadingWaSettings, setLoadingWaSettings] = useState(false);
+  const [savingWaSettings, setSavingWaSettings] = useState(false);
 
   const canManage = hasAnyRole(user, ['Ketua', 'Plt Ketua', 'Sekretaris', 'Bendahara', 'root']);
   const isRoot = hasAnyRole(user, ['root']);
@@ -166,6 +177,42 @@ export default function ManagementHomePage() {
     }
   }
 
+  async function loadWaSettings() {
+    if (!isRoot) return;
+    setLoadingWaSettings(true);
+    setWaSettingsMessage('');
+    try {
+      const res = await apiFetch<{ success: boolean; data: WaJimpitanReminderSettings }>('/management/wa-jimpitan-reminder');
+      setWaSettings(res.data);
+    } catch (error) {
+      setWaSettingsMessage(error instanceof Error ? error.message : 'Gagal memuat pengaturan WA Gateway');
+    } finally {
+      setLoadingWaSettings(false);
+    }
+  }
+
+  async function saveWaSettings() {
+    if (!waSettings) return;
+    setSavingWaSettings(true);
+    setWaSettingsMessage('');
+    try {
+      const res = await apiFetch<{ success: boolean; data: WaJimpitanReminderSettings }>('/management/wa-jimpitan-reminder', {
+        method: 'PUT',
+        body: JSON.stringify({
+          enabled: waSettings.enabled,
+          max_recipients: Number(waSettings.max_recipients),
+          min_connected_age_minutes: Number(waSettings.min_connected_age_minutes)
+        })
+      });
+      setWaSettings(res.data);
+      setWaSettingsMessage('Pengaturan WA Gateway tersimpan dan langsung dipakai pada reminder berikutnya.');
+    } catch (error) {
+      setWaSettingsMessage(error instanceof Error ? error.message : 'Gagal menyimpan pengaturan WA Gateway');
+    } finally {
+      setSavingWaSettings(false);
+    }
+  }
+
   async function saveJimpitanMode() {
     setSavingMode(true);
     setModeMessage('');
@@ -213,6 +260,7 @@ export default function ManagementHomePage() {
       void loadCronStatus();
       void loadJimpitanMode();
       void loadLoginAudits();
+      void loadWaSettings();
     }
   }, [loading, user?.id, isRoot]);
 
@@ -271,6 +319,62 @@ export default function ManagementHomePage() {
             ) : null}
           </div>
         </Card>
+        {isRoot ? (
+          <Card
+            title="WA Gateway — Reminder Jimpitan"
+            subtitle="Khusus root. Pengaturan ini mengalahkan fallback env backend. URL gateway dan secret tetap dikelola melalui env."
+            headerRight={
+              <Button variant="ghost" onClick={loadWaSettings} disabled={loadingWaSettings}>
+                {loadingWaSettings ? 'Memuat...' : 'Refresh'}
+              </Button>
+            }
+          >
+            {waSettings ? (
+              <div className="space-y-4">
+                <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+                  <span>
+                    <span className="block text-sm font-semibold text-[var(--text-primary)]">Aktifkan reminder WhatsApp</span>
+                    <span className="mt-1 block text-xs text-[var(--text-muted)]">Kirim reminder jimpitan terbatas melalui WA Gateway.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={waSettings.enabled}
+                    onChange={(event) => setWaSettings({ ...waSettings, enabled: event.target.checked })}
+                    className="h-5 w-5 accent-[var(--accent)]"
+                  />
+                </label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input
+                    label="Maksimum penerima per reminder"
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={String(waSettings.max_recipients)}
+                    onChange={(event) => setWaSettings({ ...waSettings, max_recipients: Number(event.target.value) })}
+                  />
+                  <Input
+                    label="Minimum umur koneksi gateway (menit)"
+                    type="number"
+                    min="0"
+                    max="1440"
+                    value={String(waSettings.min_connected_age_minutes)}
+                    onChange={(event) => setWaSettings({ ...waSettings, min_connected_age_minutes: Number(event.target.value) })}
+                  />
+                </div>
+                <p className="-mt-1 text-xs text-[var(--text-muted)]">Penerima WA dapat diatur 1–20 nomor valid dan mendapat giliran secara bergantian. Batas 20 mengikuti limit harian gateway saat ini. Minimum umur koneksi `0` berarti tanpa masa tunggu; rekomendasi untuk nomor baru adalah 180 menit.</p>
+                <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-[var(--text-muted)]">Sumber saat ini: {waSettings.source === 'management' ? 'Pengaturan Manajemen' : 'Fallback env backend'}.</p>
+                  <Button onClick={saveWaSettings} disabled={savingWaSettings}>
+                    {savingWaSettings ? 'Menyimpan...' : 'Simpan Pengaturan WA'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">{loadingWaSettings ? 'Memuat pengaturan WA Gateway...' : 'Pengaturan belum dapat dimuat.'}</p>
+            )}
+            {waSettingsMessage ? <p className="mt-3 text-sm text-[var(--text-muted)]">{waSettingsMessage}</p> : null}
+          </Card>
+        ) : null}
         {isRoot ? (
           <Card
             title="30 Login Terakhir"

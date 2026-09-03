@@ -10,6 +10,36 @@ import {
   upsertMeetingAttendanceByMonth
 } from '../models/managementModel.js';
 import { listRecentLoginAudits } from '../models/loginAuditModel.js';
+import { upsertAppSetting } from '../models/appSettingModel.js';
+import { getWaJimpitanReminderSettings } from '../services/waLabReminderService.js';
+
+export async function getWaJimpitanReminderConfig(_req, res) {
+  const settings = await getWaJimpitanReminderSettings();
+  return res.json({ success: true, data: settings });
+}
+
+export async function saveWaJimpitanReminderConfig(req, res) {
+  const enabled = req.body?.enabled;
+  const maxRecipients = Number.parseInt(String(req.body?.max_recipients), 10);
+  const minConnectedAgeMinutes = Number.parseInt(String(req.body?.min_connected_age_minutes), 10);
+  if (typeof enabled !== 'boolean') return res.status(400).json({ success: false, message: 'Status WA harus berupa true atau false.' });
+  if (!Number.isInteger(maxRecipients) || maxRecipients < 1 || maxRecipients > 20) {
+    return res.status(400).json({ success: false, message: 'Maksimum penerima WA harus antara 1 dan 20.' });
+  }
+  if (!Number.isInteger(minConnectedAgeMinutes) || minConnectedAgeMinutes < 0 || minConnectedAgeMinutes > 1440) {
+    return res.status(400).json({ success: false, message: 'Minimum umur koneksi harus antara 0 dan 1440 menit.' });
+  }
+  await upsertAppSetting({
+    keyName: 'wa_jimpitan_reminder',
+    value: {
+      enabled,
+      max_recipients: maxRecipients,
+      min_connected_age_minutes: minConnectedAgeMinutes
+    },
+    updatedBy: req.user?.user_id || null
+  });
+  return res.json({ success: true, data: await getWaJimpitanReminderSettings() });
+}
 
 export async function getRecentLoginAudits(_req, res) {
   const items = await listRecentLoginAudits(30);

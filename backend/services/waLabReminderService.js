@@ -1,3 +1,5 @@
+import { getAppSetting } from '../models/appSettingModel.js';
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 function readBool(key, fallback = false) {
@@ -36,12 +38,28 @@ function gatewaySecret() {
   return String(process.env.WA_LAB_SECRET || process.env.WA_GATEWAY_SECRET || '').trim();
 }
 
-export function isWaJimpitanReminderEnabled() {
-  return readBool('WA_JIMPITAN_REMINDER_ENABLED', false);
+function fallbackWaJimpitanReminderSettings() {
+  return {
+    enabled: readBool('WA_JIMPITAN_REMINDER_ENABLED', false),
+    max_recipients: readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 20 }),
+    min_connected_age_minutes: readInt('WA_LAB_MIN_CONNECTED_AGE_MINUTES', 180, { min: 0, max: 1440 })
+  };
+}
+
+export async function getWaJimpitanReminderSettings() {
+  const fallback = fallbackWaJimpitanReminderSettings();
+  const saved = await getAppSetting('wa_jimpitan_reminder', null);
+  if (!saved || typeof saved !== 'object') return { ...fallback, source: 'env' };
+  return {
+    enabled: typeof saved.enabled === 'boolean' ? saved.enabled : fallback.enabled,
+    max_recipients: Math.min(Math.max(Number.parseInt(String(saved.max_recipients), 10) || fallback.max_recipients, 1), 20),
+    min_connected_age_minutes: Math.min(Math.max(Number.parseInt(String(saved.min_connected_age_minutes), 10) || 0, 0), 1440),
+    source: 'management'
+  };
 }
 
 export function getWaJimpitanMaxRecipients() {
-  return readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 3 });
+  return readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 20 });
 }
 
 export function getWaLabMinConnectedAgeMinutes() {
@@ -69,8 +87,7 @@ export async function pickRandomValidWaRecipients(rows = [], limit = getWaJimpit
     .map((item) => item.row);
 }
 
-async function checkGatewayCooldown({ baseUrl, secret, signal }) {
-  const minAgeMinutes = getWaLabMinConnectedAgeMinutes();
+async function checkGatewayCooldown({ baseUrl, secret, signal, minAgeMinutes = getWaLabMinConnectedAgeMinutes() }) {
   if (minAgeMinutes <= 0) return { success: true };
 
   const response = await fetch(`${baseUrl}/status`, {
@@ -101,8 +118,9 @@ async function checkGatewayCooldown({ baseUrl, secret, signal }) {
   return { success: true };
 }
 
-export async function sendWaJimpitanReminder({ recipient, text }) {
-  if (!isWaJimpitanReminderEnabled()) {
+export async function sendWaJimpitanReminder({ recipient, text, settings = null }) {
+  const activeSettings = settings || await getWaJimpitanReminderSettings();
+  if (!activeSettings.enabled) {
     return { skipped: true, reason: 'WA_JIMPITAN_REMINDER_ENABLED bukan true' };
   }
 
@@ -116,7 +134,12 @@ export async function sendWaJimpitanReminder({ recipient, text }) {
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
   try {
-    const cooldown = await checkGatewayCooldown({ baseUrl, secret, signal: controller.signal });
+    const cooldown = await checkGatewayCooldown({
+      baseUrl,
+      secret,
+      signal: controller.signal,
+      minAgeMinutes: activeSettings.min_connected_age_minutes
+    });
     if (cooldown.success !== true) return cooldown;
 
     const response = await fetch(`${baseUrl}/chats/start`, {
