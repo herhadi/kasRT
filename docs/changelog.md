@@ -32,6 +32,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Kartu WA Gateway di Manajemen kini membuka detail pada tab baru seperti modul lain; detail menyediakan aksi Ganti Nomor untuk reset session dan mendapatkan QR baru.
 - Item WA Gateway kini memakai halaman khusus `/management/whatsapp`, mengikuti pola Telegram Webhook; detail pengaturannya tampil di halaman tersebut.
 - Halaman WhatsApp mandiri kembali menampilkan pengaturan enable reminder, maksimum penerima, dan minimum umur koneksi gateway.
+- Seluruh aksi di halaman WhatsApp memakai toast global untuk notifikasi sukses/gagal dan indikator proses pada tombol.
 - Navbar dashboard kini menampilkan ikon KasRT di sebelah kiri judul dan subjudul agar identitas aplikasi lebih mudah dikenali.
 - Ikon navbar KasRT didesain ulang dengan komposisi rumah, tabungan, koin, dan cek yang lebih proporsional serta latar biru-aqua terang untuk light dan dark mode.
 
