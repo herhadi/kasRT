@@ -30,7 +30,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - `/management` kini menyediakan status dan QR WA Gateway melalui proxy backend terautentikasi, menggunakan session gateway yang sama dengan mini inbox tanpa menduplikasi tautan atau session.
 - Ringkasan WA Gateway dipindahkan ke dalam card Manajemen di bawah Telegram Webhook; detail konfigurasi, status, dan QR kini collapse secara default dan dibuka saat kartu dipilih.
 - Kartu WA Gateway di Manajemen kini membuka detail pada tab baru seperti modul lain; detail menyediakan aksi Ganti Nomor untuk reset session dan mendapatkan QR baru.
-- Item WA Gateway kini memakai route Manajemen khusus `/management/wa`, mengikuti pola Telegram Webhook.
+- Item WA Gateway kini memakai route Manajemen khusus `/management/whatsapp`, mengikuti pola Telegram Webhook.
 - Navbar dashboard kini menampilkan ikon KasRT di sebelah kiri judul dan subjudul agar identitas aplikasi lebih mudah dikenali.
 - Ikon navbar KasRT didesain ulang dengan komposisi rumah, tabungan, koin, dan cek yang lebih proporsional serta latar biru-aqua terang untuk light dan dark mode.
 - Workflow VPS otomatis mendeteksi perubahan `wa-gateway/**` atau `docker-compose.vps.yml`, lalu rebuild/recreate dan health-check `kasrt-wa-lab`; workflow manual menyediakan opsi force deploy tanpa menghapus volume session/data WA.

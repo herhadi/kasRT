@@ -340,7 +340,7 @@ export default function ManagementHomePage() {
             ) : null}
             {hasAnyRole(user, ['root']) ? (
               <Link
-                href="/management/wa"
+                href="/management/whatsapp"
                 className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-left transition hover:bg-[var(--surface-strong)]"
               >
                 <div className="flex items-center justify-between gap-3">
