@@ -339,9 +339,8 @@ export default function ManagementHomePage() {
               </Link>
             ) : null}
             {hasAnyRole(user, ['root']) ? (
-              <button
-                type="button"
-                onClick={() => window.open('/management?wa_gateway=1', '_blank', 'noopener,noreferrer')}
+              <Link
+                href="/management/wa"
                 className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-left transition hover:bg-[var(--surface-strong)]"
               >
                 <div className="flex items-center justify-between gap-3">
@@ -349,7 +348,7 @@ export default function ManagementHomePage() {
                   <span className="text-xs font-bold text-[var(--accent)]">Buka ↗</span>
                 </div>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Atur reminder, jumlah penerima, status nomor, dan QR koneksi.</p>
-              </button>
+              </Link>
             ) : null}
           </div>
         </Card>

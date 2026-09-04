@@ -84,7 +84,7 @@ function buildWaJimpitanReminderText({ recipient, targetLabel, testMode, greetin
     `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +
     `${selectedGreeting} *${name}*,\n` +
     `Pengingat jimpitan ${targetLabel}.\n` +
-    `Mulai pukul 21:00 WIB.\n` +
+    `Mulai pukul 21:00 sampai 06:00 WIB.\n` +
     `Input: https://kas02.vercel.app/` +
     `${testMode ? '\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.' : ''}`
   );
@@ -874,7 +874,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       `⏰ <b>Pengingat Jimpitan</b>\n` +
       `Hari operasional: <b>${targetLabel}</b>\n` +
       `Pengambilan jimpitan dimulai pukul <b>21:00 WIB</b>.\n` +
-      `Pengingat otomatis dikirim sebelum jam operasional.\n` +
+      `Pengingat otomatis ini dikirim sebelum jam operasional.\n` +
       `Selamat bekerja...` +
       testingSuffix;
 
