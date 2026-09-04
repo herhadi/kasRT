@@ -11,7 +11,11 @@ import { hasAnyRole } from '@/lib/auth';
 import { useAuth } from '@/lib/useAuth';
 import { useRouter } from 'next/navigation';
 
-type Settings = { enabled: boolean; max_recipients: number; min_connected_age_minutes: number };
+type Settings = {
+  enabled: boolean;
+  max_recipients: number;
+  min_connected_age_minutes: number;
+};
 
 export default function ManagementWhatsappPage() {
   const { user, loading } = useAuth();
@@ -24,48 +28,121 @@ export default function ManagementWhatsappPage() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { if (!loading && !user) router.replace('/login'); }, [loading, user, router]);
+  useEffect(() => {
+    if (!loading && !user) router.replace('/login');
+  }, [loading, user, router]);
 
-  async function refresh(showMessage = false) {
+  async function refresh() {
     try {
-      setError('');
       const [gateway, reminder] = await Promise.all([
         apiFetch<any>('/management/wa-gateway/status'),
         apiFetch<any>('/management/wa-jimpitan-reminder')
       ]);
       setStatus(gateway.data);
       setSettings(reminder.data);
-      if (showMessage) setMessage('Status dan pengaturan WA diperbarui.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Gagal memuat status WA Gateway'); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal memuat status');
+    }
   }
 
-  async function loadQr() {
-    setBusy(true); setError('');
+  async function getQr() {
+    setBusy(true);
     try {
       const result = await apiFetch<any>('/management/wa-gateway/qr');
       setQr(result.data);
-      await refresh(false);
-      setMessage(result.data?.qr_data_url ? 'QR koneksi berhasil dimuat.' : 'QR belum tersedia, coba lagi.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Gagal memuat QR WA Gateway'); }
-    finally { setBusy(false); }
+      setMessage(result.data?.qr_data_url ? 'QR koneksi berhasil dimuat.' : 'QR belum tersedia.');
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal memuat QR');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function saveSettings() {
+  async function changeNumber() {
+    if (!window.confirm('Ganti nomor akan memutus session saat ini. Lanjutkan?')) return;
+    setBusy(true);
+    try {
+      await apiFetch('/management/wa-gateway/reset', { method: 'POST' });
+      setQr(null);
+      setMessage('Session direset, QR baru sedang disiapkan.');
+      await getQr();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mengganti nomor');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save() {
     if (!settings) return;
-    setBusy(true); setError('');
+    setBusy(true);
     try {
       const result = await apiFetch<any>('/management/wa-jimpitan-reminder', {
         method: 'PUT',
-        body: JSON.stringify({ ...settings, max_recipients: Number(settings.max_recipients), min_connected_age_minutes: Number(settings.min_connected_age_minutes) })
+        body: JSON.stringify({
+          ...settings,
+          max_recipients: Number(settings.max_recipients),
+          min_connected_age_minutes: Number(settings.min_connected_age_minutes)
+        })
       });
       setSettings(result.data);
       setMessage('Pengaturan WA Gateway berhasil disimpan.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Gagal menyimpan pengaturan WA Gateway'); }
-    finally { setBusy(false); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal menyimpan pengaturan');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  useEffect(() => { if (user && isRoot) void refresh(); }, [user, isRoot]);
+  useEffect(() => {
+    if (user && isRoot) void refresh();
+  }, [user, isRoot]);
+
+  useEffect(() => {
+    if (!isRoot || status?.connected || !qr?.qr_data_url) return;
+    const timer = window.setInterval(() => void getQr(), 5000);
+    return () => window.clearInterval(timer);
+  }, [isRoot, status?.connected, qr?.qr_data_url]);
+
   if (loading || !user) return <main className="min-h-screen" />;
 
-  return <main className="min-h-screen pb-10"><Navbar /><FeedbackToast error={error} message={message} /><div className="mx-auto mt-6 w-full max-w-6xl px-4 md:px-6"><Card title="Manajemen WhatsApp Gateway" subtitle="Khusus root: koneksi nomor, QR, dan pengaturan reminder Jimpitan">{!isRoot ? <p className="text-sm text-[var(--text-muted)]">Anda tidak memiliki akses ke menu ini.</p> : <div className="space-y-4"><div className="flex flex-wrap gap-2"><Button onClick={() => void refresh(true)} disabled={busy}>Refresh Status</Button><Button variant="ghost" onClick={() => void loadQr()} disabled={busy}>{busy ? 'Memuat...' : 'Ambil QR'}</Button></div><p className="rounded-2xl border border-[var(--line)] p-4 text-sm"><b>Status:</b> {status?.connected ? `Connected (${status.linked_number || '-'})` : status?.state || 'Belum diperiksa'}</p>{qr?.qr_data_url ? <div className="flex justify-center rounded-2xl bg-white p-4"><img src={qr.qr_data_url} alt="QR koneksi WhatsApp" className="h-64 w-64" /></div> : null}{settings ? <><label className="flex items-center justify-between rounded-2xl border border-[var(--line)] p-4 text-sm font-semibold">Aktifkan reminder WhatsApp<input type="checkbox" checked={settings.enabled} onChange={e => setSettings({ ...settings, enabled: e.target.checked })} className="h-5 w-5" /></label><div className="grid gap-3 md:grid-cols-2"><Input label="Maksimum penerima per reminder" type="number" min="1" max="20" value={String(settings.max_recipients)} onChange={e => setSettings({ ...settings, max_recipients: Number(e.target.value) })} /><Input label="Minimum umur koneksi gateway (menit)" type="number" min="0" max="1440" value={String(settings.min_connected_age_minutes)} onChange={e => setSettings({ ...settings, min_connected_age_minutes: Number(e.target.value) })} /></div><Button onClick={() => void saveSettings()} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Pengaturan WA'}</Button></> : <p className="text-sm text-[var(--text-muted)]">Memuat pengaturan...</p>}</div>}</Card></div></main>;
+  return (
+    <main className="min-h-screen pb-10">
+      <Navbar />
+      <FeedbackToast error={error} message={message} />
+      <div className="mx-auto mt-6 w-full max-w-6xl px-4 md:px-6">
+        <Card title="Manajemen WhatsApp Gateway" subtitle="Khusus root: koneksi nomor, QR, dan pengaturan reminder Jimpitan">
+          {!isRoot ? (
+            <p className="text-sm text-[var(--text-muted)]">Anda tidak memiliki akses ke menu ini.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => void refresh()} disabled={busy}>Refresh Status</Button>
+                <Button variant="ghost" onClick={() => void getQr()} disabled={busy}>Ambil QR</Button>
+                <Button variant="ghost" onClick={() => void changeNumber()} disabled={busy}>Ganti Nomor</Button>
+              </div>
+              <p className="rounded-2xl border border-[var(--line)] p-4 text-sm">
+                <b>Status:</b> {status?.connected ? `Connected (${status.linked_number || '-'})` : status?.state || 'Belum diperiksa'}
+              </p>
+              {qr?.qr_data_url ? <div className="flex justify-center rounded-2xl bg-white p-4"><img src={qr.qr_data_url} alt="QR koneksi WhatsApp" className="h-64 w-64" /></div> : null}
+              {settings ? (
+                <>
+                  <label className="flex items-center justify-between rounded-2xl border border-[var(--line)] p-4 text-sm font-semibold">
+                    Aktifkan reminder WhatsApp
+                    <input type="checkbox" checked={settings.enabled} onChange={e => setSettings({ ...settings, enabled: e.target.checked })} className="h-5 w-5" />
+                  </label>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Input label="Maksimum penerima per reminder" type="number" min="1" max="20" value={String(settings.max_recipients)} onChange={e => setSettings({ ...settings, max_recipients: Number(e.target.value) })} />
+                    <Input label="Minimum umur koneksi gateway (menit)" type="number" min="0" max="1440" value={String(settings.min_connected_age_minutes)} onChange={e => setSettings({ ...settings, min_connected_age_minutes: Number(e.target.value) })} />
+                  </div>
+                  <Button onClick={() => void save()} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Pengaturan WA'}</Button>
+                </>
+              ) : <p className="text-sm text-[var(--text-muted)]">Memuat pengaturan...</p>}
+            </div>
+          )}
+        </Card>
+      </div>
+    </main>
+  );
 }
