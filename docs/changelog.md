@@ -7,9 +7,9 @@ Semua perubahan penting KasRT dicatat di file ini.
 ### Ditambahkan
 
 - WA Gateway kini memasang `link-preview-js` dan mengaktifkan high-quality link preview Baileys agar URL pada reminder menampilkan judul, deskripsi, dan thumbnail di perangkat penerima.
-- Root layout frontend menyediakan metadata Open Graph dan Twitter Card untuk URL KasRT, dengan base URL dari `NEXT_PUBLIC_APP_URL` atau fallback `https://kas02.vercel.app`.
+- Metadata Open Graph/Twitter Card ditambahkan agar preview tautan KasRT lebih informatif.
 - Kartu approval responsif global ditambahkan untuk menampilkan judul, tanggal operasional, pembuat/petugas, detail, tanggal pengajuan, nominal, dan aksi secara utuh di mobile maupun desktop.
-- `/management` menampilkan audit 30 login berhasil terbaru khusus root dengan pagination global 10 item, urutan terbaru, tanggal dan waktu WIB hingga detik, user/role, perangkat, browser, sistem operasi, IP jaringan, negara proxy, zona waktu, bahasa, origin, host, referer, dan user agent lengkap.
+- `/management` menampilkan 30 login terbaru khusus root dengan pagination 10 item dan detail perangkat/jaringan.
 - Backend menyimpan setiap login berhasil ke `login_audit_logs`; PIN tidak pernah disimpan dalam audit dan histori tetap tersedia jika akun pengguna kemudian dihapus.
 
 ### Diubah
@@ -31,14 +31,9 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Ringkasan WA Gateway dipindahkan ke dalam card Manajemen di bawah Telegram Webhook; detail konfigurasi, status, dan QR kini collapse secara default dan dibuka saat kartu dipilih.
 - Kartu WA Gateway di Manajemen kini membuka detail pada tab baru seperti modul lain; detail menyediakan aksi Ganti Nomor untuk reset session dan mendapatkan QR baru.
 - Item WA Gateway kini memakai halaman khusus `/management/whatsapp`, mengikuti pola Telegram Webhook; detail pengaturannya tampil di halaman tersebut.
+- Halaman WhatsApp mandiri kembali menampilkan pengaturan enable reminder, maksimum penerima, dan minimum umur koneksi gateway.
 - Navbar dashboard kini menampilkan ikon KasRT di sebelah kiri judul dan subjudul agar identitas aplikasi lebih mudah dikenali.
 - Ikon navbar KasRT didesain ulang dengan komposisi rumah, tabungan, koin, dan cek yang lebih proporsional serta latar biru-aqua terang untuk light dan dark mode.
-- Workflow VPS otomatis mendeteksi perubahan `wa-gateway/**` atau `docker-compose.vps.yml`, lalu rebuild/recreate dan health-check `kasrt-wa-lab`; workflow manual menyediakan opsi force deploy tanpa menghapus volume session/data WA.
-
-### Keamanan
-
-- `link-preview-js` menggunakan versi `4.0.4` yang sudah memperbaiki celah SSRF pada versi lama; audit dependensi WA Gateway tidak menemukan vulnerability.
-- Konfigurasi npm WA Gateway menerima peer override versi aman tersebut karena deklarasi peer Baileys 6.7.24 masih membatasi versi 3.x; Dockerfile menyalin `.npmrc` agar clean install tetap konsisten.
 
 ## 2026-07-31
 
