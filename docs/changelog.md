@@ -2,6 +2,7 @@
 
 - Dukungan instalasi PWA Safari/iPhone diperbaiki dengan Apple Touch Icon dan panduan Tambahkan ke Layar Utama.
 - Instruksi instalasi PWA kini membedakan Safari iOS, browser lain di iPhone/iPad, dan Safari Mac.
+- Manifest PWA dipindahkan ke `app/manifest.ts` mengikuti standar metadata Next.js.
 
 Semua perubahan penting KasRT dicatat di file ini.
 
