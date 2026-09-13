@@ -213,7 +213,7 @@ export async function requestPinReset(req, res) {
   try {
     const result = await createPinResetRequestByNoHp({ noHp });
     if (result.found && !result.alreadyPending) {
-      await sendWaDirectMessage({ phone: result.user.no_hp, text: `🔐 Permintaan Reset PIN KasRT\n\nHalo ${result.user.nama}. Balas YA untuk mengonfirmasi reset PIN ke PIN default. Balasan selain YA akan diabaikan.` }).catch(() => {});
+      await sendWaDirectMessage({ phone: result.user.no_hp, text: `🔐 Permintaan Reset PIN KasRT\n\nHalo ${result.user.nama}. Balas YA untuk mengonfirmasi reset PIN ke PIN default. Balasan selain YA akan diabaikan.` }).catch((error) => console.warn('[WA PIN RESET] notification failed:', error.message));
     }
 
     return res.json({
@@ -233,6 +233,6 @@ export async function confirmPinResetFromWhatsApp(req, res) {
   if (!phone || text !== 'ya') return res.json({ success: true, ignored: true });
   const user = await confirmPinResetByPhone({ noHp: phone });
   if (!user) return res.json({ success: true, ignored: true });
-  await sendWaDirectMessage({ phone: user.no_hp, text: `✅ PIN KasRT untuk ${user.nama} sudah di-reset ke PIN default. Silakan login dan segera ganti PIN.` });
+  await sendWaDirectMessage({ phone: user.no_hp, text: `✅ PIN KasRT untuk ${user.nama} sudah di-reset.\n\nPIN default: 12345\nLogin: https://kas02.vercel.app\n\nSegera ganti PIN setelah login.` });
   return res.json({ success: true, confirmed: true });
 }

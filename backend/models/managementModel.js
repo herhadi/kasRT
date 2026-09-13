@@ -356,7 +356,7 @@ export async function resetPinFromRequest({ requestId, actorId, defaultPin = pro
   }
 }
 
-export async function confirmPinResetByPhone({ noHp, defaultPin = process.env.DEFAULT_USER_PIN || '1234' }) {
+export async function confirmPinResetByPhone({ noHp, defaultPin = process.env.DEFAULT_USER_PIN || '12345' }) {
   await ensurePinResetRequestTable();
   const client = await pool.connect();
   try {
