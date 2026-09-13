@@ -155,7 +155,7 @@ Reminder WA Jimpitan memilih penerima secara acak dari nomor valid yang belum be
 curl -sS -X POST http://127.0.0.1:3010/send-test \
   -H "content-type: application/json" \
   -H "x-wa-lab-secret: isi_secret_panjang" \
-  -d '{"phone":"62867890","text":"Halo, ini tes manual KasRT WA Lab."}'
+  -d '{"phone":"6281234567890","text":"Halo, ini tes manual KasRT WA Lab."}'
 ```
 
 ### Hapus Chat/Pesan Lokal
