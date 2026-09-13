@@ -387,6 +387,9 @@ async function recordIncomingMessages(messages = []) {
       continue;
     }
 
+    if (config.incomingWebhookUrl) {
+      await fetch(config.incomingWebhookUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'x-wa-gateway-secret': config.secret }, body: JSON.stringify({ phone: incomingChatJid(message).split('@')[0], text }) }).catch(() => {});
+    }
     await appendChatMessage({
       jid: incomingChatJid(message),
       id: message.key.id,

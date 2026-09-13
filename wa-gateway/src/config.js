@@ -21,6 +21,7 @@ function resolveFromRoot(value, fallback) {
 export const config = {
   port: readNumber('PORT', 3010),
   secret: String(process.env.WA_LAB_SECRET || process.env.WA_GATEWAY_SECRET || '').trim(),
+  incomingWebhookUrl: String(process.env.WA_INCOMING_WEBHOOK_URL || '').trim(),
   authDir: resolveFromRoot(process.env.WA_AUTH_DIR, './auth'),
   dataDir: resolveFromRoot(process.env.WA_DATA_DIR, './data'),
   antibanStateFile: resolveFromRoot(process.env.WA_ANTIBAN_STATE_FILE, './data/antiban-state.json'),

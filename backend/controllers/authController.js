@@ -11,6 +11,8 @@ import {
 import { createPinResetRequestByNoHp } from '../models/managementModel.js';
 import { recordLoginAudit } from '../models/loginAuditModel.js';
 import { notifyRoles } from '../services/approvalNotifier.js';
+import { sendWaDirectMessage, normalizeWaPhone } from '../services/waLabReminderService.js';
+import { confirmPinResetByPhone } from '../models/managementModel.js';
 
 function detectLoginClient(req) {
   const userAgent = String(req.headers['user-agent'] || '').slice(0, 1000);
@@ -211,22 +213,26 @@ export async function requestPinReset(req, res) {
   try {
     const result = await createPinResetRequestByNoHp({ noHp });
     if (result.found && !result.alreadyPending) {
-      await notifyRoles(
-        ['Ketua', 'Plt Ketua', 'Sekretaris', 'root'],
-        `🔐 <b>Permintaan Reset PIN</b>\n` +
-          `Nama: <b>${result.user?.nama || '-'}</b>\n` +
-          `No HP: <b>${result.user?.no_hp || noHp}</b>\n\n` +
-          `Buka Inbox KasRT untuk reset PIN ke default.`
-      ).catch(() => {});
+      await sendWaDirectMessage({ phone: result.user.no_hp, text: `🔐 Permintaan Reset PIN KasRT\n\nHalo ${result.user.nama}. Balas YA untuk mengonfirmasi reset PIN ke PIN default. Balasan selain YA akan diabaikan.` }).catch(() => {});
     }
 
     return res.json({
       success: true,
       message: result.alreadyPending
-        ? 'Permintaan reset PIN Anda masih menunggu diproses admin.'
-        : 'Jika nomor terdaftar, permintaan reset PIN akan dikirim ke admin.'
+        ? 'Permintaan reset PIN Anda masih menunggu konfirmasi melalui WhatsApp.'
+        : 'Jika nomor terdaftar, instruksi konfirmasi reset PIN dikirim melalui WhatsApp.'
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message || 'Gagal mengirim permintaan reset PIN.' });
   }
+}
+
+export async function confirmPinResetFromWhatsApp(req, res) {
+  const phone = normalizeWaPhone(req.body?.phone);
+  const text = String(req.body?.text || '').trim().toLowerCase();
+  if (!phone || text !== 'ya') return res.json({ success: true, ignored: true });
+  const user = await confirmPinResetByPhone({ noHp: phone });
+  if (!user) return res.json({ success: true, ignored: true });
+  await sendWaDirectMessage({ phone: user.no_hp, text: `✅ PIN KasRT untuk ${user.nama} sudah di-reset ke PIN default. Silakan login dan segera ganti PIN.` });
+  return res.json({ success: true, confirmed: true });
 }

@@ -356,6 +356,22 @@ export async function resetPinFromRequest({ requestId, actorId, defaultPin = pro
   }
 }
 
+export async function confirmPinResetByPhone({ noHp, defaultPin = process.env.DEFAULT_USER_PIN || '1234' }) {
+  await ensurePinResetRequestTable();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(`SELECT r.id, u.id AS user_id, u.nama, u.no_hp FROM pin_reset_requests r JOIN users u ON u.id = r.user_id WHERE r.status = 'PENDING' AND regexp_replace(u.no_hp, '\\D', '', 'g') = regexp_replace($1, '\\D', '', 'g') LIMIT 1`, [noHp]);
+    if (!result.rows.length) { await client.query('ROLLBACK'); return null; }
+    const row = result.rows[0];
+    await client.query('UPDATE users SET pin = $2, must_change_pin = TRUE WHERE id = $1', [row.user_id, defaultPin]);
+    await client.query("UPDATE pin_reset_requests SET status = 'RESET', reset_at = NOW() WHERE id = $1", [row.id]);
+    await client.query('COMMIT');
+    return row;
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+}
+
 export async function setUserOrganizationRoles({ userId, roleIds }) {
   const client = await pool.connect();
   try {

@@ -173,3 +173,12 @@ export async function sendWaJimpitanReminder({ recipient, text, settings = null 
     clearTimeout(timeout);
   }
 }
+
+export async function sendWaDirectMessage({ phone, text }) {
+  const baseUrl = gatewayBaseUrl();
+  const secret = gatewaySecret();
+  if (!baseUrl || !secret) return { success: false, error: 'WA Gateway belum dikonfigurasi' };
+  const response = await fetch(`${baseUrl}/chats/start`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-wa-lab-secret': secret }, body: JSON.stringify({ phone: normalizeWaPhone(phone), text }) });
+  const data = await response.json().catch(() => null);
+  return response.ok && data?.success === true ? { success: true } : { success: false, error: data?.message || `HTTP ${response.status}` };
+}
