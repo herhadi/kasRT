@@ -1,5 +1,7 @@
 # Changelog
 
+- Dukungan instalasi PWA Safari/iPhone diperbaiki dengan Apple Touch Icon dan panduan Tambahkan ke Layar Utama.
+
 Semua perubahan penting KasRT dicatat di file ini.
 
 ## 2026-09-03

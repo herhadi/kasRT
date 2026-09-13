@@ -17,6 +17,7 @@ export default function PwaRegister() {
   const { user } = useAuth();
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isIos, setIsIos] = useState(false);
   const hasBottomNav = Boolean(user && pathname !== '/login' && pathname !== '/akun/ganti-pin' && !user.must_change_pin);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function PwaRegister() {
     const mediaStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const navigatorStandalone = Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
     setIsStandalone(mediaStandalone || navigatorStandalone);
+    setIsIos(/iphone|ipad|ipod/i.test(window.navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
@@ -73,30 +75,30 @@ export default function PwaRegister() {
     setInstallPrompt(null);
   }
 
-  if (!installPrompt || isStandalone) return null;
+  if (isStandalone || (!installPrompt && !isIos)) return null;
 
   return (
     <div className={`pwa-install-banner fixed inset-x-3 z-[95] mx-auto max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3 shadow-xl backdrop-blur ${hasBottomNav ? 'pwa-install-banner-with-bottom-nav' : ''}`}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-[var(--text-primary)]">Install KasRT02</p>
-          <p className="text-xs text-[var(--text-muted)]">Buka lebih cepat seperti aplikasi di HP.</p>
+          <p className="text-xs text-[var(--text-muted)]">{isIos ? 'Di Safari: tekan Bagikan, lalu pilih Tambahkan ke Layar Utama.' : 'Buka lebih cepat seperti aplikasi di HP.'}</p>
         </div>
         <div className="flex gap-2">
-          <button
+          {isIos ? null : <button
             type="button"
             className="rounded-xl border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]"
             onClick={dismissInstallPrompt}
           >
             Nanti
-          </button>
-          <button
+          </button>}
+          {isIos ? null : <button
             type="button"
             className="btn-action-blue rounded-xl px-3 py-2 text-xs font-semibold"
             onClick={() => void installApp()}
           >
             Install
-          </button>
+          </button>}
         </div>
       </div>
     </div>
