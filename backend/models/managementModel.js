@@ -171,7 +171,7 @@ export async function createWargaUser({ nama, noHp, pin }) {
   }
 }
 
-export async function updateWargaUser({ userId, nama, noHp, resetPin = false, defaultPin = process.env.DEFAULT_USER_PIN || '1234' }) {
+export async function updateWargaUser({ userId, nama, noHp, resetPin = false, defaultPin = process.env.DEFAULT_USER_PIN }) {
   await ensureUserManagementColumns();
   const client = await pool.connect();
   try {
@@ -294,7 +294,7 @@ export async function listPendingPinResetRequests() {
   }));
 }
 
-export async function resetPinFromRequest({ requestId, actorId, defaultPin = process.env.DEFAULT_USER_PIN || '1234' }) {
+export async function resetPinFromRequest({ requestId, actorId, defaultPin = process.env.DEFAULT_USER_PIN }) {
   await ensurePinResetRequestTable();
   const client = await pool.connect();
   try {
@@ -356,8 +356,9 @@ export async function resetPinFromRequest({ requestId, actorId, defaultPin = pro
   }
 }
 
-export async function confirmPinResetByPhone({ noHp, defaultPin = process.env.DEFAULT_USER_PIN || '12345' }) {
+export async function confirmPinResetByPhone({ noHp, defaultPin = process.env.DEFAULT_USER_PIN }) {
   await ensurePinResetRequestTable();
+  if (!String(defaultPin || '').trim()) throw new Error('DEFAULT_USER_PIN belum dikonfigurasi');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

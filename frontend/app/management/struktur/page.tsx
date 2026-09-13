@@ -266,7 +266,7 @@ export default function UserManagementPage() {
             </Button>
           </div>
           <p className="mt-3 text-xs text-[var(--text-muted)]">
-            Reset PIN akan mengatur PIN ke default `1234` dan user wajib ganti PIN saat login berikutnya.
+            Reset PIN akan mengatur PIN sesuai `DEFAULT_USER_PIN` dan user wajib ganti PIN saat login berikutnya.
           </p>
         </Card>
 

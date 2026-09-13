@@ -105,7 +105,7 @@ export async function editWargaUser(req, res) {
       nama,
       noHp,
       resetPin,
-      defaultPin: String(process.env.DEFAULT_USER_PIN || '1234')
+      defaultPin: String(process.env.DEFAULT_USER_PIN)
     });
     return res.json({
       success: true,
@@ -127,7 +127,7 @@ export async function resetPinRequest(req, res) {
   }
 
   try {
-    const defaultPin = String(process.env.DEFAULT_USER_PIN || '1234');
+    const defaultPin = String(process.env.DEFAULT_USER_PIN);
     const result = await resetPinFromRequest({ requestId, actorId: actor, defaultPin });
     await notifyUser(
       result.user_id,

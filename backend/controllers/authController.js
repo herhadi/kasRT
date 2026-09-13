@@ -100,7 +100,7 @@ export async function login(req, res) {
       nama: user.nama,
       roles,
       telegram_connected: Boolean(user.telegram_chat_id),
-      must_change_pin: String(user.pin || '') === String(process.env.DEFAULT_USER_PIN || '1234')
+      must_change_pin: String(user.pin || '') === String(process.env.DEFAULT_USER_PIN)
     }
   });
 }
@@ -159,7 +159,7 @@ export async function changeMyPin(req, res) {
     return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
   }
 
-  const isDefaultPinUser = String(loginShape.pin || '') === String(process.env.DEFAULT_USER_PIN || '1234');
+  const isDefaultPinUser = String(loginShape.pin || '') === String(process.env.DEFAULT_USER_PIN);
   if (!oldPin && !isDefaultPinUser) {
     return res.status(400).json({ success: false, message: 'PIN lama wajib diisi.' });
   }
@@ -233,6 +233,6 @@ export async function confirmPinResetFromWhatsApp(req, res) {
   if (!phone || text !== 'ya') return res.json({ success: true, ignored: true });
   const user = await confirmPinResetByPhone({ noHp: phone });
   if (!user) return res.json({ success: true, ignored: true });
-  await sendWaDirectMessage({ phone: user.no_hp, text: `✅ PIN KasRT untuk ${user.nama} sudah di-reset.\n\nPIN default: 12345\nLogin: https://kas02.vercel.app\n\nSegera ganti PIN setelah login.` });
+  await sendWaDirectMessage({ phone: user.no_hp, text: `✅ PIN KasRT untuk ${user.nama} sudah di-reset ke PIN default yang dikonfigurasi.\n\nLogin: https://kas02.vercel.app\n\nSegera ganti PIN setelah login.` });
   return res.json({ success: true, confirmed: true });
 }

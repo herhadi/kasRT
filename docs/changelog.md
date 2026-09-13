@@ -34,7 +34,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Halaman WhatsApp mandiri kembali menampilkan pengaturan enable reminder, maksimum penerima, dan minimum umur koneksi gateway.
 - Seluruh aksi di halaman WhatsApp memakai toast global untuk notifikasi sukses/gagal dan indikator proses pada tombol.
 - Reset PIN kini memakai konfirmasi dua arah WhatsApp: pengguna membalas `YA` (abaikan huruf besar/kecil), lalu PIN di-reset otomatis ke default tanpa approval Telegram.
-- Notifikasi reset PIN sukses mencantumkan PIN default `12345` dan tautan login KasRT.
+- Notifikasi reset PIN sukses mencantumkan PIN default dDEFAULT_USER_PIN` dan tautan login KasRT.
 - Halaman WhatsApp menambahkan Ganti Nomor dengan reset session serta refresh QR otomatis setiap 5 detik selama belum terhubung.
 - Navbar dashboard kini menampilkan ikon KasRT di sebelah kiri judul dan subjudul agar identitas aplikasi lebih mudah dikenali.
 - Ikon navbar KasRT didesain ulang dengan komposisi rumah, tabungan, koin, dan cek yang lebih proporsional serta latar biru-aqua terang untuk light dan dark mode.
