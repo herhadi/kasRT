@@ -10,7 +10,6 @@ import {
 } from '../models/authModel.js';
 import { createPinResetRequestByNoHp } from '../models/managementModel.js';
 import { recordLoginAudit } from '../models/loginAuditModel.js';
-import { notifyRoles } from '../services/approvalNotifier.js';
 import { sendWaDirectMessage, normalizeWaPhone } from '../services/waLabReminderService.js';
 import { confirmPinResetByPhone } from '../models/managementModel.js';
 

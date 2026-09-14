@@ -6,7 +6,6 @@ import {
   setUserOrganizationRoles,
   updateWargaUser
 } from '../models/managementModel.js';
-import { notifyUser } from '../services/approvalNotifier.js';
 
 export async function getUserManagementData(req, res) {
   try {
@@ -129,12 +128,6 @@ export async function resetPinRequest(req, res) {
   try {
     const defaultPin = String(process.env.DEFAULT_USER_PIN);
     const result = await resetPinFromRequest({ requestId, actorId: actor, defaultPin });
-    await notifyUser(
-      result.user_id,
-      `✅ <b>PIN KasRT Anda sudah di-reset</b>\n` +
-        `PIN sementara: <b>${defaultPin}</b>\n` +
-        `Silakan login dan ganti PIN baru.`
-    ).catch(() => {});
     return res.json({
       success: true,
       message: `PIN ${result.nama} berhasil di-reset ke default${actorName ? ` oleh ${actorName}` : ''}.`

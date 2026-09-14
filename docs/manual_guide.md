@@ -286,7 +286,7 @@ Jika Telegram tidak menerima notifikasi, cek apakah akun sudah terhubung dan bot
 
 ### Notifikasi Reset PIN
 
-Setelah pengurus memproses reset PIN dari Inbox, sistem mencoba mengirim PIN sementara melalui Telegram kepada user yang bersangkutan. Pengiriman hanya berhasil jika user sudah menghubungkan Telegram dan bot dapat diakses.
+Reset PIN menggunakan WhatsApp. User meminta reset dari halaman login, menerima instruksi dari WA Gateway, lalu membalas `YA`. Jika nomor dan permintaan masih cocok serta berstatus `PENDING`, PIN diubah ke `DEFAULT_USER_PIN` dan user menerima notifikasi sukses melalui WhatsApp. Reset PIN tidak lagi mengirim notifikasi Telegram.
 
 ## 14. Manajemen
 

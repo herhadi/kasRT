@@ -203,3 +203,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Perbaikan approval: formatter tanggal setoran Jimpitan dibuat aman terhadap format DATE PostgreSQL agar endpoint `/approval/pending` tidak gagal 500.
 - Frontend: ditambahkan aturan global `page-container` selebar Navbar (`max-w-6xl`) agar card halaman utama sejajar di desktop, termasuk Jimpitan, Operasional, dan Approval.
 - Frontend: `NEXT_PUBLIC_WA_ADMIN` dihapus; fallback berbagi WhatsApp kini membuka pemilihan tujuan pengguna.
+- Reset PIN: notifikasi Telegram dinonaktifkan. Alur reset dan notifikasi hasil reset menggunakan WhatsApp Gateway melalui balasan `YA`; reset manual dari Inbox juga tidak lagi mengirim Telegram.
