@@ -42,8 +42,6 @@ services:
   #       value: 25
   #     - key: NEXT_PUBLIC_API_URL
   #       sync: false
-  #     - key: NEXT_PUBLIC_WA_ADMIN
-  #       sync: false
   #     - key: API_URL
   #       sync: false
   #     - key: CRON_SECRET

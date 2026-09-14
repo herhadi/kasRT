@@ -401,8 +401,7 @@ export default function JimpitanPage() {
         navigator.share({ title: `Rekap Jimpitan ${month}`, text: pesan }).catch(() => {});
         return;
       }
-      const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
-      window.open(`https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(pesan)}`, '_blank');
+      window.open(`https://wa.me/?text=${encodeURIComponent(pesan)}`, '_blank');
     } catch (e) {
       pushToast(e instanceof Error ? e.message : 'Gagal menyiapkan rekap bulanan', 'error');
     }
@@ -465,8 +464,7 @@ export default function JimpitanPage() {
         navigator.share({ title: `Rekap Shift Jimpitan ${monthLabel}`, text: pesan }).catch(() => {});
         return;
       }
-      const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
-      window.open(`https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(pesan)}`, '_blank');
+      window.open(`https://wa.me/?text=${encodeURIComponent(pesan)}`, '_blank');
     } catch (error) {
       pushToast(error instanceof Error ? error.message : 'Gagal menyiapkan rekap shift', 'error');
     }
@@ -552,10 +550,9 @@ export default function JimpitanPage() {
       return;
     }
 
-    const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
-    const urlWA = `https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(pesan)}`;
+    const urlWA = `https://wa.me/?text=${encodeURIComponent(pesan)}`;
     window.open(urlWA, '_blank');
-    pushToast('Browser tidak mendukung share. Dialihkan ke WA Admin.', 'success');
+    pushToast('Browser tidak mendukung share. Dibuka di WhatsApp untuk memilih tujuan.', 'success');
   }
 
   async function handleSaveEditNominal() {

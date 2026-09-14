@@ -443,7 +443,6 @@ export default function BendaharaPage() {
   }
 
   function sendMeetingNoteToWA() {
-    const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
     const d = meetingDate ? new Date(`${meetingDate}T00:00:00`) : null;
     const tglLabel = d ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(d) : selectedMonth;
     const text =
@@ -456,7 +455,7 @@ export default function BendaharaPage() {
       `${meetingNotes || '-'}\n` +
       `━━━━━━━━━━━━━━━\n` +
       `_Dicatat oleh: ${user?.nama || 'Sekretaris'}_`;
-    const urlWA = `https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(text)}`;
+    const urlWA = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(urlWA, '_blank');
   }
 

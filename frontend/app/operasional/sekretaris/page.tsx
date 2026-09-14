@@ -364,13 +364,11 @@ export default function OperasionalSekretarisPage() {
     if (agenda) text += `📌 *Agenda:* ${agenda}\n`;
     text += '\n*Hasil Rapat:*\n';
     text += `${notes || '-'}\n`;
-    const nomor = process.env.NEXT_PUBLIC_WA_ADMIN || '';
     if (navigator.share) {
       navigator.share({ title: 'Notulen Rapat', text }).catch(() => {});
       return;
     }
-    if (!nomor) return;
-    window.open(`https://api.whatsapp.com/send?phone=${nomor}&text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 
   function kirimUndanganWA() {
@@ -404,13 +402,11 @@ export default function OperasionalSekretarisPage() {
     text += 'TTD\n';
     text += `${chairName || 'Ketua'}`;
 
-    const nomor = process.env.NEXT_PUBLIC_WA_ADMIN || '';
     if (navigator.share) {
       navigator.share({ title: 'Undangan Rapat RT', text }).catch(() => {});
       return;
     }
-    if (!nomor) return;
-    window.open(`https://api.whatsapp.com/send?phone=${nomor}&text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 
   if (loading || !user) return <main className="min-h-screen" />;

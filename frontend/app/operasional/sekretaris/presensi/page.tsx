@@ -112,16 +112,11 @@ export default function PresensiSekretarisPage() {
       text += '_Tidak ada warga yang izin_\n';
     }
 
-    const nomor = process.env.NEXT_PUBLIC_WA_ADMIN || '';
     if (navigator.share) {
       navigator.share({ title: 'Rekap Presensi Rapat RT', text }).catch(() => {});
       return;
     }
-    if (!nomor) {
-      pushToast('Nomor WA admin belum dikonfigurasi.', 'error');
-      return;
-    }
-    window.open(`https://api.whatsapp.com/send?phone=${nomor}&text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 
   return (

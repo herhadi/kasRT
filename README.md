@@ -67,7 +67,6 @@ Opsional performa:
 ### Frontend (`frontend/.env.local` atau env provider)
 
 - `NEXT_PUBLIC_API_URL` (URL backend)
-- `NEXT_PUBLIC_WA_ADMIN`
 - `API_URL` (URL backend untuk route cron frontend)
 - `CRON_SECRET` (harus sama dengan backend)
 

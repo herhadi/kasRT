@@ -214,13 +214,12 @@ export default function OperasionalKeamananPage() {
       return;
     }
 
-    const nomorAdmin = process.env.NEXT_PUBLIC_WA_ADMIN || '628561186917';
     window.open(
-      `https://api.whatsapp.com/send?phone=${nomorAdmin}&text=${encodeURIComponent(text)}`,
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
       '_blank',
       'noopener,noreferrer'
     );
-    setMessage('Browser tidak mendukung share. Dialihkan ke WA Admin.');
+    setMessage('Browser tidak mendukung share. Dibuka di WhatsApp untuk memilih tujuan.');
   }
 
   if (loading || !user) return <main className="min-h-screen" />;
