@@ -52,7 +52,8 @@ import { delCache, delCacheByPrefix, getCacheJson, setCacheJson } from '../servi
 import {
   getWaJimpitanReminderSettings,
   pickRandomValidWaRecipients,
-  sendWaJimpitanReminder
+  sendWaJimpitanReminder,
+  sendWaJimpitanGroupMessage
 } from '../services/waLabReminderService.js';
 
 const TARGET_BULANAN = 15000;
@@ -405,6 +406,13 @@ export async function setorJimpitan(req, res) {
       `Rumah: <b>${batch.total_rumah}</b>` +
       linkSection
     );
+    await sendWaJimpitanGroupMessage({
+      text: `🧾 *SETORAN JIMPITAN*\n` +
+        `📅 ${operationalDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\n` +
+        `💰 Total: *${formatRupiah(batch.total)}*\n` +
+        `🏠 Rumah: ${batch.total_rumah}\n` +
+        `⏳ Status: Menunggu approval Admin Jimpitan`
+    }).catch((error) => console.warn('[WA JIMPITAN GROUP] notification failed:', error.message));
 
     return res.json({
       success: true,
@@ -472,6 +480,13 @@ export async function setorJimpitanShiftTotal(req, res) {
       (note ? `\nCatatan: ${note}` : '') +
       linkSection
     );
+    await sendWaJimpitanGroupMessage({
+      text: `🧾 *SETORAN JIMPITAN SHIFT*\n` +
+        `📅 ${operationalDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\n` +
+        `💰 Total: *${formatRupiah(batch.total)}*\n` +
+        (note ? `📝 Catatan: ${note}\n` : '') +
+        `⏳ Status: Menunggu approval Admin Jimpitan`
+    }).catch((error) => console.warn('[WA JIMPITAN GROUP] notification failed:', error.message));
 
     return res.json({
       success: true,

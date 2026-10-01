@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertConfig, config } from './config.js';
-import { fullResetSession, getQr, getStatus, markMessagesRead, resetSession, sendChatReply, sendTestMessage, startChatMessage, startWhatsApp } from './whatsapp.js';
+import { fullResetSession, getQr, getStatus, listParticipatingGroups, markMessagesRead, resetSession, sendChatReply, sendGroupMessage, sendTestMessage, startChatMessage, startWhatsApp } from './whatsapp.js';
 import { deleteChat, deleteChatMessage, getChatMessages, getUnreadMessageKeys, listChats } from './chatStore.js';
 import { getUsage } from './store.js';
 
@@ -111,6 +111,15 @@ app.post('/chats/start', requireSecret, sendHandler((req) =>
       text: req.body?.text
   })
 ));
+
+app.post('/groups/send', requireSecret, sendHandler((req) =>
+  sendGroupMessage({ jid: req.body?.jid, text: req.body?.text })
+));
+
+app.get('/groups', requireSecret, async (_req, res) => {
+  try { return res.json({ success: true, data: await listParticipatingGroups() }); }
+  catch (error) { return res.status(400).json({ success: false, message: error.message }); }
+});
 
 app.get('/chats/:jid/messages', requireSecret, async (req, res) => {
   const jid = decodeURIComponent(req.params.jid || '');

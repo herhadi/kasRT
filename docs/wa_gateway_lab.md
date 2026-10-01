@@ -149,6 +149,12 @@ Gunakan nilai `qr_data_url` untuk membuka QR di browser, lalu scan dari WhatsApp
 
 Reminder WA Jimpitan memilih penerima secara acak dari nomor valid yang belum berhasil dikirimi pada siklus berjalan. Setelah seluruh kandidat mendapat giliran, rotasi dimulai kembali.
 
+### Notifikasi Setoran ke Grup RT
+
+Backend dapat mengirim notifikasi otomatis ke grup WhatsApp setelah setoran Jimpitan diajukan. Isi pesannya mengikuti ringkasan share: tanggal, total nominal, jumlah rumah (untuk mode per warga), dan status menunggu approval. Isi `WA_JIMPITAN_GROUP_JID` pada environment backend dengan JID grup berformat `120xxxxxxxxxxxx@g.us`. Pengiriman grup dilakukan oleh WA Gateway melalui `POST /groups/send`; jika env kosong, setoran tetap berjalan tanpa notifikasi WA.
+
+Untuk melihat JID grup yang diikuti nomor tertaut, gunakan `GET /groups` dengan secret gateway. Endpoint ini mengambil grup langsung dari WhatsApp dan mengembalikan `jid` berakhiran `@g.us`, tidak bergantung pada daftar chat lokal.
+
 ### Kirim Tes Manual
 
 ```bash

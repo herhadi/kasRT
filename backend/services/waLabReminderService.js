@@ -182,3 +182,19 @@ export async function sendWaDirectMessage({ phone, text }) {
   const data = await response.json().catch(() => null);
   return response.ok && data?.success === true ? { success: true } : { success: false, error: data?.message || `HTTP ${response.status}` };
 }
+
+export async function sendWaJimpitanGroupMessage({ text }) {
+  const baseUrl = gatewayBaseUrl();
+  const secret = gatewaySecret();
+  const jid = String(process.env.WA_JIMPITAN_GROUP_JID || '').trim();
+  if (!baseUrl || !secret || !jid) return { skipped: true, reason: 'WA_JIMPITAN_GROUP_JID belum dikonfigurasi' };
+  const response = await fetch(`${baseUrl}/groups/send`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-wa-lab-secret': secret },
+    body: JSON.stringify({ jid, text })
+  });
+  const data = await response.json().catch(() => null);
+  return response.ok && data?.success === true
+    ? { success: true, jid }
+    : { success: false, error: data?.message || `HTTP ${response.status}` };
+}

@@ -605,6 +605,18 @@ export function getQr() {
   };
 }
 
+export async function listParticipatingGroups() {
+  assertConnected();
+  if (typeof rawSocket?.groupFetchAllParticipating !== 'function') {
+    throw new Error('Gateway tidak mendukung pengambilan daftar grup pada versi Baileys ini.');
+  }
+  const groups = await rawSocket.groupFetchAllParticipating();
+  return Object.values(groups || {}).map((group) => ({
+    jid: group.id,
+    name: group.subject || group.name || group.id
+  })).sort((left, right) => left.name.localeCompare(right.name, 'id'));
+}
+
 export async function sendTestMessage({ phone, text }) {
   assertConnected();
 
@@ -685,6 +697,15 @@ export async function startChatMessage({ phone, name, text }) {
     jid,
     message_id: result?.key?.id || null
   };
+}
+
+export async function sendGroupMessage({ jid, text }) {
+  assertConnected();
+  const groupJid = String(jid || '').trim();
+  if (!/^\d+-\d+@g\.us$/.test(groupJid)) throw new Error('JID grup WhatsApp tidak valid.');
+  const messageText = validateMessageText(text);
+  const { result } = await sendTextMessage(groupJid, messageText);
+  return { jid: groupJid, message_id: result?.key?.id || null };
 }
 
 export async function resetSession() {
