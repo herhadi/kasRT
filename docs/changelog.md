@@ -205,3 +205,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Frontend: `NEXT_PUBLIC_WA_ADMIN` dihapus; fallback berbagi WhatsApp kini membuka pemilihan tujuan pengguna.
 - Reset PIN: notifikasi Telegram dinonaktifkan. Alur reset dan notifikasi hasil reset menggunakan WhatsApp Gateway melalui balasan `YA`; reset manual dari Inbox juga tidak lagi mengirim Telegram.
 - Jimpitan: setoran yang berhasil diajukan kini dapat mengirim notifikasi otomatis ke grup RT melalui WA Gateway menggunakan `WA_JIMPITAN_GROUP_JID`.
+- Management WhatsApp: ditambahkan pilihan penerima reminder Jimpitan antara acak dengan rotasi atau semua nomor WA valid pada shift.

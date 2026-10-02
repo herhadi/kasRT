@@ -42,6 +42,7 @@ function fallbackWaJimpitanReminderSettings() {
   return {
     enabled: readBool('WA_JIMPITAN_REMINDER_ENABLED', false),
     max_recipients: readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 20 }),
+    selection_mode: String(process.env.WA_JIMPITAN_RECIPIENT_MODE || 'random').toLowerCase() === 'all' ? 'all' : 'random',
     min_connected_age_minutes: readInt('WA_LAB_MIN_CONNECTED_AGE_MINUTES', 180, { min: 0, max: 1440 })
   };
 }
@@ -53,6 +54,7 @@ export async function getWaJimpitanReminderSettings() {
   return {
     enabled: typeof saved.enabled === 'boolean' ? saved.enabled : fallback.enabled,
     max_recipients: Math.min(Math.max(Number.parseInt(String(saved.max_recipients), 10) || fallback.max_recipients, 1), 20),
+    selection_mode: saved.selection_mode === 'all' ? 'all' : fallback.selection_mode,
     min_connected_age_minutes: Math.min(Math.max(Number.parseInt(String(saved.min_connected_age_minutes), 10) || 0, 0), 1440),
     source: 'management'
   };

@@ -865,8 +865,9 @@ export async function sendJimpitanShiftReminder(req, res) {
     const waSettings = await getWaJimpitanReminderSettings();
     const waEnabled = waSettings.enabled;
     const waMaxRecipients = waSettings.max_recipients;
+    const waSelectionMode = waSettings.selection_mode;
     const waRecipientRows = waEnabled
-      ? await pickRandomValidWaRecipients(petugas, waMaxRecipients, listUnsentJimpitanWaPhones)
+      ? await pickRandomValidWaRecipients(petugas, waSelectionMode === 'all' ? petugas.length : waMaxRecipients, waSelectionMode === 'all' ? null : listUnsentJimpitanWaPhones)
       : [];
     const waRecipients = waRecipientRows.length;
     const totalRecipients = telegramRecipients.length + waRecipients;
