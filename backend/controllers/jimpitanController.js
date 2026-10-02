@@ -49,6 +49,7 @@ import {
   updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
 import { delCache, delCacheByPrefix, getCacheJson, setCacheJson } from '../services/cacheService.js';
+import { formatMonthlyJimpitanShare } from '../services/jimpitanShareFormatter.js';
 import {
   getWaJimpitanReminderSettings,
   pickRandomValidWaRecipients,
@@ -59,6 +60,13 @@ import {
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
 const WA_REMINDER_GREETINGS = ['Halo', 'Hai', 'Selamat malam'];
+
+async function sendCurrentMonthlyJimpitanGroupShare(operationalDate) {
+  const month = operationalDate.toISOString().slice(0, 7);
+  const recap = await getJimpitanDailyRecapByMonth(month);
+  const text = formatMonthlyJimpitanShare({ month, days: recap.days });
+  return sendWaJimpitanGroupMessage({ text });
+}
 
 function pickRandomItem(items = []) {
   return items[Math.floor(Math.random() * items.length)] || '';
@@ -406,13 +414,8 @@ export async function setorJimpitan(req, res) {
       `Rumah: <b>${batch.total_rumah}</b>` +
       linkSection
     );
-    await sendWaJimpitanGroupMessage({
-      text: `🧾 *SETORAN JIMPITAN*\n` +
-        `📅 ${operationalDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\n` +
-        `💰 Total: *${formatRupiah(batch.total)}*\n` +
-        `🏠 Rumah: ${batch.total_rumah}\n` +
-        `⏳ Status: Menunggu approval Admin Jimpitan`
-    }).catch((error) => console.warn('[WA JIMPITAN GROUP] notification failed:', error.message));
+    await sendCurrentMonthlyJimpitanGroupShare(operationalDate)
+      .catch((error) => console.warn('[WA JIMPITAN GROUP] notification failed:', error.message));
 
     return res.json({
       success: true,
@@ -480,13 +483,8 @@ export async function setorJimpitanShiftTotal(req, res) {
       (note ? `\nCatatan: ${note}` : '') +
       linkSection
     );
-    await sendWaJimpitanGroupMessage({
-      text: `🧾 *SETORAN JIMPITAN SHIFT*\n` +
-        `📅 ${operationalDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\n` +
-        `💰 Total: *${formatRupiah(batch.total)}*\n` +
-        (note ? `📝 Catatan: ${note}\n` : '') +
-        `⏳ Status: Menunggu approval Admin Jimpitan`
-    }).catch((error) => console.warn('[WA JIMPITAN GROUP] notification failed:', error.message));
+    await sendCurrentMonthlyJimpitanGroupShare(operationalDate)
+      .catch((error) => console.warn('[WA JIMPITAN GROUP] notification failed:', error.message));
 
     return res.json({
       success: true,
