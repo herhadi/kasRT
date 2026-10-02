@@ -636,7 +636,8 @@ export default function ManagementHomePage() {
                       <InfoLine label="Petugas Shift" value={String(reminderResult.total_target ?? '-')} />
                       <InfoLine label="Telegram Terkirim" value={`${String(reminderResult.telegram_sent ?? reminderResult.telegram_recipients ?? '-')}/${String(reminderResult.telegram_recipients ?? '-')} (gagal ${String(reminderResult.telegram_failed ?? 0)})`} />
                       <InfoLine label="Error Telegram" value={formatTelegramError(reminderResult)} />
-                      <InfoLine label="WA Lab" value={`${String(reminderResult.wa_sent ?? 0)}/${String(reminderResult.wa_recipients ?? 0)} (gagal ${String(reminderResult.wa_failed ?? 0)})`} />
+                      <InfoLine label="Konfirmasi API WA" value={`${String(reminderResult.wa_sent ?? 0)}/${String(reminderResult.wa_recipients ?? 0)} (respons gagal ${String(reminderResult.wa_failed ?? 0)})`} />
+                      <p className="text-xs text-[var(--text-muted)]">Angka ini berdasarkan respons API gateway, bukan status centang atau keterbacaan pesan di perangkat penerima.</p>
                       <InfoLine label="Target WA Lab" value={formatWaTarget(reminderResult)} />
                       <InfoLine label="Error WA Lab" value={formatWaError(reminderResult)} />
                     </div>
@@ -655,7 +656,7 @@ export default function ManagementHomePage() {
                         </div>
                         {log.payload?.reminder_result ? (
                           <p className="mt-1 text-xs text-[var(--text-muted)]">
-                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_sent ?? log.payload.reminder_result.telegram_recipients ?? '-'}/{log.payload.reminder_result.telegram_recipients ?? '-'} | WA Lab: {log.payload.reminder_result.wa_sent ?? 0}/{log.payload.reminder_result.wa_recipients ?? 0}
+                            Reminder: {formatReminderStatus(log.payload.reminder_result)} | Petugas: {log.payload.reminder_result.total_target ?? '-'} | Telegram: {log.payload.reminder_result.telegram_sent ?? log.payload.reminder_result.telegram_recipients ?? '-'}/{log.payload.reminder_result.telegram_recipients ?? '-'} | Konfirmasi API WA: {log.payload.reminder_result.wa_sent ?? 0}/{log.payload.reminder_result.wa_recipients ?? 0}
                           </p>
                         ) : null}
                       </div>
