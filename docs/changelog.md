@@ -6,6 +6,15 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-10-02
+
+### Ditambahkan
+
+- WA Gateway mengaktifkan `getMessage` dengan cache payload pesan terbatas untuk membantu retry dan pengiriman ulang pesan Baileys.
+- Signal key store Baileys kini memakai `makeCacheableSignalKeyStore`.
+- Metadata grup dicache sementara agar pengiriman grup tidak selalu meminta metadata ulang.
+- Statistik cache WA tersedia pada `/status` di `inbox.cache`; cache dibersihkan saat reset session.
+
 ## 2026-09-03
 
 ### Ditambahkan
@@ -206,3 +215,4 @@ Semua perubahan penting KasRT dicatat di file ini.
 - Reset PIN: notifikasi Telegram dinonaktifkan. Alur reset dan notifikasi hasil reset menggunakan WhatsApp Gateway melalui balasan `YA`; reset manual dari Inbox juga tidak lagi mengirim Telegram.
 - Jimpitan: setoran yang berhasil diajukan kini dapat mengirim notifikasi otomatis ke grup RT melalui WA Gateway menggunakan `WA_JIMPITAN_GROUP_JID`.
 - Management WhatsApp: ditambahkan pilihan penerima reminder Jimpitan antara acak dengan rotasi atau semua nomor WA valid pada shift.
+- Management reminder: label statistik WA diperjelas sebagai konfirmasi API gateway, bukan status centang/keterbacaan pesan di perangkat penerima.

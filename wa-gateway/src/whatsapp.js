@@ -3,6 +3,7 @@ import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
   getUrlInfo,
+  makeCacheableSignalKeyStore,
   useMultiFileAuthState
 } from 'baileys';
 import { PresenceChoreographer, wrapSocket } from 'baileys-antiban';
@@ -10,6 +11,7 @@ import pino from 'pino';
 import QRCode from 'qrcode';
 import { config } from './config.js';
 import { appendChatMessage, hasChat, resetChats, updateMessageStatus, updateMessageStatusById, upsertChat } from './chatStore.js';
+import { cacheMessage, clearMessageCaches, getCachedGroupMetadata, getMessage, getMessageCacheStats } from './messageCache.js';
 import { assertCanSend, recordSend, resetUsage } from './store.js';
 
 let socket = null;
@@ -112,6 +114,7 @@ async function sendProtectedMessage(jid, content, options = {}) {
 
   try {
     const result = await socket.sendMessage(resolvedJid, content, {});
+    cacheMessage(result);
     lastOutgoingCompletedAt = new Date().toISOString();
     lastOutgoingMessageId = result?.key?.id || null;
     lastOutgoingResultJid = result?.key?.remoteJid || null;
@@ -444,7 +447,10 @@ export async function startWhatsApp() {
   const { version } = await fetchLatestBaileysVersion();
 
   rawSocket = makeWASocket({
-    auth: state,
+    auth: {
+      ...state,
+      keys: makeCacheableSignalKeyStore(state.keys, logger)
+    },
     version,
     logger,
     browser: ['KasRT WA Lab', 'Chrome', '1.0'],
@@ -454,7 +460,12 @@ export async function startWhatsApp() {
     generateHighQualityLinkPreview: true,
     markOnlineOnConnect: false,
     syncFullHistory: false,
-    printQRInTerminal: false
+    printQRInTerminal: false,
+    getMessage,
+    cachedGroupMetadata: (jid) => getCachedGroupMetadata(
+      jid,
+      (groupJid) => rawSocket?.groupMetadata?.(groupJid)
+    )
   });
 
   socket = wrapSocket(rawSocket, config.antiban, undefined, {
@@ -464,6 +475,7 @@ export async function startWhatsApp() {
   });
   rawSocket.ev.on('creds.update', saveCreds);
   rawSocket.ev.on('messages.upsert', async ({ messages }) => {
+    messages.forEach(cacheMessage);
     await recordIncomingMessages(messages).catch((error) => {
       lastDisconnectReason = `message store failed: ${error.message}`;
     });
@@ -538,6 +550,7 @@ export function getStatus() {
     stats: socket?.antiban?.getStats?.() || null,
     presence: presenceChoreographer.getStats(),
     inbox: {
+      cache: getMessageCacheStats(),
       last_incoming_event_at: lastIncomingEventAt,
       last_stored_message_at: lastStoredMessageAt,
       last_ignored_reason: lastInboxIgnoredReason,
@@ -711,6 +724,7 @@ export async function sendGroupMessage({ jid, text }) {
 export async function resetSession() {
   const previousRawSocket = rawSocket;
   resetInProgress = true;
+  clearMessageCaches();
 
   socket = null;
   rawSocket = null;

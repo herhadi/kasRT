@@ -44,6 +44,14 @@ Konfigurasi anti-ban, minimal panjang pesan, typing, logging, dan lokasi state m
 
 Semua jalur kirim memakai socket yang dibungkus `baileys-antiban`. Sebelum kirim ke nomor `@s.whatsapp.net`, gateway memanggil `onWhatsApp`, tetapi secara default tetap mengirim ke JID nomor telepon (`WA_LAB_PREFER_LID_SEND=false`). Aktifkan LID hanya bila sudah terbukti stabil untuk nomor terkait. Opsi lama `WA_LAB_DISABLE_ANTIBAN` dan `WA_LAB_MANUAL_DIRECT_SEND` sudah tidak dipakai. Nilai delay 90–300 detik juga harus diganti karena backend reminder memiliki timeout 30 detik.
 
+WA Gateway mengaktifkan `getMessage` dengan cache payload pesan terbatas (maksimal
+1.000 pesan, TTL 24 jam), cache Signal key store bawaan Baileys, dan cache
+metadata grup (maksimal 100 grup, TTL 10 menit). Konfigurasi ini membantu
+Baileys melakukan retry pesan dan mengurangi permintaan metadata grup berulang.
+Cache tidak menggantikan session Signal; error `Bad MAC` akibat session perangkat
+yang rusak tetap dapat memerlukan relink/full reset. Cache dihapus ketika reset
+session dijalankan. Statistik cache tersedia di `/status` pada bagian `inbox.cache`.
+
 Pesan teks yang memuat URL akan dibuatkan link preview oleh Baileys memakai
 `link-preview-js`. Gateway mengaktifkan high-quality preview agar thumbnail ikut
 diunggah ke WhatsApp dan lebih konsisten tampil di perangkat penerima. Halaman
