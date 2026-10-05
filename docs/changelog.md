@@ -10,6 +10,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- Konfirmasi reset PIN dari WhatsApp kini menyamakan format nomor lokal `08...` dan format internasional `628...` saat mencari request pending.
 - Respons webhook reset PIN kini menjelaskan alasan diabaikan atau status pengiriman notifikasi hasil reset; WA Gateway menampilkannya pada `/status`.
 - Konfigurasi secret WA diseragamkan menjadi satu env `WA_LAB_SECRET`; fallback `WA_GATEWAY_SECRET` dihapus agar tidak terjadi mismatch autentikasi webhook.
 - WA Gateway memperkuat alur reset PIN untuk pesan incoming LID dengan fallback pemetaan ke chat nomor telepon terakhir dan menampilkan hasil webhook incoming pada `/status`.
