@@ -13,7 +13,7 @@ router.post(
 );
 router.post('/request-pin-reset', asyncHandler(requestPinReset));
 router.post('/wa-pin-reset-confirmation', (req, res, next) => {
-  const configured = String(process.env.WA_GATEWAY_SECRET || process.env.WA_LAB_SECRET || '').trim();
+  const configured = String(process.env.WA_LAB_SECRET || '').trim();
   if (configured && req.headers['x-wa-gateway-secret'] !== configured) return res.status(403).json({ success: false, message: 'Forbidden' });
   return next();
 }, asyncHandler(confirmPinResetFromWhatsApp));

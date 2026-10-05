@@ -126,6 +126,9 @@ Semua endpoint API selain `/health` wajib memakai header secret:
 -H "x-wa-lab-secret: isi_secret_panjang"
 ```
 
+Backend dan WA Gateway memakai satu secret bersama, yaitu `WA_LAB_SECRET`.
+`WA_GATEWAY_SECRET` tidak digunakan dan tidak perlu diisi.
+
 Alternatif header lama juga diterima:
 
 ```bash

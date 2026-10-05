@@ -35,7 +35,7 @@ function gatewayBaseUrl() {
 }
 
 function gatewaySecret() {
-  return String(process.env.WA_LAB_SECRET || process.env.WA_GATEWAY_SECRET || '').trim();
+  return String(process.env.WA_LAB_SECRET || '').trim();
 }
 
 function fallbackWaJimpitanReminderSettings() {
@@ -129,7 +129,7 @@ export async function sendWaJimpitanReminder({ recipient, text, settings = null 
   const baseUrl = gatewayBaseUrl();
   const secret = gatewaySecret();
   if (!baseUrl) return { success: false, error: 'WA_LAB_BASE_URL/WA_GATEWAY_BASE_URL belum diisi' };
-  if (!secret) return { success: false, error: 'WA_LAB_SECRET/WA_GATEWAY_SECRET belum diisi' };
+  if (!secret) return { success: false, error: 'WA_LAB_SECRET belum diisi' };
   if (!recipient?.phone) return { success: false, error: 'Nomor WA recipient tidak valid' };
 
   const controller = new AbortController();

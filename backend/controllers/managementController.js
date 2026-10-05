@@ -15,7 +15,7 @@ import { getWaJimpitanReminderSettings } from '../services/waLabReminderService.
 
 function waGatewayConfig() {
   const base = String(process.env.WA_LAB_BASE_URL || process.env.WA_GATEWAY_BASE_URL || '').trim().replace(/\/+$/, '');
-  const secret = String(process.env.WA_LAB_SECRET || process.env.WA_GATEWAY_SECRET || '').trim();
+  const secret = String(process.env.WA_LAB_SECRET || '').trim();
   return { base, secret };
 }
 
