@@ -6,6 +6,12 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-10-05
+
+### Diperbaiki
+
+- Penghitung retry Baileys kini dipertahankan lintas reconnect socket selama proses gateway hidup untuk mencegah retry pesan dimulai ulang dari nol.
+
 ## 2026-10-02
 
 ### Ditambahkan

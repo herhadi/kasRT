@@ -46,11 +46,16 @@ Semua jalur kirim memakai socket yang dibungkus `baileys-antiban`. Sebelum kirim
 
 WA Gateway mengaktifkan `getMessage` dengan cache payload pesan terbatas (maksimal
 1.000 pesan, TTL 24 jam), cache Signal key store bawaan Baileys, dan cache
-metadata grup (maksimal 100 grup, TTL 10 menit). Konfigurasi ini membantu
-Baileys melakukan retry pesan dan mengurangi permintaan metadata grup berulang.
-Cache tidak menggantikan session Signal; error `Bad MAC` akibat session perangkat
-yang rusak tetap dapat memerlukan relink/full reset. Cache dihapus ketika reset
-session dijalankan. Statistik cache tersedia di `/status` pada bagian `inbox.cache`.
+metadata grup (maksimal 100 grup, TTL 10 menit). Penghitung retry pesan memakai
+`@cacheable/node-cache` dengan TTL 1 jam dan ditempatkan di luar instance socket,
+sehingga penghitung tetap konsisten saat socket reconnect dan tidak memulai retry
+loop dari nol. Cache penghitung ini berada di memori proses dan dibuat ulang saat
+gateway restart.
+
+Cache payload pesan dan metadata grup dihapus saat reset session. Cache tersebut
+tidak menggantikan session Signal; error `Bad MAC` akibat session perangkat yang
+rusak tetap dapat memerlukan relink/full reset. Statistik cache tersedia di
+`/status` pada bagian `inbox.cache`.
 Diagnostic webhook incoming reset PIN tersedia di `/status` pada bagian `inbox`:
 `last_incoming_webhook_phone`, `last_incoming_webhook_status`,
 `last_incoming_webhook_response`, dan `last_incoming_webhook_error`. Jika pesan masuk sebagai LID tanpa nomor PN,
