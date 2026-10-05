@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import NodeCache from '@cacheable/node-cache';
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
@@ -67,6 +68,7 @@ let lastPresenceSubscribeError = null;
 let resetInProgress = false;
 const presenceChoreographer = new PresenceChoreographer(config.presence);
 const connectionStateFile = `${config.dataDir}/connection-state.json`;
+const msgRetryCounterCache = new NodeCache({ stdTTL: 60 * 60, useClones: false });
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -96,7 +98,7 @@ async function simulateTyping(jid, text) {
       lastPresenceSubscribeAt = new Date().toISOString();
     }
     await presenceChoreographer.executeTypingPlan(rawSocket, jid, plan);
-    await rawSocket.sendPresenceUpdate('paused', jid).catch(() => {});
+    await rawSocket.sendPresenceUpdate('paused', jid).catch(() => { });
     lastTypingCompletedAt = new Date().toISOString();
   } catch (error) {
     lastTypingCompletedAt = new Date().toISOString();
@@ -495,6 +497,7 @@ export async function startWhatsApp() {
     markOnlineOnConnect: false,
     syncFullHistory: false,
     printQRInTerminal: false,
+    msgRetryCounterCache,
     getMessage,
     cachedGroupMetadata: (jid) => getCachedGroupMetadata(
       jid,
