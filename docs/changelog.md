@@ -10,6 +10,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- WA Gateway memperkuat alur reset PIN untuk pesan incoming LID dengan fallback pemetaan ke chat nomor telepon terakhir dan menampilkan hasil webhook incoming pada `/status`.
 - Notifikasi otomatis setoran Jimpitan ke grup WA kini memakai format yang sama persis dengan tombol Share Bulanan WA manual.
 - WA Gateway mengaktifkan `getMessage` dengan cache payload pesan terbatas untuk membantu retry dan pengiriman ulang pesan Baileys.
 - Signal key store Baileys kini memakai `makeCacheableSignalKeyStore`.

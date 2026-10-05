@@ -51,6 +51,11 @@ Baileys melakukan retry pesan dan mengurangi permintaan metadata grup berulang.
 Cache tidak menggantikan session Signal; error `Bad MAC` akibat session perangkat
 yang rusak tetap dapat memerlukan relink/full reset. Cache dihapus ketika reset
 session dijalankan. Statistik cache tersedia di `/status` pada bagian `inbox.cache`.
+Diagnostic webhook incoming reset PIN tersedia di `/status` pada bagian `inbox`:
+`last_incoming_webhook_phone`, `last_incoming_webhook_status`, dan
+`last_incoming_webhook_error`. Jika pesan masuk sebagai LID tanpa nomor PN,
+gateway mencoba menghubungkannya ke satu chat nomor telepon yang baru saja
+dikirimi pesan.
 
 Pesan teks yang memuat URL akan dibuatkan link preview oleh Baileys memakai
 `link-preview-js`. Gateway mengaktifkan high-quality preview agar thumbnail ikut

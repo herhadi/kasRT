@@ -284,6 +284,13 @@ export async function hasChat(jid) {
   return Boolean(db.chats?.[resolveJid(db, jid)]);
 }
 
+export async function resolveIncomingPhoneJid({ jid, at }) {
+  if (!isLidJid(jid)) return jid;
+  const db = await readDb();
+  const chat = latestOutgoingPhoneChat(db, at);
+  return chat?.jid || jid;
+}
+
 export async function appendChatMessage({ jid, id, direction, text, at, name = null, linkPreview = null }) {
   const cleanText = sanitizeText(text);
   if (!jid || !id || !cleanText) return null;

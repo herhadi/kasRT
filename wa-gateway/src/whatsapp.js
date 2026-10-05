@@ -10,7 +10,7 @@ import { PresenceChoreographer, wrapSocket } from 'baileys-antiban';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { config } from './config.js';
-import { appendChatMessage, hasChat, resetChats, updateMessageStatus, updateMessageStatusById, upsertChat } from './chatStore.js';
+import { appendChatMessage, hasChat, resetChats, resolveIncomingPhoneJid, updateMessageStatus, updateMessageStatusById, upsertChat } from './chatStore.js';
 import { cacheMessage, clearMessageCaches, getCachedGroupMetadata, getMessage, getMessageCacheStats } from './messageCache.js';
 import { assertCanSend, recordSend, resetUsage } from './store.js';
 
@@ -27,6 +27,10 @@ let lastConnectedAt = null;
 let lastIncomingEventAt = null;
 let lastStoredMessageAt = null;
 let lastInboxIgnoredReason = null;
+let lastIncomingWebhookAt = null;
+let lastIncomingWebhookPhone = null;
+let lastIncomingWebhookStatus = null;
+let lastIncomingWebhookError = null;
 let lastReceiptEventAt = null;
 let lastReceiptStatus = null;
 let lastReceiptMessageId = null;
@@ -240,7 +244,13 @@ function isPrivateChat(jid) {
 
 function incomingChatJid(message) {
   const remoteJid = String(message?.key?.remoteJid || '').trim();
-  const senderPn = String(message?.key?.senderPn || message?.key?.participantPn || '').trim();
+  const senderPn = String(
+    message?.key?.senderPn ||
+    message?.key?.participantPn ||
+    message?.key?.remoteJidAlt ||
+    message?.key?.participantPnAlt ||
+    ''
+  ).trim();
   if (!remoteJid.endsWith('@lid') || !senderPn) return remoteJid;
 
   const phone = senderPn.replace(/@s\.whatsapp\.net$/, '').replace(/\D/g, '');
@@ -390,15 +400,36 @@ async function recordIncomingMessages(messages = []) {
       continue;
     }
 
+    const messageAt = toIsoTime(message.messageTimestamp);
+    const normalizedJid = incomingChatJid(message);
+    const webhookJid = await resolveIncomingPhoneJid({ jid: normalizedJid, at: messageAt });
     if (config.incomingWebhookUrl) {
-      await fetch(config.incomingWebhookUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'x-wa-gateway-secret': config.secret }, body: JSON.stringify({ phone: incomingChatJid(message).split('@')[0], text }) }).catch(() => {});
+      lastIncomingWebhookAt = new Date().toISOString();
+      lastIncomingWebhookPhone = webhookJid.split('@')[0];
+      lastIncomingWebhookStatus = null;
+      lastIncomingWebhookError = null;
+      try {
+        const response = await fetch(config.incomingWebhookUrl, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-wa-gateway-secret': config.secret },
+          body: JSON.stringify({ phone: webhookJid.split('@')[0], text })
+        });
+        lastIncomingWebhookStatus = response.status;
+        if (!response.ok) {
+          lastIncomingWebhookError = `HTTP ${response.status}`;
+          console.warn(`[WA INCOMING WEBHOOK] ${lastIncomingWebhookError} phone=${lastIncomingWebhookPhone}`);
+        }
+      } catch (error) {
+        lastIncomingWebhookError = error instanceof Error ? error.message : String(error);
+        console.warn(`[WA INCOMING WEBHOOK] ${lastIncomingWebhookError}`);
+      }
     }
     await appendChatMessage({
-      jid: incomingChatJid(message),
+      jid: normalizedJid,
       id: message.key.id,
       direction: 'incoming',
       text,
-      at: toIsoTime(message.messageTimestamp),
+      at: messageAt,
       name: message.pushName || null,
       linkPreview: extractIncomingLinkPreview(message)
     });
@@ -551,6 +582,10 @@ export function getStatus() {
     presence: presenceChoreographer.getStats(),
     inbox: {
       cache: getMessageCacheStats(),
+      last_incoming_webhook_at: lastIncomingWebhookAt,
+      last_incoming_webhook_phone: lastIncomingWebhookPhone,
+      last_incoming_webhook_status: lastIncomingWebhookStatus,
+      last_incoming_webhook_error: lastIncomingWebhookError,
       last_incoming_event_at: lastIncomingEventAt,
       last_stored_message_at: lastStoredMessageAt,
       last_ignored_reason: lastInboxIgnoredReason,
