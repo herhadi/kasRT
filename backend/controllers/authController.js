@@ -229,9 +229,16 @@ export async function requestPinReset(req, res) {
 export async function confirmPinResetFromWhatsApp(req, res) {
   const phone = normalizeWaPhone(req.body?.phone);
   const text = String(req.body?.text || '').trim().toLowerCase();
-  if (!phone || text !== 'ya') return res.json({ success: true, ignored: true });
+  if (!phone || text !== 'ya') {
+    return res.json({ success: true, ignored: true, reason: 'invalid_confirmation' });
+  }
   const user = await confirmPinResetByPhone({ noHp: phone });
-  if (!user) return res.json({ success: true, ignored: true });
-  await sendWaDirectMessage({ phone: user.no_hp, text: `✅ PIN KasRT untuk ${user.nama} sudah di-reset ke PIN default yang dikonfigurasi.\n\nLogin: https://kas02.vercel.app\n\nSegera ganti PIN setelah login.` });
-  return res.json({ success: true, confirmed: true });
+  if (!user) return res.json({ success: true, ignored: true, reason: 'no_pending_request', phone });
+  const notification = await sendWaDirectMessage({ phone: user.no_hp, text: `✅ PIN KasRT untuk ${user.nama} sudah di-reset ke PIN default yang dikonfigurasi.\n\nLogin: https://kas02.vercel.app\n\nSegera ganti PIN setelah login.` });
+  return res.json({
+    success: true,
+    confirmed: true,
+    notification_sent: notification.success === true,
+    notification_error: notification.success === true ? null : notification.error || 'Gagal mengirim notifikasi hasil reset'
+  });
 }

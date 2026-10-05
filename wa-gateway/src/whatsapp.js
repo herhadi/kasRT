@@ -31,6 +31,7 @@ let lastIncomingWebhookAt = null;
 let lastIncomingWebhookPhone = null;
 let lastIncomingWebhookStatus = null;
 let lastIncomingWebhookError = null;
+let lastIncomingWebhookResponse = null;
 let lastReceiptEventAt = null;
 let lastReceiptStatus = null;
 let lastReceiptMessageId = null;
@@ -408,6 +409,7 @@ async function recordIncomingMessages(messages = []) {
       lastIncomingWebhookPhone = webhookJid.split('@')[0];
       lastIncomingWebhookStatus = null;
       lastIncomingWebhookError = null;
+      lastIncomingWebhookResponse = null;
       try {
         const response = await fetch(config.incomingWebhookUrl, {
           method: 'POST',
@@ -415,6 +417,7 @@ async function recordIncomingMessages(messages = []) {
           body: JSON.stringify({ phone: webhookJid.split('@')[0], text })
         });
         lastIncomingWebhookStatus = response.status;
+        lastIncomingWebhookResponse = await response.json().catch(() => null);
         if (!response.ok) {
           lastIncomingWebhookError = `HTTP ${response.status}`;
           console.warn(`[WA INCOMING WEBHOOK] ${lastIncomingWebhookError} phone=${lastIncomingWebhookPhone}`);
@@ -586,6 +589,7 @@ export function getStatus() {
       last_incoming_webhook_phone: lastIncomingWebhookPhone,
       last_incoming_webhook_status: lastIncomingWebhookStatus,
       last_incoming_webhook_error: lastIncomingWebhookError,
+      last_incoming_webhook_response: lastIncomingWebhookResponse,
       last_incoming_event_at: lastIncomingEventAt,
       last_stored_message_at: lastStoredMessageAt,
       last_ignored_reason: lastInboxIgnoredReason,
