@@ -12,6 +12,17 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 - Penghitung retry Baileys kini dipertahankan lintas reconnect socket selama proses gateway hidup untuk mencegah retry pesan dimulai ulang dari nol.
 
+## 2026-10-06
+
+### Ditambahkan
+
+- Cache `getMessage` WA Gateway menambahkan fallback berdasarkan ID pesan dengan perlindungan jika lebih dari satu JID cocok.
+- Statistik permintaan `getMessage` (hit, miss, fallback, dan ambigu) ditampilkan pada `/status`.
+
+### Diperbaiki
+
+- Refresh dan penghapusan cache `getMessage` melalui fallback ID kini memakai kunci JID asli, bukan kunci permintaan yang berbeda.
+
 ## 2026-10-02
 
 ### Ditambahkan

@@ -5,6 +5,13 @@ const groupTtlMs = 10 * 60 * 1_000;
 
 const messageEntries = new Map();
 const groupEntries = new Map();
+const messageCacheMetrics = {
+  requests: 0,
+  hits: 0,
+  misses: 0,
+  fallback_hits: 0,
+  ambiguous_fallbacks: 0
+};
 
 function messageCacheKey(key) {
   const remoteJid = String(key?.remoteJid || '').trim();
@@ -19,6 +26,21 @@ function evictExpiredMessages(now = Date.now()) {
   while (messageEntries.size > maxMessages) {
     messageEntries.delete(messageEntries.keys().next().value);
   }
+}
+
+function findByMessageId(id) {
+  const targetId = String(id || '').trim();
+  if (!targetId) return undefined;
+
+  const matches = [];
+  for (const [cacheKey, entry] of messageEntries) {
+    if (cacheKey.endsWith(`:${targetId}`)) matches.push({ cacheKey, entry });
+  }
+  if (matches.length !== 1) {
+    if (matches.length > 1) messageCacheMetrics.ambiguous_fallbacks += 1;
+    return undefined;
+  }
+  return matches[0];
 }
 
 function evictExpiredGroups(now = Date.now()) {
@@ -41,18 +63,33 @@ export function cacheMessage(message) {
 }
 
 export async function getMessage(key) {
+  messageCacheMetrics.requests += 1;
   const cacheKey = messageCacheKey(key);
-  if (!cacheKey) return undefined;
-
-  const entry = messageEntries.get(cacheKey);
-  if (!entry) return undefined;
+  let entry = cacheKey ? messageEntries.get(cacheKey) : undefined;
+  let usedFallback = false;
+  let fallback = undefined;
+  if (!entry) {
+    fallback = findByMessageId(key?.id);
+    entry = fallback?.entry;
+    usedFallback = Boolean(entry);
+  }
+  if (!entry) {
+    messageCacheMetrics.misses += 1;
+    return undefined;
+  }
   if (Date.now() - entry.at > messageTtlMs) {
-    messageEntries.delete(cacheKey);
+    messageEntries.delete(fallback?.cacheKey || cacheKey);
+    messageCacheMetrics.misses += 1;
     return undefined;
   }
 
-  messageEntries.delete(cacheKey);
-  messageEntries.set(cacheKey, entry);
+  const resolvedKey = fallback?.cacheKey || cacheKey;
+  if (resolvedKey) {
+    messageEntries.delete(resolvedKey);
+    messageEntries.set(resolvedKey, entry);
+  }
+  messageCacheMetrics.hits += 1;
+  if (usedFallback) messageCacheMetrics.fallback_hits += 1;
   return entry.content;
 }
 
@@ -78,6 +115,9 @@ export async function getCachedGroupMetadata(jid, fetchMetadata) {
 export function clearMessageCaches() {
   messageEntries.clear();
   groupEntries.clear();
+  Object.keys(messageCacheMetrics).forEach((key) => {
+    messageCacheMetrics[key] = 0;
+  });
 }
 
 export function getMessageCacheStats() {
@@ -89,6 +129,7 @@ export function getMessageCacheStats() {
     message_ttl_hours: messageTtlMs / 3_600_000,
     groups: groupEntries.size,
     max_groups: maxGroups,
-    group_ttl_minutes: groupTtlMs / 60_000
+    group_ttl_minutes: groupTtlMs / 60_000,
+    get_message: { ...messageCacheMetrics }
   };
 }

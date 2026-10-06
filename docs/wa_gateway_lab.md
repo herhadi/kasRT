@@ -55,7 +55,10 @@ gateway restart.
 Cache payload pesan dan metadata grup dihapus saat reset session. Cache tersebut
 tidak menggantikan session Signal; error `Bad MAC` akibat session perangkat yang
 rusak tetap dapat memerlukan relink/full reset. Statistik cache tersedia di
-`/status` pada bagian `inbox.cache`.
+`/status` pada bagian `inbox.cache`, termasuk jumlah permintaan `getMessage`,
+hit, miss, fallback berdasarkan ID, dan fallback ambigu. Fallback ID hanya
+dipakai jika tepat satu pesan cocok; jika lebih dari satu, gateway mengembalikan
+miss agar tidak mengambil pesan yang salah.
 Diagnostic webhook incoming reset PIN tersedia di `/status` pada bagian `inbox`:
 `last_incoming_webhook_phone`, `last_incoming_webhook_status`,
 `last_incoming_webhook_response`, dan `last_incoming_webhook_error`. Jika pesan masuk sebagai LID tanpa nomor PN,
