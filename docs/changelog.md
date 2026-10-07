@@ -10,6 +10,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- Lebar kontainer `/operasional/jimpitan` disamakan dengan modul operasional admin lain menggunakan batas `max-w-6xl`.
+- Layout `/management/whatsapp` dirapikan: pilihan mode penerima tampil sebelum batas maksimum, dan batas maksimum nonaktif saat mode semua nomor valid dipilih.
 - Pengaturan reminder dan JID grup WA kini sepenuhnya memakai `/management/whatsapp`; env backend tidak lagi menjadi fallback konfigurasi operasional.
 - Tombol Share Bulanan WA di halaman Jimpitan dihapus karena rekap bulanan kini dikirim otomatis ke grup yang dikonfigurasi. Label jadwal shift dipindahkan ke kanan atas card Jimpitan V2.
 - JID grup WhatsApp Jimpitan kini dapat diatur dari `/management/whatsapp`; laporan error reminder WA menampilkan seluruh target yang gagal, bukan hanya error pertama.

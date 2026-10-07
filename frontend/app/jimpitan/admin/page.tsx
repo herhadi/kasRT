@@ -473,7 +473,7 @@ export default function JimpitanAdminPage() {
 
       <Navbar />
 
-      <div className="mx-auto w-full space-y-4 px-4 pt-5 md:px-6">
+      <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <div className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Admin Jimpitan</p>

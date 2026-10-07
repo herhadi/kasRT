@@ -149,8 +149,24 @@ export default function ManagementWhatsappPage() {
                     Aktifkan reminder WhatsApp
                     <input type="checkbox" checked={settings.enabled} onChange={e => setSettings({ ...settings, enabled: e.target.checked })} className="h-5 w-5" />
                   </label>
+                  <label className="block text-sm font-semibold">Penerima reminder WA
+                    <select className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 font-normal" value={settings.selection_mode} onChange={e => setSettings({ ...settings, selection_mode: e.target.value as 'random' | 'all' })}>
+                      <option value="random">Acak dengan rotasi</option>
+                      <option value="all">Semua nomor valid pada shift</option>
+                    </select>
+                    <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">Mode semua mengirim ke seluruh petugas shift yang memiliki nomor WA valid.</span>
+                  </label>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Input label="Maksimum penerima per reminder" type="number" min="1" max="20" value={String(settings.max_recipients)} onChange={e => setSettings({ ...settings, max_recipients: Number(e.target.value) })} />
+                    <Input
+                      label="Maksimum penerima per reminder"
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={String(settings.max_recipients)}
+                      disabled={settings.selection_mode === 'all'}
+                      className={settings.selection_mode === 'all' ? 'cursor-not-allowed opacity-60' : ''}
+                      onChange={e => setSettings({ ...settings, max_recipients: Number(e.target.value) })}
+                    />
                     <Input label="Minimum umur koneksi gateway (menit)" type="number" min="0" max="1440" value={String(settings.min_connected_age_minutes)} onChange={e => setSettings({ ...settings, min_connected_age_minutes: Number(e.target.value) })} />
                   </div>
                   <Input
@@ -176,13 +192,6 @@ export default function ManagementWhatsappPage() {
                   <p className="text-xs text-[var(--text-muted)]">
                     Isi dari endpoint daftar grup. Kosongkan jika notifikasi rekap Jimpitan ke grup ingin dimatikan.
                   </p>
-                  <label className="block text-sm font-semibold">Penerima reminder WA
-                    <select className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 font-normal" value={settings.selection_mode} onChange={e => setSettings({ ...settings, selection_mode: e.target.value as 'random' | 'all' })}>
-                      <option value="random">Acak dengan rotasi</option>
-                      <option value="all">Semua nomor valid pada shift</option>
-                    </select>
-                    <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">Mode semua mengirim ke seluruh petugas shift yang memiliki nomor WA valid.</span>
-                  </label>
                   <Button onClick={() => void save()} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Pengaturan WA'}</Button>
                 </>
               ) : <p className="text-sm text-[var(--text-muted)]">Memuat pengaturan...</p>}
