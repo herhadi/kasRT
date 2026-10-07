@@ -641,20 +641,21 @@ export default function JimpitanPage() {
         </div>
       </div>
 
-      <OperationalStickySummary
-        className="page-container mt-3"
-        items={jimpitanMode === 'SHIFT_TOTAL'
-          ? [
-              { label: 'Mode', value: 'Setor Shift', tone: 'sky' },
-              { label: 'Status', value: canOperateToday ? 'Shift Anda' : 'Bukan Shift', tone: canOperateToday ? 'emerald' : 'rose' },
-              { label: 'Kas', value: 'Tetap Jimpitan', tone: 'amber' }
-            ]
-          : [
-              { label: 'Masuk', value: formatRupiah(recapData.totalSemuaTunai), tone: 'sky' },
-              { label: 'Setor Saya', value: formatRupiah(recapData.totalTunaiSaya), tone: 'emerald' },
-              { label: 'Belum', value: `${recapData.belum} warga`, tone: 'rose' }
-            ]}
-      />
+      <div className="page-container mt-3">
+        <OperationalStickySummary
+          items={jimpitanMode === 'SHIFT_TOTAL'
+            ? [
+                { label: 'Mode', value: 'Setor Shift', tone: 'sky' },
+                { label: 'Status', value: canOperateToday ? 'Shift Anda' : 'Bukan Shift', tone: canOperateToday ? 'emerald' : 'rose' },
+                { label: 'Kas', value: 'Tetap Jimpitan', tone: 'amber' }
+              ]
+            : [
+                { label: 'Masuk', value: formatRupiah(recapData.totalSemuaTunai), tone: 'sky' },
+                { label: 'Setor Saya', value: formatRupiah(recapData.totalTunaiSaya), tone: 'emerald' },
+                { label: 'Belum', value: `${recapData.belum} warga`, tone: 'rose' }
+              ]}
+        />
+      </div>
 
       {jimpitanMode === 'SHIFT_TOTAL' ? (
         <div className="page-container mt-4">
@@ -729,18 +730,16 @@ export default function JimpitanPage() {
                     disabled={shiftTotalLoading || !canSetorShiftTotal}
                     className="btn-action-blue w-full rounded-xl py-3 font-semibold disabled:opacity-50"
                   >
-                    {shiftTotalLoading ? 'Mengajukan...' : v2InputStatus.has_my_global ? 'Setoran Shift Sudah Diajukan' : 'Ajukan Setoran Shift'}
+                    {shiftTotalLoading ? 'Menyimpan...' : v2InputStatus.has_my_global ? 'Perolehan Jimpitan Sudah Disimpan' : <><span className="mr-2">💾</span>Simpan Perolehan Jimpitan</>}
                   </Button>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="ghost"
-                      className="btn-action-green w-full rounded-xl py-3 text-xs font-semibold disabled:opacity-50 sm:text-sm"
-                      onClick={() => void handleKirimRekapHarianGlobalWA()}
-                      disabled={!canShareShiftWa}
-                    >
-                      Share Shift WA
-                    </Button>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    className="btn-action-green w-full rounded-xl py-3 text-xs font-semibold disabled:opacity-50 sm:text-sm"
+                    onClick={() => void handleKirimRekapHarianGlobalWA()}
+                    disabled={!canShareShiftWa}
+                  >
+                    <span className="mr-2">📤</span>Share Shift WA
+                  </Button>
                 </div>
               </div>
             ) : (
