@@ -4,6 +4,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_WA_JIMPITAN_SETTINGS = Object.freeze({
   enabled: false,
   max_recipients: 1,
+  daily_unique_limit: 20,
   selection_mode: 'random',
   min_connected_age_minutes: 180,
   group_jid: ''
@@ -36,11 +37,15 @@ export async function getWaJimpitanReminderSettings() {
   if (!saved || typeof saved !== 'object') return { ...DEFAULT_WA_JIMPITAN_SETTINGS, source: 'default' };
   const maxRecipients = Number.parseInt(String(saved.max_recipients), 10);
   const minConnectedAgeMinutes = Number.parseInt(String(saved.min_connected_age_minutes), 10);
+  const dailyUniqueLimit = Number.parseInt(String(saved.daily_unique_limit), 10);
   return {
     enabled: typeof saved.enabled === 'boolean' ? saved.enabled : DEFAULT_WA_JIMPITAN_SETTINGS.enabled,
     max_recipients: Number.isInteger(maxRecipients)
       ? Math.min(Math.max(maxRecipients, 1), 20)
       : DEFAULT_WA_JIMPITAN_SETTINGS.max_recipients,
+    daily_unique_limit: Number.isInteger(dailyUniqueLimit)
+      ? Math.min(Math.max(dailyUniqueLimit, 1), 20)
+      : DEFAULT_WA_JIMPITAN_SETTINGS.daily_unique_limit,
     selection_mode: saved.selection_mode === 'all' ? 'all' : DEFAULT_WA_JIMPITAN_SETTINGS.selection_mode,
     min_connected_age_minutes: Number.isInteger(minConnectedAgeMinutes)
       ? Math.min(Math.max(minConnectedAgeMinutes, 0), 1440)
@@ -143,7 +148,8 @@ export async function sendWaJimpitanReminder({ recipient, text, settings = null 
       body: JSON.stringify({
         phone: recipient.phone,
         name: recipient.nama || recipient.phone,
-        text
+        text,
+        daily_unique_limit: activeSettings.daily_unique_limit
       }),
       signal: controller.signal
     });

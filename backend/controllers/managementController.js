@@ -56,12 +56,16 @@ export async function getWaJimpitanReminderConfig(_req, res) {
 export async function saveWaJimpitanReminderConfig(req, res) {
   const enabled = req.body?.enabled;
   const maxRecipients = Number.parseInt(String(req.body?.max_recipients), 10);
+  const dailyUniqueLimit = Number.parseInt(String(req.body?.daily_unique_limit), 10);
   const minConnectedAgeMinutes = Number.parseInt(String(req.body?.min_connected_age_minutes), 10);
   const selectionMode = String(req.body?.selection_mode || 'random').toLowerCase();
   const groupJid = String(req.body?.group_jid || '').trim();
   if (typeof enabled !== 'boolean') return res.status(400).json({ success: false, message: 'Status WA harus berupa true atau false.' });
   if (!Number.isInteger(maxRecipients) || maxRecipients < 1 || maxRecipients > 20) {
     return res.status(400).json({ success: false, message: 'Maksimum penerima WA harus antara 1 dan 20.' });
+  }
+  if (!Number.isInteger(dailyUniqueLimit) || dailyUniqueLimit < 1 || dailyUniqueLimit > 20) {
+    return res.status(400).json({ success: false, message: 'Batas nomor unik harian harus antara 1 dan 20.' });
   }
   if (!Number.isInteger(minConnectedAgeMinutes) || minConnectedAgeMinutes < 0 || minConnectedAgeMinutes > 1440) {
     return res.status(400).json({ success: false, message: 'Minimum umur koneksi harus antara 0 dan 1440 menit.' });
@@ -75,6 +79,7 @@ export async function saveWaJimpitanReminderConfig(req, res) {
     value: {
       enabled,
       max_recipients: maxRecipients,
+      daily_unique_limit: dailyUniqueLimit,
       selection_mode: selectionMode,
       min_connected_age_minutes: minConnectedAgeMinutes,
       group_jid: groupJid

@@ -92,8 +92,9 @@ type LoginAuditItem = {
 type WaJimpitanReminderSettings = {
   enabled: boolean;
   max_recipients: number;
+  daily_unique_limit: number;
   min_connected_age_minutes: number;
-  source: 'env' | 'management';
+  source: 'default' | 'management';
 };
 
 export default function ManagementHomePage() {
@@ -204,6 +205,7 @@ export default function ManagementHomePage() {
         body: JSON.stringify({
           enabled: waSettings.enabled,
           max_recipients: Number(waSettings.max_recipients),
+          daily_unique_limit: Number(waSettings.daily_unique_limit),
           min_connected_age_minutes: Number(waSettings.min_connected_age_minutes)
         })
       });
@@ -414,6 +416,14 @@ export default function ManagementHomePage() {
                     max="20"
                     value={String(waSettings.max_recipients)}
                     onChange={(event) => setWaSettings({ ...waSettings, max_recipients: Number(event.target.value) })}
+                  />
+                  <Input
+                    label="Batas nomor unik harian gateway"
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={String(waSettings.daily_unique_limit)}
+                    onChange={(event) => setWaSettings({ ...waSettings, daily_unique_limit: Number(event.target.value) })}
                   />
                   <Input
                     label="Minimum umur koneksi gateway (menit)"

@@ -95,7 +95,8 @@ app.get('/qr', requireSecret, async (_req, res) => {
 app.post('/send-test', requireSecret, sendHandler((req) =>
   sendTestMessage({
       phone: req.body?.phone,
-      text: req.body?.text
+      text: req.body?.text,
+      dailyUniqueLimit: req.body?.daily_unique_limit
   })
 ));
 
@@ -108,7 +109,8 @@ app.post('/chats/start', requireSecret, sendHandler((req) =>
   startChatMessage({
       phone: req.body?.phone,
       name: req.body?.name,
-      text: req.body?.text
+      text: req.body?.text,
+      dailyUniqueLimit: req.body?.daily_unique_limit
   })
 ));
 

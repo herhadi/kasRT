@@ -48,12 +48,13 @@ export async function getUsage() {
   };
 }
 
-export async function assertCanSend(phone) {
+export async function assertCanSend(phone, dailyUniqueLimit = config.dailyUniqueLimit) {
   const usage = await getUsage();
   const normalizedPhone = String(phone || '').trim();
+  const limit = Math.min(Math.max(Number.parseInt(String(dailyUniqueLimit), 10) || config.dailyUniqueLimit, 1), 20);
   const isKnownToday = usage.uniqueRecipients.includes(normalizedPhone);
-  if (!isKnownToday && usage.uniqueRecipients.length >= config.dailyUniqueLimit) {
-    throw new Error(`Limit uji coba harian tercapai (${config.dailyUniqueLimit} nomor unik/hari).`);
+  if (!isKnownToday && usage.uniqueRecipients.length >= limit) {
+    throw new Error(`Limit uji coba harian tercapai (${limit} nomor unik/hari).`);
   }
 }
 

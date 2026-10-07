@@ -26,7 +26,9 @@ export const config = {
   dataDir: resolveFromRoot(process.env.WA_DATA_DIR, './data'),
   antibanStateFile: resolveFromRoot(process.env.WA_ANTIBAN_STATE_FILE, './data/antiban-state.json'),
   logLevel: String(process.env.WA_LOG_LEVEL || 'silent'),
-  dailyUniqueLimit: readNumber('WA_LAB_DAILY_UNIQUE_LIMIT', 3),
+  // The reminder-specific limit is supplied by KasRT Management. This is only
+  // the safe default for direct gateway sends and is intentionally not env-based.
+  dailyUniqueLimit: 20,
   minTextLength: readNumber('WA_LAB_MIN_TEXT_LENGTH', 2),
   preferLidSend: String(process.env.WA_LAB_PREFER_LID_SEND || 'false') === 'true',
   antiban: {

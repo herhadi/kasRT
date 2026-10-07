@@ -35,7 +35,6 @@ PORT=3010
 WA_LAB_SECRET=isi_secret_panjang
 WA_AUTH_DIR=./auth
 WA_DATA_DIR=./data
-WA_LAB_DAILY_UNIQUE_LIMIT=3
 WA_LAB_PREFER_LID_SEND=false
 TZ=Asia/Jakarta
 ```
@@ -232,7 +231,9 @@ batas hari pertama tetap `15` pesan; reset hanya mengembalikan hitungan menjadi
 Gunakan hanya saat memang ingin mulai ulang akun/session. Untuk sekadar mengganti
 nomor tanpa menghapus chat, usage, dan state warm-up, gunakan reset session biasa.
 
-Limit nomor unik harian dikontrol oleh `WA_LAB_DAILY_UNIQUE_LIMIT`.
+Limit nomor unik harian untuk reminder dikontrol dari `/management/whatsapp` dan
+disimpan di `app_settings`. Gateway memakai default aman `20` untuk kirim manual
+yang tidak membawa limit dari Management.
 
 ### Mini Inbox 1:1
 
@@ -315,7 +316,7 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 - Warm-up dan daftar chat dikenal disimpan di `wa-gateway/data/antiban-state.json` melalui volume Docker.
 - Waktu pertama nomor tertaut disimpan di `wa-gateway/data/connection-state.json`; restart/redeploy gateway tidak mengulang cooldown umur koneksi, tetapi pergantian nomor membuat timestamp baru.
 - Reminder jimpitan backend hanya boleh memakai mode uji terbatas: nomor valid dari petugas shift.
-- Root mengatur status reminder WA, mode penerima, maksimum penerima, minimum umur koneksi, dan JID grup dari `/management/whatsapp`. Nilai tersebut disimpan di `app_settings` dengan key `wa_jimpitan_reminder`; tidak ada fallback env untuk pengaturan ini.
+- Root mengatur status reminder WA, mode penerima, maksimum penerima, batas nomor unik harian, minimum umur koneksi, dan JID grup dari `/management/whatsapp`. Nilai tersebut disimpan di `app_settings` dengan key `wa_jimpitan_reminder`; tidak ada fallback env untuk pengaturan ini.
 - URL gateway dan secret koneksi tetap tersedia lewat env backend.
 - `/management` mengambil status dan QR melalui proxy backend root-only; proxy memakai session gateway yang sama dengan mini inbox. Mini inbox tidak membuat koneksi atau QR kedua.
 - Sapaan reminder diacak sebagai satu paket tanpa pengulangan jika jumlah penerima tidak melebihi pilihan sapaan; setelah pilihan habis, sapaan dapat berulang.

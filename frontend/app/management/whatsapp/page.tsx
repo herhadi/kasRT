@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 type Settings = {
   enabled: boolean;
   max_recipients: number;
+  daily_unique_limit: number;
   min_connected_age_minutes: number;
   selection_mode: 'random' | 'all';
   group_jid: string;
@@ -166,6 +167,14 @@ export default function ManagementWhatsappPage() {
                       disabled={settings.selection_mode === 'all'}
                       className={settings.selection_mode === 'all' ? 'cursor-not-allowed opacity-60' : ''}
                       onChange={e => setSettings({ ...settings, max_recipients: Number(e.target.value) })}
+                    />
+                    <Input
+                      label="Batas nomor unik harian gateway"
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={String(settings.daily_unique_limit)}
+                      onChange={e => setSettings({ ...settings, daily_unique_limit: Number(e.target.value) })}
                     />
                     <Input label="Minimum umur koneksi gateway (menit)" type="number" min="0" max="1440" value={String(settings.min_connected_age_minutes)} onChange={e => setSettings({ ...settings, min_connected_age_minutes: Number(e.target.value) })} />
                   </div>

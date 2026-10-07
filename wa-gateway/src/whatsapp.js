@@ -672,12 +672,12 @@ export async function listParticipatingGroups() {
   })).sort((left, right) => left.name.localeCompare(right.name, 'id'));
 }
 
-export async function sendTestMessage({ phone, text }) {
+export async function sendTestMessage({ phone, text, dailyUniqueLimit }) {
   assertConnected();
 
   const normalizedPhone = normalizePhone(phone);
   const messageText = validateMessageText(text);
-  await assertCanSend(normalizedPhone);
+  await assertCanSend(normalizedPhone, dailyUniqueLimit);
   const jid = jidFromPhone(normalizedPhone);
   const { result, linkPreview } = await sendTextMessage(jid, messageText);
   const usage = await recordSend(normalizedPhone);
@@ -698,7 +698,7 @@ export async function sendTestMessage({ phone, text }) {
     usage: {
       date: usage.date,
       unique_recipients: usage.uniqueRecipients.length,
-      daily_unique_limit: config.dailyUniqueLimit
+      daily_unique_limit: Number.parseInt(String(dailyUniqueLimit), 10) || config.dailyUniqueLimit
     }
   };
 }
@@ -728,13 +728,13 @@ export async function sendChatReply({ jid, text }) {
   };
 }
 
-export async function startChatMessage({ phone, name, text }) {
+export async function startChatMessage({ phone, name, text, dailyUniqueLimit }) {
   assertConnected();
 
   const normalizedPhone = normalizePhone(phone);
   const jid = jidFromPhone(normalizedPhone);
   const messageText = validateMessageText(text);
-  await assertCanSend(normalizedPhone);
+  await assertCanSend(normalizedPhone, dailyUniqueLimit);
   await upsertChat({ jid, name: name || normalizedPhone });
   const { result, linkPreview } = await sendTextMessage(jid, messageText);
   await recordSend(normalizedPhone);
