@@ -176,13 +176,13 @@ Mode penerima dapat diubah dari `/management/whatsapp` menjadi **Semua nomor val
 
 ### Notifikasi Setoran ke Grup RT
 
-Backend dapat mengirim notifikasi otomatis ke grup WhatsApp setelah setoran Jimpitan diajukan. Isi pesannya memakai formatter yang sama dengan tombol **Share Bulanan WA** manual: rekap tanggal, nominal rata kanan, tanda pending, garis pemisah, dan total bulanan. Setiap setoran tetap membuat pesan baru, tetapi beberapa setoran pada tanggal yang sama digabung menjadi satu baris dengan nominal akumulasi. Isi `WA_JIMPITAN_GROUP_JID` pada environment backend dengan JID grup berformat `120xxxxxxxxxxxx@g.us`. Pengiriman grup dilakukan oleh WA Gateway melalui `POST /groups/send`; jika env kosong, setoran tetap berjalan tanpa notifikasi WA.
+Backend dapat mengirim notifikasi otomatis ke grup WhatsApp setelah setoran Jimpitan diajukan. Isi pesannya memakai formatter rekap bulanan otomatis: rekap tanggal, nominal rata kanan, tanda pending, garis pemisah, dan total bulanan. Setiap setoran tetap membuat pesan baru, tetapi beberapa setoran pada tanggal yang sama digabung menjadi satu baris dengan nominal akumulasi. Pengaturan reminder dan JID grup dikelola dari `/management/whatsapp`; env hanya dipakai untuk URL dan secret koneksi gateway.
 
 Setoran manual Admin Jimpitan/root melalui input pemasukan harian dan setoran
 susulan juga memperbarui rekap grup sesuai tanggalnya. Input by-name yang
 langsung APPROVED oleh root/Admin Jimpitan mengikuti perilaku yang sama.
 JID grup kini dapat diatur dari `/management/whatsapp`; nilai tersebut disimpan
-di `app_settings` dan mengalahkan fallback environment `WA_JIMPITAN_GROUP_JID`.
+di `app_settings` dan menjadi satu-satunya sumber konfigurasi JID grup.
 Halaman tersebut juga dapat mengambil daftar grup dari gateway melalui tombol
 **Ambil Daftar Grup**.
 
@@ -314,10 +314,10 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 - Link preview hanya terbentuk jika gateway dapat mengambil halaman dan gambar Open Graph sebelum timeout; kegagalan preview tidak menggagalkan pengiriman teks.
 - Warm-up dan daftar chat dikenal disimpan di `wa-gateway/data/antiban-state.json` melalui volume Docker.
 - Waktu pertama nomor tertaut disimpan di `wa-gateway/data/connection-state.json`; restart/redeploy gateway tidak mengulang cooldown umur koneksi, tetapi pergantian nomor membuat timestamp baru.
-- Reminder jimpitan backend hanya boleh memakai mode uji terbatas: nomor valid random dari petugas shift jika `WA_JIMPITAN_REMINDER_ENABLED=true`.
-- Jumlah target WA Lab diatur pada environment backend lewat `WA_JIMPITAN_MAX_RECIPIENTS`. Contoh operasional menggunakan `2`; fallback aplikasi tetap `1` jika variabel tidak diisi dan dapat diatur sampai `20` per eksekusi, mengikuti limit harian gateway saat ini.
-- Root dapat mengatur status reminder WA, maksimum penerima, dan minimum umur koneksi dari `/management`. Nilai tersebut disimpan di `app_settings` dengan key `wa_jimpitan_reminder` dan mengalahkan fallback env backend; URL gateway dan secret tetap hanya tersedia lewat env.
+- Reminder jimpitan backend hanya boleh memakai mode uji terbatas: nomor valid dari petugas shift.
+- Root mengatur status reminder WA, mode penerima, maksimum penerima, minimum umur koneksi, dan JID grup dari `/management/whatsapp`. Nilai tersebut disimpan di `app_settings` dengan key `wa_jimpitan_reminder`; tidak ada fallback env untuk pengaturan ini.
+- URL gateway dan secret koneksi tetap tersedia lewat env backend.
 - `/management` mengambil status dan QR melalui proxy backend root-only; proxy memakai session gateway yang sama dengan mini inbox. Mini inbox tidak membuat koneksi atau QR kedua.
 - Sapaan reminder diacak sebagai satu paket tanpa pengulangan jika jumlah penerima tidak melebihi pilihan sapaan; setelah pilihan habis, sapaan dapat berulang.
-- Reminder otomatis WA Lab menunggu umur koneksi minimal dari `WA_LAB_MIN_CONNECTED_AGE_MINUTES`, default `180` menit sejak nomor pertama kali tertaut pada gateway.
+- Reminder otomatis WA Lab menunggu umur koneksi minimal sesuai pengaturan `/management/whatsapp` (default aplikasi `180` menit) sejak nomor pertama kali tertaut pada gateway.
 - Jika nanti dipakai produksi, lebih baik tetap dibuat opt-in dan manual approval.

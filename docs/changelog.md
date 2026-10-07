@@ -10,6 +10,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- Pengaturan reminder dan JID grup WA kini sepenuhnya memakai `/management/whatsapp`; env backend tidak lagi menjadi fallback konfigurasi operasional.
+- Tombol Share Bulanan WA di halaman Jimpitan dihapus karena rekap bulanan kini dikirim otomatis ke grup yang dikonfigurasi. Label jadwal shift dipindahkan ke kanan atas card Jimpitan V2.
 - JID grup WhatsApp Jimpitan kini dapat diatur dari `/management/whatsapp`; laporan error reminder WA menampilkan seluruh target yang gagal, bukan hanya error pertama.
 - Reset PIN dari Inbox aplikasi kini mengirim notifikasi WhatsApp hasil reset yang sama seperti konfirmasi `YA`.
 - Rekap Jimpitan grup tetap mengirim pesan baru pada setiap setoran, tetapi beberapa setoran pada tanggal yang sama diakumulasikan dalam satu baris.

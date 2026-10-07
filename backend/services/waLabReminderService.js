@@ -1,20 +1,13 @@
 import { getAppSetting } from '../models/appSettingModel.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-
-function readBool(key, fallback = false) {
-  const raw = process.env[key];
-  if (raw === undefined || raw === '') return fallback;
-  return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
-}
-
-function readInt(key, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
-  const raw = process.env[key];
-  if (raw === undefined || raw === '') return fallback;
-  const value = Number.parseInt(String(raw), 10);
-  if (!Number.isFinite(value)) return fallback;
-  return Math.min(Math.max(value, min), max);
-}
+const DEFAULT_WA_JIMPITAN_SETTINGS = Object.freeze({
+  enabled: false,
+  max_recipients: 1,
+  selection_mode: 'random',
+  min_connected_age_minutes: 180,
+  group_jid: ''
+});
 
 export function normalizeWaPhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -38,36 +31,31 @@ function gatewaySecret() {
   return String(process.env.WA_LAB_SECRET || '').trim();
 }
 
-function fallbackWaJimpitanReminderSettings() {
-  return {
-    enabled: readBool('WA_JIMPITAN_REMINDER_ENABLED', false),
-    max_recipients: readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 20 }),
-    selection_mode: String(process.env.WA_JIMPITAN_RECIPIENT_MODE || 'random').toLowerCase() === 'all' ? 'all' : 'random',
-    min_connected_age_minutes: readInt('WA_LAB_MIN_CONNECTED_AGE_MINUTES', 180, { min: 0, max: 1440 }),
-    group_jid: String(process.env.WA_JIMPITAN_GROUP_JID || '').trim()
-  };
-}
-
 export async function getWaJimpitanReminderSettings() {
-  const fallback = fallbackWaJimpitanReminderSettings();
   const saved = await getAppSetting('wa_jimpitan_reminder', null);
-  if (!saved || typeof saved !== 'object') return { ...fallback, source: 'env' };
+  if (!saved || typeof saved !== 'object') return { ...DEFAULT_WA_JIMPITAN_SETTINGS, source: 'default' };
+  const maxRecipients = Number.parseInt(String(saved.max_recipients), 10);
+  const minConnectedAgeMinutes = Number.parseInt(String(saved.min_connected_age_minutes), 10);
   return {
-    enabled: typeof saved.enabled === 'boolean' ? saved.enabled : fallback.enabled,
-    max_recipients: Math.min(Math.max(Number.parseInt(String(saved.max_recipients), 10) || fallback.max_recipients, 1), 20),
-    selection_mode: saved.selection_mode === 'all' ? 'all' : fallback.selection_mode,
-    min_connected_age_minutes: Math.min(Math.max(Number.parseInt(String(saved.min_connected_age_minutes), 10) || 0, 0), 1440),
-    group_jid: typeof saved.group_jid === 'string' ? saved.group_jid.trim() : fallback.group_jid,
+    enabled: typeof saved.enabled === 'boolean' ? saved.enabled : DEFAULT_WA_JIMPITAN_SETTINGS.enabled,
+    max_recipients: Number.isInteger(maxRecipients)
+      ? Math.min(Math.max(maxRecipients, 1), 20)
+      : DEFAULT_WA_JIMPITAN_SETTINGS.max_recipients,
+    selection_mode: saved.selection_mode === 'all' ? 'all' : DEFAULT_WA_JIMPITAN_SETTINGS.selection_mode,
+    min_connected_age_minutes: Number.isInteger(minConnectedAgeMinutes)
+      ? Math.min(Math.max(minConnectedAgeMinutes, 0), 1440)
+      : DEFAULT_WA_JIMPITAN_SETTINGS.min_connected_age_minutes,
+    group_jid: typeof saved.group_jid === 'string' ? saved.group_jid.trim() : DEFAULT_WA_JIMPITAN_SETTINGS.group_jid,
     source: 'management'
   };
 }
 
 export function getWaJimpitanMaxRecipients() {
-  return readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 20 });
+  return DEFAULT_WA_JIMPITAN_SETTINGS.max_recipients;
 }
 
 export function getWaLabMinConnectedAgeMinutes() {
-  return readInt('WA_LAB_MIN_CONNECTED_AGE_MINUTES', 180, { min: 0, max: 1440 });
+  return DEFAULT_WA_JIMPITAN_SETTINGS.min_connected_age_minutes;
 }
 
 export async function pickRandomValidWaRecipients(rows = [], limit = getWaJimpitanMaxRecipients(), getUnsentPhones = null) {
@@ -125,7 +113,7 @@ async function checkGatewayCooldown({ baseUrl, secret, signal, minAgeMinutes = g
 export async function sendWaJimpitanReminder({ recipient, text, settings = null }) {
   const activeSettings = settings || await getWaJimpitanReminderSettings();
   if (!activeSettings.enabled) {
-    return { skipped: true, reason: 'WA_JIMPITAN_REMINDER_ENABLED bukan true' };
+    return { skipped: true, reason: 'Reminder WA belum diaktifkan di /management/whatsapp' };
   }
 
   const baseUrl = gatewayBaseUrl();

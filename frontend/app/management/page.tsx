@@ -424,9 +424,9 @@ export default function ManagementHomePage() {
                     onChange={(event) => setWaSettings({ ...waSettings, min_connected_age_minutes: Number(event.target.value) })}
                   />
                 </div>
-                <p className="-mt-1 text-xs text-[var(--text-muted)]">Penerima WA dapat diatur 1–20 nomor valid dan mendapat giliran secara bergantian. Batas 20 mengikuti limit harian gateway saat ini. Minimum umur koneksi `0` berarti tanpa masa tunggu; rekomendasi untuk nomor baru adalah 180 menit.</p>
+                <p className="-mt-1 text-xs text-[var(--text-muted)]">Pengaturan reminder WA dikelola dari halaman ini. Penerima dapat diatur 1–20 nomor valid dan mendapat giliran secara bergantian. Minimum umur koneksi `0` berarti tanpa masa tunggu; rekomendasi untuk nomor baru adalah 180 menit.</p>
                 <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs text-[var(--text-muted)]">Sumber saat ini: {waSettings.source === 'management' ? 'Pengaturan Manajemen' : 'Fallback env backend'}.</p>
+                  <p className="text-xs text-[var(--text-muted)]">Sumber saat ini: {waSettings.source === 'management' ? 'Pengaturan Manajemen' : 'Default aplikasi — simpan pengaturan di sini untuk mengaktifkan reminder'}.</p>
                   <Button onClick={saveWaSettings} disabled={savingWaSettings}>
                     {savingWaSettings ? 'Menyimpan...' : 'Simpan Pengaturan WA'}
                   </Button>

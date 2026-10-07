@@ -43,7 +43,7 @@ const guideSections: GuideSection[] = [
     id: 'jimpitan',
     title: 'Jimpitan',
     icon: '🧺',
-    summary: 'Input jimpitan, setoran shift V2, share rekap WA manual, dan approval admin.',
+    summary: 'Input jimpitan, setoran shift V2, notifikasi rekap otomatis, dan approval admin.',
     quickLinks: [
       { href: '/jimpitan', label: 'Input Jimpitan' },
       { href: '/operasional/jimpitan', label: 'Operasional Jimpitan' },
@@ -53,12 +53,12 @@ const guideSections: GuideSection[] = [
       'Petugas shift membuka Jimpitan pada hari tugasnya.',
       'Mode V2 global: isi total pendapatan hari ini lalu ajukan setoran shift.',
       'Jika sudah ajukan setoran, petugas yang sama tidak bisa mengajukan ulang untuk tanggal itu.',
-      'Share Shift WA dan Share Bulanan WA bisa dipakai petugas shift untuk laporan manual.',
+      'Rekap bulanan Jimpitan dikirim otomatis ke grup WhatsApp yang sudah dikonfigurasi.',
       'Admin Jimpitan/root melakukan approval agar setoran menjadi final.'
     ],
     notes: [
       'Tanda bintang pada rekap WA berarti setoran belum approve admin.',
-      'Rekap WA adalah share manual, bukan gateway otomatis.'
+      'Share Shift WA tetap tersedia untuk laporan harian manual.'
     ]
   },
   {

@@ -340,73 +340,6 @@ export default function JimpitanPage() {
     if (message) pushToast(message, 'warning');
   }
 
-  async function handleKirimRekapBulananWA() {
-    if (!canShareShiftWa) {
-      pushToast('Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.', 'warning');
-      return;
-    }
-    const month = new Date().toISOString().slice(0, 7);
-    try {
-      const res = await apiFetch<{
-        success: boolean;
-        month: string;
-        data: {
-          days: Array<{ tanggal: string; total_nominal: number; total_rumah: number; total_petugas: number; total_pending?: number; has_pending?: boolean }>;
-        };
-      }>(`/jimpitan/daily-recap?month=${encodeURIComponent(month)}`);
-
-      const rows = res.data?.days || [];
-      if (rows.length === 0) {
-        pushToast(`Belum ada rekap harian untuk ${month}.`, 'warning');
-        return;
-      }
-
-      const [yearStr, monthStr] = month.split('-');
-      const yearNum = Number(yearStr);
-      const monthNum = Number(monthStr);
-      const monthLabel = new Date(yearNum, monthNum - 1, 1).toLocaleDateString('id-ID', {
-        month: 'long',
-        year: 'numeric'
-      });
-
-      const rawDayLines = rows.map((r) => {
-        const date = parseRecapDate(r.tanggal);
-        const dayName = date ? date.toLocaleDateString('id-ID', { weekday: 'long' }) : '-';
-        const dayNum = date ? date.getDate() : String(r.tanggal || '-').slice(8, 10);
-        const nominalOnly = Number(r.total_nominal || 0).toLocaleString('id-ID');
-        return {
-          left: `• ${dayName}, ${dayNum}`,
-          right: nominalOnly,
-          hasPending: Boolean(r.has_pending || Number(r.total_pending || 0) > 0)
-        };
-      });
-      const maxLeft = rawDayLines.reduce((max, line) => Math.max(max, line.left.length), 0);
-      const maxRight = rawDayLines.reduce((max, line) => Math.max(max, line.right.length), 0);
-      const dayLines = rawDayLines.map((line) => {
-        const codeLine = `${line.left.padEnd(maxLeft, ' ')} : Rp ${line.right.padStart(maxRight, ' ')}`;
-        return `\`${codeLine}\`${line.hasPending ? ' *' : ''}`;
-      });
-
-      let pesan = `🗓️ *REKAP JIMPITAN ${monthLabel}*\n`;
-      pesan += '━━━━━━━━━━━━━━━\n';
-      let grandTotal = 0;
-      rows.forEach((r) => {
-        grandTotal += Number(r.total_nominal || 0);
-      });
-      pesan += `${dayLines.join('\n')}\n`;
-      pesan += '━━━━━━━━━━━━━━━\n';
-      pesan += `💰 *TOTAL BULANAN: ${formatRupiah(grandTotal)}*`;
-
-      if (navigator.share) {
-        navigator.share({ title: `Rekap Jimpitan ${month}`, text: pesan }).catch(() => {});
-        return;
-      }
-      window.open(`https://wa.me/?text=${encodeURIComponent(pesan)}`, '_blank');
-    } catch (e) {
-      pushToast(e instanceof Error ? e.message : 'Gagal menyiapkan rekap bulanan', 'error');
-    }
-  }
-
   async function handleKirimRekapHarianGlobalWA() {
     if (!canShareShiftWa) {
       pushToast('Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.', 'warning');
@@ -726,7 +659,12 @@ export default function JimpitanPage() {
       {jimpitanMode === 'SHIFT_TOTAL' ? (
         <div className="page-container mt-4">
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Jimpitan V2</p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Jimpitan V2</p>
+              {!canOperateToday ? (
+                <p className="text-right text-xs font-semibold text-rose-600">Bukan jadwal shift Anda hari ini.</p>
+              ) : null}
+            </div>
             <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Input Jimpitan Hybrid</h2>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               Pilih global untuk total harian, atau by name untuk histori warga/donatur. Satu tanggal hanya boleh memakai salah satu mode.
@@ -802,19 +740,8 @@ export default function JimpitanPage() {
                     >
                       Share Shift WA
                     </Button>
-                    <Button
-                      variant="ghost"
-                      className="btn-action-blue w-full rounded-xl py-3 text-xs font-semibold disabled:opacity-50 sm:text-sm"
-                      onClick={() => void handleKirimRekapBulananWA()}
-                      disabled={!canShareShiftWa}
-                    >
-                      Share Bulanan WA
-                    </Button>
                   </div>
                 </div>
-                {!canOperateToday ? (
-                  <p className="text-xs text-rose-600">Bukan jadwal shift Anda hari ini.</p>
-                ) : null}
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--text-primary)]">
@@ -860,16 +787,6 @@ export default function JimpitanPage() {
             <span className="mr-2">📤</span>
             Share Harian WA
           </Button>
-          {canShareShiftWa ? (
-            <Button
-              variant="ghost"
-              className="btn-action-blue min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md"
-              onClick={() => void handleKirimRekapBulananWA()}
-            >
-              <span className="mr-2">🗓️</span>
-              Share Bulanan WA
-            </Button>
-          ) : null}
           
           {jimpitanMode === 'PER_WARGA' ? (
             <Button
