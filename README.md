@@ -1,15 +1,18 @@
 # KasRT
 
 KasRT adalah aplikasi kas RT berbasis:
-- Frontend: Next.js (`frontend`)
-- Backend API: Node.js + PostgreSQL (`backend`)
+- Frontend: Next.js di Vercel (`frontend`)
+- Backend API: Node.js di Debian (`backend`)
+- Database: PostgreSQL di Neon
+- Cache: Redis di Upstash
+- WA Gateway: service terpisah di Debian (`wa-gateway`)
 
 ## Arsitektur
 
 - Frontend membaca API melalui `NEXT_PUBLIC_API_URL`.
 - Backend memakai JWT untuk endpoint sensitif.
-- Integrasi Telegram untuk notifikasi approval dan reminder jimpitan.
-- Cache Redis opsional untuk endpoint baca berat (fallback aman jika Redis tidak tersedia).
+- Integrasi Telegram dan WA Gateway untuk notifikasi sesuai pengaturan Management.
+- Cache Redis Upstash opsional untuk endpoint baca berat (fallback aman jika Redis tidak tersedia).
 
 ## Dokumentasi
 
@@ -36,13 +39,19 @@ npm run dev
 
 ## Environment
 
-### Backend (`backend/.env`)
+### Backend Debian (`backend/.env`)
 
 Wajib:
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `DEFAULT_USER_PIN`
-- `CRON_SECRET`
+- `CRON_SECRET` (harus sama dengan frontend Vercel)
+
+Infrastruktur:
+- `DATABASE_URL` diisi connection string PostgreSQL Neon.
+- `REDIS_URL` diisi connection string Redis Upstash, biasanya berawalan `rediss://`.
+- `WA_LAB_BASE_URL` dan `WA_LAB_SECRET` dipakai untuk koneksi ke WA Gateway Debian.
+- Pengaturan operasional reminder WA dan JID grup disimpan dari `/management/whatsapp`, bukan env.
 
 Telegram:
 - `TELEGRAM_BOT_TOKEN`
@@ -64,11 +73,12 @@ Command yang tidak tersedia akan diarahkan untuk memakai `/help`.
 Opsional performa:
 - `REDIS_URL` (contoh: `rediss://...`)
 
-### Frontend (`frontend/.env.local` atau env provider)
+### Frontend Vercel (`frontend/.env.local` untuk lokal atau Environment Variables Vercel)
 
 - `NEXT_PUBLIC_API_URL` (URL backend)
-- `API_URL` (URL backend untuk route cron frontend)
-- `CRON_SECRET` (harus sama dengan backend)
+- `API_URL` (URL backend untuk route server-side/cron frontend)
+- `CRON_SECRET` (harus sama dengan backend Debian)
+- `NEXT_PUBLIC_APP_URL` (opsional, URL publik frontend)
 
 ## Workflow Inti
 
@@ -86,12 +96,12 @@ Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`create
 
 ## Reminder Otomatis Jimpitan
 
-- Scheduler production memakai cron Linux di VPS/Debian yang memanggil backend lokal pada pukul `20:30 WIB`.
+- Scheduler production memakai Vercel Cron pada `frontend/vercel.json` dan meneruskan request ke backend Debian.
 - Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
 - Backend menerima window `20:30-20:45 WIB` sebagai guard agar reminder tidak terkirim terlalu awal/terlambat.
 - Backend memakai daily lock, jadi beberapa trigger cron tidak akan mengirim reminder dobel.
-- Reminder otomatis hanya dikirim lewat Telegram bot resmi.
-- Integrasi WA otomatis dihapus untuk mengurangi risiko pembatasan nomor.
+- Kanal Telegram dan WA diperlakukan terpisah.
+- WA reminder memakai WA Gateway terpisah dan pengaturan root di `/management/whatsapp`.
 - Frontend cron route meneruskan ke backend:
   - `POST /jimpitan/send-shift-reminder`
   - auth via `x-cron-secret` / bearer secret.
@@ -112,13 +122,12 @@ npm run db:indexes
 
 ## Deploy
 
-Deploy menggunakan `render.yaml`:
-- Service backend: root `backend`
-- Service frontend: root `frontend`
-
-Pastikan env frontend-backend dan `CRON_SECRET` sinkron.
-
-Alternatif deploy backend tanpa sleep menggunakan Docker di VPS tersedia pada `infra/vps/README.md`. Konfigurasi ini menjalankan backend pada `127.0.0.1:3005` dan dapat dipublikasikan melalui Cloudflare Tunnel.
+- Frontend dideploy ke Vercel dari folder `frontend`.
+- Backend dan WA Gateway berjalan sebagai container Docker di Debian.
+- PostgreSQL menggunakan Neon dan Redis menggunakan Upstash.
+- Cloudflare Tunnel mempublikasikan backend dan WA Gateway tanpa membuka port service ke publik secara langsung.
+- `CRON_SECRET` pada Vercel dan backend harus sama.
+- Detail Docker/Cloudflare tersedia di `infra/vps/README.md`.
 
 ## Migrasi Data Historis
 

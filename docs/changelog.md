@@ -10,6 +10,8 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- `frontend/.env.example` ditambahkan untuk deployment Vercel; README diselaraskan dengan arsitektur frontend Vercel, backend/WA Gateway Debian, database Neon, dan Redis Upstash.
+- `.env.example` backend dan WA Gateway dirapikan menjadi kelompok wajib, koneksi, webhook, cache, dan anti-ban dengan komentar sumber konfigurasi yang jelas.
 - `/panduan` diperbarui mengikuti alur terbaru Jimpitan V1/V2, WA Gateway, reset PIN via WhatsApp, penarikan Tabungan, dan pengecualian Presensi.
 - Lebar ringkasan mode Jimpitan V1/V2 disamakan dengan card di atas dan bawahnya melalui wrapper kontainer yang konsisten.
 - Tombol input Jimpitan V2 kini berlabel **Simpan Perolehan Jimpitan**, memakai ikon, dan tombol Share Shift WA dibuat selebar tombol simpan.
