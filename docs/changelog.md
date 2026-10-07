@@ -10,9 +10,12 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- JID grup WhatsApp Jimpitan kini dapat diatur dari `/management/whatsapp`; laporan error reminder WA menampilkan seluruh target yang gagal, bukan hanya error pertama.
 - Reset PIN dari Inbox aplikasi kini mengirim notifikasi WhatsApp hasil reset yang sama seperti konfirmasi `YA`.
 - Rekap Jimpitan grup tetap mengirim pesan baru pada setiap setoran, tetapi beberapa setoran pada tanggal yang sama diakumulasikan dalam satu baris.
 - Setoran manual Admin Jimpitan/root, input by-name APPROVED, dan setoran susulan memperbarui rekap grup sesuai tanggal.
+- Pengaturan JID grup Jimpitan ditambahkan ke `/management/whatsapp`, termasuk pemilihan dari daftar grup gateway.
+- Error reminder WA di halaman Management kini menampilkan seluruh nomor yang gagal beserta alasannya.
 
 ## 2026-10-05
 

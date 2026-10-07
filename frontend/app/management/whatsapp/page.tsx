@@ -16,7 +16,9 @@ type Settings = {
   max_recipients: number;
   min_connected_age_minutes: number;
   selection_mode: 'random' | 'all';
+  group_jid: string;
 };
+type WaGroup = { jid: string; name: string };
 
 export default function ManagementWhatsappPage() {
   const { user, loading } = useAuth();
@@ -25,6 +27,7 @@ export default function ManagementWhatsappPage() {
   const [status, setStatus] = useState<any>(null);
   const [qr, setQr] = useState<any>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [groups, setGroups] = useState<WaGroup[]>([]);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,6 +58,19 @@ export default function ManagementWhatsappPage() {
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat QR');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadGroups() {
+    setBusy(true);
+    try {
+      const result = await apiFetch<{ success: boolean; data: WaGroup[] }>('/management/wa-gateway/groups');
+      setGroups(result.data || []);
+      setMessage(`${result.data?.length || 0} grup berhasil dimuat.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal memuat daftar grup');
     } finally {
       setBusy(false);
     }
@@ -137,6 +153,29 @@ export default function ManagementWhatsappPage() {
                     <Input label="Maksimum penerima per reminder" type="number" min="1" max="20" value={String(settings.max_recipients)} onChange={e => setSettings({ ...settings, max_recipients: Number(e.target.value) })} />
                     <Input label="Minimum umur koneksi gateway (menit)" type="number" min="0" max="1440" value={String(settings.min_connected_age_minutes)} onChange={e => setSettings({ ...settings, min_connected_age_minutes: Number(e.target.value) })} />
                   </div>
+                  <Input
+                    label="JID grup WhatsApp Jimpitan"
+                    value={settings.group_jid}
+                    placeholder="Contoh: 6285842446299-1606444505@g.us"
+                    onChange={e => setSettings({ ...settings, group_jid: e.target.value })}
+                  />
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-[240px] flex-1">
+                      <label className="block text-sm font-semibold">Pilih dari grup gateway</label>
+                      <select
+                        className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 font-normal"
+                        value={groups.some(group => group.jid === settings.group_jid) ? settings.group_jid : ''}
+                        onChange={e => setSettings({ ...settings, group_jid: e.target.value })}
+                      >
+                        <option value="">Pilih grup yang ditemukan</option>
+                        {groups.map(group => <option key={group.jid} value={group.jid}>{group.name} ({group.jid})</option>)}
+                      </select>
+                    </div>
+                    <Button variant="ghost" onClick={() => void loadGroups()} disabled={busy}>Ambil Daftar Grup</Button>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Isi dari endpoint daftar grup. Kosongkan jika notifikasi rekap Jimpitan ke grup ingin dimatikan.
+                  </p>
                   <label className="block text-sm font-semibold">Penerima reminder WA
                     <select className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 font-normal" value={settings.selection_mode} onChange={e => setSettings({ ...settings, selection_mode: e.target.value as 'random' | 'all' })}>
                       <option value="random">Acak dengan rotasi</option>

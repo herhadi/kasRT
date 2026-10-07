@@ -760,8 +760,9 @@ function formatTelegramError(result: NonNullable<CronHealthLog['payload']>['remi
 function formatWaError(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {
   if (!result) return '-';
   if (!result.wa_errors?.length) return '-';
-  const first = result.wa_errors[0];
-  return `${first.nama || first.no_hp || 'WA'}: ${first.message || 'WA gagal'}`;
+  return result.wa_errors
+    .map((item) => `${item.nama || item.no_hp || 'WA'}: ${item.message || 'WA gagal'}`)
+    .join('; ');
 }
 
 function formatWaTarget(result: NonNullable<CronHealthLog['payload']>['reminder_result']) {

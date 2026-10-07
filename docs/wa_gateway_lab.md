@@ -181,6 +181,10 @@ Backend dapat mengirim notifikasi otomatis ke grup WhatsApp setelah setoran Jimp
 Setoran manual Admin Jimpitan/root melalui input pemasukan harian dan setoran
 susulan juga memperbarui rekap grup sesuai tanggalnya. Input by-name yang
 langsung APPROVED oleh root/Admin Jimpitan mengikuti perilaku yang sama.
+JID grup kini dapat diatur dari `/management/whatsapp`; nilai tersebut disimpan
+di `app_settings` dan mengalahkan fallback environment `WA_JIMPITAN_GROUP_JID`.
+Halaman tersebut juga dapat mengambil daftar grup dari gateway melalui tombol
+**Ambil Daftar Grup**.
 
 Untuk melihat JID grup yang diikuti nomor tertaut, gunakan `GET /groups` dengan secret gateway. Endpoint ini mengambil grup langsung dari WhatsApp dan mengembalikan `jid` berakhiran `@g.us`, tidak bergantung pada daftar chat lokal.
 

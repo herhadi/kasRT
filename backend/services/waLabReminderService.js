@@ -43,7 +43,8 @@ function fallbackWaJimpitanReminderSettings() {
     enabled: readBool('WA_JIMPITAN_REMINDER_ENABLED', false),
     max_recipients: readInt('WA_JIMPITAN_MAX_RECIPIENTS', 1, { min: 1, max: 20 }),
     selection_mode: String(process.env.WA_JIMPITAN_RECIPIENT_MODE || 'random').toLowerCase() === 'all' ? 'all' : 'random',
-    min_connected_age_minutes: readInt('WA_LAB_MIN_CONNECTED_AGE_MINUTES', 180, { min: 0, max: 1440 })
+    min_connected_age_minutes: readInt('WA_LAB_MIN_CONNECTED_AGE_MINUTES', 180, { min: 0, max: 1440 }),
+    group_jid: String(process.env.WA_JIMPITAN_GROUP_JID || '').trim()
   };
 }
 
@@ -56,6 +57,7 @@ export async function getWaJimpitanReminderSettings() {
     max_recipients: Math.min(Math.max(Number.parseInt(String(saved.max_recipients), 10) || fallback.max_recipients, 1), 20),
     selection_mode: saved.selection_mode === 'all' ? 'all' : fallback.selection_mode,
     min_connected_age_minutes: Math.min(Math.max(Number.parseInt(String(saved.min_connected_age_minutes), 10) || 0, 0), 1440),
+    group_jid: typeof saved.group_jid === 'string' ? saved.group_jid.trim() : fallback.group_jid,
     source: 'management'
   };
 }
@@ -188,7 +190,8 @@ export async function sendWaDirectMessage({ phone, text }) {
 export async function sendWaJimpitanGroupMessage({ text }) {
   const baseUrl = gatewayBaseUrl();
   const secret = gatewaySecret();
-  const jid = String(process.env.WA_JIMPITAN_GROUP_JID || '').trim();
+  const settings = await getWaJimpitanReminderSettings();
+  const jid = String(settings.group_jid || '').trim();
   if (!baseUrl || !secret || !jid) return { skipped: true, reason: 'WA_JIMPITAN_GROUP_JID belum dikonfigurasi' };
 
   const response = await fetch(`${baseUrl}/groups/send`, {
