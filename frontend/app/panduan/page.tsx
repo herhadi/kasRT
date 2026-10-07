@@ -36,29 +36,30 @@ const guideSections: GuideSection[] = [
     ],
     notes: [
       'Jika diminta ganti PIN, selesaikan dari menu akun terlebih dulu.',
-      'Notifikasi otomatis utama memakai Telegram bot resmi.'
+      'Notifikasi otomatis dapat memakai Telegram dan WA Gateway sesuai konfigurasi Management.'
     ]
   },
   {
     id: 'jimpitan',
     title: 'Jimpitan',
     icon: '🧺',
-    summary: 'Input jimpitan, setoran shift V2, notifikasi rekap otomatis, dan approval admin.',
+    summary: 'Jimpitan V1 per warga, Jimpitan V2 perolehan shift, rekap grup otomatis, dan approval admin.',
     quickLinks: [
       { href: '/jimpitan', label: 'Input Jimpitan' },
       { href: '/operasional/jimpitan', label: 'Operasional Jimpitan' },
       { href: '/approval', label: 'Approval' }
     ],
     steps: [
-      'Petugas shift membuka Jimpitan pada hari tugasnya.',
-      'Mode V2 global: isi total pendapatan hari ini lalu ajukan setoran shift.',
-      'Jika sudah ajukan setoran, petugas yang sama tidak bisa mengajukan ulang untuk tanggal itu.',
-      'Rekap bulanan Jimpitan dikirim otomatis ke grup WhatsApp yang sudah dikonfigurasi.',
-      'Admin Jimpitan/root melakukan approval agar setoran menjadi final.'
+      'Jimpitan V1 mencatat nominal per warga dan memengaruhi status/tunggakan warga.',
+      'Jimpitan V2 memakai total perolehan shift atau histori by name tanpa menghitung tunggakan warga.',
+      'Pada mode global V2, isi perolehan lalu tekan Simpan Perolehan Jimpitan. Satu tanggal tidak boleh memakai global dan by name sekaligus.',
+      'Setoran petugas masuk approval Admin Jimpitan; input admin/root dapat langsung APPROVED sesuai alurnya.',
+      'Setiap setoran dapat membuat notifikasi baru ke grup WA yang dikonfigurasi. Baris pada tanggal yang sama diakumulasikan.',
+      'Gunakan Share Shift WA untuk membagikan rekap harian secara manual bila diperlukan.'
     ],
     notes: [
-      'Tanda bintang pada rekap WA berarti setoran belum approve admin.',
-      'Share Shift WA tetap tersedia untuk laporan harian manual.'
+      'Tanda bintang pada rekap berarti setoran masih PENDING approval.',
+      'Rekap bulanan grup dikirim otomatis, sehingga tidak perlu dibagikan manual dari halaman Jimpitan.'
     ]
   },
   {
@@ -202,11 +203,15 @@ const guideSections: GuideSection[] = [
     steps: [
       'Admin Pembangunan mengatur anggota dan minimum setoran.',
       'Input setoran warga per periode.',
+      'Warga mengajukan penarikan dari halaman detail tabungan/dashboard.',
+      'Admin Pembangunan memproses approval. Pengajuan ditolak bila saldo tidak mencukupi.',
+      'Notifikasi keputusan menyertakan nominal pengajuan dan saldo warga.',
       'Jika salah input, gunakan koreksi setoran pada data terkait.',
       'Pengeluaran kegiatan memotong saldo sesuai data anggota aktif.'
     ],
     notes: [
       'Saldo awal migrasi dipisah dari setoran berjalan.',
+      'Tabungan adalah modul independen dan tidak otomatis masuk Kas Bendahara.',
       'Pastikan periode input sesuai bulan transaksi.'
     ]
   },
@@ -228,6 +233,69 @@ const guideSections: GuideSection[] = [
     notes: [
       'Gunakan deskripsi singkat dan jelas saat membuat laporan.',
       'Pastikan status tindak lanjut diperbarui.'
+    ]
+  },
+  {
+    id: 'presensi',
+    title: 'Presensi',
+    icon: '🗓️',
+    summary: 'Input presensi warga dengan pengecualian peserta tanpa mengubah status global warga.',
+    quickLinks: [
+      { href: '/operasional/sekretaris/presensi', label: 'Input Presensi' },
+      { href: '/operasional/sekretaris/presensi/setting', label: 'Pengaturan Presensi' }
+    ],
+    steps: [
+      'Daftar awal presensi mengikuti warga eligible/aktif dari aturan global.',
+      'Sekretaris dapat mengecualikan warga tertentu khusus untuk modul Presensi.',
+      'Pengecualian tidak menonaktifkan warga pada modul lain.',
+      'Input presensi dilakukan dari halaman utama, sedangkan daftar pengecualian diatur dari halaman Pengaturan Presensi.'
+    ],
+    notes: [
+      'Pagination dan tampilan mengikuti aturan global agar konsisten.',
+      'Label yang digunakan adalah “Dikecualikan”, bukan “Nonaktif”.'
+    ]
+  },
+  {
+    id: 'whatsapp',
+    title: 'WA Gateway',
+    icon: '📱',
+    summary: 'Koneksi nomor WhatsApp, reminder shift, rekap grup, dan mini inbox.',
+    quickLinks: [
+      { href: '/management/whatsapp', label: 'Management WhatsApp' },
+      { href: '/management', label: 'Management' }
+    ],
+    steps: [
+      'Root membuka Management WhatsApp untuk melihat status koneksi dan QR.',
+      'Pengaturan reminder WA disimpan dari halaman ini: aktif/nonaktif, mode penerima, maksimum penerima, batas nomor unik harian, dan umur koneksi.',
+      'Pilih grup dari daftar gateway lalu simpan JID grup untuk notifikasi rekap Jimpitan.',
+      'Reminder dapat memilih nomor valid secara acak atau semua nomor valid pada shift.',
+      'Mini inbox digunakan untuk membaca dan membalas chat yang sudah dikenal gateway.'
+    ],
+    notes: [
+      'Pengaturan operasional WA berasal dari Management WhatsApp, bukan fallback env backend.',
+      'Angka berhasil/gagal reminder menunjukkan respons API gateway, bukan jaminan centang atau keterbacaan di HP.',
+      'Batas warm-up, anti-ban, dan rate limit tetap berlaku pada gateway.'
+    ]
+  },
+  {
+    id: 'reset-pin',
+    title: 'Reset PIN melalui WhatsApp',
+    icon: '🔐',
+    summary: 'Permintaan reset PIN dikonfirmasi lewat WhatsApp dan diberi notifikasi hasil.',
+    quickLinks: [
+      { href: '/login', label: 'Login' },
+      { href: '/approval', label: 'Inbox Approval' }
+    ],
+    steps: [
+      'Warga mengajukan reset PIN dari halaman Login.',
+      'WA Gateway mengirim instruksi ke nomor warga yang terdaftar.',
+      'Warga membalas YA melalui WhatsApp untuk mengonfirmasi reset.',
+      'Jika admin memproses reset dari Inbox aplikasi, nomor pemohon tetap menerima notifikasi WA hasil reset.',
+      'Setelah reset, warga login memakai PIN default lalu segera menggantinya.'
+    ],
+    notes: [
+      'PIN default mengikuti konfigurasi sistem dan tidak ditampilkan di panduan.',
+      'Jika pesan menampilkan “menunggu pesan”, periksa sinkronisasi session perangkat tertaut dan gateway.'
     ]
   },
   {
@@ -282,6 +350,9 @@ const guideSectionOrder = [
   'tabungan',
   'koperasi',
   'keamanan',
+  'presensi',
+  'whatsapp',
+  'reset-pin',
   'tagihan-khusus',
   'telegram',
   'troubleshooting'
