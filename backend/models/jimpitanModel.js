@@ -1519,6 +1519,19 @@ export async function getJimpitanDailyRecapByMonth(month) {
          AND jb.status IN ('PENDING','APPROVED')
          AND COALESCE(jb.note, '') NOT LIKE '[ADMIN_MONTHLY]%'
        GROUP BY jb.operational_date::date
+       UNION ALL
+       SELECT
+         t.created_at::date AS tanggal,
+         COALESCE(SUM(t.amount), 0) AS total_nominal,
+         0 AS total_rumah,
+         0 AS total_petugas,
+         0 AS total_pending
+       FROM transactions t
+       WHERE TO_CHAR(t.created_at::date, 'YYYY-MM') = $1
+         AND t.type = 'IN'
+         AND t.status = 'APPROVED'
+         AND t.description LIKE '[JIMPITAN_OLD_CASH_HANDOVER]%'
+       GROUP BY t.created_at::date
      ) x
      GROUP BY tanggal
      ORDER BY tanggal ASC`,

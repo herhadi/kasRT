@@ -12,6 +12,7 @@ import { createPinResetRequestByNoHp } from '../models/managementModel.js';
 import { recordLoginAudit } from '../models/loginAuditModel.js';
 import { sendWaDirectMessage, normalizeWaPhone } from '../services/waLabReminderService.js';
 import { confirmPinResetByPhone } from '../models/managementModel.js';
+import { buildPinResetConfirmationMessage } from '../services/pinResetNotificationService.js';
 
 function detectLoginClient(req) {
   const userAgent = String(req.headers['user-agent'] || '').slice(0, 1000);
@@ -234,7 +235,7 @@ export async function confirmPinResetFromWhatsApp(req, res) {
   }
   const user = await confirmPinResetByPhone({ noHp: phone });
   if (!user) return res.json({ success: true, ignored: true, reason: 'no_pending_request', phone });
-  const notification = await sendWaDirectMessage({ phone: user.no_hp, text: `✅ PIN KasRT untuk ${user.nama} sudah di-reset ke PIN default yang dikonfigurasi.\n\nLogin: https://kas02.vercel.app\n\nSegera ganti PIN setelah login.` });
+  const notification = await sendWaDirectMessage({ phone: user.no_hp, text: buildPinResetConfirmationMessage(user.nama) });
   return res.json({
     success: true,
     confirmed: true,

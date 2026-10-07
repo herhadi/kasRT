@@ -190,6 +190,7 @@ export async function sendWaJimpitanGroupMessage({ text }) {
   const secret = gatewaySecret();
   const jid = String(process.env.WA_JIMPITAN_GROUP_JID || '').trim();
   if (!baseUrl || !secret || !jid) return { skipped: true, reason: 'WA_JIMPITAN_GROUP_JID belum dikonfigurasi' };
+
   const response = await fetch(`${baseUrl}/groups/send`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-wa-lab-secret': secret },
@@ -197,6 +198,6 @@ export async function sendWaJimpitanGroupMessage({ text }) {
   });
   const data = await response.json().catch(() => null);
   return response.ok && data?.success === true
-    ? { success: true, jid }
+    ? { success: true, jid, message_id: data.data?.message_id || null }
     : { success: false, error: data?.message || `HTTP ${response.status}` };
 }

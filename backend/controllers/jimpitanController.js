@@ -65,7 +65,11 @@ async function sendCurrentMonthlyJimpitanGroupShare(operationalDate) {
   const month = operationalDate.toISOString().slice(0, 7);
   const recap = await getJimpitanDailyRecapByMonth(month);
   const text = formatMonthlyJimpitanShare({ month, days: recap.days });
-  return sendWaJimpitanGroupMessage({ text });
+  const result = await sendWaJimpitanGroupMessage({ text });
+  if (result?.success !== true && result?.skipped !== true) {
+    console.warn('[WA JIMPITAN GROUP] notification rejected:', result?.error || 'unknown error');
+  }
+  return result;
 }
 
 function pickRandomItem(items = []) {
@@ -351,6 +355,11 @@ export async function inputJimpitanV2Detail(req, res) {
       tanggal: tanggalOperasional.toISOString().slice(0, 10),
       petugasId: petugas_id
     });
+    const normalizedRoles = roles.map((role) => String(role).trim().toLowerCase());
+    if (normalizedRoles.includes('root') || normalizedRoles.includes('admin jimpitan')) {
+      await sendCurrentMonthlyJimpitanGroupShare(tanggalOperasional)
+        .catch((error) => console.warn('[WA JIMPITAN GROUP] direct V2 detail notification failed:', error.message));
+    }
 
     return res.json({ success: true, tanggal_operasional: tanggalOperasional });
   } catch (error) {
@@ -1045,6 +1054,8 @@ export async function inputJimpitanV2Income(req, res) {
       operationalDate,
       note
     });
+    await sendCurrentMonthlyJimpitanGroupShare(new Date(`${operationalDate}T00:00:00`))
+      .catch((error) => console.warn('[WA JIMPITAN GROUP] admin income notification failed:', error.message));
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -1084,6 +1095,8 @@ export async function inputJimpitanOldCashHandover(req, res) {
       handoverDate,
       note
     });
+    await sendCurrentMonthlyJimpitanGroupShare(new Date(`${handoverDate}T00:00:00`))
+      .catch((error) => console.warn('[WA JIMPITAN GROUP] old cash notification failed:', error.message));
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

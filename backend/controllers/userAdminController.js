@@ -6,6 +6,8 @@ import {
   setUserOrganizationRoles,
   updateWargaUser
 } from '../models/managementModel.js';
+import { sendWaDirectMessage } from '../services/waLabReminderService.js';
+import { buildPinResetConfirmationMessage } from '../services/pinResetNotificationService.js';
 
 export async function getUserManagementData(req, res) {
   try {
@@ -128,9 +130,15 @@ export async function resetPinRequest(req, res) {
   try {
     const defaultPin = String(process.env.DEFAULT_USER_PIN);
     const result = await resetPinFromRequest({ requestId, actorId: actor, defaultPin });
+    const notification = await sendWaDirectMessage({
+      phone: result.no_hp,
+      text: buildPinResetConfirmationMessage(result.nama, defaultPin)
+    });
     return res.json({
       success: true,
-      message: `PIN ${result.nama} berhasil di-reset ke default${actorName ? ` oleh ${actorName}` : ''}.`
+      message: `PIN ${result.nama} berhasil di-reset ke default${actorName ? ` oleh ${actorName}` : ''}.`,
+      whatsapp_notification_sent: notification.success === true,
+      whatsapp_notification_error: notification.success === true ? null : notification.error || 'Notifikasi WhatsApp gagal dikirim'
     });
   } catch (error) {
     const status = error.code === 'ALREADY_RESET' ? 409 : 400;

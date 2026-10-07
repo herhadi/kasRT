@@ -176,7 +176,11 @@ Mode penerima dapat diubah dari `/management/whatsapp` menjadi **Semua nomor val
 
 ### Notifikasi Setoran ke Grup RT
 
-Backend dapat mengirim notifikasi otomatis ke grup WhatsApp setelah setoran Jimpitan diajukan. Isi pesannya memakai formatter yang sama dengan tombol **Share Bulanan WA** manual: rekap tanggal, nominal rata kanan, tanda pending, garis pemisah, dan total bulanan. Isi `WA_JIMPITAN_GROUP_JID` pada environment backend dengan JID grup berformat `120xxxxxxxxxxxx@g.us`. Pengiriman grup dilakukan oleh WA Gateway melalui `POST /groups/send`; jika env kosong, setoran tetap berjalan tanpa notifikasi WA.
+Backend dapat mengirim notifikasi otomatis ke grup WhatsApp setelah setoran Jimpitan diajukan. Isi pesannya memakai formatter yang sama dengan tombol **Share Bulanan WA** manual: rekap tanggal, nominal rata kanan, tanda pending, garis pemisah, dan total bulanan. Setiap setoran tetap membuat pesan baru, tetapi beberapa setoran pada tanggal yang sama digabung menjadi satu baris dengan nominal akumulasi. Isi `WA_JIMPITAN_GROUP_JID` pada environment backend dengan JID grup berformat `120xxxxxxxxxxxx@g.us`. Pengiriman grup dilakukan oleh WA Gateway melalui `POST /groups/send`; jika env kosong, setoran tetap berjalan tanpa notifikasi WA.
+
+Setoran manual Admin Jimpitan/root melalui input pemasukan harian dan setoran
+susulan juga memperbarui rekap grup sesuai tanggalnya. Input by-name yang
+langsung APPROVED oleh root/Admin Jimpitan mengikuti perilaku yang sama.
 
 Untuk melihat JID grup yang diikuti nomor tertaut, gunakan `GET /groups` dengan secret gateway. Endpoint ini mengambil grup langsung dari WhatsApp dan mengembalikan `jid` berakhiran `@g.us`, tidak bergantung pada daftar chat lokal.
 

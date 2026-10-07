@@ -120,7 +120,7 @@ async function sendProtectedMessage(jid, content, options = {}) {
   lastOutgoingError = null;
 
   try {
-    const result = await socket.sendMessage(resolvedJid, content, {});
+    const result = await socket.sendMessage(resolvedJid, content, options.sendOptions || {});
     cacheMessage(result);
     lastOutgoingCompletedAt = new Date().toISOString();
     lastOutgoingMessageId = result?.key?.id || null;
@@ -759,7 +759,8 @@ export async function sendGroupMessage({ jid, text }) {
   const groupJid = String(jid || '').trim();
   if (!/^\d+-\d+@g\.us$/.test(groupJid)) throw new Error('JID grup WhatsApp tidak valid.');
   const messageText = validateMessageText(text);
-  const { result } = await sendTextMessage(groupJid, messageText);
+  const resolvedJid = await prepareHumanSend(groupJid, messageText);
+  const { result } = await sendProtectedMessage(groupJid, { text: messageText }, { resolvedJid });
   return { jid: groupJid, message_id: result?.key?.id || null };
 }
 

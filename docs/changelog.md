@@ -6,6 +6,14 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-10-07
+
+### Ditambahkan
+
+- Reset PIN dari Inbox aplikasi kini mengirim notifikasi WhatsApp hasil reset yang sama seperti konfirmasi `YA`.
+- Rekap Jimpitan grup tetap mengirim pesan baru pada setiap setoran, tetapi beberapa setoran pada tanggal yang sama diakumulasikan dalam satu baris.
+- Setoran manual Admin Jimpitan/root, input by-name APPROVED, dan setoran susulan memperbarui rekap grup sesuai tanggal.
+
 ## 2026-10-05
 
 ### Diperbaiki
