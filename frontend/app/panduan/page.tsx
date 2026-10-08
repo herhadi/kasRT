@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Navbar from '@/components/layout/Navbar';
-import Card from '@/components/ui/Card';
-import Input from '@/components/ui/Input';
-import { useAuth } from '@/lib/useAuth';
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Navbar from "@/components/layout/Navbar";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import { useAuth } from "@/lib/useAuth";
 
 type GuideSection = {
   id: string;
@@ -20,374 +20,396 @@ type GuideSection = {
 
 const guideSections: GuideSection[] = [
   {
-    id: 'mulai-cepat',
-    title: 'Mulai Cepat',
-    icon: '🚀',
-    summary: 'Alur umum KasRT untuk warga dan pengurus.',
+    id: "mulai-cepat",
+    title: "Mulai Cepat",
+    icon: "🚀",
+    summary: "Alur umum KasRT untuk warga dan pengurus.",
     quickLinks: [
-      { href: '/dashboard', label: 'Dashboard' },
-      { href: '/akun', label: 'Akun Saya' }
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/akun", label: "Akun Saya" },
     ],
     steps: [
-      'Login memakai nomor HP dan PIN.',
-      'Warga melihat kewajiban, saldo, jadwal jimpitan, dan status Telegram dari Dashboard.',
-      'Pengurus membuka menu Operasional sesuai jabatan.',
-      'Transaksi penting masuk Inbox/Approval sebelum menjadi kas final.'
+      "Login memakai nomor HP dan PIN.",
+      "Warga melihat kewajiban, saldo, jadwal jimpitan, dan status Telegram dari Dashboard.",
+      "Pengurus membuka menu Operasional sesuai jabatan.",
+      "Transaksi penting masuk Inbox/Approval sebelum menjadi kas final.",
     ],
     notes: [
-      'Jika diminta ganti PIN, selesaikan dari menu akun terlebih dulu.',
-      'Notifikasi otomatis dapat memakai Telegram dan WA Gateway sesuai konfigurasi Management.'
-    ]
+      "Jika diminta ganti PIN, selesaikan dari menu akun terlebih dulu.",
+      "Notifikasi otomatis dapat memakai Telegram dan WA Gateway sesuai konfigurasi Management.",
+    ],
   },
   {
-    id: 'jimpitan',
-    title: 'Jimpitan',
-    icon: '🧺',
-    summary: 'Jimpitan V1 per warga, Jimpitan V2 perolehan shift, rekap grup otomatis, dan approval admin.',
+    id: "jimpitan",
+    title: "Jimpitan",
+    icon: "🧺",
+    summary:
+      "Jimpitan V1 per warga, Jimpitan V2 perolehan shift, rekap grup otomatis, dan approval admin.",
     quickLinks: [
-      { href: '/jimpitan', label: 'Input Jimpitan' },
-      { href: '/operasional/jimpitan', label: 'Operasional Jimpitan' },
-      { href: '/approval', label: 'Approval' }
+      { href: "/jimpitan", label: "Input Jimpitan" },
+      { href: "/operasional/jimpitan", label: "Operasional Jimpitan" },
+      { href: "/approval", label: "Approval" },
     ],
     steps: [
-      'Jimpitan V1 mencatat nominal per warga dan memengaruhi status/tunggakan warga.',
-      'Jimpitan V2 memakai total perolehan shift atau histori by name tanpa menghitung tunggakan warga.',
-      'Pada mode global V2, isi perolehan lalu tekan Simpan Perolehan Jimpitan. Satu tanggal tidak boleh memakai global dan by name sekaligus.',
-      'Setoran petugas masuk approval Admin Jimpitan; input admin/root dapat langsung APPROVED sesuai alurnya.',
-      'Setiap setoran dapat membuat notifikasi baru ke grup WA yang dikonfigurasi. Baris pada tanggal yang sama diakumulasikan.',
-      'Gunakan Share Shift WA untuk membagikan rekap harian secara manual bila diperlukan.'
+      "Jimpitan V1 mencatat nominal per warga dan memengaruhi status/tunggakan warga.",
+      "Jimpitan V2 memakai total perolehan shift atau histori by name tanpa menghitung tunggakan warga.",
+      "Pada mode global V2, isi perolehan lalu tekan Simpan Perolehan dan Setor Jimpitan. Satu tanggal tidak boleh memakai global dan by name sekaligus.",
+      "Setoran petugas masuk approval Admin Jimpitan; input admin/root dapat langsung APPROVED sesuai alurnya.",
+      "Setiap setoran dapat membuat notifikasi baru ke grup WA yang dikonfigurasi. Baris pada tanggal yang sama diakumulasikan.",
+      "Gunakan Share Shift WA untuk membagikan rekap harian secara manual bila diperlukan.",
     ],
     notes: [
-      'Tanda bintang pada rekap berarti setoran masih PENDING approval.',
-      'Rekap bulanan grup dikirim otomatis, sehingga tidak perlu dibagikan manual dari halaman Jimpitan.'
-    ]
+      "Tanda bintang pada rekap berarti setoran masih PENDING approval.",
+      "Rekap bulanan grup dikirim otomatis, sehingga tidak perlu dibagikan manual dari halaman Jimpitan.",
+    ],
   },
   {
-    id: 'bendahara',
-    title: 'Bendahara & Approval',
-    icon: '🧾',
-    summary: 'Iuran wajib, transfer kas, pengeluaran, dan approval keuangan.',
+    id: "bendahara",
+    title: "Bendahara & Approval",
+    icon: "🧾",
+    summary: "Iuran wajib, transfer kas, pengeluaran, dan approval keuangan.",
     quickLinks: [
-      { href: '/operasional/bendahara', label: 'Operasional Bendahara' },
-      { href: '/approval/bendahara', label: 'Approval Bendahara' },
-      { href: '/bendahara', label: 'Dashboard Bendahara' }
+      { href: "/operasional/bendahara", label: "Operasional Bendahara" },
+      { href: "/approval/bendahara", label: "Approval Bendahara" },
+      { href: "/bendahara", label: "Dashboard Bendahara" },
     ],
     steps: [
-      'Bendahara mencatat iuran wajib atau membuat pengajuan transfer/pengeluaran.',
-      'Transfer kas dan pengeluaran masuk status PENDING.',
-      'Ketua, Sekretaris, Plt Ketua, atau root menyetujui dari Inbox.',
-      'Saldo kas berubah setelah transaksi APPROVED.'
+      "Bendahara mencatat iuran wajib atau membuat pengajuan transfer/pengeluaran.",
+      "Transfer kas dan pengeluaran masuk status PENDING.",
+      "Ketua, Sekretaris, Plt Ketua, atau root menyetujui dari Inbox.",
+      "Saldo kas berubah setelah transaksi APPROVED.",
     ],
     notes: [
-      'Saldo tidak boleh diubah langsung tanpa transaksi.',
-      'Aktor transaksi selalu mengikuti user yang sedang login.'
-    ]
+      "Saldo tidak boleh diubah langsung tanpa transaksi.",
+      "Aktor transaksi selalu mengikuti user yang sedang login.",
+    ],
   },
   {
-    id: 'tagihan-khusus',
-    title: 'Tagihan Khusus',
-    icon: '📌',
-    summary: 'Tagihan temporer dengan PIC warga, target warga aktif/nonaktif, dan setoran yang harus diterima Bendahara.',
+    id: "tagihan-khusus",
+    title: "Tagihan Khusus",
+    icon: "📌",
+    summary:
+      "Tagihan temporer dengan PIC warga, target warga aktif/nonaktif, dan setoran yang harus diterima Bendahara.",
     quickLinks: [
-      { href: '/operasional/tagihan-khusus', label: 'Operasional Tagihan Khusus' },
-      { href: '/approval/bendahara', label: 'Approval Bendahara' },
-      { href: '/dashboard', label: 'Dashboard Warga' }
+      {
+        href: "/operasional/tagihan-khusus",
+        label: "Operasional Tagihan Khusus",
+      },
+      { href: "/approval/bendahara", label: "Approval Bendahara" },
+      { href: "/dashboard", label: "Dashboard Warga" },
     ],
     steps: [
-      'Bendahara atau root membuat tagihan, menentukan nominal per warga, periode bayar, dan PIC.',
-      'Target warga otomatis mengikuti daftar eligible seperti iuran wajib, lalu bisa diaktifkan/nonaktifkan per tagihan.',
-      'PIC mencatat pembayaran warga. Status awalnya terkumpul di PIC dan belum masuk kas.',
-      'PIC atau Bendahara mengajukan setoran agar masuk daftar Approval Bendahara.',
-      'Bendahara menerima uang dari Approval Bendahara. Setelah approve, setoran masuk Kas Bendahara.'
+      "Bendahara atau root membuat tagihan, menentukan nominal per warga, periode bayar, dan PIC.",
+      "Target warga otomatis mengikuti daftar eligible seperti iuran wajib, lalu bisa diaktifkan/nonaktifkan per tagihan.",
+      "PIC mencatat pembayaran warga. Status awalnya terkumpul di PIC dan belum masuk kas.",
+      "PIC atau Bendahara mengajukan setoran agar masuk daftar Approval Bendahara.",
+      "Bendahara menerima uang dari Approval Bendahara. Setelah approve, setoran masuk Kas Bendahara.",
     ],
     notes: [
-      'Pembayaran yang sudah masuk batch tidak akan ikut setoran berikutnya, jadi aman dari dobel setor.',
-      'Warga melihat tagihan aktif di dashboard sampai Bendahara/root menyembunyikannya setelah kegiatan selesai.',
-      'Tagihan khusus tidak memotong kas modul lain; dana baru masuk Kas Bendahara setelah approval.'
-    ]
+      "Pembayaran yang sudah masuk batch tidak akan ikut setoran berikutnya, jadi aman dari dobel setor.",
+      "Warga melihat tagihan aktif di dashboard sampai Bendahara/root menyembunyikannya setelah kegiatan selesai.",
+      "Tagihan khusus tidak memotong kas modul lain; dana baru masuk Kas Bendahara setelah approval.",
+    ],
   },
   {
-    id: 'internet',
-    title: 'Internet',
-    icon: '🌐',
-    summary: 'Kelola iuran internet, anggota, tunggakan, dan pengeluaran kas internet.',
+    id: "internet",
+    title: "Internet",
+    icon: "🌐",
+    summary:
+      "Kelola iuran internet, anggota, tunggakan, dan pengeluaran kas internet.",
     quickLinks: [
-      { href: '/operasional/internet', label: 'Operasional Internet' },
-      { href: '/approval/internet', label: 'Approval Internet' },
-      { href: '/internet', label: 'Dashboard Internet' }
+      { href: "/operasional/internet", label: "Operasional Internet" },
+      { href: "/approval/internet", label: "Approval Internet" },
+      { href: "/internet", label: "Dashboard Internet" },
     ],
     steps: [
-      'Admin Internet mengatur anggota dan tarif aktif.',
-      'Input iuran dilakukan per periode.',
-      'Permintaan aktivasi/nonaktif anggota diproses lewat approval.',
-      'Warga bisa cek kewajiban lewat Dashboard atau Telegram /cek_inet.'
+      "Admin Internet mengatur anggota dan tarif aktif.",
+      "Input iuran dilakukan per periode.",
+      "Permintaan aktivasi/nonaktif anggota diproses lewat approval.",
+      "Warga bisa cek kewajiban lewat Dashboard atau Telegram /cek_inet.",
     ],
     notes: [
-      'Tunggakan dihitung dari periode aktif anggota.',
-      'Pengeluaran internet tetap mengikuti kas modul internet.'
-    ]
+      "Tunggakan dihitung dari periode aktif anggota.",
+      "Pengeluaran internet tetap mengikuti kas modul internet.",
+    ],
   },
   {
-    id: 'lingkungan',
-    title: 'Lingkungan',
-    icon: '🌿',
-    summary: 'Kelola iuran lingkungan, anggota, tunggakan, dan kas lingkungan.',
+    id: "lingkungan",
+    title: "Lingkungan",
+    icon: "🌿",
+    summary: "Kelola iuran lingkungan, anggota, tunggakan, dan kas lingkungan.",
     quickLinks: [
-      { href: '/operasional/lingkungan', label: 'Operasional Lingkungan' },
-      { href: '/approval/lingkungan', label: 'Approval Lingkungan' },
-      { href: '/lingkungan', label: 'Dashboard Lingkungan' }
+      { href: "/operasional/lingkungan", label: "Operasional Lingkungan" },
+      { href: "/approval/lingkungan", label: "Approval Lingkungan" },
+      { href: "/lingkungan", label: "Dashboard Lingkungan" },
     ],
     steps: [
-      'Admin Lingkungan mengatur anggota dan tarif.',
-      'Input pembayaran iuran lingkungan per periode.',
-      'Approval digunakan untuk perubahan status keanggotaan.',
-      'Warga bisa cek kewajiban lewat Telegram /cek_lingk.'
+      "Admin Lingkungan mengatur anggota dan tarif.",
+      "Input pembayaran iuran lingkungan per periode.",
+      "Approval digunakan untuk perubahan status keanggotaan.",
+      "Warga bisa cek kewajiban lewat Telegram /cek_lingk.",
     ],
     notes: [
-      'Gunakan periode yang benar sebelum input iuran.',
-      'Data migrasi histori dipisah dari input operasional berjalan.'
-    ]
+      "Gunakan periode yang benar sebelum input iuran.",
+      "Data migrasi histori dipisah dari input operasional berjalan.",
+    ],
   },
   {
-    id: 'sosial',
-    title: 'Sosial',
-    icon: '🤝',
-    summary: 'Kelola kas sosial, transfer dari bendahara, dan pengeluaran sosial.',
+    id: "sosial",
+    title: "Sosial",
+    icon: "🤝",
+    summary:
+      "Kelola kas sosial, transfer dari bendahara, dan pengeluaran sosial.",
     quickLinks: [
-      { href: '/operasional/sosial', label: 'Operasional Sosial' },
-      { href: '/sosial', label: 'Dashboard Sosial' },
-      { href: '/approval', label: 'Inbox Approval' }
+      { href: "/operasional/sosial", label: "Operasional Sosial" },
+      { href: "/sosial", label: "Dashboard Sosial" },
+      { href: "/approval", label: "Inbox Approval" },
     ],
     steps: [
-      'Dana sosial masuk lewat transfer kas yang dibuat Bendahara.',
-      'Admin Sosial mencatat pengeluaran sosial sesuai kebutuhan.',
-      'Pengeluaran tetap mengikuti alur PENDING lalu APPROVED.',
-      'Pantau riwayat dan saldo dari Operasional Sosial.'
+      "Dana sosial masuk lewat transfer kas yang dibuat Bendahara.",
+      "Admin Sosial mencatat pengeluaran sosial sesuai kebutuhan.",
+      "Pengeluaran tetap mengikuti alur PENDING lalu APPROVED.",
+      "Pantau riwayat dan saldo dari Operasional Sosial.",
     ],
     notes: [
-      'Sosial tidak memakai tunggakan warga bulanan.',
-      'Gunakan catatan transaksi yang jelas untuk audit.'
-    ]
+      "Sosial tidak memakai tunggakan warga bulanan.",
+      "Gunakan catatan transaksi yang jelas untuk audit.",
+    ],
   },
   {
-    id: 'koperasi',
-    title: 'Koperasi',
-    icon: '🏦',
-    summary: 'Kelola iuran koperasi, pinjaman, simulasi, dan approval pembiayaan.',
+    id: "koperasi",
+    title: "Koperasi",
+    icon: "🏦",
+    summary:
+      "Kelola iuran koperasi, pinjaman, simulasi, dan approval pembiayaan.",
     quickLinks: [
-      { href: '/operasional/koperasi', label: 'Operasional Koperasi' },
-      { href: '/approval/koperasi', label: 'Approval Koperasi' },
-      { href: '/koperasi', label: 'Dashboard Koperasi' }
+      { href: "/operasional/koperasi", label: "Operasional Koperasi" },
+      { href: "/approval/koperasi", label: "Approval Koperasi" },
+      { href: "/koperasi", label: "Dashboard Koperasi" },
     ],
     steps: [
-      'Admin Koperasi mengatur anggota dan iuran.',
-      'Draft pinjaman dibuat dari operasional koperasi.',
-      'Simulasi angsuran membantu menentukan skema flat/menurun.',
-      'Approval digunakan sebelum pembiayaan aktif.'
+      "Admin Koperasi mengatur anggota dan iuran.",
+      "Draft pinjaman dibuat dari operasional koperasi.",
+      "Simulasi angsuran membantu menentukan skema flat/menurun.",
+      "Approval digunakan sebelum pembiayaan aktif.",
     ],
     notes: [
-      'Cek tenor dan nominal angsuran sebelum menyimpan.',
-      'Pisahkan iuran anggota dan transaksi pinjaman.'
-    ]
+      "Cek tenor dan nominal angsuran sebelum menyimpan.",
+      "Pisahkan iuran anggota dan transaksi pinjaman.",
+    ],
   },
   {
-    id: 'tabungan',
-    title: 'Tabungan Pembangunan',
-    icon: '🏗️',
-    summary: 'Kelola setoran warga, saldo awal migrasi, dan pengeluaran kegiatan pembangunan.',
+    id: "tabungan",
+    title: "Tabungan Pembangunan",
+    icon: "🏗️",
+    summary:
+      "Kelola setoran warga, saldo awal migrasi, dan pengeluaran kegiatan pembangunan.",
     quickLinks: [
-      { href: '/operasional/tabungan', label: 'Operasional Pembangunan' },
-      { href: '/operasional/tabungan/input', label: 'Input Tabungan' },
-      { href: '/tabungan', label: 'Dashboard Tabungan' }
+      { href: "/operasional/tabungan", label: "Operasional Pembangunan" },
+      { href: "/operasional/tabungan/input", label: "Input Tabungan" },
+      { href: "/tabungan", label: "Dashboard Tabungan" },
     ],
     steps: [
-      'Admin Pembangunan mengatur anggota dan minimum setoran.',
-      'Input setoran warga per periode.',
-      'Warga mengajukan penarikan dari halaman detail tabungan/dashboard.',
-      'Admin Pembangunan memproses approval. Pengajuan ditolak bila saldo tidak mencukupi.',
-      'Notifikasi keputusan menyertakan nominal pengajuan dan saldo warga.',
-      'Jika salah input, gunakan koreksi setoran pada data terkait.',
-      'Pengeluaran kegiatan memotong saldo sesuai data anggota aktif.'
+      "Admin Pembangunan mengatur anggota dan minimum setoran.",
+      "Input setoran warga per periode.",
+      "Warga mengajukan penarikan dari halaman detail tabungan/dashboard.",
+      "Admin Pembangunan memproses approval. Pengajuan ditolak bila saldo tidak mencukupi.",
+      "Notifikasi keputusan menyertakan nominal pengajuan dan saldo warga.",
+      "Jika salah input, gunakan koreksi setoran pada data terkait.",
+      "Pengeluaran kegiatan memotong saldo sesuai data anggota aktif.",
     ],
     notes: [
-      'Saldo awal migrasi dipisah dari setoran berjalan.',
-      'Tabungan adalah modul independen dan tidak otomatis masuk Kas Bendahara.',
-      'Pastikan periode input sesuai bulan transaksi.'
-    ]
+      "Saldo awal migrasi dipisah dari setoran berjalan.",
+      "Tabungan adalah modul independen dan tidak otomatis masuk Kas Bendahara.",
+      "Pastikan periode input sesuai bulan transaksi.",
+    ],
   },
   {
-    id: 'keamanan',
-    title: 'Keamanan',
-    icon: '🛡️',
-    summary: 'Pantau jadwal keamanan, laporan kondisi, dan tindak lanjut.',
+    id: "keamanan",
+    title: "Keamanan",
+    icon: "🛡️",
+    summary: "Pantau jadwal keamanan, laporan kondisi, dan tindak lanjut.",
     quickLinks: [
-      { href: '/operasional/keamanan', label: 'Operasional Keamanan' },
-      { href: '/keamanan', label: 'Dashboard Keamanan' }
+      { href: "/operasional/keamanan", label: "Operasional Keamanan" },
+      { href: "/keamanan", label: "Dashboard Keamanan" },
     ],
     steps: [
-      'Admin Keamanan membuka Operasional Keamanan.',
-      'Catat laporan kondisi atau isu keamanan.',
-      'Pantau status tindak lanjut dari dashboard.',
-      'Gunakan share jadwal WA manual bila perlu.'
+      "Admin Keamanan membuka Operasional Keamanan.",
+      "Catat laporan kondisi atau isu keamanan.",
+      "Pantau status tindak lanjut dari dashboard.",
+      "Gunakan share jadwal WA manual bila perlu.",
     ],
     notes: [
-      'Gunakan deskripsi singkat dan jelas saat membuat laporan.',
-      'Pastikan status tindak lanjut diperbarui.'
-    ]
+      "Gunakan deskripsi singkat dan jelas saat membuat laporan.",
+      "Pastikan status tindak lanjut diperbarui.",
+    ],
   },
   {
-    id: 'presensi',
-    title: 'Presensi',
-    icon: '🗓️',
-    summary: 'Input presensi warga dengan pengecualian peserta tanpa mengubah status global warga.',
+    id: "presensi",
+    title: "Presensi",
+    icon: "🗓️",
+    summary:
+      "Input presensi warga dengan pengecualian peserta tanpa mengubah status global warga.",
     quickLinks: [
-      { href: '/operasional/sekretaris/presensi', label: 'Input Presensi' },
-      { href: '/operasional/sekretaris/presensi/setting', label: 'Pengaturan Presensi' }
+      { href: "/operasional/sekretaris/presensi", label: "Input Presensi" },
+      {
+        href: "/operasional/sekretaris/presensi/setting",
+        label: "Pengaturan Presensi",
+      },
     ],
     steps: [
-      'Daftar awal presensi mengikuti warga eligible/aktif dari aturan global.',
-      'Sekretaris dapat mengecualikan warga tertentu khusus untuk modul Presensi.',
-      'Pengecualian tidak menonaktifkan warga pada modul lain.',
-      'Input presensi dilakukan dari halaman utama, sedangkan daftar pengecualian diatur dari halaman Pengaturan Presensi.'
+      "Daftar awal presensi mengikuti warga eligible/aktif dari aturan global.",
+      "Sekretaris dapat mengecualikan warga tertentu khusus untuk modul Presensi.",
+      "Pengecualian tidak menonaktifkan warga pada modul lain.",
+      "Input presensi dilakukan dari halaman utama, sedangkan daftar pengecualian diatur dari halaman Pengaturan Presensi.",
     ],
     notes: [
-      'Pagination dan tampilan mengikuti aturan global agar konsisten.',
-      'Label yang digunakan adalah “Dikecualikan”, bukan “Nonaktif”.'
-    ]
+      "Pagination dan tampilan mengikuti aturan global agar konsisten.",
+      "Label yang digunakan adalah “Dikecualikan”, bukan “Nonaktif”.",
+    ],
   },
   {
-    id: 'whatsapp',
-    title: 'WA Gateway',
-    icon: '📱',
-    summary: 'Koneksi nomor WhatsApp, reminder shift, rekap grup, dan mini inbox.',
+    id: "whatsapp",
+    title: "WA Gateway",
+    icon: "📱",
+    summary:
+      "Koneksi nomor WhatsApp, reminder shift, rekap grup, dan mini inbox.",
     quickLinks: [
-      { href: '/management/whatsapp', label: 'Management WhatsApp' },
-      { href: '/management', label: 'Management' }
+      { href: "/management/whatsapp", label: "Management WhatsApp" },
+      { href: "/management", label: "Management" },
     ],
     steps: [
-      'Root membuka Management WhatsApp untuk melihat status koneksi dan QR.',
-      'Pengaturan reminder WA disimpan dari halaman ini: aktif/nonaktif, mode penerima, maksimum penerima, batas nomor unik harian, dan umur koneksi.',
-      'Pilih grup dari daftar gateway lalu simpan JID grup untuk notifikasi rekap Jimpitan.',
-      'Reminder dapat memilih nomor valid secara acak atau semua nomor valid pada shift.',
-      'Mini inbox digunakan untuk membaca dan membalas chat yang sudah dikenal gateway.'
+      "Root membuka Management WhatsApp untuk melihat status koneksi dan QR.",
+      "Pengaturan reminder WA disimpan dari halaman ini: aktif/nonaktif, mode penerima, maksimum penerima, batas nomor unik harian, dan umur koneksi.",
+      "Pilih grup dari daftar gateway lalu simpan JID grup untuk notifikasi rekap Jimpitan.",
+      "Reminder dapat memilih nomor valid secara acak atau semua nomor valid pada shift.",
+      "Mini inbox digunakan untuk membaca dan membalas chat yang sudah dikenal gateway.",
     ],
     notes: [
-      'Pengaturan operasional WA berasal dari Management WhatsApp, bukan fallback env backend.',
-      'Angka berhasil/gagal reminder menunjukkan respons API gateway, bukan jaminan centang atau keterbacaan di HP.',
-      'Batas warm-up, anti-ban, dan rate limit tetap berlaku pada gateway.'
-    ]
+      "Pengaturan operasional WA berasal dari Management WhatsApp, bukan fallback env backend.",
+      "Angka berhasil/gagal reminder menunjukkan respons API gateway, bukan jaminan centang atau keterbacaan di HP.",
+      "Batas warm-up, anti-ban, dan rate limit tetap berlaku pada gateway.",
+    ],
   },
   {
-    id: 'reset-pin',
-    title: 'Reset PIN melalui WhatsApp',
-    icon: '🔐',
-    summary: 'Permintaan reset PIN dikonfirmasi lewat WhatsApp dan diberi notifikasi hasil.',
+    id: "reset-pin",
+    title: "Reset PIN melalui WhatsApp",
+    icon: "🔐",
+    summary:
+      "Permintaan reset PIN dikonfirmasi lewat WhatsApp dan diberi notifikasi hasil.",
     quickLinks: [
-      { href: '/login', label: 'Login' },
-      { href: '/approval', label: 'Inbox Approval' }
+      { href: "/login", label: "Login" },
+      { href: "/approval", label: "Inbox Approval" },
     ],
     steps: [
-      'Warga mengajukan reset PIN dari halaman Login.',
-      'WA Gateway mengirim instruksi ke nomor warga yang terdaftar.',
-      'Warga membalas YA melalui WhatsApp untuk mengonfirmasi reset.',
-      'Jika admin memproses reset dari Inbox aplikasi, nomor pemohon tetap menerima notifikasi WA hasil reset.',
-      'Setelah reset, warga login memakai PIN default lalu segera menggantinya.'
+      "Warga mengajukan reset PIN dari halaman Login.",
+      "WA Gateway mengirim instruksi ke nomor warga yang terdaftar.",
+      "Warga membalas YA melalui WhatsApp untuk mengonfirmasi reset.",
+      "Jika admin memproses reset dari Inbox aplikasi, nomor pemohon tetap menerima notifikasi WA hasil reset.",
+      "Setelah reset, warga login memakai PIN default lalu segera menggantinya.",
     ],
     notes: [
-      'PIN default mengikuti konfigurasi sistem dan tidak ditampilkan di panduan.',
-      'Jika pesan menampilkan “menunggu pesan”, periksa sinkronisasi session perangkat tertaut dan gateway.'
-    ]
+      "PIN default mengikuti konfigurasi sistem dan tidak ditampilkan di panduan.",
+      "Jika pesan menampilkan “menunggu pesan”, periksa sinkronisasi session perangkat tertaut dan gateway.",
+    ],
   },
   {
-    id: 'telegram',
-    title: 'Telegram Bot',
-    icon: '🤖',
-    summary: 'Aktivasi Telegram untuk notifikasi dan command cek kewajiban.',
+    id: "telegram",
+    title: "Telegram Bot",
+    icon: "🤖",
+    summary: "Aktivasi Telegram untuk notifikasi dan command cek kewajiban.",
     quickLinks: [
-      { href: '/management/telegram', label: 'Manajemen Telegram' },
-      { href: '/akun', label: 'Akun Saya' }
+      { href: "/management/telegram", label: "Manajemen Telegram" },
+      { href: "/akun", label: "Akun Saya" },
     ],
     steps: [
-      'Warga membuka akun lalu membuat link aktivasi Telegram.',
-      'Klik link aktivasi dan mulai chat dengan bot.',
-      'Gunakan /help untuk melihat command aktif.',
-      'Command aktif meliputi /cek_inet dan /cek_lingk.'
+      "Warga membuka akun lalu membuat link aktivasi Telegram.",
+      "Klik link aktivasi dan mulai chat dengan bot.",
+      "Gunakan /help untuk melihat command aktif.",
+      "Command aktif meliputi /cek_inet dan /cek_lingk.",
     ],
     notes: [
-      'Jika notifikasi gagal, cek koneksi backend ke api.telegram.org.',
-      'Jika ganti akun Telegram, putuskan koneksi lama dari akun.'
-    ]
+      "Jika notifikasi gagal, cek koneksi backend ke api.telegram.org.",
+      "Jika ganti akun Telegram, putuskan koneksi lama dari akun.",
+    ],
   },
   {
-    id: 'troubleshooting',
-    title: 'Troubleshooting',
-    icon: '🧰',
-    summary: 'Masalah umum dan langkah cek cepat.',
+    id: "troubleshooting",
+    title: "Troubleshooting",
+    icon: "🧰",
+    summary: "Masalah umum dan langkah cek cepat.",
     quickLinks: [
-      { href: '/management', label: 'Management' },
-      { href: '/approval', label: 'Inbox' }
+      { href: "/management", label: "Management" },
+      { href: "/approval", label: "Inbox" },
     ],
     steps: [
-      'Jika tombol input terkunci, cek role, jadwal shift, status approval, dan periode.',
-      'Jika data tidak muncul, refresh halaman dan pastikan periode sudah benar.',
-      'Jika notifikasi Telegram gagal, cek status bot dan log backend.',
-      'Jika saldo tidak berubah, cek apakah transaksi masih PENDING.'
+      "Jika tombol input terkunci, cek role, jadwal shift, status approval, dan periode.",
+      "Jika data tidak muncul, refresh halaman dan pastikan periode sudah benar.",
+      "Jika notifikasi Telegram gagal, cek status bot dan log backend.",
+      "Jika saldo tidak berubah, cek apakah transaksi masih PENDING.",
     ],
     notes: [
-      'Catat tanggal operasional saat melaporkan masalah.',
-      'Untuk bug data, sertakan nama modul, periode, dan screenshot bila ada.'
-    ]
-  }
+      "Catat tanggal operasional saat melaporkan masalah.",
+      "Untuk bug data, sertakan nama modul, periode, dan screenshot bila ada.",
+    ],
+  },
 ];
 
 const guideSectionOrder = [
-  'mulai-cepat',
-  'jimpitan',
-  'bendahara',
-  'sosial',
-  'lingkungan',
-  'internet',
-  'tabungan',
-  'koperasi',
-  'keamanan',
-  'presensi',
-  'whatsapp',
-  'reset-pin',
-  'tagihan-khusus',
-  'telegram',
-  'troubleshooting'
+  "mulai-cepat",
+  "jimpitan",
+  "bendahara",
+  "sosial",
+  "lingkungan",
+  "internet",
+  "tabungan",
+  "koperasi",
+  "keamanan",
+  "presensi",
+  "whatsapp",
+  "reset-pin",
+  "tagihan-khusus",
+  "telegram",
+  "troubleshooting",
 ];
 
 function sortGuideSections(sections: GuideSection[]) {
   return [...sections].sort((left, right) => {
     const leftIndex = guideSectionOrder.indexOf(left.id);
     const rightIndex = guideSectionOrder.indexOf(right.id);
-    return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
+    return (
+      (leftIndex === -1 ? 999 : leftIndex) -
+      (rightIndex === -1 ? 999 : rightIndex)
+    );
   });
 }
 
 export default function PanduanPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/login');
+    if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
 
   const filteredSections = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     if (!keyword) return sortGuideSections(guideSections);
-    return sortGuideSections(guideSections.filter((section) => {
-      const haystack = [
-        section.title,
-        section.summary,
-        ...section.steps,
-        ...section.notes,
-        ...section.quickLinks.map((link) => link.label)
-      ].join(' ').toLowerCase();
-      return haystack.includes(keyword);
-    }));
+    return sortGuideSections(
+      guideSections.filter((section) => {
+        const haystack = [
+          section.title,
+          section.summary,
+          ...section.steps,
+          ...section.notes,
+          ...section.quickLinks.map((link) => link.label),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(keyword);
+      }),
+    );
   }, [query]);
 
   if (loading || !user) return <main className="min-h-screen" />;
@@ -397,12 +419,18 @@ export default function PanduanPage() {
       <Navbar sticky={false} />
       <div className="mx-auto mt-6 w-full max-w-6xl space-y-5 px-4 md:px-6">
         <section className="rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Pusat Bantuan</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
+            Pusat Bantuan
+          </p>
           <div className="mt-2 grid gap-4 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text-primary)]">Panduan KasRT</h1>
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+                Panduan KasRT
+              </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
-                Satu tempat untuk memahami alur kerja tiap modul, tombol penting, approval, dan masalah umum. Tombol panduan di modul akan diarahkan ke bagian terkait di halaman ini.
+                Satu tempat untuk memahami alur kerja tiap modul, tombol
+                penting, approval, dan masalah umum. Tombol panduan di modul
+                akan diarahkan ke bagian terkait di halaman ini.
               </p>
             </div>
             <Input
@@ -436,7 +464,9 @@ export default function PanduanPage() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-4">
-                    <h2 className="text-sm font-bold text-[var(--text-primary)]">Langkah Kerja</h2>
+                    <h2 className="text-sm font-bold text-[var(--text-primary)]">
+                      Langkah Kerja
+                    </h2>
                     <ol className="mt-3 space-y-2 text-sm leading-6 text-[var(--text-primary)]">
                       {section.steps.map((step, index) => (
                         <li key={step} className="flex gap-2">
@@ -449,7 +479,9 @@ export default function PanduanPage() {
                     </ol>
                   </div>
                   <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-4 text-[var(--text-primary)]">
-                    <h2 className="text-sm font-bold text-[var(--text-primary)]">Catatan Penting</h2>
+                    <h2 className="text-sm font-bold text-[var(--text-primary)]">
+                      Catatan Penting
+                    </h2>
                     <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--text-primary)]">
                       {section.notes.map((note) => (
                         <li key={note} className="flex gap-2">
@@ -464,10 +496,13 @@ export default function PanduanPage() {
             </Card>
           ))}
           {filteredSections.length === 0 ? (
-            <Card title="Panduan tidak ditemukan" subtitle="Coba kata kunci lain, misalnya jimpitan, approval, telegram, atau iuran.">
+            <Card
+              title="Panduan tidak ditemukan"
+              subtitle="Coba kata kunci lain, misalnya jimpitan, approval, telegram, atau iuran."
+            >
               <button
                 type="button"
-                onClick={() => setQuery('')}
+                onClick={() => setQuery("")}
                 className="btn-action-blue rounded-xl px-4 py-2 text-sm font-semibold"
               >
                 Reset pencarian

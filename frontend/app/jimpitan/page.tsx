@@ -1,26 +1,35 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Navbar from '@/components/layout/Navbar';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import FeedbackToast from '@/components/ui/FeedbackToast';
-import FormJimpitan from './FormJimpitan';
-import OperationalStickySummary from '@/components/operational/OperationalStickySummary';
-import { apiFetch } from '@/lib/api';
-import { hasAnyRole } from '@/lib/auth';
-import { formatRupiah, formatRupiahInput, parseRupiahInput } from '@/lib/helpers';
-import { useAuth } from '@/lib/useAuth';
-import { JimpitanListItem, JimpitanScheduleData } from '@/types';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Navbar from "@/components/layout/Navbar";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import FeedbackToast from "@/components/ui/FeedbackToast";
+import FormJimpitan from "./FormJimpitan";
+import OperationalStickySummary from "@/components/operational/OperationalStickySummary";
+import { apiFetch } from "@/lib/api";
+import { hasAnyRole } from "@/lib/auth";
+import {
+  formatRupiah,
+  formatRupiahInput,
+  parseRupiahInput,
+} from "@/lib/helpers";
+import { useAuth } from "@/lib/useAuth";
+import { JimpitanListItem, JimpitanScheduleData } from "@/types";
 
-type FilterStatus = 'semua' | 'belum' | 'lunas' | 'kosong';
-type JimpitanMode = 'PER_WARGA' | 'SHIFT_TOTAL';
-type V2InputTab = 'GLOBAL' | 'BY_NAME';
-type V2InputStatus = { has_global: boolean; has_by_name: boolean; has_my_global?: boolean; input_mode: V2InputTab | null };
+type FilterStatus = "semua" | "belum" | "lunas" | "kosong";
+type JimpitanMode = "PER_WARGA" | "SHIFT_TOTAL";
+type V2InputTab = "GLOBAL" | "BY_NAME";
+type V2InputStatus = {
+  has_global: boolean;
+  has_by_name: boolean;
+  has_my_global?: boolean;
+  input_mode: V2InputTab | null;
+};
 
 function parseRecapDate(value: string) {
-  const raw = String(value || '').trim();
+  const raw = String(value || "").trim();
   const isoDate = raw.match(/\d{4}-\d{2}-\d{2}/)?.[0] || raw.slice(0, 10);
   const date = new Date(`${isoDate}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -32,21 +41,31 @@ export default function JimpitanPage() {
 
   const [items, setItems] = useState<JimpitanListItem[]>([]);
   const [selected, setSelected] = useState<JimpitanListItem | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [setorLoading, setSetorLoading] = useState(false);
-  const [filter, setFilter] = useState<FilterStatus>('semua');
+  const [filter, setFilter] = useState<FilterStatus>("semua");
   const [canOperateToday, setCanOperateToday] = useState(true);
-  const [jimpitanMode, setJimpitanMode] = useState<JimpitanMode>('PER_WARGA');
-  const [shiftTotalInput, setShiftTotalInput] = useState('');
-  const [shiftTotalNote, setShiftTotalNote] = useState('');
+  const [jimpitanMode, setJimpitanMode] = useState<JimpitanMode>("PER_WARGA");
+  const [shiftTotalInput, setShiftTotalInput] = useState("");
+  const [shiftTotalNote, setShiftTotalNote] = useState("");
   const [shiftTotalLoading, setShiftTotalLoading] = useState(false);
-  const [v2Tab, setV2Tab] = useState<V2InputTab>('GLOBAL');
-  const [v2InputStatus, setV2InputStatus] = useState<V2InputStatus>({ has_global: false, has_by_name: false, input_mode: null });
-  const [currentPetugasLabel, setCurrentPetugasLabel] = useState('');
+  const [v2Tab, setV2Tab] = useState<V2InputTab>("GLOBAL");
+  const [v2InputStatus, setV2InputStatus] = useState<V2InputStatus>({
+    has_global: false,
+    has_by_name: false,
+    input_mode: null,
+  });
+  const [currentPetugasLabel, setCurrentPetugasLabel] = useState("");
 
-  const [toasts, setToasts] = useState<Array<{ id: number; message: string; kind: 'success' | 'error' | 'warning' }>>([]);
+  const [toasts, setToasts] = useState<
+    Array<{
+      id: number;
+      message: string;
+      kind: "success" | "error" | "warning";
+    }>
+  >([]);
   const [editTarget, setEditTarget] = useState<JimpitanListItem | null>(null);
-  const [editNominal, setEditNominal] = useState('');
+  const [editNominal, setEditNominal] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [routeOrder, setRouteOrder] = useState<string[]>([]);
   const [reorderMode, setReorderMode] = useState(false);
@@ -55,18 +74,21 @@ export default function JimpitanPage() {
   const [savingRoute, setSavingRoute] = useState(false);
   const pressTimerRef = useRef<number | null>(null);
 
-  const isAdminJimpitan = hasAnyRole(user, ['Admin Jimpitan', 'root']);
+  const isAdminJimpitan = hasAnyRole(user, ["Admin Jimpitan", "root"]);
 
-  const pushToast = useCallback((message: string, kind: 'success' | 'error' | 'warning' = 'success') => {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
-    setToasts((prev) => [...prev, { id, message, kind }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, 3200);
-  }, []);
+  const pushToast = useCallback(
+    (message: string, kind: "success" | "error" | "warning" = "success") => {
+      const id = Date.now() + Math.floor(Math.random() * 1000);
+      setToasts((prev) => [...prev, { id, message, kind }]);
+      window.setTimeout(() => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== id));
+      }, 3200);
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/login');
+    if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -85,11 +107,11 @@ export default function JimpitanPage() {
     if (hour < 12) {
       date.setDate(date.getDate() - 1);
     }
-    return date.toLocaleDateString('id-ID', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString("id-ID", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   }, []);
 
@@ -100,70 +122,118 @@ export default function JimpitanPage() {
     if (hour < 12) {
       date.setDate(date.getDate() - 1);
     }
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   }, []);
 
   const loadList = useCallback(async () => {
     try {
-      setError('');
-      const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean; jimpitan_mode?: JimpitanMode; v2_input_status?: V2InputStatus }>('/jimpitan/list');
+      setError("");
+      const result = await apiFetch<{
+        success: boolean;
+        data: JimpitanListItem[];
+        can_operate_today?: boolean;
+        jimpitan_mode?: JimpitanMode;
+        v2_input_status?: V2InputStatus;
+      }>("/jimpitan/list");
       setItems(result.data || []);
       setCanOperateToday(Boolean(result.can_operate_today ?? true));
-      setJimpitanMode(result.jimpitan_mode || 'PER_WARGA');
-      setV2InputStatus(result.v2_input_status || { has_global: false, has_by_name: false, input_mode: null });
+      setJimpitanMode(result.jimpitan_mode || "PER_WARGA");
+      setV2InputStatus(
+        result.v2_input_status || {
+          has_global: false,
+          has_by_name: false,
+          input_mode: null,
+        },
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
+      setError(e instanceof Error ? e.message : "Gagal memuat data jimpitan");
     }
   }, []);
 
-  const normalizeRouteOrder = useCallback((rawOrder: string[], rows: JimpitanListItem[]) => {
-    const allIds = rows.map((row) => String(row.id));
-    const uniqueValid = rawOrder.filter((id, idx) => allIds.includes(id) && rawOrder.indexOf(id) === idx);
-    const missing = allIds.filter((id) => !uniqueValid.includes(id));
-    return [...uniqueValid, ...missing];
-  }, []);
+  const normalizeRouteOrder = useCallback(
+    (rawOrder: string[], rows: JimpitanListItem[]) => {
+      const allIds = rows.map((row) => String(row.id));
+      const uniqueValid = rawOrder.filter(
+        (id, idx) => allIds.includes(id) && rawOrder.indexOf(id) === idx,
+      );
+      const missing = allIds.filter((id) => !uniqueValid.includes(id));
+      return [...uniqueValid, ...missing];
+    },
+    [],
+  );
 
-  const loadRouteOrder = useCallback(async (rows: JimpitanListItem[]) => {
-    try {
-      const result = await apiFetch<{ success: boolean; data: { ordered_warga_ids: string[] } }>('/jimpitan/route-order');
-      const ordered = normalizeRouteOrder((result.data?.ordered_warga_ids || []).map((id) => String(id)), rows);
-      setRouteOrder(ordered);
-    } catch {
-      const fallback = rows.map((row) => String(row.id));
-      setRouteOrder(fallback);
-    }
-  }, [normalizeRouteOrder]);
+  const loadRouteOrder = useCallback(
+    async (rows: JimpitanListItem[]) => {
+      try {
+        const result = await apiFetch<{
+          success: boolean;
+          data: { ordered_warga_ids: string[] };
+        }>("/jimpitan/route-order");
+        const ordered = normalizeRouteOrder(
+          (result.data?.ordered_warga_ids || []).map((id) => String(id)),
+          rows,
+        );
+        setRouteOrder(ordered);
+      } catch {
+        const fallback = rows.map((row) => String(row.id));
+        setRouteOrder(fallback);
+      }
+    },
+    [normalizeRouteOrder],
+  );
 
-  const saveRouteOrder = useCallback(async (orderedIds: string[]) => {
-    try {
-      setSavingRoute(true);
-      await apiFetch('/jimpitan/route-order', {
-        method: 'POST',
-        body: JSON.stringify({ ordered_warga_ids: orderedIds })
-      });
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Gagal menyimpan urutan rute', 'error');
-    } finally {
-      setSavingRoute(false);
-    }
-  }, [pushToast]);
+  const saveRouteOrder = useCallback(
+    async (orderedIds: string[]) => {
+      try {
+        setSavingRoute(true);
+        await apiFetch("/jimpitan/route-order", {
+          method: "POST",
+          body: JSON.stringify({ ordered_warga_ids: orderedIds }),
+        });
+      } catch (error) {
+        pushToast(
+          error instanceof Error
+            ? error.message
+            : "Gagal menyimpan urutan rute",
+          "error",
+        );
+      } finally {
+        setSavingRoute(false);
+      }
+    },
+    [pushToast],
+  );
 
   useEffect(() => {
     if (!user) return;
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          const result = await apiFetch<{ success: boolean; data: JimpitanListItem[]; can_operate_today?: boolean; jimpitan_mode?: JimpitanMode; v2_input_status?: V2InputStatus }>('/jimpitan/list');
+          const result = await apiFetch<{
+            success: boolean;
+            data: JimpitanListItem[];
+            can_operate_today?: boolean;
+            jimpitan_mode?: JimpitanMode;
+            v2_input_status?: V2InputStatus;
+          }>("/jimpitan/list");
           const rows = result.data || [];
           setItems(rows);
           setCanOperateToday(Boolean(result.can_operate_today ?? true));
-          setJimpitanMode(result.jimpitan_mode || 'PER_WARGA');
-          setV2InputStatus(result.v2_input_status || { has_global: false, has_by_name: false, input_mode: null });
-          if ((result.jimpitan_mode || 'PER_WARGA') === 'PER_WARGA') {
+          setJimpitanMode(result.jimpitan_mode || "PER_WARGA");
+          setV2InputStatus(
+            result.v2_input_status || {
+              has_global: false,
+              has_by_name: false,
+              input_mode: null,
+            },
+          );
+          if ((result.jimpitan_mode || "PER_WARGA") === "PER_WARGA") {
             await loadRouteOrder(rows);
           }
         } catch (e) {
-          setError(e instanceof Error ? e.message : 'Gagal memuat data jimpitan');
+          setError(
+            e instanceof Error ? e.message : "Gagal memuat data jimpitan",
+          );
         }
       })();
     }, 0);
@@ -174,18 +244,34 @@ export default function JimpitanPage() {
     if (!user) return;
     void (async () => {
       try {
-        const result = await apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule');
-        const me = (result.data?.petugas || []).find((petugas) => String(petugas.id) === String(user.id));
-        const fallback = String(user.nama || '').trim().split(/\s+/)[0] || String(user.nama || 'Petugas');
-        setCurrentPetugasLabel(String(me?.jimpitan_label || me?.jimpitan_alias || fallback).trim());
+        const result = await apiFetch<{
+          success: boolean;
+          data: JimpitanScheduleData;
+        }>("/jimpitan/schedule");
+        const me = (result.data?.petugas || []).find(
+          (petugas) => String(petugas.id) === String(user.id),
+        );
+        const fallback =
+          String(user.nama || "")
+            .trim()
+            .split(/\s+/)[0] || String(user.nama || "Petugas");
+        setCurrentPetugasLabel(
+          String(me?.jimpitan_label || me?.jimpitan_alias || fallback).trim(),
+        );
       } catch {
-        setCurrentPetugasLabel(String(user.nama || '').trim().split(/\s+/)[0] || String(user.nama || 'Petugas'));
+        setCurrentPetugasLabel(
+          String(user.nama || "")
+            .trim()
+            .split(/\s+/)[0] || String(user.nama || "Petugas"),
+        );
       }
     })();
   }, [user]);
 
   const recapData = useMemo(() => {
-    const normalizedUserName = String(user?.nama || '').trim().toLowerCase();
+    const normalizedUserName = String(user?.nama || "")
+      .trim()
+      .toLowerCase();
     const stats = { lunas: 0, kosong: 0, belum: 0 };
     const petugasBreakdown: Record<string, number> = {};
     let totalSemuaTunai = 0;
@@ -197,11 +283,12 @@ export default function JimpitanPage() {
       else if (row.isLunas) stats.kosong += 1;
       else stats.belum += 1;
 
-      const marker = String(row.namaPetugas || '').toLowerCase();
-      const isDeposit = marker === 'deposit' || marker === 'sistem (saldo)';
-      const namaPetugas = String(row.namaPetugas || '').trim();
+      const marker = String(row.namaPetugas || "").toLowerCase();
+      const isDeposit = marker === "deposit" || marker === "sistem (saldo)";
+      const namaPetugas = String(row.namaPetugas || "").trim();
       const nominal = Number(row.nominalTerbayar || 0);
-      const isTunai = row.isLunas && nominal > 0 && !isDeposit && namaPetugas !== '';
+      const isTunai =
+        row.isLunas && nominal > 0 && !isDeposit && namaPetugas !== "";
 
       if (namaPetugas && !isDeposit && marker === normalizedUserName) {
         sayaPernahInputHariIni = true;
@@ -210,7 +297,8 @@ export default function JimpitanPage() {
       if (!isTunai) return;
 
       totalSemuaTunai += nominal;
-      petugasBreakdown[namaPetugas] = (petugasBreakdown[namaPetugas] || 0) + nominal;
+      petugasBreakdown[namaPetugas] =
+        (petugasBreakdown[namaPetugas] || 0) + nominal;
       if (marker === normalizedUserName) {
         totalTunaiSaya += nominal;
       }
@@ -221,22 +309,26 @@ export default function JimpitanPage() {
       totalSemuaTunai,
       totalTunaiSaya,
       sayaPernahInputHariIni,
-      petugasBreakdown
+      petugasBreakdown,
     };
   }, [items, user?.nama]);
 
   const canKirimRekap = recapData.sayaPernahInputHariIni;
   const canSetor = recapData.totalTunaiSaya > 0;
-  const canShareShiftWa = isAdminJimpitan || (jimpitanMode === 'SHIFT_TOTAL' && canOperateToday);
-  const canSetorShiftTotal = canOperateToday && !v2InputStatus.has_by_name && !v2InputStatus.has_my_global;
+  const canShareShiftWa =
+    isAdminJimpitan || (jimpitanMode === "SHIFT_TOTAL" && canOperateToday);
+  const canSetorShiftTotal =
+    canOperateToday &&
+    !v2InputStatus.has_by_name &&
+    !v2InputStatus.has_my_global;
 
   const filteredItems = useMemo(() => {
     switch (filter) {
-      case 'belum':
+      case "belum":
         return items.filter((row) => !row.isLunas);
-      case 'lunas':
+      case "lunas":
         return items.filter((row) => row.isLunas && row.nominalTerbayar > 0);
-      case 'kosong':
+      case "kosong":
         return items.filter((row) => row.isLunas && row.nominalTerbayar === 0);
       default:
         return items;
@@ -246,50 +338,82 @@ export default function JimpitanPage() {
   const orderedItems = useMemo(() => {
     const orderMap = new Map(routeOrder.map((id, idx) => [String(id), idx]));
     return [...filteredItems].sort((a, b) => {
-      const ai = orderMap.has(String(a.id)) ? (orderMap.get(String(a.id)) as number) : Number.MAX_SAFE_INTEGER;
-      const bi = orderMap.has(String(b.id)) ? (orderMap.get(String(b.id)) as number) : Number.MAX_SAFE_INTEGER;
+      const ai = orderMap.has(String(a.id))
+        ? (orderMap.get(String(a.id)) as number)
+        : Number.MAX_SAFE_INTEGER;
+      const bi = orderMap.has(String(b.id))
+        ? (orderMap.get(String(b.id)) as number)
+        : Number.MAX_SAFE_INTEGER;
       if (ai !== bi) return ai - bi;
-      return String(a.nama).localeCompare(String(b.nama), 'id');
+      return String(a.nama).localeCompare(String(b.nama), "id");
     });
   }, [filteredItems, routeOrder]);
 
   async function submitInput(nominal: number) {
     if (!selected) return;
     try {
-      await apiFetch(jimpitanMode === 'SHIFT_TOTAL' ? '/jimpitan/input-v2-detail' : '/jimpitan/input', {
-        method: 'POST',
-        body: JSON.stringify(
-          selected.target_type === 'DONATUR' && selected.external_participant_id
-            ? { target_type: 'DONATUR', external_participant_id: selected.external_participant_id || String(selected.id).replace(/^DONATUR:/, ''), nominal }
-            : { target_type: 'WARGA', warga_id: selected.id, nominal }
-        )
-      });
+      await apiFetch(
+        jimpitanMode === "SHIFT_TOTAL"
+          ? "/jimpitan/input-v2-detail"
+          : "/jimpitan/input",
+        {
+          method: "POST",
+          body: JSON.stringify(
+            selected.target_type === "DONATUR" &&
+              selected.external_participant_id
+              ? {
+                  target_type: "DONATUR",
+                  external_participant_id:
+                    selected.external_participant_id ||
+                    String(selected.id).replace(/^DONATUR:/, ""),
+                  nominal,
+                }
+              : { target_type: "WARGA", warga_id: selected.id, nominal },
+          ),
+        },
+      );
       await loadList();
       setSelected(null);
-      pushToast(jimpitanMode === 'SHIFT_TOTAL' ? 'Detail by name berhasil dicatat.' : 'Input jimpitan berhasil disimpan.', 'success');
+      pushToast(
+        jimpitanMode === "SHIFT_TOTAL"
+          ? "Detail by name berhasil dicatat."
+          : "Input jimpitan berhasil disimpan.",
+        "success",
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Gagal input jimpitan';
-      pushToast(message, 'error');
+      const message =
+        error instanceof Error ? error.message : "Gagal input jimpitan";
+      pushToast(message, "error");
     }
   }
 
   async function handleSetor() {
     if (!canSetor) {
-      pushToast('Belum ada uang tunai yang bisa disetor.', 'warning');
+      pushToast("Belum ada uang tunai yang bisa disetor.", "warning");
       return;
     }
 
-    if (!window.confirm(`Setorkan dana ${formatRupiah(recapData.totalTunaiSaya)} ke Admin Jimpitan?`)) {
+    if (
+      !window.confirm(
+        `Setorkan dana ${formatRupiah(recapData.totalTunaiSaya)} ke Admin Jimpitan?`,
+      )
+    ) {
       return;
     }
 
     try {
       setSetorLoading(true);
-      await apiFetch('/jimpitan/setor', { method: 'POST', body: JSON.stringify({}) });
+      await apiFetch("/jimpitan/setor", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
       await loadList();
-      pushToast('Setor jimpitan berhasil diajukan. Menunggu approval.', 'success');
+      pushToast(
+        "Setor jimpitan berhasil diajukan. Menunggu approval.",
+        "success",
+      );
     } catch (e) {
-      pushToast(e instanceof Error ? e.message : 'Setor gagal', 'error');
+      pushToast(e instanceof Error ? e.message : "Setor gagal", "error");
     } finally {
       setSetorLoading(false);
     }
@@ -298,51 +422,75 @@ export default function JimpitanPage() {
   async function handleSetorShiftTotal() {
     const amount = parseRupiahInput(shiftTotalInput);
     if (!Number.isFinite(amount) || amount <= 0) {
-      pushToast('Nominal setoran shift harus lebih dari 0.', 'warning');
+      pushToast("Nominal setoran shift harus lebih dari 0.", "warning");
       return;
     }
     if (v2InputStatus.has_by_name) {
-      pushToast('Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.', 'warning');
+      pushToast(
+        "Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.",
+        "warning",
+      );
       return;
     }
     if (v2InputStatus.has_my_global) {
-      pushToast('Anda sudah mengajukan setoran shift untuk tanggal ini.', 'warning');
+      pushToast(
+        "Anda sudah mengajukan setoran shift untuk tanggal ini.",
+        "warning",
+      );
       return;
     }
-    if (!window.confirm(`Ajukan setoran shift ${formatRupiah(amount)} ke Admin Jimpitan?`)) return;
+    if (
+      !window.confirm(
+        `Ajukan setoran shift ${formatRupiah(amount)} ke Admin Jimpitan?`,
+      )
+    )
+      return;
 
     try {
       setShiftTotalLoading(true);
-      await apiFetch('/jimpitan/setor-shift-total', {
-        method: 'POST',
-        body: JSON.stringify({ amount, note: shiftTotalNote.trim() })
+      await apiFetch("/jimpitan/setor-shift-total", {
+        method: "POST",
+        body: JSON.stringify({ amount, note: shiftTotalNote.trim() }),
       });
-      setShiftTotalInput('');
-      setShiftTotalNote('');
+      setShiftTotalInput("");
+      setShiftTotalNote("");
       await loadList();
-      pushToast('Setoran shift berhasil diajukan. Menunggu approval.', 'success');
+      pushToast(
+        "Setoran shift berhasil diajukan. Menunggu approval.",
+        "success",
+      );
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Gagal mengajukan setoran shift', 'error');
+      pushToast(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengajukan setoran shift",
+        "error",
+      );
     } finally {
       setShiftTotalLoading(false);
     }
   }
 
   function getSetorShiftBlockedMessage() {
-    if (!canOperateToday) return 'Bukan jadwal shift Anda hari ini.';
-    if (v2InputStatus.has_by_name) return 'Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.';
-    if (v2InputStatus.has_my_global) return 'Anda sudah mengajukan setoran shift untuk tanggal ini.';
-    return '';
+    if (!canOperateToday) return "Bukan jadwal shift Anda hari ini.";
+    if (v2InputStatus.has_by_name)
+      return "Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.";
+    if (v2InputStatus.has_my_global)
+      return "Anda sudah mengajukan setoran shift untuk tanggal ini.";
+    return "";
   }
 
   function warnSetorShiftBlocked() {
     const message = getSetorShiftBlockedMessage();
-    if (message) pushToast(message, 'warning');
+    if (message) pushToast(message, "warning");
   }
 
   async function handleKirimRekapHarianGlobalWA() {
     if (!canShareShiftWa) {
-      pushToast('Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.', 'warning');
+      pushToast(
+        "Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.",
+        "warning",
+      );
       return;
     }
     const month = operationalDateIso.slice(0, 7);
@@ -350,77 +498,127 @@ export default function JimpitanPage() {
       const res = await apiFetch<{
         success: boolean;
         data: {
-          by_petugas: Array<{ tanggal: string; petugas_nama: string; total_nominal: number; total_pending?: number; has_pending?: boolean }>;
+          by_petugas: Array<{
+            tanggal: string;
+            petugas_nama: string;
+            total_nominal: number;
+            total_pending?: number;
+            has_pending?: boolean;
+          }>;
         };
       }>(`/jimpitan/daily-recap?month=${encodeURIComponent(month)}`);
-      const fallbackFirstName = String(user?.nama || '').trim().split(/\s+/)[0] || '';
+      const fallbackFirstName =
+        String(user?.nama || "")
+          .trim()
+          .split(/\s+/)[0] || "";
       const allowedNames = new Set(
         [currentPetugasLabel, user?.nama, fallbackFirstName]
-          .map((name) => String(name || '').trim().toLowerCase())
-          .filter(Boolean)
+          .map((name) =>
+            String(name || "")
+              .trim()
+              .toLowerCase(),
+          )
+          .filter(Boolean),
       );
-      const rows = (res.data?.by_petugas || []).filter((item) => allowedNames.has(String(item.petugas_nama || '').trim().toLowerCase()));
+      const rows = (res.data?.by_petugas || []).filter((item) =>
+        allowedNames.has(
+          String(item.petugas_nama || "")
+            .trim()
+            .toLowerCase(),
+        ),
+      );
       if (rows.length === 0) {
-        pushToast('Belum ada rekap shift Anda pada bulan ini.', 'warning');
+        pushToast("Belum ada rekap shift Anda pada bulan ini.", "warning");
         return;
       }
-      const [yearStr, monthStr] = month.split('-');
-      const monthLabel = new Date(Number(yearStr), Number(monthStr) - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-      const petugasLabel = currentPetugasLabel || fallbackFirstName || user?.nama || 'Petugas';
+      const [yearStr, monthStr] = month.split("-");
+      const monthLabel = new Date(
+        Number(yearStr),
+        Number(monthStr) - 1,
+        1,
+      ).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+      const petugasLabel =
+        currentPetugasLabel || fallbackFirstName || user?.nama || "Petugas";
       let grandTotal = 0;
       const rawShiftLines = rows.map((row) => {
         const date = parseRecapDate(row.tanggal);
-        const label = date ? date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric' }) : String(row.tanggal || '-');
+        const label = date
+          ? date.toLocaleDateString("id-ID", {
+              weekday: "long",
+              day: "numeric",
+            })
+          : String(row.tanggal || "-");
         const nominal = Number(row.total_nominal || 0);
         grandTotal += nominal;
         return {
           left: `• ${label}`,
-          right: nominal.toLocaleString('id-ID'),
-          hasPending: Boolean(row.has_pending || Number(row.total_pending || 0) > 0)
+          right: nominal.toLocaleString("id-ID"),
+          hasPending: Boolean(
+            row.has_pending || Number(row.total_pending || 0) > 0,
+          ),
         };
       });
-      const maxShiftLeft = rawShiftLines.reduce((max, line) => Math.max(max, line.left.length), 0);
-      const maxShiftRight = rawShiftLines.reduce((max, line) => Math.max(max, line.right.length), 0);
+      const maxShiftLeft = rawShiftLines.reduce(
+        (max, line) => Math.max(max, line.left.length),
+        0,
+      );
+      const maxShiftRight = rawShiftLines.reduce(
+        (max, line) => Math.max(max, line.right.length),
+        0,
+      );
       const lines = rawShiftLines.map((line) => {
-        const codeLine = `${line.left.padEnd(maxShiftLeft, ' ')} : Rp ${line.right.padStart(maxShiftRight, ' ')}`;
-        return `\`${codeLine}\`${line.hasPending ? ' *' : ''}`;
+        const codeLine = `${line.left.padEnd(maxShiftLeft, " ")} : Rp ${line.right.padStart(maxShiftRight, " ")}`;
+        return `\`${codeLine}\`${line.hasPending ? " *" : ""}`;
       });
       let pesan = `📝 *REKAP SHIFT JIMPITAN ${monthLabel}*\n`;
-      pesan += '━━━━━━━━━━━━━━━\n';
-      pesan += `${lines.join('\n')}\n`;
-      pesan += '━━━━━━━━━━━━━━━\n';
+      pesan += "━━━━━━━━━━━━━━━\n";
+      pesan += `${lines.join("\n")}\n`;
+      pesan += "━━━━━━━━━━━━━━━\n";
       pesan += `💰 *TOTAL: ${formatRupiah(grandTotal)}*\n`;
-      pesan += '━━━━━━━━━━━━━━━\n';
+      pesan += "━━━━━━━━━━━━━━━\n";
       pesan += `_Dilaporkan oleh : ${petugasLabel}_`;
 
       if (navigator.share) {
-        navigator.share({ title: `Rekap Shift Jimpitan ${monthLabel}`, text: pesan }).catch(() => {});
+        navigator
+          .share({ title: `Rekap Shift Jimpitan ${monthLabel}`, text: pesan })
+          .catch(() => {});
         return;
       }
-      window.open(`https://wa.me/?text=${encodeURIComponent(pesan)}`, '_blank');
+      window.open(`https://wa.me/?text=${encodeURIComponent(pesan)}`, "_blank");
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Gagal menyiapkan rekap shift', 'error');
+      pushToast(
+        error instanceof Error ? error.message : "Gagal menyiapkan rekap shift",
+        "error",
+      );
     }
   }
 
   function handleKirimRekapWA() {
-    if (jimpitanMode === 'PER_WARGA' && !canKirimRekap) {
-      pushToast('Hanya petugas yang input pada hari operasional ini yang bisa kirim rekap WA.', 'warning');
+    if (jimpitanMode === "PER_WARGA" && !canKirimRekap) {
+      pushToast(
+        "Hanya petugas yang input pada hari operasional ini yang bisa kirim rekap WA.",
+        "warning",
+      );
       return;
     }
-    if (jimpitanMode === 'SHIFT_TOTAL' && !canShareShiftWa) {
-      pushToast('Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.', 'warning');
+    if (jimpitanMode === "SHIFT_TOTAL" && !canShareShiftWa) {
+      pushToast(
+        "Fitur ini hanya untuk Admin Jimpitan atau petugas shift hari ini.",
+        "warning",
+      );
       return;
     }
 
     if (!items.length) {
-      pushToast('Data warga tidak ditemukan.', 'warning');
+      pushToast("Data warga tidak ditemukan.", "warning");
       return;
     }
 
     const d = new Date();
     if (d.getHours() < 18) d.setDate(d.getDate() - 1);
-    const tglHeader = new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(d);
+    const tglHeader = new Intl.DateTimeFormat("id-ID", {
+      dateStyle: "full",
+    }).format(d);
 
     let totalTunai = 0;
     let wargaTunai = 0;
@@ -428,54 +626,54 @@ export default function JimpitanPage() {
     let wargaKosong = 0;
     let wargaDeposit = 0;
 
-    let pesan = '📝 *REKAP JIMPITAN WARGA*\n';
+    let pesan = "📝 *REKAP JIMPITAN WARGA*\n";
     pesan += `📅 *${tglHeader}*\n`;
-    pesan += '━━━━━━━━━━━━━━━\n';
+    pesan += "━━━━━━━━━━━━━━━\n";
 
     items.forEach((w, index) => {
-      const marker = String(w.namaPetugas || '').toLowerCase();
-      const isDeposit = marker === 'deposit' || marker === 'sistem (saldo)';
+      const marker = String(w.namaPetugas || "").toLowerCase();
+      const isDeposit = marker === "deposit" || marker === "sistem (saldo)";
 
       pesan += `${index + 1}. *${w.nama.toUpperCase()}*\n`;
       if (w.isLunas) {
         if (isDeposit) {
-          pesan += '      └─ 🏦 _Lunas (Deposit)_\n';
+          pesan += "      └─ 🏦 _Lunas (Deposit)_\n";
           wargaDeposit += 1;
         } else if (Number(w.nominalTerbayar || 0) > 0) {
           pesan += `      └─ ✅ ${formatRupiah(w.nominalTerbayar)}\n`;
           totalTunai += Number(w.nominalTerbayar || 0);
           wargaTunai += 1;
         } else {
-          pesan += '      └─ ⚪ _Kosong_\n';
+          pesan += "      └─ ⚪ _Kosong_\n";
           wargaKosong += 1;
         }
       } else {
-        pesan += '      └─ 🔴 _Belum_\n';
+        pesan += "      └─ 🔴 _Belum_\n";
         wargaBelum += 1;
       }
     });
 
-    pesan += '\n━━━━━━━━━━━━━━━\n';
+    pesan += "\n━━━━━━━━━━━━━━━\n";
     pesan += `💰 *TOTAL TUNAI: ${formatRupiah(totalTunai)}*\n`;
-    pesan += '👥 *DETAIL PETUGAS:*\n';
+    pesan += "👥 *DETAIL PETUGAS:*\n";
     Object.entries(recapData.petugasBreakdown)
-      .sort((a, b) => a[0].localeCompare(b[0], 'id'))
+      .sort((a, b) => a[0].localeCompare(b[0], "id"))
       .forEach(([namaPetugas, subtotal]) => {
         pesan += `   • ${namaPetugas}: ${formatRupiah(subtotal)}\n`;
       });
-    pesan += '📊 *STATISTIK:*\n';
+    pesan += "📊 *STATISTIK:*\n";
     pesan += `   ✅ Lunas (Tunai): ${wargaTunai}\n`;
     pesan += `   🏦 Lunas (Deposit): ${wargaDeposit}\n`;
     pesan += `   ⚪ Kosong: ${wargaKosong}\n`;
     pesan += `   🔴 Belum: ${wargaBelum}\n`;
-    pesan += '━━━━━━━━━━━━━━━\n';
-    pesan += `_Dilaporkan oleh: ${user?.nama || 'Petugas'}_\n`;
+    pesan += "━━━━━━━━━━━━━━━\n";
+    pesan += `_Dilaporkan oleh: ${user?.nama || "Petugas"}_\n`;
 
     if (navigator.share) {
       navigator
         .share({
-          title: 'Rekap Jimpitan',
-          text: pesan
+          title: "Rekap Jimpitan",
+          text: pesan,
         })
         .catch(() => {
           /* user cancelled share */
@@ -484,33 +682,42 @@ export default function JimpitanPage() {
     }
 
     const urlWA = `https://wa.me/?text=${encodeURIComponent(pesan)}`;
-    window.open(urlWA, '_blank');
-    pushToast('Browser tidak mendukung share. Dibuka di WhatsApp untuk memilih tujuan.', 'success');
+    window.open(urlWA, "_blank");
+    pushToast(
+      "Browser tidak mendukung share. Dibuka di WhatsApp untuk memilih tujuan.",
+      "success",
+    );
   }
 
   async function handleSaveEditNominal() {
     if (!editTarget) return;
     const nominal = parseRupiahInput(editNominal);
     if (!Number.isFinite(nominal) || nominal < 0) {
-      pushToast('Nominal edit tidak valid.', 'warning');
+      pushToast("Nominal edit tidak valid.", "warning");
       return;
     }
 
     try {
       setEditLoading(true);
-      await apiFetch('/jimpitan/edit-nominal', {
-        method: 'POST',
+      await apiFetch("/jimpitan/edit-nominal", {
+        method: "POST",
         body: JSON.stringify({
           warga_id: editTarget.id,
-          nominal
-        })
+          nominal,
+        }),
       });
       await loadList();
-      pushToast(`Nominal jimpitan ${editTarget.nama} berhasil diperbarui.`, 'success');
+      pushToast(
+        `Nominal jimpitan ${editTarget.nama} berhasil diperbarui.`,
+        "success",
+      );
       setEditTarget(null);
-      setEditNominal('');
+      setEditNominal("");
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Gagal edit nominal', 'error');
+      pushToast(
+        error instanceof Error ? error.message : "Gagal edit nominal",
+        "error",
+      );
     } finally {
       setEditLoading(false);
     }
@@ -525,9 +732,9 @@ export default function JimpitanPage() {
   }, [items, normalizeRouteOrder]);
 
   useEffect(() => {
-    if (jimpitanMode !== 'SHIFT_TOTAL') return;
-    if (v2InputStatus.has_by_name) setV2Tab('BY_NAME');
-    else if (v2InputStatus.has_global) setV2Tab('GLOBAL');
+    if (jimpitanMode !== "SHIFT_TOTAL") return;
+    if (v2InputStatus.has_by_name) setV2Tab("BY_NAME");
+    else if (v2InputStatus.has_global) setV2Tab("GLOBAL");
   }, [jimpitanMode, v2InputStatus.has_by_name, v2InputStatus.has_global]);
 
   function clearPressTimer() {
@@ -542,7 +749,10 @@ export default function JimpitanPage() {
     pressTimerRef.current = window.setTimeout(() => {
       setReorderMode(true);
       setActiveMoveId(rowId);
-      pushToast('Mode atur rute aktif. Ketuk kartu lain untuk memindahkan urutan.', 'success');
+      pushToast(
+        "Mode atur rute aktif. Ketuk kartu lain untuk memindahkan urutan.",
+        "success",
+      );
     }, 3000);
   }
 
@@ -586,23 +796,31 @@ export default function JimpitanPage() {
       return;
     }
     if (row.isLunas) return;
-    if (jimpitanMode === 'SHIFT_TOTAL' && v2InputStatus.has_global) {
-      pushToast('Tanggal ini sudah memakai rekap global. Input by name dikunci agar data tidak dobel.', 'warning');
+    if (jimpitanMode === "SHIFT_TOTAL" && v2InputStatus.has_global) {
+      pushToast(
+        "Tanggal ini sudah memakai rekap global. Input by name dikunci agar data tidak dobel.",
+        "warning",
+      );
       return;
     }
-    const roles = (user?.roles || []).map((role) => String(role).trim().toLowerCase());
-    const isRoot = roles.includes('root');
-    
+    const roles = (user?.roles || []).map((role) =>
+      String(role).trim().toLowerCase(),
+    );
+    const isRoot = roles.includes("root");
+
     // Input only allowed between 21:00 - 06:00
     const hour = new Date().getHours();
     const isOperationalHour = hour >= 21 || hour < 6;
 
     if (!isRoot && !isOperationalHour) {
-      pushToast('JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00', 'warning');
+      pushToast(
+        "JAM OPERASIONAL TUTUP: input hanya jam 21.00 - 06.00",
+        "warning",
+      );
       return;
     }
     if (!isRoot && !canOperateToday) {
-      pushToast('Bukan jadwal Anda hari ini.', 'warning');
+      pushToast("Bukan jadwal Anda hari ini.", "warning");
       return;
     }
 
@@ -610,7 +828,9 @@ export default function JimpitanPage() {
   }
 
   if (loading || !user) return <main className="min-h-screen" />;
-  const showByNameInput = jimpitanMode === 'PER_WARGA' || (jimpitanMode === 'SHIFT_TOTAL' && v2Tab === 'BY_NAME');
+  const showByNameInput =
+    jimpitanMode === "PER_WARGA" ||
+    (jimpitanMode === "SHIFT_TOTAL" && v2Tab === "BY_NAME");
 
   return (
     <main className="min-h-screen pb-20 md:pb-10">
@@ -620,11 +840,11 @@ export default function JimpitanPage() {
           <div
             key={toast.id}
             className={`pointer-events-auto rounded-2xl border px-4 py-3 text-sm font-semibold shadow-lg backdrop-blur ${
-              toast.kind === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : toast.kind === 'warning'
-                  ? 'border-amber-200 bg-amber-50 text-amber-700'
-                  : 'border-red-200 bg-red-50 text-red-800'
+              toast.kind === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : toast.kind === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  : "border-red-200 bg-red-50 text-red-800"
             }`}
           >
             {toast.message}
@@ -637,42 +857,72 @@ export default function JimpitanPage() {
       <div className="page-container mt-4">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
           <p className="text-xs text-[var(--text-muted)]">Operasional</p>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">{operationalDate}</p>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">
+            {operationalDate}
+          </p>
         </div>
       </div>
 
       <div className="page-container mt-3">
         <OperationalStickySummary
-          items={jimpitanMode === 'SHIFT_TOTAL'
-            ? [
-                { label: 'Mode', value: 'Setor Shift', tone: 'sky' },
-                { label: 'Status', value: canOperateToday ? 'Shift Anda' : 'Bukan Shift', tone: canOperateToday ? 'emerald' : 'rose' },
-                { label: 'Kas', value: 'Tetap Jimpitan', tone: 'amber' }
-              ]
-            : [
-                { label: 'Masuk', value: formatRupiah(recapData.totalSemuaTunai), tone: 'sky' },
-                { label: 'Setor Saya', value: formatRupiah(recapData.totalTunaiSaya), tone: 'emerald' },
-                { label: 'Belum', value: `${recapData.belum} warga`, tone: 'rose' }
-              ]}
+          items={
+            jimpitanMode === "SHIFT_TOTAL"
+              ? [
+                  { label: "Mode", value: "Setor Shift", tone: "sky" },
+                  {
+                    label: "Status",
+                    value: canOperateToday ? "Shift Anda" : "Bukan Shift",
+                    tone: canOperateToday ? "emerald" : "rose",
+                  },
+                  { label: "Kas", value: "Tetap Jimpitan", tone: "amber" },
+                ]
+              : [
+                  {
+                    label: "Masuk",
+                    value: formatRupiah(recapData.totalSemuaTunai),
+                    tone: "sky",
+                  },
+                  {
+                    label: "Setor Saya",
+                    value: formatRupiah(recapData.totalTunaiSaya),
+                    tone: "emerald",
+                  },
+                  {
+                    label: "Belum",
+                    value: `${recapData.belum} warga`,
+                    tone: "rose",
+                  },
+                ]
+          }
         />
       </div>
 
-      {jimpitanMode === 'SHIFT_TOTAL' ? (
+      {jimpitanMode === "SHIFT_TOTAL" ? (
         <div className="page-container mt-4">
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Jimpitan V2</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+                Jimpitan V2
+              </p>
               {!canOperateToday ? (
-                <p className="text-right text-xs font-semibold text-rose-600">Bukan jadwal shift Anda hari ini.</p>
+                <p className="text-right text-xs font-semibold text-rose-600">
+                  Bukan jadwal shift Anda hari ini.
+                </p>
               ) : null}
             </div>
-            <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Input Jimpitan Hybrid</h2>
+            <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">
+              Input Jimpitan Hybrid
+            </h2>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Pilih global untuk total harian, atau by name untuk histori warga/donatur. Satu tanggal hanya boleh memakai salah satu mode.
+              Pilih global untuk total harian, atau by name untuk histori
+              warga/donatur. Satu tanggal hanya boleh memakai salah satu mode.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-1">
-              {(['GLOBAL', 'BY_NAME'] as V2InputTab[]).map((tab) => {
-                const locked = tab === 'GLOBAL' ? v2InputStatus.has_by_name : v2InputStatus.has_global;
+              {(["GLOBAL", "BY_NAME"] as V2InputTab[]).map((tab) => {
+                const locked =
+                  tab === "GLOBAL"
+                    ? v2InputStatus.has_by_name
+                    : v2InputStatus.has_global;
                 return (
                   <button
                     key={tab}
@@ -680,10 +930,10 @@ export default function JimpitanPage() {
                     onClick={() => {
                       if (locked) {
                         pushToast(
-                          tab === 'GLOBAL'
-                            ? 'Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.'
-                            : 'Tanggal ini sudah memakai rekap global. Input by name dikunci agar data tidak dobel.',
-                          'warning'
+                          tab === "GLOBAL"
+                            ? "Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel."
+                            : "Tanggal ini sudah memakai rekap global. Input by name dikunci agar data tidak dobel.",
+                          "warning",
                         );
                         return;
                       }
@@ -691,24 +941,27 @@ export default function JimpitanPage() {
                     }}
                     className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
                       v2Tab === tab
-                        ? 'bg-[var(--accent)] text-white shadow-sm'
+                        ? "bg-[var(--accent)] text-white shadow-sm"
                         : locked
-                          ? 'text-[var(--text-muted)] opacity-50'
-                          : 'text-[var(--text-primary)]'
+                          ? "text-[var(--text-muted)] opacity-50"
+                          : "text-[var(--text-primary)]"
                     }`}
                   >
-                    {tab === 'GLOBAL' ? 'Global' : 'By Name'} {locked ? '🔒' : ''}
+                    {tab === "GLOBAL" ? "Global" : "By Name"}{" "}
+                    {locked ? "🔒" : ""}
                   </button>
                 );
               })}
             </div>
 
-            {v2Tab === 'GLOBAL' ? (
+            {v2Tab === "GLOBAL" ? (
               <div className="mt-4 space-y-3">
                 <Input
                   label="Total pendapatan hari ini"
                   value={shiftTotalInput}
-                  onChange={(event) => setShiftTotalInput(formatRupiahInput(event.target.value))}
+                  onChange={(event) =>
+                    setShiftTotalInput(formatRupiahInput(event.target.value))
+                  }
                   placeholder="Rp 0"
                   inputMode="numeric"
                   readOnly={!canSetorShiftTotal}
@@ -730,7 +983,16 @@ export default function JimpitanPage() {
                     disabled={shiftTotalLoading || !canSetorShiftTotal}
                     className="btn-action-blue w-full rounded-xl py-3 font-semibold disabled:opacity-50"
                   >
-                    {shiftTotalLoading ? 'Menyimpan...' : v2InputStatus.has_my_global ? 'Perolehan Jimpitan Sudah Disimpan' : <><span className="mr-2">💾</span>Simpan Perolehan Jimpitan</>}
+                    {shiftTotalLoading ? (
+                      "Menyimpan..."
+                    ) : v2InputStatus.has_my_global ? (
+                      "Perolehan Jimpitan Sudah Disimpan"
+                    ) : (
+                      <>
+                        <span className="mr-2">💾</span>Simpan Perolehan dan
+                        Setor Jimpitan
+                      </>
+                    )}
                   </Button>
                   <Button
                     variant="ghost"
@@ -744,227 +1006,272 @@ export default function JimpitanPage() {
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--text-primary)]">
-                <p><b>Mode By Name aktif.</b> Ketuk kartu warga/donatur di bawah untuk mencatat histori. Tidak memengaruhi tunggakan warga.</p>
+                <p>
+                  <b>Mode By Name aktif.</b> Ketuk kartu warga/donatur di bawah
+                  untuk mencatat histori. Tidak memengaruhi tunggakan warga.
+                </p>
               </div>
             )}
-            </div>
           </div>
+        </div>
       ) : null}
 
-      {showByNameInput ? <div className="page-container mt-3">
-        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
-          <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
-            {(['semua', 'belum', 'lunas', 'kosong'] as FilterStatus[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-center transition ${
-                  filter === f
-                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
-                    : 'border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)]'
-                }`}
-              >
-                {f === 'semua' ? `Semua (${items.length})` :
-                 f === 'belum' ? `Belum (${recapData.belum})` :
-                 f === 'lunas' ? `Lunas (${recapData.lunas})` :
-                 `Kosong (${recapData.kosong})`}
-              </button>
-            ))}
+      {showByNameInput ? (
+        <div className="page-container mt-3">
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+            <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+              {(["semua", "belum", "lunas", "kosong"] as FilterStatus[]).map(
+                (f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-center transition ${
+                      filter === f
+                        ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                        : "border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {f === "semua"
+                      ? `Semua (${items.length})`
+                      : f === "belum"
+                        ? `Belum (${recapData.belum})`
+                        : f === "lunas"
+                          ? `Lunas (${recapData.lunas})`
+                          : `Kosong (${recapData.kosong})`}
+                  </button>
+                ),
+              )}
+            </div>
           </div>
         </div>
-      </div> : null}
+      ) : null}
 
       {/* Buttons placed above the card warga list */}
-      {showByNameInput ? <div className="page-container mt-4 space-y-4">
-        <div className="flex flex-wrap gap-3 pt-4">
-          <Button
-            variant="ghost"
-            className="btn-action-green min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={handleKirimRekapWA}
-            disabled={jimpitanMode === 'PER_WARGA' && !canKirimRekap}
-          >
-            <span className="mr-2">📤</span>
-            Share Harian WA
-          </Button>
-          
-          {jimpitanMode === 'PER_WARGA' ? (
+      {showByNameInput ? (
+        <div className="page-container mt-4 space-y-4">
+          <div className="flex flex-wrap gap-3 pt-4">
             <Button
               variant="ghost"
-              onClick={handleSetor}
-              disabled={setorLoading || !canSetor}
-              className="btn-action-blue min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-action-green min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleKirimRekapWA}
+              disabled={jimpitanMode === "PER_WARGA" && !canKirimRekap}
             >
-              {setorLoading ? (
-                <span>Memproses...</span>
-              ) : (
-                <span>
-                  <span className="mr-2">💰</span>
-                  {canSetor ? `Setor ${formatRupiah(recapData.totalTunaiSaya)}` : 'Setor'}
-                </span>
-              )}
+              <span className="mr-2">📤</span>
+              Share Harian WA
             </Button>
-          ) : null}
 
-        </div>
-
-        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-primary)]">
-          <p>Total pendapatan tunai semua petugas hari ini: <b>{formatRupiah(recapData.totalSemuaTunai)}</b></p>
-          <p className="mt-1">
-            Porsi setor Anda: <b>{formatRupiah(recapData.totalTunaiSaya)}</b> {canKirimRekap ? '' : '(Anda belum input pada hari operasional ini)'}
-          </p>
-          <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-            Tips rute: tahan kartu warga 3 detik untuk aktifkan mode atur rute. Kartu akan bergoyang, lalu seret (drag) kartu ke posisi tujuan.
-          </p>
-          {reorderMode ? (
-            <div className="mt-2 flex items-center gap-2">
+            {jimpitanMode === "PER_WARGA" ? (
               <Button
                 variant="ghost"
-                className="rounded-xl px-3 py-1.5 text-xs"
-                onClick={stopReorderMode}
+                onClick={handleSetor}
+                disabled={setorLoading || !canSetor}
+                className="btn-action-blue min-w-[170px] flex-1 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Selesai Atur Rute
+                {setorLoading ? (
+                  <span>Memproses...</span>
+                ) : (
+                  <span>
+                    <span className="mr-2">💰</span>
+                    {canSetor
+                      ? `Setor ${formatRupiah(recapData.totalTunaiSaya)}`
+                      : "Setor"}
+                  </span>
+                )}
               </Button>
-              <span className="text-[11px] text-[var(--text-muted)]">
-                {savingRoute ? 'Menyimpan urutan...' : 'Urutan rute tersimpan otomatis'}
-              </span>
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
 
-      </div> : null}
-
-      {showByNameInput ? <div className="page-container mt-4 space-y-4">
-        <div>
-          <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
-            Daftar Warga ({orderedItems.length})
-          </p>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {orderedItems.map((row) => {
-              const marker = String(row.namaPetugas || '').toLowerCase();
-              const canEditByAdmin =
-                isAdminJimpitan &&
-                row.isLunas &&
-                marker !== 'deposit' &&
-                marker !== 'sistem (saldo)' &&
-                row.namaPetugas &&
-                row.canEditNominal === true;
-              const statusTag = row.detailStatus || row.batchStatus || '';
-              const statusLabel =
-                statusTag === 'APPROVED'
-                  ? 'APPROVED'
-                  : row.batchStatus === 'PENDING'
-                    ? 'PENDING APPROVAL'
-                    : row.detailStatus === 'SUBMITTED'
-                      ? 'SUBMITTED'
-                      : row.detailStatus === 'DRAFT'
-                        ? 'DRAFT'
-                        : '';
-
-              return (
-                <article
-                  key={row.id}
-                  onClick={!row.isLunas ? () => handleCardClick(row) : undefined}
-                  onPointerDown={() => startPressToReorder(String(row.id))}
-                  onPointerUp={clearPressTimer}
-                  onPointerLeave={clearPressTimer}
-                  draggable={reorderMode}
-                  onDragStart={(event) => {
-                    if (!reorderMode) return;
-                    const id = String(row.id);
-                    setDraggingId(id);
-                    setActiveMoveId(id);
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData('text/plain', id);
-                  }}
-                  onDragOver={(event) => {
-                    if (!reorderMode || !draggingId) return;
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = 'move';
-                  }}
-                  onDrop={(event) => {
-                    if (!reorderMode) return;
-                    event.preventDefault();
-                    const dragId = event.dataTransfer.getData('text/plain') || draggingId;
-                    moveCard(String(dragId), String(row.id));
-                    setDraggingId(null);
-                  }}
-                  onDragEnd={() => {
-                    setDraggingId(null);
-                  }}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    row.isLunas && Number(row.nominalTerbayar || 0) > 0
-                      ? 'card-status-paid'
-                      : row.isLunas
-                        ? 'card-status-empty'
-                        : 'card-status-unpaid cursor-pointer hover:shadow-lg'
-                  } ${reorderMode ? 'wiggle-card' : ''} ${activeMoveId === String(row.id) ? 'ring-2 ring-[var(--accent)]' : ''} ${draggingId === String(row.id) ? 'opacity-60' : ''}`}
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-primary)]">
+            <p>
+              Total pendapatan tunai semua petugas hari ini:{" "}
+              <b>{formatRupiah(recapData.totalSemuaTunai)}</b>
+            </p>
+            <p className="mt-1">
+              Porsi setor Anda: <b>{formatRupiah(recapData.totalTunaiSaya)}</b>{" "}
+              {canKirimRekap
+                ? ""
+                : "(Anda belum input pada hari operasional ini)"}
+            </p>
+            <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+              Tips rute: tahan kartu warga 3 detik untuk aktifkan mode atur
+              rute. Kartu akan bergoyang, lalu seret (drag) kartu ke posisi
+              tujuan.
+            </p>
+            {reorderMode ? (
+              <div className="mt-2 flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="rounded-xl px-3 py-1.5 text-xs"
+                  onClick={stopReorderMode}
                 >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-sm leading-tight">{row.nama}</p>
-                    {row.target_type === 'DONATUR' ? (
-                      <span className="mt-1 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-                        Donatur
-                      </span>
-                    ) : null}
-                  </div>
-                  {statusLabel ? (
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap ${
-                        statusLabel === 'APPROVED'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : statusLabel === 'PENDING APPROVAL'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {statusLabel}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-2 text-xs text-[var(--text-muted)]">Saran: {formatRupiah(row.nominalSaran)}</p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Input Hari Ini:{' '}
-                  {row.isLunas
-                    ? `${formatRupiah(Number(row.nominalTerbayar || 0))} • ${
-                        row.namaPetugas ? `oleh ${row.namaPetugas}` : 'petugas tidak tercatat'
-                      }`
-                    : 'Belum diinput'}
-                </p>
-                {canEditByAdmin ? (
-                  <div className="mt-2">
-                    <Button
-                      variant="ghost"
-                      className="w-full text-xs py-1"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setEditTarget(row);
-                        setEditNominal(String(Number(row.nominalTerbayar || 0)));
-                      }}
-                    >
-                      Edit Nominal
-                    </Button>
-                  </div>
-                ) : isAdminJimpitan && row.isLunas && row.namaPetugas ? (
-                  <p className="mt-2 text-[10px] text-[var(--text-muted)]">
-                    APPROVED
-                  </p>
-                ) : null}
-                </article>
-              );
-            })}
+                  Selesai Atur Rute
+                </Button>
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  {savingRoute
+                    ? "Menyimpan urutan..."
+                    : "Urutan rute tersimpan otomatis"}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
-      </div> : null}
+      ) : null}
 
-      <FormJimpitan selected={selected} onSubmit={submitInput} onClose={() => setSelected(null)} />
+      {showByNameInput ? (
+        <div className="page-container mt-4 space-y-4">
+          <div>
+            <p className="mb-2 text-sm font-semibold text-[var(--text-muted)]">
+              Daftar Warga ({orderedItems.length})
+            </p>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {orderedItems.map((row) => {
+                const marker = String(row.namaPetugas || "").toLowerCase();
+                const canEditByAdmin =
+                  isAdminJimpitan &&
+                  row.isLunas &&
+                  marker !== "deposit" &&
+                  marker !== "sistem (saldo)" &&
+                  row.namaPetugas &&
+                  row.canEditNominal === true;
+                const statusTag = row.detailStatus || row.batchStatus || "";
+                const statusLabel =
+                  statusTag === "APPROVED"
+                    ? "APPROVED"
+                    : row.batchStatus === "PENDING"
+                      ? "PENDING APPROVAL"
+                      : row.detailStatus === "SUBMITTED"
+                        ? "SUBMITTED"
+                        : row.detailStatus === "DRAFT"
+                          ? "DRAFT"
+                          : "";
+
+                return (
+                  <article
+                    key={row.id}
+                    onClick={
+                      !row.isLunas ? () => handleCardClick(row) : undefined
+                    }
+                    onPointerDown={() => startPressToReorder(String(row.id))}
+                    onPointerUp={clearPressTimer}
+                    onPointerLeave={clearPressTimer}
+                    draggable={reorderMode}
+                    onDragStart={(event) => {
+                      if (!reorderMode) return;
+                      const id = String(row.id);
+                      setDraggingId(id);
+                      setActiveMoveId(id);
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", id);
+                    }}
+                    onDragOver={(event) => {
+                      if (!reorderMode || !draggingId) return;
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(event) => {
+                      if (!reorderMode) return;
+                      event.preventDefault();
+                      const dragId =
+                        event.dataTransfer.getData("text/plain") || draggingId;
+                      moveCard(String(dragId), String(row.id));
+                      setDraggingId(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingId(null);
+                    }}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      row.isLunas && Number(row.nominalTerbayar || 0) > 0
+                        ? "card-status-paid"
+                        : row.isLunas
+                          ? "card-status-empty"
+                          : "card-status-unpaid cursor-pointer hover:shadow-lg"
+                    } ${reorderMode ? "wiggle-card" : ""} ${activeMoveId === String(row.id) ? "ring-2 ring-[var(--accent)]" : ""} ${draggingId === String(row.id) ? "opacity-60" : ""}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-sm leading-tight">
+                          {row.nama}
+                        </p>
+                        {row.target_type === "DONATUR" ? (
+                          <span className="mt-1 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                            Donatur
+                          </span>
+                        ) : null}
+                      </div>
+                      {statusLabel ? (
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap ${
+                            statusLabel === "APPROVED"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : statusLabel === "PENDING APPROVAL"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-slate-200 text-slate-700"
+                          }`}
+                        >
+                          {statusLabel}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
+                      Saran: {formatRupiah(row.nominalSaran)}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      Input Hari Ini:{" "}
+                      {row.isLunas
+                        ? `${formatRupiah(Number(row.nominalTerbayar || 0))} • ${
+                            row.namaPetugas
+                              ? `oleh ${row.namaPetugas}`
+                              : "petugas tidak tercatat"
+                          }`
+                        : "Belum diinput"}
+                    </p>
+                    {canEditByAdmin ? (
+                      <div className="mt-2">
+                        <Button
+                          variant="ghost"
+                          className="w-full text-xs py-1"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setEditTarget(row);
+                            setEditNominal(
+                              String(Number(row.nominalTerbayar || 0)),
+                            );
+                          }}
+                        >
+                          Edit Nominal
+                        </Button>
+                      </div>
+                    ) : isAdminJimpitan && row.isLunas && row.namaPetugas ? (
+                      <p className="mt-2 text-[10px] text-[var(--text-muted)]">
+                        APPROVED
+                      </p>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <FormJimpitan
+        selected={selected}
+        onSubmit={submitInput}
+        onClose={() => setSelected(null)}
+      />
 
       {editTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
           <div className="glass-card w-full max-w-md rounded-3xl p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Admin Jimpitan</p>
-            <h3 className="mt-2 font-[var(--font-space-grotesk)] text-2xl font-bold">Edit Nominal</h3>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">{editTarget.nama}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
+              Admin Jimpitan
+            </p>
+            <h3 className="mt-2 font-[var(--font-space-grotesk)] text-2xl font-bold">
+              Edit Nominal
+            </h3>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              {editTarget.nama}
+            </p>
 
             <div className="mt-4">
               <Input
@@ -981,9 +1288,9 @@ export default function JimpitanPage() {
               <Button
                 className="flex-1"
                 onClick={() => void handleSaveEditNominal()}
-                disabled={editLoading || editNominal.trim() === ''}
+                disabled={editLoading || editNominal.trim() === ""}
               >
-                {editLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                {editLoading ? "Menyimpan..." : "Simpan Perubahan"}
               </Button>
               <Button
                 variant="danger"
@@ -991,7 +1298,7 @@ export default function JimpitanPage() {
                 onClick={() => {
                   if (editLoading) return;
                   setEditTarget(null);
-                  setEditNominal('');
+                  setEditNominal("");
                 }}
               >
                 Batal

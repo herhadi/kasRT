@@ -14,7 +14,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 - `.env.example` backend dan WA Gateway dirapikan menjadi kelompok wajib, koneksi, webhook, cache, dan anti-ban dengan komentar sumber konfigurasi yang jelas.
 - `/panduan` diperbarui mengikuti alur terbaru Jimpitan V1/V2, WA Gateway, reset PIN via WhatsApp, penarikan Tabungan, dan pengecualian Presensi.
 - Lebar ringkasan mode Jimpitan V1/V2 disamakan dengan card di atas dan bawahnya melalui wrapper kontainer yang konsisten.
-- Tombol input Jimpitan V2 kini berlabel **Simpan Perolehan Jimpitan**, memakai ikon, dan tombol Share Shift WA dibuat selebar tombol simpan.
+- Tombol input Jimpitan V2 kini berlabel **Simpan Perolehan dan Setor Jimpitan**, memakai ikon, dan tombol Share Shift WA dibuat selebar tombol simpan.
 - Batas nomor unik harian WA reminder dipindahkan ke `/management/whatsapp`; gateway tidak lagi membaca `WA_LAB_DAILY_UNIQUE_LIMIT` dari env.
 - Lebar kontainer `/operasional/jimpitan` disamakan dengan modul operasional admin lain menggunakan batas `max-w-6xl`.
 - Layout `/management/whatsapp` dirapikan: pilihan mode penerima tampil sebelum batas maksimum, dan batas maksimum nonaktif saat mode semua nomor valid dipilih.
