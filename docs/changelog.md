@@ -6,6 +6,12 @@
 
 Semua perubahan penting KasRT dicatat di file ini.
 
+## 2026-10-12
+
+### Diperbaiki
+
+- Sapaan reminder WhatsApp Jimpitan kini memprioritaskan `jimpitan_alias`, lalu memakai nama depan dari `nama` jika alias kosong; fallback `Bapak/Ibu` dihapus. Panduan reminder dan dokumentasi WA Gateway diselaraskan.
+
 ## 2026-10-07
 
 ### Ditambahkan

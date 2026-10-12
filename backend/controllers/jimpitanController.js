@@ -86,12 +86,13 @@ function pickDistinctWaGreetings(count) {
 }
 
 function firstNameOnly(name) {
-  return String(name || '').trim().split(/\s+/)[0] || 'Bapak/Ibu';
+  return String(name || '').trim().split(/\s+/)[0] || '';
 }
 
 function buildWaJimpitanReminderText({ recipient, targetLabel, testMode, greeting }) {
   const selectedGreeting = greeting || pickRandomItem(WA_REMINDER_GREETINGS);
-  const name = firstNameOnly(recipient?.nama);
+  const alias = String(recipient?.jimpitan_alias || '').trim();
+  const name = alias || firstNameOnly(recipient?.nama);
 
   return (
     `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +

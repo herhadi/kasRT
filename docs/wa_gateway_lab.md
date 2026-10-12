@@ -171,6 +171,8 @@ curl -sS \
 Gunakan nilai `qr_data_url` untuk membuka QR di browser, lalu scan dari WhatsApp. Mini inbox memperbarui QR otomatis setiap 5 detik selama panel QR terbuka, sehingga QR terbaru akan tampil ketika Baileys menerbitkan QR pengganti yang lama.
 
 Reminder WA Jimpitan memilih penerima secara acak dari nomor valid yang belum berhasil dikirimi pada siklus berjalan. Setelah seluruh kandidat mendapat giliran, rotasi dimulai kembali.
+
+Sapaan personal reminder menggunakan `jimpitan_alias` terlebih dahulu. Jika alias kosong atau hanya berisi spasi, sistem memakai kata pertama dari `nama`. Tidak ada fallback tambahan seperti `Bapak/Ibu` jika alias dan nama tidak tersedia.
 Mode penerima dapat diubah dari `/management/whatsapp` menjadi **Semua nomor valid pada shift**. Mode ini mengirim ke seluruh petugas shift yang memiliki nomor WA valid dan mengabaikan batas maksimum/rotasi.
 
 ### Notifikasi Setoran ke Grup RT

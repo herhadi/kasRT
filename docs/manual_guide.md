@@ -147,6 +147,7 @@ Tombol Share WA hanya menyiapkan teks laporan lalu membuka fitur berbagi/WhatsAp
 - Scheduler berjalan dari cron Debian/VPS, bukan dari halaman browser.
 - Jadwal pengiriman ditetapkan pukul `20:30 WIB` dengan window backend sampai `20:45 WIB`.
 - Jika WA Lab diaktifkan, reminder WA hanya memakai gateway mandiri dan target terbatas sesuai konfigurasi; Telegram tetap menjadi kanal utama.
+- Sapaan reminder WhatsApp memakai `jimpitan_alias` jika terisi; jika kosong, memakai nama depan dari `nama`. Tidak ada sapaan pengganti jika keduanya kosong.
 - Log reminder tersimpan di backend dan dapat dipantau dari halaman Jimpitan/management sesuai akses.
 
 ## 6. Bendahara
