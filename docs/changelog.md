@@ -5,7 +5,7 @@
 ### Diperbaiki
 
 - Reminder Jimpitan WA Lab membedakan pesan yang terkonfirmasi terkirim, gagal secara jelas, dan belum terkonfirmasi karena timeout. Timeout tidak lagi dihitung sebagai kegagalan pasti; log/API, notifikasi admin, dan halaman Management menampilkan penghitung `wa_uncertain` serta status penerima `uncertain`. Tidak ada pengiriman ulang otomatis untuk menghindari pesan ganda.
-- Halaman `/jimpitan` tidak lagi menampilkan UI lama `PER_WARGA` sebelum konfigurasi mode backend selesai dimuat; indikator pemuatan ditampilkan agar perpindahan visual ke Jimpitan V2 (`SHIFT_TOTAL`) tidak terasa seperti lag.
+- Halaman `/jimpitan` langsung merender Jimpitan V2 (`SHIFT_TOTAL`) tanpa menunggu respons mode/list; backend tetap memperbarui mode sesungguhnya setelah data tiba, sehingga tidak ada layar tunggu khusus mode.
 
 - Dukungan instalasi PWA Safari/iPhone diperbaiki dengan Apple Touch Icon dan panduan Tambahkan ke Layar Utama.
 - Instruksi instalasi PWA kini membedakan Safari iOS, browser lain di iPhone/iPad, dan Safari Mac.
