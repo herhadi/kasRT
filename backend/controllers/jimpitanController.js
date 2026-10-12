@@ -982,12 +982,20 @@ export async function sendJimpitanShiftReminder(req, res) {
       waResults.push({ recipient, result });
     }
     const waSent = waResults.filter((item) => item.result?.success === true).length;
-    const waFailed = waRecipients - waSent;
+    const isWaDeliveryUncertain = (item) =>
+      item.result?.delivery_uncertain === true || item.result?.error === 'timeout';
+    const waUncertain = waResults.filter((item) =>
+      item.result?.success !== true && isWaDeliveryUncertain(item)
+    ).length;
+    const waFailed = waResults.filter((item) =>
+      item.result?.success !== true && !isWaDeliveryUncertain(item)
+    ).length;
     const waErrors = waResults
       .filter((item) => item.result?.success !== true)
       .map((item) => ({
         nama: item.recipient.nama || null,
         no_hp: item.recipient.phone,
+        status: isWaDeliveryUncertain(item) ? 'uncertain' : 'failed',
         message: item.result?.error || item.result?.reason || 'WA tidak mengirim'
       }));
 
@@ -1003,6 +1011,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       waRecipients,
       waSent,
       waFailed,
+      waUncertain,
       waTarget: waRecipientRows.length
         ? waRecipientRows.map((recipient) => ({ nama: recipient.nama || null, no_hp: recipient.phone }))
         : null,
@@ -1016,7 +1025,7 @@ export async function sendJimpitanShiftReminder(req, res) {
         `Hari: <b>${targetLabel}</b>\n` +
         `Petugas shift: <b>${petugas.length}</b>\n` +
         `Telegram: <b>${telegramSent}/${telegramRecipients.length}</b> gagal <b>${telegramFailed}</b>\n` +
-        `WA Lab: <b>${waSent}/${waRecipients}</b> gagal <b>${waFailed}</b>`
+        `WA Lab: <b>${waSent}/${waRecipients}</b> gagal <b>${waFailed}</b>, belum terkonfirmasi <b>${waUncertain}</b>`
       );
     }
 
@@ -1035,6 +1044,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       wa_recipients: waRecipients,
       wa_sent: waSent,
       wa_failed: waFailed,
+      wa_uncertain: waUncertain,
       wa_errors: waErrors.slice(0, 5),
       test_mode: testMode,
       test_shift_day: testMode ? shiftDay : null

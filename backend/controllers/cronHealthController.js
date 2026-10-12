@@ -31,6 +31,7 @@ export async function cronHealthStatus(req, res) {
           wa_recipients: row.wa_recipients || 0,
           wa_sent: row.wa_sent || 0,
           wa_failed: row.wa_failed || 0,
+          wa_uncertain: row.wa_uncertain || 0,
           wa_target: row.wa_target || null,
           wa_errors: row.wa_errors || [],
           reminder_date: reminderDate,

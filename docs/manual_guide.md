@@ -151,6 +151,7 @@ Tombol Share WA hanya menyiapkan teks laporan lalu membuka fitur berbagi/WhatsAp
 - Sapaan reminder WhatsApp memakai `jimpitan_alias` jika terisi; jika kosong, memakai nama depan dari `nama`. Tidak ada sapaan pengganti jika keduanya kosong.
 - Template WA reminder menampilkan tanggal jadwal, rekan ronda pada hari yang sama dalam satu baris (tanpa mengulang penerima), waktu input jimpitan 21.00–06.00 WIB, tautan langsung ke `/jimpitan`, dan ucapan penutup singkat. Bagian rekan ronda disembunyikan jika tidak ada nama lain.
 - Log reminder tersimpan di backend dan dapat dipantau dari halaman Jimpitan/management sesuai akses.
+- Status WA Lab membedakan `terkirim` (gateway mengonfirmasi), `gagal` (gateway mengembalikan kegagalan yang jelas), dan `belum terkonfirmasi` (`timeout`). Timeout tidak membuktikan pesan gagal karena gateway mungkin sudah mengirim sebelum respons terlambat; sistem tidak mengirim ulang otomatis agar tidak menimbulkan pesan ganda.
 - Setelah input atau setoran V2 berhasil disimpan, halaman menampilkan konfirmasi terlebih dahulu lalu memperbarui daftar di latar belakang. Notifikasi rekap grup WhatsApp juga berjalan terpisah dari respons penyimpanan agar jeda anti-ban tidak membuat form terasa macet.
 
 ## 6. Bendahara

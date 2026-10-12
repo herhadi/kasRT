@@ -167,7 +167,12 @@ export async function sendWaJimpitanReminder({ recipient, text, settings = null 
       message_id: data.data?.message_id || null
     };
   } catch (error) {
-    return { success: false, error: error.name === 'AbortError' ? 'timeout' : error.message };
+    if (error.name === 'AbortError') {
+      // The gateway may have sent the message before the HTTP response timed out.
+      // Do not treat this as a confirmed delivery failure or retry automatically.
+      return { success: false, error: 'timeout', delivery_uncertain: true };
+    }
+    return { success: false, error: error.message };
   } finally {
     clearTimeout(timeout);
   }

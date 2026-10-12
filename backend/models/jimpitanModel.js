@@ -51,6 +51,7 @@ export async function ensureJimpitanReminderLogTable() {
       ADD COLUMN IF NOT EXISTS wa_recipients INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS wa_sent INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS wa_failed INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS wa_uncertain INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS wa_target JSONB NULL,
       ADD COLUMN IF NOT EXISTS wa_errors JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
@@ -1153,6 +1154,7 @@ export async function updateJimpitanReminderDeliveryLog({
   waRecipients = 0,
   waSent = 0,
   waFailed = 0,
+  waUncertain = 0,
   waTarget = null,
   waErrors = []
 }) {
@@ -1169,8 +1171,9 @@ export async function updateJimpitanReminderDeliveryLog({
          wa_recipients = $9,
          wa_sent = $10,
          wa_failed = $11,
-         wa_target = $12::jsonb,
-         wa_errors = $13::jsonb
+         wa_uncertain = $12,
+         wa_target = $13::jsonb,
+         wa_errors = $14::jsonb
      WHERE id = $1
      RETURNING id::text`,
     [
@@ -1185,6 +1188,7 @@ export async function updateJimpitanReminderDeliveryLog({
       Number(waRecipients || 0),
       Number(waSent || 0),
       Number(waFailed || 0),
+      Number(waUncertain || 0),
       waTarget ? JSON.stringify(waTarget) : null,
       JSON.stringify(waErrors || [])
     ]
@@ -1210,6 +1214,7 @@ export async function listLatestJimpitanReminderLogs(limit = 20) {
        wa_recipients,
        wa_sent,
        wa_failed,
+       wa_uncertain,
        wa_target,
        wa_errors
      FROM jimpitan_reminder_logs

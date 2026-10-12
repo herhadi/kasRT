@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-12
+
+### Diperbaiki
+
+- Reminder Jimpitan WA Lab membedakan pesan yang terkonfirmasi terkirim, gagal secara jelas, dan belum terkonfirmasi karena timeout. Timeout tidak lagi dihitung sebagai kegagalan pasti; log/API, notifikasi admin, dan halaman Management menampilkan penghitung `wa_uncertain` serta status penerima `uncertain`. Tidak ada pengiriman ulang otomatis untuk menghindari pesan ganda.
+
 - Dukungan instalasi PWA Safari/iPhone diperbaiki dengan Apple Touch Icon dan panduan Tambahkan ke Layar Utama.
 - Instruksi instalasi PWA kini membedakan Safari iOS, browser lain di iPhone/iPad, dan Safari Mac.
 - Manifest PWA dipindahkan ke `app/manifest.ts` mengikuti standar metadata Next.js.
