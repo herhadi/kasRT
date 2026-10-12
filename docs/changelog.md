@@ -12,6 +12,9 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 - Sapaan reminder WhatsApp Jimpitan kini memprioritaskan `jimpitan_alias`, lalu memakai nama depan dari `nama` jika alias kosong; fallback `Bapak/Ibu` dihapus. Panduan reminder dan dokumentasi WA Gateway diselaraskan.
 - Template reminder WhatsApp Jimpitan dirapikan untuk pengingat ronda dan pengambilan jimpitan, daftar rekan ronda horizontal, waktu input 21.00–06.00 WIB, serta tautan langsung ke halaman Jimpitan.
+- Template reminder Telegram Jimpitan kini personal, menampilkan alias/nama depan, rekan ronda hari yang sama dalam satu baris, jam input 21.00–06.00 WIB, tautan langsung, dan ucapan penutup.
+- Notifikasi rekap grup WhatsApp dijalankan di latar belakang setelah input/setoran tersimpan agar jeda anti-ban gateway tidak menahan respons API.
+- Form input/setoran Jimpitan V2 dan input manual admin menampilkan toast sukses segera setelah API mengonfirmasi penyimpanan; refresh daftar berjalan terpisah dan tombol tetap mencegah klik ganda selama proses simpan.
 
 ## 2026-10-07
 

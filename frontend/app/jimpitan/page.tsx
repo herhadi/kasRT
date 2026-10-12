@@ -372,7 +372,6 @@ export default function JimpitanPage() {
           ),
         },
       );
-      await loadList();
       setSelected(null);
       pushToast(
         jimpitanMode === "SHIFT_TOTAL"
@@ -380,6 +379,9 @@ export default function JimpitanPage() {
           : "Input jimpitan berhasil disimpan.",
         "success",
       );
+      void loadList().catch(() => {
+        pushToast("Jimpitan tersimpan, tetapi daftar belum berhasil diperbarui.", "warning");
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Gagal input jimpitan";
@@ -407,11 +409,13 @@ export default function JimpitanPage() {
         method: "POST",
         body: JSON.stringify({}),
       });
-      await loadList();
       pushToast(
         "Setor jimpitan berhasil diajukan. Menunggu approval.",
         "success",
       );
+      void loadList().catch(() => {
+        pushToast("Setoran tersimpan, tetapi daftar belum berhasil diperbarui.", "warning");
+      });
     } catch (e) {
       pushToast(e instanceof Error ? e.message : "Setor gagal", "error");
     } finally {
@@ -454,11 +458,13 @@ export default function JimpitanPage() {
       });
       setShiftTotalInput("");
       setShiftTotalNote("");
-      await loadList();
       pushToast(
         "Setoran shift berhasil diajukan. Menunggu approval.",
         "success",
       );
+      void loadList().catch(() => {
+        pushToast("Setoran shift tersimpan, tetapi daftar belum berhasil diperbarui.", "warning");
+      });
     } catch (error) {
       pushToast(
         error instanceof Error

@@ -311,8 +311,10 @@ export default function JimpitanAdminPage() {
       setV2Amount('');
       setV2NoteEdited(false);
       setV2Note(buildDefaultJimpitanDailyNote(v2Date));
-      await loadV2Entries();
       pushToast(`Pemasukan Jimpitan V2 tanggal ${v2Date} berhasil dicatat.`, 'success');
+      void loadV2Entries().catch(() => {
+        pushToast('Pemasukan tersimpan, tetapi daftar belum berhasil diperbarui.', 'warning');
+      });
     } catch (error) {
       pushToast(error instanceof Error ? error.message : 'Gagal input pemasukan V2', 'error');
     } finally {

@@ -89,6 +89,49 @@ function firstNameOnly(name) {
   return String(name || '').trim().split(/\s+/)[0] || '';
 }
 
+function scheduleMonthlyJimpitanGroupShare(operationalDate, context = 'notification') {
+  setImmediate(() => {
+    sendCurrentMonthlyJimpitanGroupShare(operationalDate).catch((error) => {
+      console.warn('[WA JIMPITAN GROUP] ' + context + ' failed:', error.message);
+    });
+  });
+}
+
+function escapeTelegramHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildTelegramJimpitanReminderText({ recipient, petugas, targetLabel, testMode }) {
+  const alias = String(recipient?.jimpitan_alias || '').trim();
+  const name = alias || firstNameOnly(recipient?.nama);
+  const greetingLine = name ? '🌙 Halo <b>' + escapeTelegramHtml(name) + '!</b>' : '🌙 Halo!';
+  const recipientId = String(recipient?.id || '');
+  const colleagues = [...new Set(
+    petugas
+      .filter((row) => String(row.id) !== recipientId)
+      .map((row) => String(row.jimpitan_alias || '').trim() || firstNameOnly(row.nama))
+      .filter(Boolean)
+  )];
+  const colleaguesLine = colleagues.length
+    ? '👥 <b>Rekan Ronda Malam Ini:</b>\n' + colleagues.map(escapeTelegramHtml).join(' • ') + '\n\n'
+    : '';
+  const testingPrefix = testMode ? '🧪 <b>TESTING REMINDER JIMPITAN</b>\n\n' : '';
+  const testingSuffix = testMode ? '\n\n<b>AKHIR TESTING - abaikan jika bukan jadwal operasional.</b>' : '';
+
+  return testingPrefix + greetingLine + '\n\n' +
+    '⏰ <b>PENGINGAT RONDA &amp; JIMPITAN</b>\n\n' +
+    '📅 Hari/Tanggal: ' + escapeTelegramHtml(targetLabel) + '\n\n' +
+    colleaguesLine +
+    '🕘 <b>Waktu Input Jimpitan:</b>\n21.00–06.00 WIB\n\n' +
+    '📱 <b>Buka Halaman Jimpitan:</b>\nhttps://kas02.vercel.app/jimpitan\n\n' +
+    '🤝 Terima kasih atas kebersamaan dan partisipasinya. Semoga lingkungan kita selalu aman dan guyub rukun. 🙏' +
+    testingSuffix;
+}
+
 function buildWaJimpitanReminderText({ recipient, targetLabel, testMode, greeting, colleagues = [] }) {
   const selectedGreeting = greeting || pickRandomItem(WA_REMINDER_GREETINGS);
   const alias = String(recipient?.jimpitan_alias || '').trim();
@@ -364,8 +407,7 @@ export async function inputJimpitanV2Detail(req, res) {
     });
     const normalizedRoles = roles.map((role) => String(role).trim().toLowerCase());
     if (normalizedRoles.includes('root') || normalizedRoles.includes('admin jimpitan')) {
-      await sendCurrentMonthlyJimpitanGroupShare(tanggalOperasional)
-        .catch((error) => console.warn('[WA JIMPITAN GROUP] direct V2 detail notification failed:', error.message));
+      scheduleMonthlyJimpitanGroupShare(tanggalOperasional, 'direct V2 detail notification');
     }
 
     return res.json({ success: true, tanggal_operasional: tanggalOperasional });
@@ -430,8 +472,7 @@ export async function setorJimpitan(req, res) {
       `Rumah: <b>${batch.total_rumah}</b>` +
       linkSection
     );
-    await sendCurrentMonthlyJimpitanGroupShare(operationalDate)
-      .catch((error) => console.warn('[WA JIMPITAN GROUP] notification failed:', error.message));
+    scheduleMonthlyJimpitanGroupShare(operationalDate, 'setor notification');
 
     return res.json({
       success: true,
@@ -499,8 +540,7 @@ export async function setorJimpitanShiftTotal(req, res) {
       (note ? `\nCatatan: ${note}` : '') +
       linkSection
     );
-    await sendCurrentMonthlyJimpitanGroupShare(operationalDate)
-      .catch((error) => console.warn('[WA JIMPITAN GROUP] notification failed:', error.message));
+    scheduleMonthlyJimpitanGroupShare(operationalDate, 'setor notification');
 
     return res.json({
       success: true,
@@ -897,19 +937,11 @@ export async function sendJimpitanShiftReminder(req, res) {
       });
     }
 
-    const testingPrefix = testMode ? `🧪 <b>TESTING REMINDER JIMPITAN</b>\n` : '';
-    const testingSuffix = testMode ? `\n\n<b>AKHIR TESTING - abaikan jika bukan jadwal operasional.</b>` : '';
-    const text =
-      testingPrefix +
-      `⏰ <b>Pengingat Jimpitan</b>\n` +
-      `Hari operasional: <b>${targetLabel}</b>\n` +
-      `Pengambilan jimpitan dimulai pukul <b>21:00 WIB</b>.\n` +
-      `Pengingat otomatis ini dikirim sebelum jam operasional.\n` +
-      `Selamat bekerja...` +
-      testingSuffix;
-
     const telegramResults = await Promise.allSettled(
-      telegramRecipients.map((row) => sendTelegramMessage(row.telegram_chat_id, text))
+      telegramRecipients.map((row) => sendTelegramMessage(
+        row.telegram_chat_id,
+        buildTelegramJimpitanReminderText({ recipient: row, petugas, targetLabel, testMode })
+      ))
     );
     const telegramSent = telegramResults.filter((item) => item.status === 'fulfilled' && item.value?.success === true).length;
     const telegramFailed = telegramResults.length - telegramSent;
@@ -1069,8 +1101,7 @@ export async function inputJimpitanV2Income(req, res) {
       operationalDate,
       note
     });
-    await sendCurrentMonthlyJimpitanGroupShare(new Date(`${operationalDate}T00:00:00`))
-      .catch((error) => console.warn('[WA JIMPITAN GROUP] admin income notification failed:', error.message));
+    scheduleMonthlyJimpitanGroupShare(new Date(`${operationalDate}T00:00:00`), 'admin income notification');
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -1110,8 +1141,7 @@ export async function inputJimpitanOldCashHandover(req, res) {
       handoverDate,
       note
     });
-    await sendCurrentMonthlyJimpitanGroupShare(new Date(`${handoverDate}T00:00:00`))
-      .catch((error) => console.warn('[WA JIMPITAN GROUP] old cash notification failed:', error.message));
+    scheduleMonthlyJimpitanGroupShare(new Date(`${handoverDate}T00:00:00`), 'old cash notification');
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
