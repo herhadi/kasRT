@@ -45,7 +45,7 @@ export default function JimpitanPage() {
   const [setorLoading, setSetorLoading] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>("semua");
   const [canOperateToday, setCanOperateToday] = useState(true);
-  const [jimpitanMode, setJimpitanMode] = useState<JimpitanMode>("SHIFT_TOTAL");
+  const [jimpitanMode, setJimpitanMode] = useState<JimpitanMode | null>(null);
   const [shiftTotalInput, setShiftTotalInput] = useState("");
   const [shiftTotalNote, setShiftTotalNote] = useState("");
   const [shiftTotalLoading, setShiftTotalLoading] = useState(false);
@@ -206,39 +206,66 @@ export default function JimpitanPage() {
 
   useEffect(() => {
     if (!user) return;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const result = await apiFetch<{
-            success: boolean;
-            data: JimpitanListItem[];
-            can_operate_today?: boolean;
-            jimpitan_mode?: JimpitanMode;
-            v2_input_status?: V2InputStatus;
-          }>("/jimpitan/list");
-          const rows = result.data || [];
-          setItems(rows);
-          setCanOperateToday(Boolean(result.can_operate_today ?? true));
-          setJimpitanMode(result.jimpitan_mode || "PER_WARGA");
-          setV2InputStatus(
-            result.v2_input_status || {
-              has_global: false,
-              has_by_name: false,
-              input_mode: null,
-            },
-          );
-          if ((result.jimpitan_mode || "PER_WARGA") === "PER_WARGA") {
-            await loadRouteOrder(rows);
-          }
-        } catch (e) {
+    let active = true;
+
+    // Resolve the active mode independently so the page doesn't wait for the
+    // full resident list before choosing the correct V1/V2 interface.
+    void apiFetch<{
+      success: boolean;
+      data?: { effective?: { mode?: JimpitanMode } };
+    }>(`/jimpitan/mode?date=${operationalDateIso}`)
+      .then((result) => {
+        const mode = result.data?.effective?.mode;
+        if (active && (mode === "PER_WARGA" || mode === "SHIFT_TOTAL")) {
+          setJimpitanMode(mode);
+        }
+      })
+      .catch(() => {
+        // The list response below remains a fallback source for the mode.
+      });
+
+    // Load operational data in parallel with mode detection.
+    void (async () => {
+      try {
+        const result = await apiFetch<{
+          success: boolean;
+          data: JimpitanListItem[];
+          can_operate_today?: boolean;
+          jimpitan_mode?: JimpitanMode;
+          v2_input_status?: V2InputStatus;
+        }>("/jimpitan/list");
+        if (!active) return;
+        const rows = result.data || [];
+        setItems(rows);
+        setCanOperateToday(Boolean(result.can_operate_today ?? true));
+        if (result.jimpitan_mode === "PER_WARGA" || result.jimpitan_mode === "SHIFT_TOTAL") {
+          setJimpitanMode(result.jimpitan_mode);
+        } else {
+          setJimpitanMode((current) => current || "PER_WARGA");
+        }
+        setV2InputStatus(
+          result.v2_input_status || {
+            has_global: false,
+            has_by_name: false,
+            input_mode: null,
+          },
+        );
+        if ((result.jimpitan_mode || "PER_WARGA") === "PER_WARGA") {
+          await loadRouteOrder(rows);
+        }
+      } catch (e) {
+        if (active) {
           setError(
             e instanceof Error ? e.message : "Gagal memuat data jimpitan",
           );
         }
-      })();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [user, loadRouteOrder]);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [user, loadRouteOrder, operationalDateIso]);
 
   useEffect(() => {
     if (!user) return;
@@ -834,6 +861,19 @@ export default function JimpitanPage() {
   }
 
   if (loading || !user) return <main className="min-h-screen" />;
+
+  if (jimpitanMode === null) {
+    return (
+      <main className="min-h-screen pb-20 md:pb-10">
+        <Navbar sticky={false} />
+        <div className="page-container mt-6">
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 text-sm text-[var(--text-muted)]">
+            Memeriksa mode Jimpitan...
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const showByNameInput =
     jimpitanMode === "PER_WARGA" ||
