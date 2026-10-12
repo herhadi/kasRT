@@ -148,6 +148,7 @@ Tombol Share WA hanya menyiapkan teks laporan lalu membuka fitur berbagi/WhatsAp
 - Jadwal pengiriman ditetapkan pukul `20:30 WIB` dengan window backend sampai `20:45 WIB`.
 - Jika WA Lab diaktifkan, reminder WA hanya memakai gateway mandiri dan target terbatas sesuai konfigurasi; Telegram tetap menjadi kanal utama.
 - Sapaan reminder WhatsApp memakai `jimpitan_alias` jika terisi; jika kosong, memakai nama depan dari `nama`. Tidak ada sapaan pengganti jika keduanya kosong.
+- Template WA reminder menampilkan tanggal jadwal, rekan ronda pada hari yang sama dalam satu baris (tanpa mengulang penerima), waktu input jimpitan 21.00–06.00 WIB, tautan langsung ke `/jimpitan`, dan ucapan penutup singkat. Bagian rekan ronda disembunyikan jika tidak ada nama lain.
 - Log reminder tersimpan di backend dan dapat dipantau dari halaman Jimpitan/management sesuai akses.
 
 ## 6. Bendahara

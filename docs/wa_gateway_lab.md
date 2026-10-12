@@ -173,6 +173,7 @@ Gunakan nilai `qr_data_url` untuk membuka QR di browser, lalu scan dari WhatsApp
 Reminder WA Jimpitan memilih penerima secara acak dari nomor valid yang belum berhasil dikirimi pada siklus berjalan. Setelah seluruh kandidat mendapat giliran, rotasi dimulai kembali.
 
 Sapaan personal reminder menggunakan `jimpitan_alias` terlebih dahulu. Jika alias kosong atau hanya berisi spasi, sistem memakai kata pertama dari `nama`. Tidak ada fallback tambahan seperti `Bapak/Ibu` jika alias dan nama tidak tersedia.
+Template WA reminder memakai judul **Pengingat Ronda & Jimpitan**, menampilkan tanggal, daftar rekan ronda lain pada jadwal yang sama secara horizontal, serta menegaskan bahwa pukul 21.00–06.00 WIB adalah waktu input jimpitan. Tautan langsung menuju `https://kas02.vercel.app/jimpitan`; daftar rekan tidak ditampilkan jika kosong. Nama penerima hanya digunakan untuk sapaan, tidak diulang dalam daftar rekan.
 Mode penerima dapat diubah dari `/management/whatsapp` menjadi **Semua nomor valid pada shift**. Mode ini mengirim ke seluruh petugas shift yang memiliki nomor WA valid dan mengabaikan batas maksimum/rotasi.
 
 ### Notifikasi Setoran ke Grup RT

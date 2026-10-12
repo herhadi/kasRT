@@ -89,21 +89,27 @@ function firstNameOnly(name) {
   return String(name || '').trim().split(/\s+/)[0] || '';
 }
 
-function buildWaJimpitanReminderText({ recipient, targetLabel, testMode, greeting }) {
+function buildWaJimpitanReminderText({ recipient, targetLabel, testMode, greeting, colleagues = [] }) {
   const selectedGreeting = greeting || pickRandomItem(WA_REMINDER_GREETINGS);
   const alias = String(recipient?.jimpitan_alias || '').trim();
   const name = alias || firstNameOnly(recipient?.nama);
+  const greetingLine = name ? `🌙 ${selectedGreeting} *${name}!*` : `🌙 ${selectedGreeting}!`;
+  const colleaguesLine = colleagues.length
+    ? `👥 *Rekan Ronda Malam Ini:*\n${colleagues.join(' • ')}\n\n`
+    : '';
 
   return (
-    `${testMode ? '🧪 TESTING REMINDER JIMPITAN\n' : ''}` +
-    `${selectedGreeting} *${name}*,\n` +
-    `Pengingat jimpitan ${targetLabel}.\n` +
-    `Mulai pukul 21:00 sampai 06:00 WIB.\n` +
-    `Input: https://kas02.vercel.app/` +
-    `${testMode ? '\n\nAKHIR TESTING - abaikan jika bukan jadwal operasional.' : ''}`
+    `${testMode ? '🧪 *TESTING REMINDER JIMPITAN*\n\n' : ''}` +
+    `${greetingLine}\n\n` +
+    `⏰ *PENGINGAT RONDA & JIMPITAN*\n\n` +
+    `📅 Hari/Tanggal: ${targetLabel}\n\n` +
+    colleaguesLine +
+    `🕘 *Waktu Input Jimpitan:*\n21.00–06.00 WIB\n\n` +
+    `📱 *Buka Halaman Jimpitan:*\nhttps://kas02.vercel.app/jimpitan\n\n` +
+    `🤝 Terima kasih atas kebersamaan dan partisipasinya. Semoga lingkungan kita selalu aman dan guyub rukun. 🙏` +
+    `${testMode ? '\n\n*AKHIR TESTING - abaikan jika bukan jadwal operasional.*' : ''}`
   );
 }
-
 function buildApprovalLink(path = '/approval') {
   const base =
     process.env.FRONTEND_BASE_URL ||
@@ -925,11 +931,19 @@ export async function sendJimpitanShiftReminder(req, res) {
     const waResults = [];
     const waGreetings = pickDistinctWaGreetings(waRecipientRows.length);
     for (const [index, recipient] of waRecipientRows.entries()) {
+      const recipientId = String(recipient.id || '');
+      const colleagues = [...new Set(
+        petugas
+          .filter((row) => String(row.id) !== recipientId)
+          .map((row) => String(row.jimpitan_alias || '').trim() || firstNameOnly(row.nama))
+          .filter(Boolean)
+      )];
       const waText = buildWaJimpitanReminderText({
         recipient,
         targetLabel,
         testMode,
-        greeting: waGreetings[index]
+        greeting: waGreetings[index],
+        colleagues
       });
       const result = await sendWaJimpitanReminder({ recipient, text: waText, settings: waSettings });
       if (result?.success === true) await markJimpitanWaPhoneSent(recipient.phone);

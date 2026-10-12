@@ -68,6 +68,7 @@ export async function pickRandomValidWaRecipients(rows = [], limit = getWaJimpit
     .map((row) => ({
       id: row.id,
       nama: row.nama || row.jimpitan_label || null,
+      jimpitan_alias: row.jimpitan_alias || null,
       phone: normalizeWaPhone(row.no_hp)
     }))
     .filter((row) => row.phone);
