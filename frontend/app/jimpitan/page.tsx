@@ -45,7 +45,7 @@ export default function JimpitanPage() {
   const [setorLoading, setSetorLoading] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>("semua");
   const [canOperateToday, setCanOperateToday] = useState(true);
-  const [jimpitanMode, setJimpitanMode] = useState<JimpitanMode>("PER_WARGA");
+  const [jimpitanMode, setJimpitanMode] = useState<JimpitanMode | null>(null);
   const [shiftTotalInput, setShiftTotalInput] = useState("");
   const [shiftTotalNote, setShiftTotalNote] = useState("");
   const [shiftTotalLoading, setShiftTotalLoading] = useState(false);
@@ -834,6 +834,23 @@ export default function JimpitanPage() {
   }
 
   if (loading || !user) return <main className="min-h-screen" />;
+
+  // Wait for the backend mode before rendering either legacy PER_WARGA or V2.
+  // Otherwise the legacy UI flashes briefly before SHIFT_TOTAL arrives.
+  if (jimpitanMode === null) {
+    return (
+      <main className="min-h-screen pb-20 md:pb-10">
+        <Navbar sticky={false} />
+        <div className="page-container mt-8">
+          <div className="flex items-center justify-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-8 text-sm text-[var(--text-muted)]">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--line)] border-t-[var(--accent)]" aria-hidden="true" />
+            Memuat mode Jimpitan...
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const showByNameInput =
     jimpitanMode === "PER_WARGA" ||
     (jimpitanMode === "SHIFT_TOTAL" && v2Tab === "BY_NAME");
