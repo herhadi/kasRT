@@ -238,17 +238,19 @@ export default function DashboardPage() {
         koperasi: 0
       };
     }
+    const iuranWajibTarget = Number(dashboardData.target_iuran_wajib || 0);
     const internetTarget = Number(dashboardData.internet_target_bulanan || 0);
     const lingkunganTarget = Number(dashboardData.lingkungan_target_bulanan || 0);
+    const koperasiTarget = dashboardData.koperasi_has_loan
+      ? Number(dashboardData.koperasi_loan_monthly_installment || 0)
+      : 0;
+    // These cards represent the selected month's payment progress. Lifetime
+    // arrears remain in the separate "Tunggakan Anda" section below.
     return {
-      iuranWajib: 0,
-      internet: Number(dashboardData.internet_tunggakan_total || 0) > 0
-        ? -Number(dashboardData.internet_tunggakan_total || 0)
-        : Number(dashboardData.internet_bulan_ini || 0) - internetTarget,
-      lingkungan: Number(dashboardData.lingkungan_tunggakan_total || 0) > 0
-        ? -Number(dashboardData.lingkungan_tunggakan_total || 0)
-        : Number(dashboardData.lingkungan_bulan_ini || 0) - lingkunganTarget,
-      koperasi: 0
+      iuranWajib: Number(dashboardData.iuran_wajib_bulan_ini || 0) - iuranWajibTarget,
+      internet: Number(dashboardData.internet_bulan_ini || 0) - internetTarget,
+      lingkungan: Number(dashboardData.lingkungan_bulan_ini || 0) - lingkunganTarget,
+      koperasi: Number(dashboardData.koperasi_bulan_ini || 0) - koperasiTarget
     };
   }, [dashboardData]);
 
