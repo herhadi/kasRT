@@ -434,9 +434,15 @@ async function getMyTabunganContributionDetail({ userId, untilMonth }) {
   };
 }
 
-export async function getWargaFinancialSnapshot(userId) {
+export async function getWargaFinancialSnapshot(userId, {
+  includeInternet = true,
+  includeLingkungan = true,
+  includeTabungan = true
+} = {}) {
   await ensureReportTables();
-  const tabunganMigrasi = await getTabunganMigrationBalanceByWarga({ wargaId: userId });
+  const tabunganMigrasi = includeTabungan
+    ? await getTabunganMigrationBalanceByWarga({ wargaId: userId })
+    : 0;
   const result = await pool.query(
     `WITH iuran_target AS (
        SELECT 30000::numeric AS target
@@ -453,6 +459,7 @@ export async function getWargaFinancialSnapshot(userId) {
        SELECT COALESCE(sa.total_balance, 0) AS saldo
        FROM tab_savings_accounts sa
        WHERE sa.warga_id = $1::uuid
+         AND $5::boolean = TRUE
      ),
      internet_arrears AS (
        WITH member AS (
@@ -460,6 +467,7 @@ export async function getWargaFinancialSnapshot(userId) {
          FROM inet_members
          WHERE warga_id = $1::uuid
            AND is_active = TRUE
+           AND $3::boolean = TRUE
          LIMIT 1
        ),
        months AS (
@@ -469,6 +477,7 @@ export async function getWargaFinancialSnapshot(userId) {
            DATE_TRUNC('month', CURRENT_DATE)::date,
            interval '1 month'
          ) m
+         WHERE $3::boolean = TRUE
        ),
        month_target AS (
          SELECT mo.month_key,
@@ -486,6 +495,7 @@ export async function getWargaFinancialSnapshot(userId) {
          FROM inet_payments
          WHERE warga_id = $1::uuid
            AND month_key <= TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+           AND $3::boolean = TRUE
        ),
        running_targets AS (
          SELECT mt.*,
@@ -508,6 +518,7 @@ export async function getWargaFinancialSnapshot(userId) {
          FROM lh_members
          WHERE warga_id = $1::uuid
            AND is_active = TRUE
+           AND $4::boolean = TRUE
          LIMIT 1
        ),
        months AS (
@@ -517,6 +528,7 @@ export async function getWargaFinancialSnapshot(userId) {
            DATE_TRUNC('month', CURRENT_DATE)::date,
            interval '1 month'
          ) m
+         WHERE $4::boolean = TRUE
        ),
        month_target AS (
          SELECT mo.month_key,
@@ -534,6 +546,7 @@ export async function getWargaFinancialSnapshot(userId) {
          FROM lh_payments
          WHERE warga_id = $1::uuid
            AND month_key <= TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+           AND $4::boolean = TRUE
        ),
        running_targets AS (
          SELECT mt.*,
@@ -554,11 +567,11 @@ export async function getWargaFinancialSnapshot(userId) {
        GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) AS iuran_tunggakan_bulan_ini,
        CASE WHEN GREATEST((SELECT target FROM iuran_target) - (SELECT paid FROM iuran_paid), 0) > 0 THEN 1 ELSE 0 END AS iuran_tunggakan_bulan_count,
        COALESCE((SELECT saldo FROM tabungan LIMIT 1), 0) + $2::numeric AS tabungan_saldo,
-       (SELECT total_arrears FROM internet_arrears) AS internet_tunggakan_total,
-       (SELECT months_arrears FROM internet_arrears) AS internet_tunggakan_bulan_count,
-       (SELECT total_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_total,
-       (SELECT months_arrears FROM lingkungan_arrears) AS lingkungan_tunggakan_bulan_count`,
-    [userId, tabunganMigrasi]
+       COALESCE((SELECT total_arrears FROM internet_arrears), 0) AS internet_tunggakan_total,
+       COALESCE((SELECT months_arrears FROM internet_arrears), 0) AS internet_tunggakan_bulan_count,
+       COALESCE((SELECT total_arrears FROM lingkungan_arrears), 0) AS lingkungan_tunggakan_total,
+       COALESCE((SELECT months_arrears FROM lingkungan_arrears), 0) AS lingkungan_tunggakan_bulan_count`,
+    [userId, tabunganMigrasi, includeInternet, includeLingkungan, includeTabungan]
   );
   return result.rows[0] || {};
 }

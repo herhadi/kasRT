@@ -425,14 +425,14 @@ export default function DashboardPage() {
                   value={formatRupiah(personalObligations.iuranWajib)}
                   tone={personalObligations.iuranWajib < 0 ? 'danger' : 'accent'}
                 />
-                {financeData ? (
+                {dashboardData.tabungan_is_member ? (financeData ? (
                   <Metric
                     title="Saldo Tabungan Pembangunan"
                     value={formatRupiah(dashboardData.tabungan_saldo)}
                     tone={Number(dashboardData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'}
                     onClick={() => void openContributionDetail('tabungan')}
                   />
-                ) : <LoadingMetric title="Saldo Tabungan Pembangunan" failed={financeLoadError} />}
+                ) : <LoadingMetric title="Saldo Tabungan Pembangunan" failed={financeLoadError} />) : null}
                 {dashboardData.internet_is_member ? (internetData ? (
                   <Metric
                     title="Kewajiban Internet"
@@ -627,12 +627,12 @@ export default function DashboardPage() {
               headerRight={<PeriodPickerCompact label="Periode" value={selectedMonth} onChange={setSelectedMonth} />}
             >
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                <LoadingMetric title="Jimpitan Bulan Ini" failed={Boolean(dashboardLoadError)} />
+                {wargaData?.jimpitan_is_member ? <LoadingMetric title="Jimpitan Bulan Ini" failed={Boolean(dashboardLoadError)} /> : null}
                 <LoadingMetric title="Kewajiban Iuran Wajib" failed={Boolean(dashboardLoadError)} />
-                {financeData ? <Metric title="Saldo Tabungan Pembangunan" value={formatRupiah(Number(financeData.tabungan_saldo || 0))} onClick={() => void openContributionDetail('tabungan')} /> : <LoadingMetric title="Saldo Tabungan Pembangunan" failed={financeLoadError || Boolean(dashboardLoadError)} />}
+                {wargaData?.tabungan_is_member ? (financeData ? <Metric title="Saldo Tabungan Pembangunan" value={formatRupiah(Number(financeData.tabungan_saldo || 0))} onClick={() => void openContributionDetail('tabungan')} /> : <LoadingMetric title="Saldo Tabungan Pembangunan" failed={financeLoadError || Boolean(dashboardLoadError)} />) : null}
                 {internetData?.internet_is_member ? <Metric title="Kewajiban Internet" value={formatSignedRupiah(Number(financeData?.internet_tunggakan_total || 0) > 0 ? -Number(financeData?.internet_tunggakan_total || 0) : Number(internetData.internet_bulan_ini || 0) - Number(internetData.internet_target_bulanan || 60000))} onClick={() => void openContributionDetail('internet')} /> : null}
-                <LoadingMetric title="Kewajiban Lingkungan" failed={Boolean(dashboardLoadError)} />
-                <LoadingMetric title="Kewajiban Koperasi" failed={Boolean(dashboardLoadError)} />
+                {wargaData?.lingkungan_is_member ? <LoadingMetric title="Kewajiban Lingkungan" failed={Boolean(dashboardLoadError)} /> : null}
+                {wargaData?.koperasi_is_member ? <LoadingMetric title="Kewajiban Koperasi" failed={Boolean(dashboardLoadError)} /> : null}
               </div>
             </Card>
 
@@ -659,14 +659,13 @@ export default function DashboardPage() {
             <CompactPanel title="Tunggakan Anda" subtitle="Jumlah bulan dan nominal per kas">
               <div className="space-y-3 text-sm">
                 <LoadingLine label="Iuran Wajib" failed={Boolean(dashboardLoadError)} />
-                {financeData ? <Line label="Internet" value={`${financeData.internet_tunggakan_bulan_count || 0} bulan • ${formatRupiah(Number(financeData.internet_tunggakan_total || 0))}`} /> : <LoadingLine label="Internet" failed={financeLoadError || Boolean(dashboardLoadError)} />}
-                {financeData ? <Line label="Lingkungan" value={`${financeData.lingkungan_tunggakan_bulan_count || 0} bulan • ${formatRupiah(Number(financeData.lingkungan_tunggakan_total || 0))}`} /> : <LoadingLine label="Lingkungan" failed={financeLoadError || Boolean(dashboardLoadError)} />}
+
               </div>
             </CompactPanel>
 
             <CompactPanel title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
               <div className="space-y-3 text-sm">
-                <LoadingLine label="Target Jimpitan" failed={Boolean(dashboardLoadError)} />
+                {wargaData?.jimpitan_is_member ? <LoadingLine label="Target Jimpitan" failed={Boolean(dashboardLoadError)} /> : null}
                 <LoadingLine label="Target Iuran Wajib" failed={Boolean(dashboardLoadError)} />
                 <LoadingLine label="Target Dasar" failed={Boolean(dashboardLoadError)} />
               </div>

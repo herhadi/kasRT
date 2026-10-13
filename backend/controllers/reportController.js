@@ -67,10 +67,11 @@ export async function dashboardWargaInternet(req, res) {
     }
     res.set('X-Cache', 'MISS');
 
-    const [amount, isMember] = await Promise.all([
-      getInternetBulananByWargaByMonthKey(userId, monthFilter),
-      isInternetMember(userId)
-    ]);
+    // Membership is the gate: nonmembers should not wait for payment history.
+    const isMember = await isInternetMember(userId);
+    const amount = isMember
+      ? await getInternetBulananByWargaByMonthKey(userId, monthFilter)
+      : 0;
     const internet_bulan_ini = Number(amount || 0);
     const internet_status = !isMember ? 'NON_MEMBER'
       : internet_bulan_ini < INTERNET_TARGET_BULANAN ? 'MENUNGGAK'
@@ -96,11 +97,18 @@ export async function dashboardWargaFinance(req, res) {
     }
     res.set('X-Cache', 'MISS');
 
-    const [snapshot, totalKasSemuaTerkini, kasUmum] = await Promise.all([
-      getWargaFinancialSnapshot(userId),
+    const [internetMember, lingkunganMember, tabunganMember, totalKasSemuaTerkini, kasUmum] = await Promise.all([
+      isInternetMember(userId),
+      isLingkunganMember(userId),
+      isTabunganMember(userId),
       getTotalKasSemuaTerkini(),
       getKasUmumSnapshot()
     ]);
+    const snapshot = await getWargaFinancialSnapshot(userId, {
+      includeInternet: internetMember,
+      includeLingkungan: lingkunganMember,
+      includeTabungan: tabunganMember
+    });
     const payload = {
       success: true,
       data: {
@@ -148,23 +156,11 @@ export async function dashboardWarga(req, res) {
 
     const dashboardReferenceDate = monthFilter ? `${monthFilter}-01` : new Date().toISOString().slice(0, 10);
 
-    // Coalesce report-table initialization in the model, then run independent
-    // dashboard reads together to avoid serial database round trips.
-    const [
-      jimpitanMode,
-      iuranRows,
-      lingkunganByMonthKey,
-      koperasiByMonth,
-      loanProgress
-    ] = await Promise.all([
+    // Resolve membership before reading module-specific payment histories.
+    const [jimpitanMode, jimpitanMemberStatus, iuranRows, specialBills, internetMember, lingkunganMember, koperasiMember, tabunganMember, membershipRequests] = await Promise.all([
       getEffectiveJimpitanMode(dashboardReferenceDate),
+      isJimpitanMember(user_id),
       getIuranBulananByWarga(user_id, monthFilter),
-      getLingkunganBulananByWargaByMonthKey(user_id, monthFilter),
-      getKoperasiBulananByWarga(user_id, monthFilter),
-      getActiveLoanProgressByWarga(user_id)
-    ]);
-
-    const [specialBills, internetMember, lingkunganMember, koperasiMember, tabunganMember, membershipRequests] = await Promise.all([
       listVisibleSpecialBillsForWarga(user_id),
       isInternetMember(user_id),
       isLingkunganMember(user_id),
@@ -173,14 +169,21 @@ export async function dashboardWarga(req, res) {
       getLatestMembershipRequestStatusMap(user_id)
     ]);
 
+    // Skip module-specific payment queries entirely for nonmembers.
+    const [lingkunganByMonthKey, koperasiByMonth, loanProgress] = await Promise.all([
+      lingkunganMember ? getLingkunganBulananByWargaByMonthKey(user_id, monthFilter) : 0,
+      koperasiMember ? getKoperasiBulananByWarga(user_id, monthFilter) : 0,
+      getActiveLoanProgressByWarga(user_id)
+    ]);
+
     const isJimpitanPersonalActive = jimpitanMode.mode !== 'SHIFT_TOTAL';
-    const [jimpitan_hari_ini, jimpitan_bulan_ini, jimpitanMember] = isJimpitanPersonalActive
+    const jimpitanMember = isJimpitanPersonalActive && jimpitanMemberStatus;
+    const [jimpitan_hari_ini, jimpitan_bulan_ini] = jimpitanMember
       ? await Promise.all([
           getJimpitanHarianByWarga(user_id),
-          getJimpitanBulananByWarga(user_id, monthFilter),
-          isJimpitanMember(user_id)
+          getJimpitanBulananByWarga(user_id, monthFilter)
         ])
-      : [0, 0, false];
+      : [0, 0];
 
     let iuran_wajib_bulan_ini = 0;
     let internet_bulan_ini = 0;
