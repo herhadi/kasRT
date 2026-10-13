@@ -186,7 +186,11 @@ langsung APPROVED oleh root/Admin Jimpitan mengikuti perilaku yang sama.
 JID grup kini dapat diatur dari `/management/whatsapp`; nilai tersebut disimpan
 di `app_settings` dan menjadi satu-satunya sumber konfigurasi JID grup.
 Halaman tersebut juga dapat mengambil daftar grup dari gateway melalui tombol
-**Ambil Daftar Grup**.
+**Ambil Daftar Grup**. Jika pengiriman ditolak karena sesi WhatsApp sementara
+belum connected, backend mencoba ulang khusus notifikasi grup hingga tiga kali
+setelah percobaan pertama (jeda 3, 7, lalu 15 detik). Error validasi/auth tidak
+diulang. Kegagalan jaringan tanpa respons gateway tidak diulang otomatis untuk
+menghindari kemungkinan pesan ganda jika gateway sebenarnya sudah menerima pesan.
 
 Untuk melihat JID grup yang diikuti nomor tertaut, gunakan `GET /groups` dengan secret gateway. Endpoint ini mengambil grup langsung dari WhatsApp dan mengembalikan `jid` berakhiran `@g.us`, tidak bergantung pada daftar chat lokal.
 
