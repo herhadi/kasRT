@@ -120,6 +120,12 @@ html.dark {
   box-sizing: border-box;
 }
 
+/* Keep centered layouts from shifting horizontally when async content
+   makes the page tall enough to show a vertical scrollbar. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: var(--font-manrope), sans-serif;
   background:
