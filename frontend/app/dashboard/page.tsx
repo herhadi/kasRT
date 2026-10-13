@@ -457,9 +457,9 @@ export default function DashboardPage() {
                   />
                 ) : null}
               </section>
-              {(internetLoadError || financeLoadError) ? (
+              {((dashboardData.internet_is_member && internetLoadError) || financeLoadError) ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]">
-                  <span>{internetLoadError && financeLoadError ? 'Sebagian ringkasan belum tersedia.' : internetLoadError ? 'Ringkasan Internet belum tersedia.' : 'Ringkasan kas dan saldo belum tersedia.'}</span>
+                  <span>{dashboardData.internet_is_member && internetLoadError && financeLoadError ? 'Sebagian ringkasan belum tersedia.' : dashboardData.internet_is_member && internetLoadError ? 'Ringkasan Internet belum tersedia.' : 'Ringkasan kas dan saldo belum tersedia.'}</span>
                   <button type="button" className="font-semibold text-[var(--accent)] underline" onClick={() => setDashboardReloadKey((key) => key + 1)}>Coba lagi</button>
                 </div>
               ) : null}
@@ -630,7 +630,7 @@ export default function DashboardPage() {
                 <LoadingMetric title="Jimpitan Bulan Ini" failed={Boolean(dashboardLoadError)} />
                 <LoadingMetric title="Kewajiban Iuran Wajib" failed={Boolean(dashboardLoadError)} />
                 {financeData ? <Metric title="Saldo Tabungan Pembangunan" value={formatRupiah(Number(financeData.tabungan_saldo || 0))} onClick={() => void openContributionDetail('tabungan')} /> : <LoadingMetric title="Saldo Tabungan Pembangunan" failed={financeLoadError || Boolean(dashboardLoadError)} />}
-                {internetData ? (internetData.internet_is_member ? <Metric title="Kewajiban Internet" value={formatSignedRupiah(Number(financeData?.internet_tunggakan_total || 0) > 0 ? -Number(financeData?.internet_tunggakan_total || 0) : Number(internetData.internet_bulan_ini || 0) - Number(internetData.internet_target_bulanan || 60000))} onClick={() => void openContributionDetail('internet')} /> : <LoadingMetric title="Kewajiban Internet" failed />) : <LoadingMetric title="Kewajiban Internet" failed={internetLoadError || Boolean(dashboardLoadError)} />}
+                {internetData?.internet_is_member ? <Metric title="Kewajiban Internet" value={formatSignedRupiah(Number(financeData?.internet_tunggakan_total || 0) > 0 ? -Number(financeData?.internet_tunggakan_total || 0) : Number(internetData.internet_bulan_ini || 0) - Number(internetData.internet_target_bulanan || 60000))} onClick={() => void openContributionDetail('internet')} /> : null}
                 <LoadingMetric title="Kewajiban Lingkungan" failed={Boolean(dashboardLoadError)} />
                 <LoadingMetric title="Kewajiban Koperasi" failed={Boolean(dashboardLoadError)} />
               </div>
