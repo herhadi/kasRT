@@ -62,6 +62,8 @@ export default function DashboardPage() {
   const { toasts, pushToast } = useToast();
 
   const [wargaData, setWargaData] = useState<DashboardWargaData | null>(null);
+  const [dashboardLoadError, setDashboardLoadError] = useState('');
+  const [dashboardReloadKey, setDashboardReloadKey] = useState(0);
   const [adminData, setAdminData] = useState<AdminPanelData | null>(null);
   const [scheduleData, setScheduleData] = useState<JimpitanScheduleData | null>(null);
   const [error, setError] = useState('');
@@ -122,6 +124,8 @@ export default function DashboardPage() {
     if (!user) return;
     let active = true;
     setError('');
+    setDashboardLoadError('');
+    setWargaData(null);
 
     // Each panel updates as soon as its own request finishes. A slow schedule,
     // profile refresh, or role-specific admin report no longer blocks the main
@@ -131,7 +135,11 @@ export default function DashboardPage() {
     ).then((result) => {
       if (active) setWargaData(result.data);
     }).catch((e) => {
-      if (active) setError(e instanceof Error ? e.message : 'Gagal memuat ringkasan dashboard');
+      if (active) {
+        const message = e instanceof Error ? e.message : 'Gagal memuat ringkasan dashboard';
+        setDashboardLoadError(message);
+        setError(message);
+      }
     });
 
     void apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule')
@@ -165,7 +173,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [user?.id, adminEndpoint, refreshUser, selectedMonth]);
+  }, [user?.id, adminEndpoint, refreshUser, selectedMonth, dashboardReloadKey]);
 
   const weeklyGroups = useMemo(() => {
     const days = scheduleData?.shift_days || [];
@@ -559,8 +567,90 @@ export default function DashboardPage() {
             ) : null}
           </>
         ) : (
-          <div className="surface-muted rounded-2xl border border-[var(--line)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            Memuat dashboard...
+          <div className="space-y-5" aria-busy={!dashboardLoadError} aria-live="polite">
+            {dashboardLoadError ? (
+              <div className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100 sm:flex-row sm:items-center sm:justify-between">
+                <span>Ringkasan belum berhasil dimuat. Bagian lain tetap bisa digunakan. {dashboardLoadError}</span>
+                <Button className="shrink-0" onClick={() => setDashboardReloadKey((key) => key + 1)}>Coba Lagi</Button>
+              </div>
+            ) : null}
+
+            <Card
+              title="Informasi Pribadi"
+              subtitle="Ringkasan iuran dan saldo pribadi"
+              headerRight={<PeriodPickerCompact label="Periode" value={selectedMonth} onChange={setSelectedMonth} />}
+            >
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <LoadingMetric title="Jimpitan Bulan Ini" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kewajiban Iuran Wajib" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Saldo Tabungan Pembangunan" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kewajiban Internet" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kewajiban Lingkungan" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kewajiban Koperasi" failed={Boolean(dashboardLoadError)} />
+              </div>
+            </Card>
+
+            <Card title="Kas Umum" subtitle="Ringkasan kas bersama lintas modul">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <LoadingMetric title="Kas Bendahara" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kas Sosial" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kas Tab Pembangunan" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kas Lingkungan" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kas Internet" failed={Boolean(dashboardLoadError)} />
+                <LoadingMetric title="Kas Koperasi" failed={Boolean(dashboardLoadError)} />
+              </div>
+            </Card>
+
+            <CompactPanel title="Tunggakan Anda" subtitle="Jumlah bulan dan nominal per kas">
+              <div className="space-y-3 text-sm">
+                <LoadingLine label="Iuran Wajib" failed={Boolean(dashboardLoadError)} />
+                <LoadingLine label="Internet" failed={Boolean(dashboardLoadError)} />
+                <LoadingLine label="Lingkungan" failed={Boolean(dashboardLoadError)} />
+              </div>
+            </CompactPanel>
+
+            <CompactPanel title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
+              <div className="space-y-3 text-sm">
+                <LoadingLine label="Target Jimpitan" failed={Boolean(dashboardLoadError)} />
+                <LoadingLine label="Target Iuran Wajib" failed={Boolean(dashboardLoadError)} />
+                <LoadingLine label="Target Dasar" failed={Boolean(dashboardLoadError)} />
+              </div>
+            </CompactPanel>
+
+            <Card title="Jadwal Petugas Ronda/Jimpitan" subtitle="Pengambilan jimpitan mulai jam 21:00">
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+                  <thead><tr className="bg-[var(--surface-strong)]">
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Hari</th>
+                    <th className="border-b border-[var(--line)] px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Petugas</th>
+                  </tr></thead>
+                  <tbody>
+                    {weeklyGroups.length ? weeklyGroups.map((day) => (
+                      <tr key={day.id} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{day.label}</td>
+                        <td className="border-b border-[var(--line)] px-4 py-3 text-sm text-[var(--text-primary)]">{day.members.length ? day.members.map((person) => person.nama).join(', ') : 'Belum dijadwalkan'}</td>
+                      </tr>
+                    )) : Array.from({ length: 7 }, (_, index) => (
+                      <tr key={index} className="bg-[var(--surface)]">
+                        <td className="border-b border-[var(--line)] px-4 py-3"><LoadingValue failed={Boolean(dashboardLoadError)} /></td>
+                        <td className="border-b border-[var(--line)] px-4 py-3"><LoadingValue failed={Boolean(dashboardLoadError)} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {adminEndpoint ? (
+              <Card title="Panel Admin" subtitle="Ringkasan sesuai role Anda">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <LoadingLine label="Ringkasan operasional" failed={!adminData && Boolean(dashboardLoadError)} />
+                  <LoadingLine label="Statistik periode ini" failed={!adminData && Boolean(dashboardLoadError)} />
+                </div>
+              </Card>
+            ) : null}
+
+            {!dashboardLoadError ? <p className="text-center text-xs text-[var(--text-muted)]">Angka sedang dimuat. Bagian yang sudah tersedia akan langsung ditampilkan.</p> : null}
           </div>
         )}
       </div>
@@ -710,6 +800,36 @@ export default function DashboardPage() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+function LoadingValue({ failed = false }: { failed?: boolean }) {
+  if (failed) return <span className="text-sm text-[var(--text-muted)]">Belum tersedia</span>;
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)]" role="status" aria-label="Memuat data">
+      <span className="inline-block size-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+      <span className="sr-only">Memuat data</span>
+    </span>
+  );
+}
+
+function LoadingMetric({ title, failed = false }: { title: string; failed?: boolean }) {
+  return (
+    <div className="glass-card min-h-[108px] rounded-2xl border border-[var(--line)] p-4">
+      <p className="text-xs font-semibold text-[var(--text-muted)]">{title}</p>
+      <div className="metric-value mt-3 flex min-h-7 items-center text-xl font-bold text-[var(--accent)]">
+        <LoadingValue failed={failed} />
+      </div>
+    </div>
+  );
+}
+
+function LoadingLine({ label, failed = false }: { label: string; failed?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] pb-2 last:border-b-0 last:pb-0">
+      <span className="text-[var(--text-muted)]">{label}</span>
+      <LoadingValue failed={failed} />
+    </div>
   );
 }
 
