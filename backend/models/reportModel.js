@@ -8,16 +8,23 @@ import { ensureJimpitanTopupsTable } from './jimpitanModel.js';
 import { listFinanceWallets } from './bendaharaModel.js';
 
 let reportTablesEnsured = false;
+let reportTablesEnsuring = null;
 
 async function ensureReportTables() {
   if (reportTablesEnsured) return;
-  await Promise.all([
-    ensureInternetTables(),
-    ensureLingkunganTables(),
-    ensureKoperasiTables(),
-    ensureTabunganTables()
-  ]);
-  reportTablesEnsured = true;
+  if (!reportTablesEnsuring) {
+    reportTablesEnsuring = Promise.all([
+      ensureInternetTables(),
+      ensureLingkunganTables(),
+      ensureKoperasiTables(),
+      ensureTabunganTables()
+    ]).then(() => {
+      reportTablesEnsured = true;
+    }).finally(() => {
+      reportTablesEnsuring = null;
+    });
+  }
+  await reportTablesEnsuring;
 }
 
 export async function getJimpitanHarianByWarga(userId) {

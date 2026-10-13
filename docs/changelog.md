@@ -6,6 +6,7 @@
 
 - Layout global menggunakan `scrollbar-gutter: stable` agar kontainer terpusat tidak bergeser horizontal saat konten asinkron membuat scrollbar vertikal muncul; membantu mengurangi potensi Cumulative Layout Shift (CLS).
 - Loading `/dashboard` dioptimalkan: ringkasan pribadi, jadwal, profil, dan panel admin dimuat secara independen agar respons lambat pada satu panel tidak menahan panel lain. Query ringkasan warga yang independen dijalankan paralel dalam kelompok terbatas setelah inisialisasi tabel modul.
+- Query ringkasan dashboard kini menjalankan pengambilan data Internet bulanan secara paralel dengan query independen lainnya. Inisialisasi tabel laporan menggunakan satu promise bersama agar permintaan bersamaan tidak memicu inisialisasi tabel berulang.
 
 ## 2026-10-12
 

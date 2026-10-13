@@ -71,11 +71,10 @@ export async function dashboardWarga(req, res) {
 
     const dashboardReferenceDate = monthFilter ? `${monthFilter}-01` : new Date().toISOString().slice(0, 10);
 
-    // Initialize shared module tables once before running their read queries in
-    // parallel; several model functions call ensureReportTables internally.
-    const internetByMonthKey = await getInternetBulananByWargaByMonthKey(user_id, monthFilter);
-
+    // Coalesce report-table initialization in the model, then run independent
+    // dashboard reads together to avoid serial database round trips.
     const [
+      internetByMonthKey,
       jimpitanMode,
       iuranRows,
       lingkunganByMonthKey,
@@ -85,6 +84,7 @@ export async function dashboardWarga(req, res) {
       totalKasSemuaTerkini,
       kasUmum
     ] = await Promise.all([
+      getInternetBulananByWargaByMonthKey(user_id, monthFilter),
       getEffectiveJimpitanMode(dashboardReferenceDate),
       getIuranBulananByWarga(user_id, monthFilter),
       getLingkunganBulananByWargaByMonthKey(user_id, monthFilter),
