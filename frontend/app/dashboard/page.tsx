@@ -62,6 +62,10 @@ export default function DashboardPage() {
   const { toasts, pushToast } = useToast();
 
   const [wargaData, setWargaData] = useState<DashboardWargaData | null>(null);
+  const [internetData, setInternetData] = useState<Partial<DashboardWargaData> | null>(null);
+  const [financeData, setFinanceData] = useState<Partial<DashboardWargaData> | null>(null);
+  const [internetLoadError, setInternetLoadError] = useState(false);
+  const [financeLoadError, setFinanceLoadError] = useState(false);
   const [dashboardLoadError, setDashboardLoadError] = useState('');
   const [dashboardReloadKey, setDashboardReloadKey] = useState(0);
   const [adminData, setAdminData] = useState<AdminPanelData | null>(null);
@@ -126,6 +130,26 @@ export default function DashboardPage() {
     setError('');
     setDashboardLoadError('');
     setWargaData(null);
+    setInternetData(null);
+    setFinanceData(null);
+    setInternetLoadError(false);
+    setFinanceLoadError(false);
+
+    // Load the main dashboard and its slower Internet/finance groups independently.
+    void apiFetch<{ success: boolean; data: Partial<DashboardWargaData> }>(
+      `/report/dashboard-internet?month=${encodeURIComponent(selectedMonth)}`
+    ).then((result) => {
+      if (active) setInternetData(result.data);
+    }).catch(() => {
+      if (active) setInternetLoadError(true);
+    });
+
+    void apiFetch<{ success: boolean; data: Partial<DashboardWargaData> }>('/report/dashboard-finance')
+      .then((result) => {
+        if (active) setFinanceData(result.data);
+      }).catch(() => {
+        if (active) setFinanceLoadError(true);
+      });
 
     // Each panel updates as soon as its own request finishes. A slow schedule,
     // profile refresh, or role-specific admin report no longer blocks the main
@@ -175,6 +199,11 @@ export default function DashboardPage() {
     };
   }, [user?.id, adminEndpoint, refreshUser, selectedMonth, dashboardReloadKey]);
 
+  const dashboardData = useMemo<DashboardWargaData | null>(() => {
+    if (!wargaData) return null;
+    return { ...wargaData, ...(internetData || {}), ...(financeData || {}) };
+  }, [wargaData, internetData, financeData]);
+
   const weeklyGroups = useMemo(() => {
     const days = scheduleData?.shift_days || [];
     const petugas = scheduleData?.petugas || [];
@@ -201,7 +230,7 @@ export default function DashboardPage() {
     return 'accent';
   }, []);
   const personalObligations = useMemo(() => {
-    if (!wargaData) {
+    if (!dashboardData) {
       return {
         iuranWajib: 0,
         internet: 0,
@@ -209,19 +238,19 @@ export default function DashboardPage() {
         koperasi: 0
       };
     }
-    const internetTarget = Number(wargaData.internet_target_bulanan || 0);
-    const lingkunganTarget = Number(wargaData.lingkungan_target_bulanan || 0);
+    const internetTarget = Number(dashboardData.internet_target_bulanan || 0);
+    const lingkunganTarget = Number(dashboardData.lingkungan_target_bulanan || 0);
     return {
       iuranWajib: 0,
-      internet: Number(wargaData.internet_tunggakan_total || 0) > 0
-        ? -Number(wargaData.internet_tunggakan_total || 0)
-        : Number(wargaData.internet_bulan_ini || 0) - internetTarget,
-      lingkungan: Number(wargaData.lingkungan_tunggakan_total || 0) > 0
-        ? -Number(wargaData.lingkungan_tunggakan_total || 0)
-        : Number(wargaData.lingkungan_bulan_ini || 0) - lingkunganTarget,
+      internet: Number(dashboardData.internet_tunggakan_total || 0) > 0
+        ? -Number(dashboardData.internet_tunggakan_total || 0)
+        : Number(dashboardData.internet_bulan_ini || 0) - internetTarget,
+      lingkungan: Number(dashboardData.lingkungan_tunggakan_total || 0) > 0
+        ? -Number(dashboardData.lingkungan_tunggakan_total || 0)
+        : Number(dashboardData.lingkungan_bulan_ini || 0) - lingkunganTarget,
       koperasi: 0
     };
-  }, [wargaData]);
+  }, [dashboardData]);
 
   if (loading || !user) return <main className="min-h-screen" />;
 
@@ -380,7 +409,7 @@ export default function DashboardPage() {
           </section>
         ) : null}
 
-        {wargaData ? (
+        {dashboardData ? (
           <>
             <Card
               title="Informasi Pribadi"
@@ -390,27 +419,29 @@ export default function DashboardPage() {
               }
             >
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
-                {wargaData.jimpitan_is_member ? <Metric title="Jimpitan Bulan Ini" value={formatRupiah(wargaData.jimpitan_bulan_ini)} /> : null}
+                {dashboardData.jimpitan_is_member ? <Metric title="Jimpitan Bulan Ini" value={formatRupiah(dashboardData.jimpitan_bulan_ini)} /> : null}
                 <Metric
                   title="Kewajiban Iuran Wajib"
                   value={formatRupiah(personalObligations.iuranWajib)}
                   tone={personalObligations.iuranWajib < 0 ? 'danger' : 'accent'}
                 />
-                <Metric
-                  title="Saldo Tabungan Pembangunan"
-                  value={formatRupiah(wargaData.tabungan_saldo)}
-                  tone={Number(wargaData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'}
-                  onClick={() => void openContributionDetail('tabungan')}
-                />
-                {wargaData.internet_is_member ? (
+                {financeData ? (
+                  <Metric
+                    title="Saldo Tabungan Pembangunan"
+                    value={formatRupiah(dashboardData.tabungan_saldo)}
+                    tone={Number(dashboardData.tabungan_saldo || 0) < 0 ? 'danger' : 'accent'}
+                    onClick={() => void openContributionDetail('tabungan')}
+                  />
+                ) : <LoadingMetric title="Saldo Tabungan Pembangunan" failed={financeLoadError} />}
+                {dashboardData.internet_is_member ? (internetData ? (
                   <Metric
                     title="Kewajiban Internet"
                     value={formatSignedRupiah(personalObligations.internet)}
                     tone={obligationTone(personalObligations.internet)}
                     onClick={() => void openContributionDetail('internet')}
                   />
-                ) : null}
-                {wargaData.lingkungan_is_member ? (
+                ) : <LoadingMetric title="Kewajiban Internet" failed={internetLoadError} />) : null}
+                {dashboardData.lingkungan_is_member ? (
                   <Metric
                     title="Kewajiban Lingkungan"
                     value={formatSignedRupiah(personalObligations.lingkungan)}
@@ -418,7 +449,7 @@ export default function DashboardPage() {
                     onClick={() => void openContributionDetail('lingkungan')}
                   />
                 ) : null}
-                {wargaData.koperasi_is_member ? (
+                {dashboardData.koperasi_is_member ? (
                   <Metric
                     title="Kewajiban Koperasi"
                     value={formatRupiah(personalObligations.koperasi)}
@@ -426,12 +457,18 @@ export default function DashboardPage() {
                   />
                 ) : null}
               </section>
+              {(internetLoadError || financeLoadError) ? (
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]">
+                  <span>{internetLoadError && financeLoadError ? 'Sebagian ringkasan belum tersedia.' : internetLoadError ? 'Ringkasan Internet belum tersedia.' : 'Ringkasan kas dan saldo belum tersedia.'}</span>
+                  <button type="button" className="font-semibold text-[var(--accent)] underline" onClick={() => setDashboardReloadKey((key) => key + 1)}>Coba lagi</button>
+                </div>
+              ) : null}
             </Card>
 
-            {wargaData.special_bills?.length ? (
+            {dashboardData.special_bills?.length ? (
               <Card title="Tagihan Khusus Aktif" subtitle="Tagihan temporer yang ditunjuk oleh pengurus RT">
                 <div className="grid gap-3 md:grid-cols-2">
-                  {wargaData.special_bills.map((bill) => (
+                  {dashboardData.special_bills.map((bill) => (
                     <div key={bill.id} className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -462,46 +499,55 @@ export default function DashboardPage() {
 
             <Card title="Kas Umum" subtitle="Ringkasan kas bersama lintas modul">
               <section className="grid gap-3 grid-cols-2 lg:grid-cols-3">
-                <Metric title="Kas Bendahara" value={formatRupiah(wargaData.kas_umum.kas_bendahara)} tone={wargaData.kas_umum.kas_bendahara < 0 ? 'danger' : 'accent'} />
-                <Metric title="Kas Sosial" value={formatRupiah(wargaData.kas_umum.kas_sosial)} tone={wargaData.kas_umum.kas_sosial < 0 ? 'danger' : 'accent'} />
-                <Metric title="Kas Tab Pembangunan" value={formatRupiah(wargaData.kas_umum.kas_tabungan_pembangunan)} tone={wargaData.kas_umum.kas_tabungan_pembangunan < 0 ? 'danger' : 'accent'} />
-                <Metric title="Kas Lingkungan" value={formatRupiah(wargaData.kas_umum.kas_lingkungan)} tone={wargaData.kas_umum.kas_lingkungan < 0 ? 'danger' : 'accent'} />
-                <Metric title="Kas Internet" value={formatRupiah(wargaData.kas_umum.kas_internet)} tone={wargaData.kas_umum.kas_internet < 0 ? 'danger' : 'accent'} />
-                <Metric title="Kas Koperasi" value={formatRupiah(wargaData.kas_umum.kas_koperasi)} tone={wargaData.kas_umum.kas_koperasi < 0 ? 'danger' : 'accent'} />
+                {financeData ? <>
+                  <Metric title="Kas Bendahara" value={formatRupiah(dashboardData.kas_umum.kas_bendahara)} tone={dashboardData.kas_umum.kas_bendahara < 0 ? 'danger' : 'accent'} />
+                  <Metric title="Kas Sosial" value={formatRupiah(dashboardData.kas_umum.kas_sosial)} tone={dashboardData.kas_umum.kas_sosial < 0 ? 'danger' : 'accent'} />
+                  <Metric title="Kas Tab Pembangunan" value={formatRupiah(dashboardData.kas_umum.kas_tabungan_pembangunan)} tone={dashboardData.kas_umum.kas_tabungan_pembangunan < 0 ? 'danger' : 'accent'} />
+                  <Metric title="Kas Lingkungan" value={formatRupiah(dashboardData.kas_umum.kas_lingkungan)} tone={dashboardData.kas_umum.kas_lingkungan < 0 ? 'danger' : 'accent'} />
+                  <Metric title="Kas Internet" value={formatRupiah(dashboardData.kas_umum.kas_internet)} tone={dashboardData.kas_umum.kas_internet < 0 ? 'danger' : 'accent'} />
+                  <Metric title="Kas Koperasi" value={formatRupiah(dashboardData.kas_umum.kas_koperasi)} tone={dashboardData.kas_umum.kas_koperasi < 0 ? 'danger' : 'accent'} />
+                </> : <>
+                  <LoadingMetric title="Kas Bendahara" failed={financeLoadError} />
+                  <LoadingMetric title="Kas Sosial" failed={financeLoadError} />
+                  <LoadingMetric title="Kas Tab Pembangunan" failed={financeLoadError} />
+                  <LoadingMetric title="Kas Lingkungan" failed={financeLoadError} />
+                  <LoadingMetric title="Kas Internet" failed={financeLoadError} />
+                  <LoadingMetric title="Kas Koperasi" failed={financeLoadError} />
+                </>}
               </section>
             </Card>
 
             <CompactPanel title="Tunggakan Anda" subtitle="Jumlah bulan dan nominal per kas">
               <div className="space-y-2 text-sm">
                 <Line label="Iuran Wajib" value={`0 bulan • ${formatRupiah(0)}`} />
-                {wargaData.internet_is_member ? <Line label="Internet" value={`${wargaData.internet_tunggakan_bulan_count} bulan • ${formatRupiah(wargaData.internet_tunggakan_total)}`} /> : null}
-                {wargaData.lingkungan_is_member ? <Line label="Lingkungan" value={`${wargaData.lingkungan_tunggakan_bulan_count} bulan • ${formatRupiah(wargaData.lingkungan_tunggakan_total)}`} /> : null}
+                {dashboardData.internet_is_member ? (financeData ? <Line label="Internet" value={`${dashboardData.internet_tunggakan_bulan_count} bulan • ${formatRupiah(dashboardData.internet_tunggakan_total)}`} /> : <LoadingLine label="Internet" failed={financeLoadError} />) : null}
+                {dashboardData.lingkungan_is_member ? (financeData ? <Line label="Lingkungan" value={`${dashboardData.lingkungan_tunggakan_bulan_count} bulan • ${formatRupiah(dashboardData.lingkungan_tunggakan_total)}`} /> : <LoadingLine label="Lingkungan" failed={financeLoadError} />) : null}
               </div>
             </CompactPanel>
 
             <section className="grid gap-3 lg:grid-cols-1">
               <CompactPanel title="Kontribusi Dasar" subtitle="Jimpitan + iuran wajib">
                 <div className="space-y-2 text-sm">
-                  {wargaData.jimpitan_is_member ? <Line label="Target Jimpitan" value={formatRupiah(wargaData.target_jimpitan_bulanan)} /> : null}
-                  <Line label="Target Iuran Wajib" value={formatRupiah(wargaData.target_iuran_wajib)} />
+                  {dashboardData.jimpitan_is_member ? <Line label="Target Jimpitan" value={formatRupiah(dashboardData.target_jimpitan_bulanan)} /> : null}
+                  <Line label="Target Iuran Wajib" value={formatRupiah(dashboardData.target_iuran_wajib)} />
                   <Line
                     label="Target Dasar"
                     value={formatRupiah(
-                      Number(wargaData.target_iuran_wajib || 0) +
-                        (wargaData.jimpitan_is_member ? Number(wargaData.target_jimpitan_bulanan || 0) : 0)
+                      Number(dashboardData.target_iuran_wajib || 0) +
+                        (dashboardData.jimpitan_is_member ? Number(dashboardData.target_jimpitan_bulanan || 0) : 0)
                     )}
                   />
                 </div>
               </CompactPanel>
             </section>
 
-            {wargaData.koperasi_has_loan ? (
+            {dashboardData.koperasi_has_loan ? (
               <CompactPanel title="Pinjaman Koperasi" subtitle="Angsuran pinjaman aktif">
                 <div className="space-y-2 text-sm">
-                  <Line label="Angsuran / Bulan" value={formatRupiah(Number(wargaData.koperasi_loan_monthly_installment || 0))} />
+                  <Line label="Angsuran / Bulan" value={formatRupiah(Number(dashboardData.koperasi_loan_monthly_installment || 0))} />
                   <Line
                     label="Progress Angsuran"
-                    value={`Angsuran ke-${Math.min(Number(wargaData.koperasi_loan_current_installment_no || 1), Number(wargaData.koperasi_loan_tenor_months || 0))}/${Number(wargaData.koperasi_loan_tenor_months || 0)}`}
+                    value={`Angsuran ke-${Math.min(Number(dashboardData.koperasi_loan_current_installment_no || 1), Number(dashboardData.koperasi_loan_tenor_months || 0))}/${Number(dashboardData.koperasi_loan_tenor_months || 0)}`}
                   />
                 </div>
               </CompactPanel>
@@ -583,8 +629,8 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 <LoadingMetric title="Jimpitan Bulan Ini" failed={Boolean(dashboardLoadError)} />
                 <LoadingMetric title="Kewajiban Iuran Wajib" failed={Boolean(dashboardLoadError)} />
-                <LoadingMetric title="Saldo Tabungan Pembangunan" failed={Boolean(dashboardLoadError)} />
-                <LoadingMetric title="Kewajiban Internet" failed={Boolean(dashboardLoadError)} />
+                {financeData ? <Metric title="Saldo Tabungan Pembangunan" value={formatRupiah(Number(financeData.tabungan_saldo || 0))} onClick={() => void openContributionDetail('tabungan')} /> : <LoadingMetric title="Saldo Tabungan Pembangunan" failed={financeLoadError || Boolean(dashboardLoadError)} />}
+                {internetData ? (internetData.internet_is_member ? <Metric title="Kewajiban Internet" value={formatSignedRupiah(Number(financeData?.internet_tunggakan_total || 0) > 0 ? -Number(financeData?.internet_tunggakan_total || 0) : Number(internetData.internet_bulan_ini || 0) - Number(internetData.internet_target_bulanan || 60000))} onClick={() => void openContributionDetail('internet')} /> : <LoadingMetric title="Kewajiban Internet" failed />) : <LoadingMetric title="Kewajiban Internet" failed={internetLoadError || Boolean(dashboardLoadError)} />}
                 <LoadingMetric title="Kewajiban Lingkungan" failed={Boolean(dashboardLoadError)} />
                 <LoadingMetric title="Kewajiban Koperasi" failed={Boolean(dashboardLoadError)} />
               </div>
@@ -592,20 +638,29 @@ export default function DashboardPage() {
 
             <Card title="Kas Umum" subtitle="Ringkasan kas bersama lintas modul">
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                <LoadingMetric title="Kas Bendahara" failed={Boolean(dashboardLoadError)} />
-                <LoadingMetric title="Kas Sosial" failed={Boolean(dashboardLoadError)} />
-                <LoadingMetric title="Kas Tab Pembangunan" failed={Boolean(dashboardLoadError)} />
-                <LoadingMetric title="Kas Lingkungan" failed={Boolean(dashboardLoadError)} />
-                <LoadingMetric title="Kas Internet" failed={Boolean(dashboardLoadError)} />
-                <LoadingMetric title="Kas Koperasi" failed={Boolean(dashboardLoadError)} />
+                {financeData ? <>
+                  <Metric title="Kas Bendahara" value={formatRupiah(Number(financeData.kas_umum?.kas_bendahara || 0))} />
+                  <Metric title="Kas Sosial" value={formatRupiah(Number(financeData.kas_umum?.kas_sosial || 0))} />
+                  <Metric title="Kas Tab Pembangunan" value={formatRupiah(Number(financeData.kas_umum?.kas_tabungan_pembangunan || 0))} />
+                  <Metric title="Kas Lingkungan" value={formatRupiah(Number(financeData.kas_umum?.kas_lingkungan || 0))} />
+                  <Metric title="Kas Internet" value={formatRupiah(Number(financeData.kas_umum?.kas_internet || 0))} />
+                  <Metric title="Kas Koperasi" value={formatRupiah(Number(financeData.kas_umum?.kas_koperasi || 0))} />
+                </> : <>
+                  <LoadingMetric title="Kas Bendahara" failed={financeLoadError || Boolean(dashboardLoadError)} />
+                  <LoadingMetric title="Kas Sosial" failed={financeLoadError || Boolean(dashboardLoadError)} />
+                  <LoadingMetric title="Kas Tab Pembangunan" failed={financeLoadError || Boolean(dashboardLoadError)} />
+                  <LoadingMetric title="Kas Lingkungan" failed={financeLoadError || Boolean(dashboardLoadError)} />
+                  <LoadingMetric title="Kas Internet" failed={financeLoadError || Boolean(dashboardLoadError)} />
+                  <LoadingMetric title="Kas Koperasi" failed={financeLoadError || Boolean(dashboardLoadError)} />
+                </>}
               </div>
             </Card>
 
             <CompactPanel title="Tunggakan Anda" subtitle="Jumlah bulan dan nominal per kas">
               <div className="space-y-3 text-sm">
                 <LoadingLine label="Iuran Wajib" failed={Boolean(dashboardLoadError)} />
-                <LoadingLine label="Internet" failed={Boolean(dashboardLoadError)} />
-                <LoadingLine label="Lingkungan" failed={Boolean(dashboardLoadError)} />
+                {financeData ? <Line label="Internet" value={`${financeData.internet_tunggakan_bulan_count || 0} bulan • ${formatRupiah(Number(financeData.internet_tunggakan_total || 0))}`} /> : <LoadingLine label="Internet" failed={financeLoadError || Boolean(dashboardLoadError)} />}
+                {financeData ? <Line label="Lingkungan" value={`${financeData.lingkungan_tunggakan_bulan_count || 0} bulan • ${formatRupiah(Number(financeData.lingkungan_tunggakan_total || 0))}`} /> : <LoadingLine label="Lingkungan" failed={financeLoadError || Boolean(dashboardLoadError)} />}
               </div>
             </CompactPanel>
 

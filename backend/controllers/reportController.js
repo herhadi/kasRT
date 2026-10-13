@@ -23,8 +23,8 @@ import {
   isInternetMember,
   isLingkunganMember,
   isKoperasiMember,
-  isTabunganMember
-  ,getWargaFinancialSnapshot
+  isTabunganMember,
+  getWargaFinancialSnapshot
 } from '../models/reportModel.js';
 import { getLatestMembershipRequestStatusMap } from '../models/membershipRequestModel.js';
 import { getDashboardAdminJimpitan, getEffectiveJimpitanMode } from '../models/jimpitanModel.js';
@@ -53,13 +53,90 @@ export async function myContributionDetail(req, res) {
   }
 }
 
+export async function dashboardWargaInternet(req, res) {
+  const userId = req.user.user_id;
+  const month = String(req.query.month || '').trim();
+  const monthFilter = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
+  const cacheKey = `dashboard:warga:internet:${String(userId)}:${monthFilter || 'current'}`;
+
+  try {
+    const cached = await getCacheJson(cacheKey);
+    if (cached) {
+      res.set('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+    res.set('X-Cache', 'MISS');
+
+    const [amount, isMember] = await Promise.all([
+      getInternetBulananByWargaByMonthKey(userId, monthFilter),
+      isInternetMember(userId)
+    ]);
+    const internet_bulan_ini = Number(amount || 0);
+    const internet_status = !isMember ? 'NON_MEMBER'
+      : internet_bulan_ini < INTERNET_TARGET_BULANAN ? 'MENUNGGAK'
+      : internet_bulan_ini === INTERNET_TARGET_BULANAN ? 'PAS' : 'LEBIH';
+    const payload = { success: true, data: { internet_bulan_ini, internet_target_bulanan: INTERNET_TARGET_BULANAN, internet_is_member: isMember, internet_status } };
+    await setCacheJson(cacheKey, payload, 60);
+    return res.json(payload);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Gagal memuat ringkasan Internet' });
+  }
+}
+
+export async function dashboardWargaFinance(req, res) {
+  const userId = req.user.user_id;
+  const cacheKey = `dashboard:warga:finance:${String(userId)}`;
+
+  try {
+    const cached = await getCacheJson(cacheKey);
+    if (cached) {
+      res.set('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+    res.set('X-Cache', 'MISS');
+
+    const [snapshot, totalKasSemuaTerkini, kasUmum] = await Promise.all([
+      getWargaFinancialSnapshot(userId),
+      getTotalKasSemuaTerkini(),
+      getKasUmumSnapshot()
+    ]);
+    const payload = {
+      success: true,
+      data: {
+        iuran_tunggakan_bulan_ini: Number(snapshot?.iuran_tunggakan_bulan_ini || 0),
+        iuran_tunggakan_bulan_count: Number(snapshot?.iuran_tunggakan_bulan_count || 0),
+        internet_tunggakan_total: Number(snapshot?.internet_tunggakan_total || 0),
+        internet_tunggakan_bulan_count: Number(snapshot?.internet_tunggakan_bulan_count || 0),
+        lingkungan_tunggakan_total: Number(snapshot?.lingkungan_tunggakan_total || 0),
+        lingkungan_tunggakan_bulan_count: Number(snapshot?.lingkungan_tunggakan_bulan_count || 0),
+        tabungan_saldo: Number(snapshot?.tabungan_saldo || 0),
+        total_kas_semua_terkini: Number(totalKasSemuaTerkini || 0),
+        kas_umum: {
+          kas_bendahara: Number(kasUmum.kas_bendahara || 0),
+          kas_sosial: Number(kasUmum.kas_sosial || 0),
+          kas_tabungan_pembangunan: Number(kasUmum.kas_tabungan_pembangunan || 0),
+          kas_lingkungan: Number(kasUmum.kas_lingkungan || 0),
+          kas_internet: Number(kasUmum.kas_internet || 0),
+          kas_koperasi: Number(kasUmum.kas_koperasi || 0)
+        }
+      }
+    };
+    await setCacheJson(cacheKey, payload, 60);
+    return res.json(payload);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Gagal memuat ringkasan kas dan saldo' });
+  }
+}
+
 export async function dashboardWarga(req, res) {
   const user_id = req.user.user_id;
   const month = String(req.query.month || '').trim();
   const monthFilter = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : null;
   const refresh = String(req.query.refresh || '') === '1';
   const cacheMonth = monthFilter || 'current';
-  const cacheKey = `dashboard:warga:${String(user_id)}:${cacheMonth}`;
+  const cacheKey = `dashboard:warga:base:${String(user_id)}:${cacheMonth}`;
 
   try {
     const cached = refresh ? null : await getCacheJson(cacheKey);
@@ -74,25 +151,17 @@ export async function dashboardWarga(req, res) {
     // Coalesce report-table initialization in the model, then run independent
     // dashboard reads together to avoid serial database round trips.
     const [
-      internetByMonthKey,
       jimpitanMode,
       iuranRows,
       lingkunganByMonthKey,
       koperasiByMonth,
-      loanProgress,
-      snapshot,
-      totalKasSemuaTerkini,
-      kasUmum
+      loanProgress
     ] = await Promise.all([
-      getInternetBulananByWargaByMonthKey(user_id, monthFilter),
       getEffectiveJimpitanMode(dashboardReferenceDate),
       getIuranBulananByWarga(user_id, monthFilter),
       getLingkunganBulananByWargaByMonthKey(user_id, monthFilter),
       getKoperasiBulananByWarga(user_id, monthFilter),
-      getActiveLoanProgressByWarga(user_id),
-      getWargaFinancialSnapshot(user_id),
-      getTotalKasSemuaTerkini(),
-      getKasUmumSnapshot()
+      getActiveLoanProgressByWarga(user_id)
     ]);
 
     const [specialBills, internetMember, lingkunganMember, koperasiMember, tabunganMember, membershipRequests] = await Promise.all([
@@ -165,8 +234,9 @@ export async function dashboardWarga(req, res) {
 
     const total_kontribusi_bulan_ini =
       jimpitan_bulan_ini + iuran_wajib_bulan_ini + total_optional_bulan_ini;
-    // Internet operasional mengacu ke month_key pada inet_payments.
-    internet_bulan_ini = Number(internetByMonthKey || 0);
+    // Internet bulanan dimuat melalui endpoint terpisah agar ringkasan utama
+    // dapat dikirim tanpa menunggu kalkulasi Internet selesai.
+    internet_bulan_ini = 0;
     // Lingkungan operasional mengacu ke month_key pada lh_payments.
     lingkungan_bulan_ini = Number(lingkunganByMonthKey || 0);
     // Koperasi operasional bisa tercatat sebagai iuran biasa atau pembayaran angsuran.
@@ -222,21 +292,21 @@ export async function dashboardWarga(req, res) {
         koperasi_loan_paid_installments: Number(loanProgress?.paid_installments || 0),
         koperasi_loan_tenor_months: Number(loanProgress?.tenor_months || 0),
         koperasi_loan_current_installment_no: Number(loanProgress?.current_installment_no || 0),
-        iuran_tunggakan_bulan_ini: Number(snapshot?.iuran_tunggakan_bulan_ini || 0),
-        iuran_tunggakan_bulan_count: Number(snapshot?.iuran_tunggakan_bulan_count || 0),
-        internet_tunggakan_total: Number(snapshot?.internet_tunggakan_total || 0),
-        internet_tunggakan_bulan_count: Number(snapshot?.internet_tunggakan_bulan_count || 0),
-        lingkungan_tunggakan_total: Number(snapshot?.lingkungan_tunggakan_total || 0),
-        lingkungan_tunggakan_bulan_count: Number(snapshot?.lingkungan_tunggakan_bulan_count || 0),
-        tabungan_saldo: Number(snapshot?.tabungan_saldo || 0),
-        total_kas_semua_terkini: Number(totalKasSemuaTerkini || 0),
+        iuran_tunggakan_bulan_ini: 0,
+        iuran_tunggakan_bulan_count: 0,
+        internet_tunggakan_total: 0,
+        internet_tunggakan_bulan_count: 0,
+        lingkungan_tunggakan_total: 0,
+        lingkungan_tunggakan_bulan_count: 0,
+        tabungan_saldo: 0,
+        total_kas_semua_terkini: 0,
         kas_umum: {
-          kas_bendahara: Number(kasUmum.kas_bendahara || 0),
-          kas_sosial: Number(kasUmum.kas_sosial || 0),
-          kas_tabungan_pembangunan: Number(kasUmum.kas_tabungan_pembangunan || 0),
-          kas_lingkungan: Number(kasUmum.kas_lingkungan || 0),
-          kas_internet: Number(kasUmum.kas_internet || 0),
-          kas_koperasi: Number(kasUmum.kas_koperasi || 0)
+          kas_bendahara: 0,
+          kas_sosial: 0,
+          kas_tabungan_pembangunan: 0,
+          kas_lingkungan: 0,
+          kas_internet: 0,
+          kas_koperasi: 0
         },
         special_bills: specialBills
       }

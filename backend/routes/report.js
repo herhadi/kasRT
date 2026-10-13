@@ -11,6 +11,8 @@ import {
   dashboardAdminPembangunan,
   rekapKeuanganBulanan,
   dashboardWarga,
+  dashboardWargaInternet,
+  dashboardWargaFinance,
   myContributionDetail,
   laporanBulanan
 } from '../controllers/reportController.js';
@@ -18,11 +20,9 @@ import { asyncHandler } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get(
-    '/dashboard',
-    auth,
-    asyncHandler(dashboardWarga)
-);
+router.get('/dashboard', auth, asyncHandler(dashboardWarga));
+router.get('/dashboard-internet', auth, asyncHandler(dashboardWargaInternet));
+router.get('/dashboard-finance', auth, asyncHandler(dashboardWargaFinance));
 
 router.get(
   '/laporan-bulanan',
