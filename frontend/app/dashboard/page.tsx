@@ -119,33 +119,52 @@ export default function DashboardPage() {
   }, [user]);
 
   useEffect(() => {
-    async function loadDashboard() {
-      if (!user) return;
-      setError('');
-      try {
-        const [meResult, wargaResult, scheduleResult] = await Promise.all([
-          apiFetch<{ success: boolean; user: UserSession }>('/auth/me'),
-          apiFetch<{ success: boolean; data: DashboardWargaData }>(`/report/dashboard?month=${encodeURIComponent(selectedMonth)}`),
-          apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule')
-        ]);
+    if (!user) return;
+    let active = true;
+    setError('');
 
-        refreshUser(meResult.user);
-        setWargaData(wargaResult.data);
-        setScheduleData(scheduleResult.data);
+    // Each panel updates as soon as its own request finishes. A slow schedule,
+    // profile refresh, or role-specific admin report no longer blocks the main
+    // personal dashboard from appearing.
+    void apiFetch<{ success: boolean; data: DashboardWargaData }>(
+      `/report/dashboard?month=${encodeURIComponent(selectedMonth)}`
+    ).then((result) => {
+      if (active) setWargaData(result.data);
+    }).catch((e) => {
+      if (active) setError(e instanceof Error ? e.message : 'Gagal memuat ringkasan dashboard');
+    });
 
-        if (adminEndpoint) {
-          const adminResult = await apiFetch<{ success: boolean; data: AdminPanelData }>(adminEndpoint);
-          setAdminData(adminResult.data);
-        } else {
-          setAdminData(null);
-        }
+    void apiFetch<{ success: boolean; data: JimpitanScheduleData }>('/jimpitan/schedule')
+      .then((result) => {
+        if (active) setScheduleData(result.data);
+      })
+      .catch(() => {
+        // Keep the rest of the dashboard usable if the schedule is unavailable.
+      });
 
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Gagal memuat dashboard');
-      }
+    void apiFetch<{ success: boolean; user: UserSession }>('/auth/me')
+      .then((result) => {
+        if (active) refreshUser(result.user);
+      })
+      .catch(() => {
+        // useAuth already has the current session; profile refresh is auxiliary.
+      });
+
+    if (adminEndpoint) {
+      void apiFetch<{ success: boolean; data: AdminPanelData }>(adminEndpoint)
+        .then((result) => {
+          if (active) setAdminData(result.data);
+        })
+        .catch(() => {
+          if (active) setAdminData(null);
+        });
+    } else {
+      setAdminData(null);
     }
 
-    loadDashboard();
+    return () => {
+      active = false;
+    };
   }, [user?.id, adminEndpoint, refreshUser, selectedMonth]);
 
   const weeklyGroups = useMemo(() => {

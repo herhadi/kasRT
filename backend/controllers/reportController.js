@@ -70,19 +70,48 @@ export async function dashboardWarga(req, res) {
     res.set('X-Cache', refresh ? 'BYPASS' : 'MISS');
 
     const dashboardReferenceDate = monthFilter ? `${monthFilter}-01` : new Date().toISOString().slice(0, 10);
-    const jimpitanMode = await getEffectiveJimpitanMode(dashboardReferenceDate);
-    const isJimpitanPersonalActive = jimpitanMode.mode !== 'SHIFT_TOTAL';
-    const jimpitan_hari_ini = isJimpitanPersonalActive ? await getJimpitanHarianByWarga(user_id) : 0;
-    const jimpitan_bulan_ini = isJimpitanPersonalActive ? await getJimpitanBulananByWarga(user_id, monthFilter) : 0;
-    const iuranRows = await getIuranBulananByWarga(user_id, monthFilter);
+
+    // Initialize shared module tables once before running their read queries in
+    // parallel; several model functions call ensureReportTables internally.
     const internetByMonthKey = await getInternetBulananByWargaByMonthKey(user_id, monthFilter);
-    const lingkunganByMonthKey = await getLingkunganBulananByWargaByMonthKey(user_id, monthFilter);
-    const koperasiByMonth = await getKoperasiBulananByWarga(user_id, monthFilter);
-    const loanProgress = await getActiveLoanProgressByWarga(user_id);
-    const snapshot = await getWargaFinancialSnapshot(user_id);
-    const totalKasSemuaTerkini = await getTotalKasSemuaTerkini();
-    const kasUmum = await getKasUmumSnapshot();
-    const specialBills = await listVisibleSpecialBillsForWarga(user_id);
+
+    const [
+      jimpitanMode,
+      iuranRows,
+      lingkunganByMonthKey,
+      koperasiByMonth,
+      loanProgress,
+      snapshot,
+      totalKasSemuaTerkini,
+      kasUmum
+    ] = await Promise.all([
+      getEffectiveJimpitanMode(dashboardReferenceDate),
+      getIuranBulananByWarga(user_id, monthFilter),
+      getLingkunganBulananByWargaByMonthKey(user_id, monthFilter),
+      getKoperasiBulananByWarga(user_id, monthFilter),
+      getActiveLoanProgressByWarga(user_id),
+      getWargaFinancialSnapshot(user_id),
+      getTotalKasSemuaTerkini(),
+      getKasUmumSnapshot()
+    ]);
+
+    const [specialBills, internetMember, lingkunganMember, koperasiMember, tabunganMember, membershipRequests] = await Promise.all([
+      listVisibleSpecialBillsForWarga(user_id),
+      isInternetMember(user_id),
+      isLingkunganMember(user_id),
+      isKoperasiMember(user_id),
+      isTabunganMember(user_id),
+      getLatestMembershipRequestStatusMap(user_id)
+    ]);
+
+    const isJimpitanPersonalActive = jimpitanMode.mode !== 'SHIFT_TOTAL';
+    const [jimpitan_hari_ini, jimpitan_bulan_ini, jimpitanMember] = isJimpitanPersonalActive
+      ? await Promise.all([
+          getJimpitanHarianByWarga(user_id),
+          getJimpitanBulananByWarga(user_id, monthFilter),
+          isJimpitanMember(user_id)
+        ])
+      : [0, 0, false];
 
     let iuran_wajib_bulan_ini = 0;
     let internet_bulan_ini = 0;
@@ -90,13 +119,6 @@ export async function dashboardWarga(req, res) {
     let koperasi_bulan_ini = 0;
     let total_optional_bulan_ini = 0;
     const optional_contributions = [];
-
-    const internetMember = await isInternetMember(user_id);
-    const lingkunganMember = await isLingkunganMember(user_id);
-    const koperasiMember = await isKoperasiMember(user_id);
-    const tabunganMember = await isTabunganMember(user_id);
-    const jimpitanMember = isJimpitanPersonalActive ? await isJimpitanMember(user_id) : false;
-    const membershipRequests = await getLatestMembershipRequestStatusMap(user_id);
 
     iuranRows.forEach((row) => {
       const name = row.name;

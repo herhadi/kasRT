@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-13
+
+### Diperbaiki
+
+- Loading `/dashboard` dioptimalkan: ringkasan pribadi, jadwal, profil, dan panel admin dimuat secara independen agar respons lambat pada satu panel tidak menahan panel lain. Query ringkasan warga yang independen dijalankan paralel dalam kelompok terbatas setelah inisialisasi tabel modul.
+
 ## 2026-10-12
 
 ### Diperbaiki
