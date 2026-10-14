@@ -545,9 +545,9 @@ export async function createSetorBatch({ petugasId, detailIds = null, operationa
 
     const monthKey = (operationalDate instanceof Date ? operationalDate : new Date(operationalDate)).toISOString().slice(0, 7);
     await client.query(
-      `INSERT INTO jimpitan_group_notification_outbox (month_key, context)
-       VALUES ($1, 'setor notification')`,
-      [monthKey]
+      `INSERT INTO jimpitan_group_notification_outbox (month_key, operational_date, context)
+       VALUES ($1, $2::date, 'setor notification')`,
+      [monthKey, (operationalDate instanceof Date ? operationalDate : new Date(operationalDate)).toISOString().slice(0, 10)]
     );
 
     await client.query('COMMIT');
@@ -600,8 +600,8 @@ export async function createShiftTotalBatch({ petugasId, totalAmount, operationa
       [petugasId, total, operationalDate, note]
     );
     await client.query(
-      `INSERT INTO jimpitan_group_notification_outbox (month_key, context)
-       VALUES (TO_CHAR($1::date, 'YYYY-MM'), 'setor notification')`,
+      `INSERT INTO jimpitan_group_notification_outbox (month_key, operational_date, context)
+       VALUES (TO_CHAR($1::date, 'YYYY-MM'), $1::date, 'setor notification')`,
       [operationalDate]
     );
     await client.query('COMMIT');

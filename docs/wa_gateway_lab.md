@@ -178,7 +178,7 @@ Mode penerima dapat diubah dari `/management/whatsapp` menjadi **Semua nomor val
 
 ### Notifikasi Setoran ke Grup RT
 
-Backend dapat mengirim notifikasi otomatis ke grup WhatsApp setelah setoran Jimpitan diajukan. Isi pesannya memakai formatter rekap bulanan otomatis: rekap tanggal, nominal rata kanan, tanda pending, garis pemisah, dan total bulanan. Setiap setoran tetap membuat pesan baru, tetapi beberapa setoran pada tanggal yang sama digabung menjadi satu baris dengan nominal akumulasi. Pengaturan reminder dan JID grup dikelola dari `/management/whatsapp`; env hanya dipakai untuk URL dan secret koneksi gateway.
+Backend dapat mengirim notifikasi otomatis ke grup WhatsApp setelah setoran Jimpitan diajukan. Isi pesannya memakai formatter rekap bulanan otomatis: rekap tanggal, nominal rata kanan, tanda pending, garis pemisah, dan total bulanan. Untuk setiap tanggal operasional/shift hanya dibuat satu pesan grup. Setoran petugas berikutnya pada tanggal yang sama mengedit pesan yang sama dengan rekap bulanan terbaru; tanggal operasional berbeda memiliki pesan tersendiri. Isi rekap pada tanggal yang sama tetap mencakup akumulasi semua setoran yang tercatat. Pengaturan reminder dan JID grup dikelola dari `/management/whatsapp`; env hanya dipakai untuk URL dan secret koneksi gateway.
 
 Setoran manual Admin Jimpitan/root melalui input pemasukan harian dan setoran
 susulan juga memperbarui rekap grup sesuai tanggalnya. Input by-name yang
@@ -347,3 +347,13 @@ Untuk uji awal, lebih aman akses dari terminal VPS melalui `127.0.0.1`. Jika dom
 - Sapaan reminder diacak sebagai satu paket tanpa pengulangan jika jumlah penerima tidak melebihi pilihan sapaan; setelah pilihan habis, sapaan dapat berulang.
 - Reminder otomatis WA Lab menunggu umur koneksi minimal sesuai pengaturan `/management/whatsapp` (default aplikasi `180` menit) sejak nomor pertama kali tertaut pada gateway.
 - Jika nanti dipakai produksi, lebih baik tetap dibuat opt-in dan manual approval.
+
+
+Untuk memeriksa pesan grup yang terhubung dengan tanggal operasional:
+
+```sql
+SELECT operational_date, month_key, group_jid, message_id, updated_at
+FROM jimpitan_group_message_state
+ORDER BY operational_date DESC
+LIMIT 30;
+```

@@ -5,6 +5,7 @@ export async function ensureJimpitanGroupOutboxTable() {
     CREATE TABLE IF NOT EXISTS jimpitan_group_notification_outbox (
       id BIGSERIAL PRIMARY KEY,
       month_key VARCHAR(7) NOT NULL,
+      operational_date DATE NOT NULL DEFAULT CURRENT_DATE,
       context VARCHAR(80) NOT NULL DEFAULT 'notification',
       status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'PROCESSING', 'SENT', 'FAILED', 'UNCERTAIN', 'SKIPPED')),
@@ -17,6 +18,18 @@ export async function ensureJimpitanGroupOutboxTable() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE jimpitan_group_notification_outbox ADD COLUMN IF NOT EXISTS operational_date DATE`);
+  await pool.query(`UPDATE jimpitan_group_notification_outbox SET operational_date = (created_at AT TIME ZONE 'Asia/Jakarta')::date WHERE operational_date IS NULL`);
+  await pool.query(`ALTER TABLE jimpitan_group_notification_outbox ALTER COLUMN operational_date SET NOT NULL`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS jimpitan_group_message_state (
+    operational_date DATE PRIMARY KEY,
+    month_key VARCHAR(7) NOT NULL,
+    group_jid VARCHAR(120) NOT NULL,
+    message_id VARCHAR(200) NOT NULL,
+    message_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_jimpitan_group_outbox_ready ON jimpitan_group_notification_outbox (next_attempt_at, id) WHERE status = 'PENDING'`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_jimpitan_group_outbox_stale ON jimpitan_group_notification_outbox (locked_at) WHERE status = 'PROCESSING'`);
 }
@@ -26,9 +39,9 @@ export async function enqueueJimpitanGroupNotification({ operationalDate, contex
   if (Number.isNaN(date.getTime())) throw new Error('Tanggal notifikasi Jimpitan tidak valid');
   const monthKey = date.toISOString().slice(0, 7);
   const result = await pool.query(
-    `INSERT INTO jimpitan_group_notification_outbox (month_key, context)
-     VALUES ($1, $2) RETURNING id`,
-    [monthKey, String(context || 'notification').slice(0, 80)]
+    `INSERT INTO jimpitan_group_notification_outbox (month_key, operational_date, context)
+     VALUES ($1, $2::date, $3) RETURNING id`,
+    [monthKey, date.toISOString().slice(0, 10), String(context || 'notification').slice(0, 80)]
   );
   return result.rows[0];
 }
@@ -43,7 +56,7 @@ export async function claimJimpitanGroupNotification() {
           last_error = COALESCE(last_error || E'\\n', '') || 'Recovered stale processing lease'
       WHERE status = 'PROCESSING' AND locked_at < NOW() - INTERVAL '10 minutes'`);
     const result = await client.query(`
-      SELECT id, month_key, context, attempts
+      SELECT id, month_key, operational_date, context, attempts
       FROM jimpitan_group_notification_outbox
       WHERE status = 'PENDING' AND next_attempt_at <= NOW()
       ORDER BY id
@@ -81,4 +94,28 @@ export async function finishJimpitanGroupNotification(id, { status, error = null
         updated_at = NOW()
     WHERE id = $1
   `, [id, status, error ? String(error).slice(0, 2000) : null, retryDelayMs]);
+}
+
+
+export async function getJimpitanGroupMessageState(operationalDate) {
+  const result = await pool.query(
+    `SELECT operational_date, month_key, group_jid, message_id, message_text
+     FROM jimpitan_group_message_state WHERE operational_date = $1::date`,
+    [operationalDate]
+  );
+  return result.rows[0] || null;
+}
+
+export async function saveJimpitanGroupMessageState({ operationalDate, monthKey, groupJid, messageId, messageText }) {
+  await pool.query(`
+    INSERT INTO jimpitan_group_message_state
+      (operational_date, month_key, group_jid, message_id, message_text)
+    VALUES ($1::date, $2, $3, $4, $5)
+    ON CONFLICT (operational_date) DO UPDATE SET
+      month_key = EXCLUDED.month_key,
+      group_jid = EXCLUDED.group_jid,
+      message_id = EXCLUDED.message_id,
+      message_text = EXCLUDED.message_text,
+      updated_at = NOW()
+  `, [operationalDate, monthKey, groupJid, messageId, messageText]);
 }

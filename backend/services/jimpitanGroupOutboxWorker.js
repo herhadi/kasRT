@@ -2,10 +2,12 @@ import { getJimpitanDailyRecapByMonth } from '../models/jimpitanModel.js';
 import {
   claimJimpitanGroupNotification,
   ensureJimpitanGroupOutboxTable,
-  finishJimpitanGroupNotification
+  finishJimpitanGroupNotification,
+  getJimpitanGroupMessageState,
+  saveJimpitanGroupMessageState
 } from '../models/jimpitanGroupOutboxModel.js';
 import { formatMonthlyJimpitanShare } from './jimpitanShareFormatter.js';
-import { sendWaJimpitanGroupMessage } from './waLabReminderService.js';
+import { editWaJimpitanGroupMessage, getWaJimpitanReminderSettings, sendWaJimpitanGroupMessage } from './waLabReminderService.js';
 
 const MAX_ATTEMPTS = 12;
 const POLL_INTERVAL_MS = 5000;
@@ -19,15 +21,53 @@ function retryDelayMs(attempt) {
 async function processOne() {
   const job = await claimJimpitanGroupNotification();
   if (!job) return false;
+  let deliveryConfirmed = false;
 
   try {
     const recap = await getJimpitanDailyRecapByMonth(job.month_key);
     const text = formatMonthlyJimpitanShare({ month: job.month_key, days: recap.days });
-    const result = await sendWaJimpitanGroupMessage({ text });
+    const messageState = await getJimpitanGroupMessageState(job.operational_date);
+    let result;
+
+    if (messageState) {
+      result = await editWaJimpitanGroupMessage({
+        jid: messageState.group_jid,
+        messageId: messageState.message_id,
+        text
+      });
+      if (result?.success === true) {
+        deliveryConfirmed = true;
+        await saveJimpitanGroupMessageState({
+          operationalDate: job.operational_date,
+          monthKey: job.month_key,
+          groupJid: messageState.group_jid,
+          messageId: messageState.message_id,
+          messageText: text
+        });
+      }
+    } else {
+      result = await sendWaJimpitanGroupMessage({ text });
+      if (result?.success === true) {
+        deliveryConfirmed = true;
+        if (!result.message_id) {
+          await finishJimpitanGroupNotification(job.id, { status: 'UNCERTAIN', error: 'WhatsApp accepted message but returned no message ID; cannot safely update this date later' });
+          console.error(`[WA JIMPITAN GROUP] outbox #${job.id} sent but message ID is missing`);
+          return true;
+        }
+        const settings = await getWaJimpitanReminderSettings();
+        await saveJimpitanGroupMessageState({
+          operationalDate: job.operational_date,
+          monthKey: job.month_key,
+          groupJid: result.jid || settings.group_jid,
+          messageId: result.message_id,
+          messageText: text
+        });
+      }
+    }
 
     if (result?.success === true) {
       await finishJimpitanGroupNotification(job.id, { status: 'SENT' });
-      console.info(`[WA JIMPITAN GROUP] outbox #${job.id} sent (attempt ${job.attempts}, context=${job.context})`);
+      console.info(`[WA JIMPITAN GROUP] outbox #${job.id} ${messageState ? 'updated' : 'sent'} daily message for ${job.operational_date} (attempt ${job.attempts}, context=${job.context})`);
       return true;
     }
     if (result?.skipped === true) {
@@ -54,7 +94,10 @@ async function processOne() {
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (job.attempts >= MAX_ATTEMPTS) {
+    if (deliveryConfirmed) {
+      await finishJimpitanGroupNotification(job.id, { status: 'UNCERTAIN', error: `WhatsApp accepted message but saving message state failed: ${message}` });
+      console.error(`[WA JIMPITAN GROUP] outbox #${job.id} delivery confirmed but message state could not be saved: ${message}`);
+    } else if (job.attempts >= MAX_ATTEMPTS) {
       await finishJimpitanGroupNotification(job.id, { status: 'FAILED', error: message });
     } else {
       await finishJimpitanGroupNotification(job.id, { status: 'PENDING', error: message, retryDelayMs: retryDelayMs(job.attempts) });

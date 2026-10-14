@@ -230,3 +230,31 @@ export async function sendWaJimpitanGroupMessage({ text }) {
     retryable: isRetryableGroupSendFailure(response.status, error)
   };
 }
+
+
+export async function editWaJimpitanGroupMessage({ jid, messageId, text }) {
+  const baseUrl = gatewayBaseUrl();
+  const secret = gatewaySecret();
+  const groupJid = String(jid || '').trim();
+  const targetMessageId = String(messageId || '').trim();
+  if (!baseUrl || !secret) return { skipped: true, reason: 'WA Gateway belum dikonfigurasi' };
+  if (!groupJid || !targetMessageId) return { success: false, retryable: false, error: 'JID grup atau ID pesan untuk edit tidak valid' };
+
+  let response;
+  let data;
+  try {
+    response = await fetch(`${baseUrl}/groups/edit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-wa-lab-secret': secret },
+      body: JSON.stringify({ jid: groupJid, message_id: targetMessageId, text })
+    });
+    data = await response.json().catch(() => null);
+  } catch (error) {
+    return { success: false, delivery_uncertain: true, error: error instanceof Error ? error.message : String(error) };
+  }
+  if (response.ok && data?.success === true) {
+    return { success: true, jid: groupJid, message_id: targetMessageId, edit_message_id: data.data?.edit_message_id || null };
+  }
+  const error = data?.message || `HTTP ${response.status}`;
+  return { success: false, error, retryable: isRetryableGroupSendFailure(response.status, error) };
+}

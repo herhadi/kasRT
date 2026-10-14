@@ -764,6 +764,21 @@ export async function sendGroupMessage({ jid, text }) {
   return { jid: groupJid, message_id: result?.key?.id || null };
 }
 
+export async function editGroupMessage({ jid, messageId, text }) {
+  assertConnected();
+  const groupJid = String(jid || '').trim();
+  const targetMessageId = String(messageId || '').trim();
+  if (!/^\d+-\d+@g\.us$/.test(groupJid)) throw new Error('JID grup WhatsApp tidak valid.');
+  if (!targetMessageId || targetMessageId.length > 200) throw new Error('ID pesan WhatsApp tidak valid.');
+  const messageText = validateMessageText(text);
+  const resolvedJid = await prepareHumanSend(groupJid, messageText);
+  const { result } = await sendProtectedMessage(groupJid, {
+    text: messageText,
+    edit: { remoteJid: groupJid, fromMe: true, id: targetMessageId }
+  }, { resolvedJid });
+  return { jid: groupJid, message_id: targetMessageId, edit_message_id: result?.key?.id || null };
+}
+
 export async function resetSession() {
   const previousRawSocket = rawSocket;
   resetInProgress = true;
