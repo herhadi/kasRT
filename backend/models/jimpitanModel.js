@@ -491,7 +491,7 @@ export async function createJimpitanV2Detail({ wargaId = null, externalParticipa
   );
 }
 
-export async function createSetorBatch({ petugasId, detailIds = null }) {
+export async function createSetorBatch({ petugasId, detailIds = null, operationalDate = new Date() }) {
   await ensureJimpitanScheduleColumns();
   const client = await pool.connect();
   try {
@@ -543,11 +543,19 @@ export async function createSetorBatch({ petugasId, detailIds = null }) {
       );
     }
 
+    const monthKey = (operationalDate instanceof Date ? operationalDate : new Date(operationalDate)).toISOString().slice(0, 7);
+    await client.query(
+      `INSERT INTO jimpitan_group_notification_outbox (month_key, context)
+       VALUES ($1, 'setor notification')`,
+      [monthKey]
+    );
+
     await client.query('COMMIT');
     return {
       batch_id: batchId,
       total,
-      total_rumah: details.rows.length
+      total_rumah: details.rows.length,
+      notification_queued: true
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -567,33 +575,49 @@ export async function createShiftTotalBatch({ petugasId, totalAmount, operationa
     throw new Error('Tanggal ini sudah memakai rekap by name. Input global dikunci agar data tidak dobel.');
   }
 
-  const duplicate = await pool.query(
-    `SELECT id, status
-     FROM jimpitan_batches
-     WHERE petugas_id = $1
-       AND operational_date = $2::date
-       AND batch_mode = 'SHIFT_TOTAL'
-       AND status IN ('PENDING','APPROVED')
-     LIMIT 1`,
-    [petugasId, operationalDate]
-  );
-  if (duplicate.rows.length > 0) {
-    throw new Error(`Setoran shift tanggal ini sudah ada (${duplicate.rows[0].status})`);
-  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const duplicate = await client.query(
+      `SELECT id, status
+       FROM jimpitan_batches
+       WHERE petugas_id = $1
+         AND operational_date = $2::date
+         AND batch_mode = 'SHIFT_TOTAL'
+         AND status IN ('PENDING','APPROVED')
+       LIMIT 1 FOR UPDATE`,
+      [petugasId, operationalDate]
+    );
+    if (duplicate.rows.length > 0) {
+      throw new Error(`Setoran shift tanggal ini sudah ada (${duplicate.rows[0].status})`);
+    }
 
-  const result = await pool.query(
-    `INSERT INTO jimpitan_batches
-       (petugas_id, total_amount, status, batch_mode, operational_date, note, total_rumah)
-     VALUES ($1, $2, 'PENDING', 'SHIFT_TOTAL', $3::date, NULLIF($4, ''), 0)
-     RETURNING id, total_amount, operational_date, note`,
-    [petugasId, total, operationalDate, note]
-  );
-  return {
-    batch_id: result.rows[0].id,
-    total: Number(result.rows[0].total_amount || 0),
-    operational_date: result.rows[0].operational_date,
-    note: result.rows[0].note
-  };
+    const result = await client.query(
+      `INSERT INTO jimpitan_batches
+         (petugas_id, total_amount, status, batch_mode, operational_date, note, total_rumah)
+       VALUES ($1, $2, 'PENDING', 'SHIFT_TOTAL', $3::date, NULLIF($4, ''), 0)
+       RETURNING id, total_amount, operational_date, note`,
+      [petugasId, total, operationalDate, note]
+    );
+    await client.query(
+      `INSERT INTO jimpitan_group_notification_outbox (month_key, context)
+       VALUES (TO_CHAR($1::date, 'YYYY-MM'), 'setor notification')`,
+      [operationalDate]
+    );
+    await client.query('COMMIT');
+    return {
+      batch_id: result.rows[0].id,
+      total: Number(result.rows[0].total_amount || 0),
+      operational_date: result.rows[0].operational_date,
+      note: result.rows[0].note,
+      notification_queued: true
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function createApprovedShiftTotalIncome({ adminId, totalAmount, operationalDate, note = null }) {

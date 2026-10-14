@@ -187,17 +187,10 @@ export async function sendWaDirectMessage({ phone, text }) {
   return response.ok && data?.success === true ? { success: true } : { success: false, error: data?.message || `HTTP ${response.status}` };
 }
 
-const WA_GROUP_RETRY_DELAYS_MS = [3000, 7000, 15000];
-
 function isRetryableGroupSendFailure(status, message) {
-  // The gateway returns this as HTTP 400 even though the condition is transient.
+  // The gateway reports disconnected WhatsApp as HTTP 400, but it is transient.
   if (/WhatsApp belum connected/i.test(String(message || ''))) return true;
-  // Retry explicit gateway/server errors; do not retry arbitrary 4xx validation/auth failures.
   return Number(status) >= 500;
-}
-
-function waitForGroupRetry(delayMs) {
-  return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 export async function sendWaJimpitanGroupMessage({ text }) {
@@ -207,39 +200,33 @@ export async function sendWaJimpitanGroupMessage({ text }) {
   const jid = String(settings.group_jid || '').trim();
   if (!baseUrl || !secret || !jid) return { skipped: true, reason: 'WA_JIMPITAN_GROUP_JID belum dikonfigurasi' };
 
-  const maxAttempts = WA_GROUP_RETRY_DELAYS_MS.length + 1;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    let response;
-    let data;
-    try {
-      response = await fetch(`${baseUrl}/groups/send`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-wa-lab-secret': secret },
-        body: JSON.stringify({ jid, text })
-      });
-      data = await response.json().catch(() => null);
-    } catch (error) {
-      // A network failure can happen after the gateway accepted a send. Do not
-      // retry blindly here because that could duplicate a message in the group.
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
-    }
-
-    if (response.ok && data?.success === true) {
-      if (attempt > 1) {
-        console.info(`[WA JIMPITAN GROUP] sent successfully after retry attempt ${attempt}`);
-      }
-      return { success: true, jid, message_id: data.data?.message_id || null, attempts: attempt };
-    }
-
-    const errorMessage = data?.message || `HTTP ${response.status}`;
-    if (attempt >= maxAttempts || !isRetryableGroupSendFailure(response.status, errorMessage)) {
-      return { success: false, error: errorMessage, attempts: attempt };
-    }
-
-    const delayMs = WA_GROUP_RETRY_DELAYS_MS[attempt - 1];
-    console.warn(`[WA JIMPITAN GROUP] attempt ${attempt}/${maxAttempts} failed (${errorMessage}); retrying in ${delayMs}ms`);
-    await waitForGroupRetry(delayMs);
+  let response;
+  let data;
+  try {
+    response = await fetch(`${baseUrl}/groups/send`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-wa-lab-secret': secret },
+      body: JSON.stringify({ jid, text })
+    });
+    data = await response.json().catch(() => null);
+  } catch (error) {
+    // The gateway may have accepted the message before the connection failed.
+    // Mark as uncertain in the durable outbox rather than blindly sending a duplicate.
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      delivery_uncertain: true
+    };
   }
 
-  return { success: false, error: 'Pengiriman grup gagal setelah percobaan ulang', attempts: maxAttempts };
+  if (response.ok && data?.success === true) {
+    return { success: true, jid, message_id: data.data?.message_id || null };
+  }
+
+  const error = data?.message || `HTTP ${response.status}`;
+  return {
+    success: false,
+    error,
+    retryable: isRetryableGroupSendFailure(response.status, error)
+  };
 }

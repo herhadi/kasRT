@@ -187,10 +187,28 @@ JID grup kini dapat diatur dari `/management/whatsapp`; nilai tersebut disimpan
 di `app_settings` dan menjadi satu-satunya sumber konfigurasi JID grup.
 Halaman tersebut juga dapat mengambil daftar grup dari gateway melalui tombol
 **Ambil Daftar Grup**. Jika pengiriman ditolak karena sesi WhatsApp sementara
-belum connected, backend mencoba ulang khusus notifikasi grup hingga tiga kali
-setelah percobaan pertama (jeda 3, 7, lalu 15 detik). Error validasi/auth tidak
-diulang. Kegagalan jaringan tanpa respons gateway tidak diulang otomatis untuk
-menghindari kemungkinan pesan ganda jika gateway sebenarnya sudah menerima pesan.
+belum connected, notifikasi tidak hilang begitu saja: backend menyimpan pekerjaan
+ke tabel PostgreSQL `jimpitan_group_notification_outbox`. Worker memeriksa antrean
+setiap 5 detik, mengklaim pekerjaan secara aman antarproses, dan mengirim rekap
+bulanan. Kegagalan sementara (WhatsApp belum connected atau HTTP 5xx) dijadwalkan
+ulang dengan exponential backoff sampai 12 percobaan; proses restart tidak menghapus
+antrean. Pekerjaan yang terus gagal menjadi `FAILED`, konfigurasi yang belum ada
+menjadi `SKIPPED`, dan kegagalan jaringan yang hasil kirimnya ambigu menjadi
+`UNCERTAIN` agar tidak otomatis mengirim pesan ganda. Setoran per-warga dan setoran
+total shift menulis antrean dalam transaksi database yang sama dengan setoran.
+Pemrosesan bersifat at-least-once: jika proses mati tepat setelah WhatsApp menerima
+pesan tetapi sebelum status `SENT` tersimpan, pesan mungkin terkirim ulang setelah
+lease pemrosesan kedaluwarsa.
+
+Status antrean dapat diperiksa dari database:
+
+```sql
+SELECT id, month_key, context, status, attempts, next_attempt_at,
+       last_error, created_at, sent_at
+FROM jimpitan_group_notification_outbox
+ORDER BY id DESC
+LIMIT 50;
+```
 
 Untuk melihat JID grup yang diikuti nomor tertaut, gunakan `GET /groups` dengan secret gateway. Endpoint ini mengambil grup langsung dari WhatsApp dan mengembalikan `jid` berakhiran `@g.us`, tidak bergantung pada daftar chat lokal.
 

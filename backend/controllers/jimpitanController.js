@@ -49,27 +49,27 @@ import {
   updatePetugasShiftHari
 } from '../models/jimpitanModel.js';
 import { delCache, delCacheByPrefix, getCacheJson, setCacheJson } from '../services/cacheService.js';
-import { formatMonthlyJimpitanShare } from '../services/jimpitanShareFormatter.js';
+import { enqueueJimpitanGroupNotification } from '../models/jimpitanGroupOutboxModel.js';
 import {
   getWaJimpitanReminderSettings,
   pickRandomValidWaRecipients,
-  sendWaJimpitanReminder,
-  sendWaJimpitanGroupMessage
+  sendWaJimpitanReminder
 } from '../services/waLabReminderService.js';
 
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
 const WA_REMINDER_GREETINGS = ['Halo', 'Hai', 'Selamat malam'];
 
-async function sendCurrentMonthlyJimpitanGroupShare(operationalDate) {
-  const month = operationalDate.toISOString().slice(0, 7);
-  const recap = await getJimpitanDailyRecapByMonth(month);
-  const text = formatMonthlyJimpitanShare({ month, days: recap.days });
-  const result = await sendWaJimpitanGroupMessage({ text });
-  if (result?.success !== true && result?.skipped !== true) {
-    console.warn('[WA JIMPITAN GROUP] notification rejected:', result?.error || 'unknown error');
+async function scheduleMonthlyJimpitanGroupShare(operationalDate, context = 'notification') {
+  try {
+    const job = await enqueueJimpitanGroupNotification({ operationalDate, context });
+    console.info(`[WA JIMPITAN GROUP] queued outbox #${job.id} (${context})`);
+    return job;
+  } catch (error) {
+    // Do not misreport a committed setoran as failed; surface the enqueue failure loudly.
+    console.error(`[WA JIMPITAN GROUP] failed to persist notification (${context}):`, error.message);
+    return null;
   }
-  return result;
 }
 
 function pickRandomItem(items = []) {
@@ -87,14 +87,6 @@ function pickDistinctWaGreetings(count) {
 
 function firstNameOnly(name) {
   return String(name || '').trim().split(/\s+/)[0] || '';
-}
-
-function scheduleMonthlyJimpitanGroupShare(operationalDate, context = 'notification') {
-  setImmediate(() => {
-    sendCurrentMonthlyJimpitanGroupShare(operationalDate).catch((error) => {
-      console.warn('[WA JIMPITAN GROUP] ' + context + ' failed:', error.message);
-    });
-  });
 }
 
 function escapeTelegramHtml(value) {
@@ -407,7 +399,7 @@ export async function inputJimpitanV2Detail(req, res) {
     });
     const normalizedRoles = roles.map((role) => String(role).trim().toLowerCase());
     if (normalizedRoles.includes('root') || normalizedRoles.includes('admin jimpitan')) {
-      scheduleMonthlyJimpitanGroupShare(tanggalOperasional, 'direct V2 detail notification');
+      await scheduleMonthlyJimpitanGroupShare(tanggalOperasional, 'direct V2 detail notification');
     }
 
     return res.json({ success: true, tanggal_operasional: tanggalOperasional });
@@ -445,7 +437,7 @@ export async function setorJimpitan(req, res) {
   }
 
   try {
-    const batch = await createSetorBatch({ petugasId: petugas_id, detailIds: inputDetailIds });
+    const batch = await createSetorBatch({ petugasId: petugas_id, detailIds: inputDetailIds, operationalDate });
     if (!batch) {
       if (debug) console.log('[JIMPITAN][SETOR] no draft rows found');
       return res.status(400).json({ success: false, message: 'Tidak ada data draft untuk disetor' });
@@ -472,7 +464,7 @@ export async function setorJimpitan(req, res) {
       `Rumah: <b>${batch.total_rumah}</b>` +
       linkSection
     );
-    scheduleMonthlyJimpitanGroupShare(operationalDate, 'setor notification');
+    if (!batch.notification_queued) await scheduleMonthlyJimpitanGroupShare(operationalDate, 'setor notification');
 
     return res.json({
       success: true,
@@ -540,7 +532,7 @@ export async function setorJimpitanShiftTotal(req, res) {
       (note ? `\nCatatan: ${note}` : '') +
       linkSection
     );
-    scheduleMonthlyJimpitanGroupShare(operationalDate, 'setor notification');
+    if (!batch.notification_queued) await scheduleMonthlyJimpitanGroupShare(operationalDate, 'setor notification');
 
     return res.json({
       success: true,
@@ -1111,7 +1103,7 @@ export async function inputJimpitanV2Income(req, res) {
       operationalDate,
       note
     });
-    scheduleMonthlyJimpitanGroupShare(new Date(`${operationalDate}T00:00:00`), 'admin income notification');
+    await scheduleMonthlyJimpitanGroupShare(new Date(`${operationalDate}T00:00:00`), 'admin income notification');
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -1151,7 +1143,7 @@ export async function inputJimpitanOldCashHandover(req, res) {
       handoverDate,
       note
     });
-    scheduleMonthlyJimpitanGroupShare(new Date(`${handoverDate}T00:00:00`), 'old cash notification');
+    await scheduleMonthlyJimpitanGroupShare(new Date(`${handoverDate}T00:00:00`), 'old cash notification');
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

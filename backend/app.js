@@ -27,6 +27,7 @@ import { ensureSecurityTables } from './models/securityModel.js';
 import { ensureAssetTables } from './models/assetModel.js';
 import { ensureAppSettingsTable } from './models/appSettingModel.js';
 import { ensureMembershipRequestTables } from './models/membershipRequestModel.js';
+import { startJimpitanGroupOutboxWorker } from './services/jimpitanGroupOutboxWorker.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3005);
@@ -104,6 +105,7 @@ async function startServer() {
     await ensureSecurityTables();
     await ensureAssetTables();
     await ensureAppSettingsTable();
+    await startJimpitanGroupOutboxWorker();
     console.log('✅ Master data roles/wallets/contribution_types siap');
   } catch (error) {
     console.error('❌ Gagal memastikan master data:', error.message);
