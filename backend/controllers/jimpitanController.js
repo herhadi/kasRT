@@ -1,3 +1,4 @@
+import { pool } from '../db.js';
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
 import {
@@ -1148,6 +1149,94 @@ export async function inputJimpitanOldCashHandover(req, res) {
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
+}
+
+
+export async function getJimpitanCashLedger(req, res) {
+  const year = Number.parseInt(String(req.query?.year || new Date().getFullYear()), 10);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    return res.status(400).json({ success: false, message: 'Tahun tidak valid' });
+  }
+
+  const walletsResult = await pool.query(
+    `SELECT id FROM wallets WHERE LOWER(TRIM(name)) = LOWER($1)`,
+    ['Kas Jimpitan']
+  );
+  const walletIds = walletsResult.rows.map((row) => row.id);
+  if (!walletIds.length) {
+    return res.json({ success: true, data: { year, balance: 0, opening_balance: 0, total_in: 0, total_out: 0, closing_balance: 0, rows: [] } });
+  }
+
+  const [balanceResult, openingResult, entriesResult] = await Promise.all([
+    pool.query(
+      `SELECT COALESCE(SUM(CASE
+          WHEN t.target_wallet_id = ANY($1::uuid[]) AND t.type IN ('IN', 'TRANSFER') THEN t.amount
+          WHEN t.source_wallet_id = ANY($1::uuid[]) AND t.type IN ('OUT', 'TRANSFER') THEN -t.amount
+          ELSE 0 END), 0) AS balance
+       FROM transactions t
+       WHERE t.status = 'APPROVED'
+         AND (t.target_wallet_id = ANY($1::uuid[]) OR t.source_wallet_id = ANY($1::uuid[]))`,
+      [walletIds]
+    ),
+    pool.query(
+      `SELECT COALESCE(SUM(CASE
+          WHEN t.target_wallet_id = ANY($1::uuid[]) AND t.type IN ('IN', 'TRANSFER') THEN t.amount
+          WHEN t.source_wallet_id = ANY($1::uuid[]) AND t.type IN ('OUT', 'TRANSFER') THEN -t.amount
+          ELSE 0 END), 0) AS opening_balance
+       FROM transactions t
+       WHERE t.status = 'APPROVED'
+         AND t.created_at < MAKE_DATE($2, 1, 1)
+         AND (t.target_wallet_id = ANY($1::uuid[]) OR t.source_wallet_id = ANY($1::uuid[]))`,
+      [walletIds, year]
+    ),
+    pool.query(
+      `SELECT t.id, t.type, t.amount, t.description, t.created_at, t.approved_at,
+              sw.name AS source_wallet_name, tw.name AS target_wallet_name,
+              u.nama AS created_by_name, au.nama AS approved_by_name,
+              CASE
+                WHEN t.target_wallet_id = ANY($1::uuid[]) AND t.type IN ('IN', 'TRANSFER') THEN 'IN'
+                WHEN t.source_wallet_id = ANY($1::uuid[]) AND t.type IN ('OUT', 'TRANSFER') THEN 'OUT'
+                ELSE NULL
+              END AS direction
+       FROM transactions t
+       LEFT JOIN wallets sw ON sw.id = t.source_wallet_id
+       LEFT JOIN wallets tw ON tw.id = t.target_wallet_id
+       LEFT JOIN users u ON u.id::text = t.created_by::text
+       LEFT JOIN users au ON au.id::text = t.approved_by::text
+       WHERE t.status = 'APPROVED'
+         AND t.created_at >= MAKE_DATE($2, 1, 1)
+         AND t.created_at < MAKE_DATE($2 + 1, 1, 1)
+         AND (t.target_wallet_id = ANY($1::uuid[]) OR t.source_wallet_id = ANY($1::uuid[]))
+         AND ((t.target_wallet_id = ANY($1::uuid[]) AND t.type IN ('IN', 'TRANSFER'))
+           OR (t.source_wallet_id = ANY($1::uuid[]) AND t.type IN ('OUT', 'TRANSFER')))
+       ORDER BY t.created_at ASC, t.id ASC`,
+      [walletIds, year]
+    )
+  ]);
+
+  const openingBalance = Number(openingResult.rows[0]?.opening_balance || 0);
+  let runningBalance = openingBalance;
+  let totalIn = 0;
+  let totalOut = 0;
+  const rows = entriesResult.rows.map((row) => {
+    const amount = Number(row.amount || 0);
+    if (row.direction === 'IN') { totalIn += amount; runningBalance += amount; }
+    else { totalOut += amount; runningBalance -= amount; }
+    return { ...row, amount, balance_after: runningBalance };
+  });
+
+  return res.json({
+    success: true,
+    data: {
+      year,
+      balance: Number(balanceResult.rows[0]?.balance || 0),
+      opening_balance: openingBalance,
+      total_in: totalIn,
+      total_out: totalOut,
+      closing_balance: openingBalance + totalIn - totalOut,
+      rows
+    }
+  });
 }
 
 export async function getJimpitanV2AdminEntries(_req, res) {

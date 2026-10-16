@@ -12,6 +12,7 @@ import {
   getJimpitanMembers,
   getJimpitanMode,
   getJimpitanV2AdminEntries,
+  getJimpitanCashLedger,
   getDailyRecapJimpitan,
   getMyJimpitanRouteOrder,
   getSetorHistoryJimpitanAdmin,
@@ -38,6 +39,9 @@ import {
 const router = express.Router();
 
 router.get('/', asyncHandler(healthCheck));
+
+router.get('/cash-ledger', auth, allowRoles('Admin Jimpitan', 'Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getJimpitanCashLedger));
+
 
 router.post(
   '/input',
