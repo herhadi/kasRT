@@ -52,8 +52,8 @@ export async function claimJimpitanGroupNotification() {
     await client.query('BEGIN');
     // Recover jobs left in PROCESSING by a process crash after a 10-minute lease.
     await client.query(`UPDATE jimpitan_group_notification_outbox
-      SET status = 'PENDING', locked_at = NULL, next_attempt_at = NOW(), updated_at = NOW(),
-          last_error = COALESCE(last_error || E'\\n', '') || 'Recovered stale processing lease'
+      SET status = 'UNCERTAIN', locked_at = NULL, updated_at = NOW(),
+          last_error = COALESCE(last_error || E'\\n', '') || 'Stale processing lease expired; delivery outcome unknown, stopped to prevent duplicate send'
       WHERE status = 'PROCESSING' AND locked_at < NOW() - INTERVAL '10 minutes'`);
     const result = await client.query(`
       SELECT id, month_key, operational_date, context, attempts
@@ -90,7 +90,7 @@ export async function finishJimpitanGroupNotification(id, { status, error = null
         last_error = $3,
         next_attempt_at = CASE WHEN $4::bigint IS NULL THEN next_attempt_at ELSE NOW() + ($4::bigint * INTERVAL '1 millisecond') END,
         locked_at = NULL,
-        sent_at = CASE WHEN $2 = 'SENT' THEN NOW() ELSE sent_at END,
+        sent_at = CASE WHEN $2::varchar(20) = 'SENT' THEN NOW() ELSE sent_at END,
         updated_at = NOW()
     WHERE id = $1
   `, [id, status, error ? String(error).slice(0, 2000) : null, retryDelayMs]);
@@ -110,7 +110,7 @@ export async function saveJimpitanGroupMessageState({ operationalDate, monthKey,
   await pool.query(`
     INSERT INTO jimpitan_group_message_state
       (operational_date, month_key, group_jid, message_id, message_text)
-    VALUES ($1::date, $2, $3, $4, $5)
+    VALUES ($1::date, $2::varchar(7), $3::varchar(120), $4::varchar(200), $5::text)
     ON CONFLICT (operational_date) DO UPDATE SET
       month_key = EXCLUDED.month_key,
       group_jid = EXCLUDED.group_jid,
