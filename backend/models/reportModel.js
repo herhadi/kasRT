@@ -616,7 +616,12 @@ export async function getKasUmumSnapshot() {
   ]);
   const walletMap = new Map(rows.map((r) => [String(r.wallet_name || '').toLowerCase(), Number(r.saldo_akhir || 0)]));
   const kasSosial = Number(walletMap.get('kas sosial') || 0);
-  const kasBendahara = (bendaharaWallets || []).reduce((sum, row) => sum + Number(row.balance || 0), 0);
+  // Kas Jimpitan adalah kas transit milik Admin Jimpitan. Jangan tampilkan sebagai
+  // Kas Umum Bendahara sampai setoran dipindahkan ke Kas Iuran Wajib dan
+  // transaksi transfer berstatus APPROVED oleh Bendahara.
+  const kasBendahara = (bendaharaWallets || [])
+    .filter((row) => String(row.name || '').trim().toLowerCase() !== 'kas jimpitan')
+    .reduce((sum, row) => sum + Number(row.balance || 0), 0);
 
   const [pembangunanDana, sosialOpeningRes, internetRes, lingkunganRes, koperasiRes] = await Promise.all([
     getTabunganDanaSummary(),

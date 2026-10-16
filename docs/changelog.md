@@ -4,6 +4,7 @@
 
 ### Diperbaiki
 
+- Dashboard Kas Bendahara tidak lagi menjumlahkan saldo Kas Jimpitan yang masih dititipkan pada admin. Saldo baru masuk Kas Umum setelah pengajuan setoran dipindahkan ke Kas Iuran Wajib dan disetujui Bendahara; tidak ada auto-approve.
 - Timeout reminder WA Lab dinaikkan dari 30 menjadi 120 detik agar sesuai dengan jeda anti-ban gateway (batas dua pesan per menit). Pengiriman yang tertahan antrean tidak lagi langsung ditandai `uncertain` hanya karena backend berhenti menunggu lebih cepat daripada gateway. Tidak mengubah batas laju anti-ban dan tidak menambahkan retry otomatis, sehingga risiko pesan ganda tetap dihindari.
 
 ## 2026-10-13
