@@ -1,6 +1,8 @@
 import { getAppSetting } from '../models/appSettingModel.js';
 
-const DEFAULT_TIMEOUT_MS = 30_000;
+// WA Lab may intentionally defer sends until its anti-ban rate window opens (up to ~60s).
+// Keep the HTTP request alive long enough to receive the actual send result.
+const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_WA_JIMPITAN_SETTINGS = Object.freeze({
   enabled: false,
   max_recipients: 1,
