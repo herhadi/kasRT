@@ -315,7 +315,7 @@ export default function JimpitanAdminPage() {
     }
   }, [loading, user, isAdminJimpitan, settingMode, loadCashLedger, pushToast]);
 
-  const setorHistoryPager = usePagination(setorHistory, 20);
+  const setorHistoryPager = usePagination(setorHistory, 10);
   const filteredMembers = useMemo(
     () => members.filter((member) => member.status === memberFilter),
     [members, memberFilter],
@@ -323,6 +323,11 @@ export default function JimpitanAdminPage() {
   const memberPager = usePagination(filteredMembers, 10);
   const topupHistoryPager = usePagination(topupHistory, 10);
   const v2EntriesPager = usePagination(v2Entries, 10);
+  const cashLedgerPager = usePagination(cashLedger?.rows || [], 10);
+
+  useEffect(() => {
+    cashLedgerPager.reset();
+  }, [ledgerYear, cashLedger?.rows.length]);
 
   useEffect(() => {
     setorHistoryPager.reset();
@@ -660,75 +665,86 @@ export default function JimpitanAdminPage() {
       workbook.created = new Date();
       const sheet = workbook.addWorksheet(`Kas Jimpitan ${cashLedger.year}`, {
         views: [{ state: "frozen", ySplit: 7 }],
-        pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+        pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
       });
       sheet.columns = [
         { header: "No", key: "no", width: 7 },
-        { header: "Tanggal", key: "date", width: 16 },
-        { header: "Jenis", key: "direction", width: 13 },
-        { header: "Keterangan", key: "description", width: 48 },
+        { header: "Tanggal Transaksi", key: "date", width: 19 },
+        { header: "Jenis", key: "direction", width: 15 },
+        { header: "Keperluan / Keterangan", key: "description", width: 42 },
+        { header: "Dari", key: "source", width: 25 },
+        { header: "Untuk / Tujuan", key: "target", width: 25 },
         { header: "Pemasukan (Rp)", key: "in", width: 19 },
         { header: "Pengeluaran (Rp)", key: "out", width: 19 },
         { header: "Saldo Berjalan (Rp)", key: "balance", width: 22 },
-        { header: "Dicatat Oleh", key: "creator", width: 24 },
-        { header: "Disetujui Oleh", key: "approver", width: 24 },
+        { header: "Dicatat Oleh", key: "creator", width: 23 },
+        { header: "Disetujui Oleh", key: "approver", width: 23 },
       ];
-      sheet.mergeCells("A1:I1");
+      sheet.mergeCells("A1:K1");
       sheet.getCell("A1").value = "BUKU KAS JIMPITAN";
       sheet.getCell("A1").font = { name: "Aptos Display", size: 18, bold: true, color: { argb: "FFFFFFFF" } };
       sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF123B5D" } };
       sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "left" };
-      sheet.getRow(1).height = 32;
-      sheet.mergeCells("A2:I2");
+      sheet.getRow(1).height = 34;
+      sheet.mergeCells("A2:K2");
       sheet.getCell("A2").value = `Periode: 1 Januari – 31 Desember ${cashLedger.year} | Dicetak: ${new Date().toLocaleString("id-ID")}`;
       sheet.getCell("A2").font = { italic: true, color: { argb: "FF526273" } };
-      sheet.mergeCells("A3:C3"); sheet.getCell("A3").value = `Saldo Awal: Rp ${cashLedger.opening_balance}`;
-      sheet.mergeCells("D3:F3"); sheet.getCell("D3").value = `Total Pemasukan: Rp ${cashLedger.total_in}`;
-      sheet.mergeCells("G3:I3"); sheet.getCell("G3").value = `Total Pengeluaran: Rp ${cashLedger.total_out}`;
-      sheet.mergeCells("A4:C4"); sheet.getCell("A4").value = `Saldo Akhir Tahun: Rp ${cashLedger.closing_balance}`;
-      sheet.mergeCells("D4:I4"); sheet.getCell("D4").value = `Saldo Kas Jimpitan terkini: Rp ${cashLedger.balance}`;
+      sheet.mergeCells("A3:C3"); sheet.getCell("A3").value = `Saldo Awal: ${formatRupiah(cashLedger.opening_balance)}`;
+      sheet.mergeCells("D3:F3"); sheet.getCell("D3").value = `Total Pemasukan: ${formatRupiah(cashLedger.total_in)}`;
+      sheet.mergeCells("G3:K3"); sheet.getCell("G3").value = `Total Pengeluaran: ${formatRupiah(cashLedger.total_out)}`;
+      sheet.mergeCells("A4:C4"); sheet.getCell("A4").value = `Saldo Akhir Tahun: ${formatRupiah(cashLedger.closing_balance)}`;
+      sheet.mergeCells("D4:K4"); sheet.getCell("D4").value = `Saldo Kas Jimpitan Terkini: ${formatRupiah(cashLedger.balance)}`;
       for (const address of ["A3", "D3", "G3", "A4", "D4"]) {
         const cell = sheet.getCell(address);
         cell.font = { bold: true, color: { argb: "FF123B5D" } };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF1F6" } };
-        cell.alignment = { vertical: "middle" };
+        cell.alignment = { vertical: "middle", wrapText: true };
       }
-      sheet.getRow(3).height = 23; sheet.getRow(4).height = 23;
-      sheet.getRow(6).values = ["No", "Tanggal", "Jenis", "Keterangan", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Saldo Berjalan (Rp)", "Dicatat Oleh", "Disetujui Oleh"];
+      sheet.getRow(3).height = 25; sheet.getRow(4).height = 25;
+      sheet.getRow(5).height = 8;
+      sheet.getRow(6).values = ["No", "Tanggal Transaksi", "Jenis", "Keperluan / Keterangan", "Dari", "Untuk / Tujuan", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Saldo Berjalan (Rp)", "Dicatat Oleh", "Disetujui Oleh"];
       const header = sheet.getRow(6);
-      header.height = 28;
+      header.height = 32;
       header.font = { bold: true, color: { argb: "FFFFFFFF" } };
       header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F5A7A" } };
       header.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
       cashLedger.rows.forEach((row, index) => {
         const date = new Date(row.created_at);
+        const isIn = row.direction === "IN";
         const excelRow = sheet.addRow({
           no: index + 1,
           date: Number.isNaN(date.getTime()) ? row.created_at : date,
-          direction: row.direction === "IN" ? "Pemasukan" : "Pengeluaran",
-          description: row.description || (row.direction === "IN" ? `${row.source_wallet_name || ""} → Kas Jimpitan` : `Kas Jimpitan → ${row.target_wallet_name || ""}`),
-          in: row.direction === "IN" ? row.amount : null,
-          out: row.direction === "OUT" ? row.amount : null,
+          direction: isIn ? "PEMASUKAN" : "PENGELUARAN",
+          description: row.description?.trim() || (isIn ? "Setoran masuk ke Kas Jimpitan" : "Keperluan pengeluaran belum dicantumkan"),
+          source: row.source_wallet_name || (isIn ? "-" : "Kas Jimpitan"),
+          target: row.target_wallet_name || (isIn ? "Kas Jimpitan" : "-"),
+          in: isIn ? row.amount : null,
+          out: !isIn ? row.amount : null,
           balance: row.balance_after,
           creator: row.created_by_name || "-",
           approver: row.approved_by_name || "-",
         });
         excelRow.getCell(2).numFmt = "dd mmm yyyy hh:mm";
-        for (const col of [5, 6, 7]) excelRow.getCell(col).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
-        excelRow.alignment = { vertical: "middle" };
-        if (index % 2 === 1) {
-          excelRow.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F7FA" } }; });
-        }
+        for (const col of [7, 8, 9]) excelRow.getCell(col).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
+        excelRow.getCell(3).font = { bold: true, color: { argb: isIn ? "FF047857" : "FFB91C1C" } };
+        excelRow.getCell(7).font = { color: { argb: "FF047857" } };
+        excelRow.getCell(8).font = { color: { argb: "FFB91C1C" } };
+        excelRow.getCell(4).alignment = { vertical: "top", wrapText: true };
+        excelRow.height = 22;
+        if (index % 2 === 1) excelRow.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F7FA" } }; });
       });
-      sheet.autoFilter = { from: "A6", to: "I6" };
+      sheet.autoFilter = { from: "A6", to: `K${Math.max(6, sheet.rowCount)}` };
       sheet.eachRow((row, rowNumber) => {
         if (rowNumber >= 6) row.eachCell((cell) => {
           cell.border = { bottom: { style: "hair", color: { argb: "FFD7E0E8" } } };
+          if (rowNumber > 6) cell.alignment = { vertical: "top", wrapText: [4, 5, 6, 10, 11].includes(Number(cell.col)) };
         });
       });
-      sheet.getColumn(5).alignment = { horizontal: "right" };
-      sheet.getColumn(6).alignment = { horizontal: "right" };
-      sheet.getColumn(7).alignment = { horizontal: "right" };
+      for (const col of [7, 8, 9]) sheet.getColumn(col).alignment = { horizontal: "right", vertical: "top" };
+      sheet.views = [{ state: "frozen", ySplit: 6, xSplit: 3, showGridLines: false }];
+      sheet.pageSetup.printTitlesRow = "1:6";
+      sheet.pageSetup.margins = { left: 0.25, right: 0.25, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 };
+      sheet.headerFooter.oddFooter = "KasRT | Buku Kas Jimpitan &P | Halaman &P dari &N";
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
@@ -796,53 +812,70 @@ export default function JimpitanAdminPage() {
 
         {!settingMode && isAdminJimpitan ? (
           <Card
-            title="Kas Jimpitan & Buku Kas"
-            subtitle="Saldo kas aktual berdasarkan transaksi yang sudah disetujui. Transaksi pending tidak dihitung sebagai uang kas."
+            title="Kas Jimpitan"
+            subtitle="Saldo dan mutasi yang sudah disetujui. Transaksi pending tidak dihitung."
           >
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
               {[
-                { label: "Saldo Kas Jimpitan Saat Ini", value: cashLedger?.balance ?? 0, emphasis: true },
+                { label: "Saldo Saat Ini", value: cashLedger?.balance ?? 0, emphasis: true },
                 { label: `Saldo Awal ${ledgerYear}`, value: cashLedger?.opening_balance ?? 0 },
                 { label: `Pemasukan ${ledgerYear}`, value: cashLedger?.total_in ?? 0 },
                 { label: `Pengeluaran ${ledgerYear}`, value: cashLedger?.total_out ?? 0 },
               ].map((item) => (
-                <div key={item.label} className={`rounded-2xl border p-4 ${item.emphasis ? "border-sky-200 bg-sky-50" : "border-[var(--line)] bg-[var(--surface)]"}`}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{item.label}</p>
-                  <p className={`mt-2 text-xl font-extrabold ${item.emphasis ? "text-sky-900" : "text-[var(--text-primary)]"}`}>{cashLedgerLoading ? "Memuat…" : formatRupiah(item.value)}</p>
+                <div key={item.label} className={`min-w-0 rounded-xl border px-3 py-2.5 sm:px-3 sm:py-3 ${item.emphasis ? "border-sky-200 bg-sky-50" : "border-[var(--line)] bg-[var(--surface)]"}`}>
+                  <p className="text-[10px] font-semibold leading-tight text-[var(--text-muted)] sm:text-xs">{item.label}</p>
+                  <p className={`mt-1.5 break-words text-base font-bold leading-tight sm:text-lg ${item.emphasis ? "text-sky-900" : "text-[var(--text-primary)]"}`}>{cashLedgerLoading ? "…" : formatRupiah(item.value)}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-              <div className="w-full sm:w-48">
-                <label htmlFor="jimpitan-ledger-year" className="mb-1 block text-sm font-semibold text-[var(--text-primary)]">Tahun buku</label>
-                <select id="jimpitan-ledger-year" value={ledgerYear} onChange={(event) => setLedgerYear(Number(event.target.value))} className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--text-primary)]">
+            <div className="mt-3 flex flex-col gap-3 rounded-xl border border-[var(--line)] p-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="w-full sm:w-40">
+                <label htmlFor="jimpitan-ledger-year" className="mb-1 block text-xs font-semibold text-[var(--text-primary)]">Tahun buku</label>
+                <select id="jimpitan-ledger-year" value={ledgerYear} onChange={(event) => setLedgerYear(Number(event.target.value))} className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]">
                   {Array.from({ length: Math.max(5, new Date().getFullYear() - 2024) }, (_, index) => new Date().getFullYear() - index).map((year) => <option key={year} value={year}>{year}</option>)}
                 </select>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm text-[var(--text-muted)]">Saldo akhir {ledgerYear}: <strong className="text-[var(--text-primary)]">{formatRupiah(cashLedger?.closing_balance || 0)}</strong></p>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <p className="text-xs text-[var(--text-muted)] sm:text-sm">Saldo akhir {ledgerYear}: <strong className="text-[var(--text-primary)]">{formatRupiah(cashLedger?.closing_balance || 0)}</strong></p>
                 <Button onClick={exportCashLedgerExcel} disabled={!cashLedger || cashLedgerLoading || cashLedgerExporting}>
                   {cashLedgerExporting ? "Membuat Excel…" : "Ekspor Excel (.xlsx)"}
                 </Button>
               </div>
             </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--line)]">
+            <div className="mt-3 hidden overflow-x-auto md:block">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-xl border border-[var(--line)]">
                 <thead><tr className="bg-[var(--surface-strong)]">
-                  {["Tanggal", "Keterangan", "Pemasukan", "Pengeluaran", "Saldo Berjalan"].map((label) => <th key={label} className={`border-b border-[var(--line)] px-3 py-3 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] ${label === "Pemasukan" || label === "Pengeluaran" || label === "Saldo Berjalan" ? "text-right" : "text-left"}`}>{label}</th>)}
+                  {["Tanggal", "Keperluan / Keterangan", "Pemasukan", "Pengeluaran", "Saldo Berjalan"].map((label) => <th key={label} className={`border-b border-[var(--line)] px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)] ${["Pemasukan", "Pengeluaran", "Saldo Berjalan"].includes(label) ? "text-right" : "text-left"}`}>{label}</th>)}
                 </tr></thead>
                 <tbody>
-                  {cashLedgerLoading ? <tr><td colSpan={5} className="px-3 py-5 text-center text-sm text-[var(--text-muted)]">Memuat buku kas…</td></tr> : !cashLedger?.rows.length ? <tr><td colSpan={5} className="px-3 py-5 text-center text-sm text-[var(--text-muted)]">Belum ada transaksi kas yang disetujui pada tahun {ledgerYear}.</td></tr> : cashLedger.rows.map((row) => <tr key={row.id} className="bg-[var(--surface)]">
-                    <td className="whitespace-nowrap border-b border-[var(--line)] px-3 py-3 text-sm text-[var(--text-primary)]">{formatTanggalIndonesia(row.created_at)}</td>
-                    <td className="min-w-56 border-b border-[var(--line)] px-3 py-3 text-sm text-[var(--text-primary)]">{row.description || (row.direction === "IN" ? `Pemasukan dari ${row.source_wallet_name || "transaksi"}` : `Pengeluaran/transfer ke ${row.target_wallet_name || "tujuan"}`)}<span className="mt-1 block text-xs text-[var(--text-muted)]">{row.created_by_name ? `Dicatat: ${row.created_by_name}` : ""}{row.approved_by_name ? ` • Disetujui: ${row.approved_by_name}` : ""}</span></td>
-                    <td className="whitespace-nowrap border-b border-[var(--line)] px-3 py-3 text-right text-sm font-semibold text-emerald-700">{row.direction === "IN" ? formatRupiah(row.amount) : "—"}</td>
-                    <td className="whitespace-nowrap border-b border-[var(--line)] px-3 py-3 text-right text-sm font-semibold text-red-700">{row.direction === "OUT" ? formatRupiah(row.amount) : "—"}</td>
-                    <td className="whitespace-nowrap border-b border-[var(--line)] px-3 py-3 text-right text-sm font-bold text-[var(--text-primary)]">{formatRupiah(row.balance_after)}</td>
+                  {cashLedgerLoading ? <tr><td colSpan={5} className="px-3 py-5 text-center text-sm text-[var(--text-muted)]">Memuat buku kas…</td></tr> : !cashLedgerPager.pagedItems.length ? <tr><td colSpan={5} className="px-3 py-5 text-center text-sm text-[var(--text-muted)]">Belum ada transaksi kas yang disetujui pada tahun {ledgerYear}.</td></tr> : cashLedgerPager.pagedItems.map((row) => <tr key={row.id} className="bg-[var(--surface)]">
+                    <td className="whitespace-nowrap border-b border-[var(--line)] px-3 py-2.5 text-xs text-[var(--text-primary)]">{formatTanggalIndonesia(row.created_at)}</td>
+                    <td className="min-w-56 border-b border-[var(--line)] px-3 py-2.5 text-sm text-[var(--text-primary)]">{row.description || (row.direction === "IN" ? `Setoran dari ${row.source_wallet_name || "transaksi"}` : `Keperluan pengeluaran: ${row.target_wallet_name || "belum dicantumkan"}`)}<span className="mt-1 block text-[11px] text-[var(--text-muted)]">{row.created_by_name ? `Dicatat: ${row.created_by_name}` : ""}{row.approved_by_name ? ` • Disetujui: ${row.approved_by_name}` : ""}</span></td>
+                    <td className="whitespace-nowrap border-b border-[var(--line)] px-3 py-2.5 text-right text-xs font-semibold text-emerald-700">{row.direction === "IN" ? formatRupiah(row.amount) : "—"}</td>
+                    <td className="whitespace-nowrap border-b border-[var(--line)] px-3 py-2.5 text-right text-xs font-semibold text-red-700">{row.direction === "OUT" ? formatRupiah(row.amount) : "—"}</td>
+                    <td className="whitespace-nowrap border-b border-[var(--line)] px-3 py-2.5 text-right text-xs font-bold text-[var(--text-primary)]">{formatRupiah(row.balance_after)}</td>
                   </tr>)}
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-xs text-[var(--text-muted)]">Buku kas memuat mutasi berstatus APPROVED saja. Pengajuan yang masih menunggu persetujuan tidak menambah atau mengurangi saldo.</p>
+            <div className="mt-3 space-y-2 md:hidden">
+              {cashLedgerLoading ? <p className="rounded-xl border border-[var(--line)] p-4 text-center text-sm text-[var(--text-muted)]">Memuat buku kas…</p> : !cashLedgerPager.pagedItems.length ? <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-center text-sm text-[var(--text-muted)]">Belum ada transaksi disetujui pada {ledgerYear}.</p> : cashLedgerPager.pagedItems.map((row) => <div key={row.id} className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-[var(--text-muted)]">{formatTanggalIndonesia(row.created_at)}</p>
+                    <p className="mt-1 break-words text-sm font-semibold text-[var(--text-primary)]">{row.description || (row.direction === "IN" ? `Setoran dari ${row.source_wallet_name || "transaksi"}` : `Keperluan pengeluaran: ${row.target_wallet_name || "belum dicantumkan"}`)}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${row.direction === "IN" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{row.direction === "IN" ? "MASUK" : "KELUAR"}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--line)] pt-2">
+                  <div><p className="text-[10px] text-[var(--text-muted)]">{row.direction === "IN" ? "Pemasukan" : "Pengeluaran"}</p><p className={`mt-0.5 text-sm font-bold ${row.direction === "IN" ? "text-emerald-700" : "text-red-700"}`}>{formatRupiah(row.amount)}</p></div>
+                  <div className="text-right"><p className="text-[10px] text-[var(--text-muted)]">Saldo setelah transaksi</p><p className="mt-0.5 text-sm font-bold text-[var(--text-primary)]">{formatRupiah(row.balance_after)}</p></div>
+                </div>
+                {(row.created_by_name || row.approved_by_name) ? <p className="mt-2 text-[10px] text-[var(--text-muted)]">{row.created_by_name ? `Dicatat ${row.created_by_name}` : ""}{row.approved_by_name ? ` · Disetujui ${row.approved_by_name}` : ""}</p> : null}
+              </div>)}
+            </div>
+            <PaginationControls page={cashLedgerPager.page} totalPages={cashLedgerPager.totalPages} onPrev={cashLedgerPager.prev} onNext={cashLedgerPager.next} />
+            <p className="mt-2 text-[10px] text-[var(--text-muted)]">Menampilkan maksimal 10 transaksi per halaman. Mutasi berstatus APPROVED saja yang dihitung.</p>
           </Card>
         ) : null}
 

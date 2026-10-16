@@ -1234,7 +1234,7 @@ export async function getJimpitanCashLedger(req, res) {
       total_in: totalIn,
       total_out: totalOut,
       closing_balance: openingBalance + totalIn - totalOut,
-      rows
+      rows: rows.reverse()
     }
   });
 }
