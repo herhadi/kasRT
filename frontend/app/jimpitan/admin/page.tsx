@@ -155,6 +155,7 @@ export default function JimpitanAdminPage() {
     ExternalParticipant[]
   >([]);
   const [members, setMembers] = useState<JimpitanMember[]>([]);
+  const [memberSettingsExpanded, setMemberSettingsExpanded] = useState(false);
   const [memberFilter, setMemberFilter] = useState<"ACTIVE" | "INACTIVE">(
     "ACTIVE",
   );
@@ -883,7 +884,20 @@ export default function JimpitanAdminPage() {
           <Card
             title="Pengaturan Warga Jimpitan"
             subtitle="Atur warga yang wajib ikut jimpitan bulanan. Donatur dikelola pada bagian terpisah."
+            headerRight={
+              <button
+                type="button"
+                aria-expanded={memberSettingsExpanded}
+                onClick={() => setMemberSettingsExpanded((expanded) => !expanded)}
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--text-primary)] transition hover:bg-[var(--surface-strong)]"
+              >
+                {memberSettingsExpanded ? "Tutup" : "Tampilkan"}
+                <span aria-hidden="true">{memberSettingsExpanded ? "▲" : "▼"}</span>
+              </button>
+            }
           >
+            {memberSettingsExpanded ? (
+              <>
             <MembershipStatusFilter
               value={memberFilter === "ACTIVE" ? "aktif" : "nonaktif"}
               activeCount={
@@ -977,6 +991,8 @@ export default function JimpitanAdminPage() {
               onPrev={memberPager.prev}
               onNext={memberPager.next}
             />
+              </>
+            ) : null}
           </Card>
         ) : null}
 
