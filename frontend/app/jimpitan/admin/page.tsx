@@ -889,7 +889,7 @@ export default function JimpitanAdminPage() {
                 type="button"
                 aria-expanded={memberSettingsExpanded}
                 onClick={() => setMemberSettingsExpanded((expanded) => !expanded)}
-                className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--text-primary)] transition hover:bg-[var(--surface-strong)]"
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-extrabold shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${memberSettingsExpanded ? "border-[var(--line)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-strong)]" : "border-amber-500 bg-amber-100 text-amber-950 ring-2 ring-amber-300/70 hover:bg-amber-200 focus-visible:ring-amber-500"}`}
               >
                 {memberSettingsExpanded ? "Tutup" : "Tampilkan"}
                 <span aria-hidden="true">{memberSettingsExpanded ? "▲" : "▼"}</span>
