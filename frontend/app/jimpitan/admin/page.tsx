@@ -118,12 +118,24 @@ function normalizeJimpitanExportDescription(value?: string | null) {
   });
   description = description.replace(/\s+([•|])/g, " $1").replace(/([•|])\s+/g, "$1 ").replace(/\s{2,}/g, " ").trim();
 
-  // Samakan ejaan nama hari jika keterangan lama menggunakan bahasa Inggris.
+  // Normalisasi tanggal lama berbahasa Inggris, misalnya "Wed Sep 23" -> "Rabu, 23 September".
   const weekdays: Record<string, string> = {
-    monday: "Senin", tuesday: "Selasa", wednesday: "Rabu", thursday: "Kamis",
-    friday: "Jumat", saturday: "Sabtu", sunday: "Minggu",
+    mon: "Senin", monday: "Senin", tue: "Selasa", tues: "Selasa", tuesday: "Selasa",
+    wed: "Rabu", wednesday: "Rabu", thu: "Kamis", thur: "Kamis", thurs: "Kamis", thursday: "Kamis",
+    fri: "Jumat", friday: "Jumat", sat: "Sabtu", saturday: "Sabtu", sun: "Minggu", sunday: "Minggu",
   };
+  const months: Record<string, string> = {
+    jan: "Januari", january: "Januari", feb: "Februari", february: "Februari",
+    mar: "Maret", march: "Maret", apr: "April", april: "April", may: "Mei",
+    jun: "Juni", june: "Juni", jul: "Juli", july: "Juli", aug: "Agustus", august: "Agustus",
+    sep: "September", sept: "September", september: "September", oct: "Oktober", october: "Oktober",
+    nov: "November", november: "November", dec: "Desember", december: "Desember",
+  };
+  description = description.replace(/\b(Mon(?:day)?|Tue(?:s(?:day)?)?|Wed(?:nesday)?|Thu(?:r(?:s(?:day)?)?)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:,?\s+(\d{4}))?/gi,
+    (_match, day, month, date, year) => `${weekdays[day.toLowerCase()]}, ${Number(date)} ${months[month.toLowerCase()]}${year ? ` ${year}` : ""}`);
   description = description.replace(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/gi, (day) => weekdays[day.toLowerCase()]);
+  // Terjemahkan nama bulan Inggris yang tersisa pada keterangan lama.
+  description = description.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/gi, (month) => months[month.toLowerCase()]);
   return { description, prefix };
 }
 
@@ -737,7 +749,7 @@ export default function JimpitanAdminPage() {
         { header: "Saldo Berjalan (Rp)", key: "balance", width: 22 },
         { header: "Dicatat Oleh", key: "creator", width: 23 },
         { header: "Disetujui Oleh", key: "approver", width: 23 },
-        { header: "Prefix", key: "prefix", width: 24 },
+        { header: "Mode", key: "prefix", width: 24 },
       ];
       sheet.mergeCells("A1:L1");
       sheet.getCell("A1").value = "BUKU KAS JIMPITAN";
@@ -761,7 +773,7 @@ export default function JimpitanAdminPage() {
       }
       sheet.getRow(3).height = 25; sheet.getRow(4).height = 25;
       sheet.getRow(5).height = 8;
-      sheet.getRow(6).values = ["No", "Tanggal Transaksi", "Jenis", "Keperluan / Keterangan", "Dari", "Untuk / Tujuan", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Saldo Berjalan (Rp)", "Dicatat Oleh", "Disetujui Oleh", "Prefix"];
+      sheet.getRow(6).values = ["No", "Tanggal Transaksi", "Jenis", "Keperluan / Keterangan", "Dari", "Untuk / Tujuan", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Saldo Berjalan (Rp)", "Dicatat Oleh", "Disetujui Oleh", "Mode"];
       const header = sheet.getRow(6);
       header.height = 32;
       header.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -773,10 +785,10 @@ export default function JimpitanAdminPage() {
         const normalizedDescription = normalizeJimpitanExportDescription(row.description);
         const excelRow = sheet.addRow({
           no: index + 1,
-          date: Number.isNaN(date.getTime()) ? row.created_at : date,
+          date: Number.isNaN(date.getTime()) ? row.created_at : `${date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).replace(":", ".")}`,
           direction: isIn ? "PEMASUKAN" : "PENGELUARAN",
           description: normalizedDescription.description || (isIn ? "Setoran masuk ke Kas Jimpitan" : "Keperluan pengeluaran belum dicantumkan"),
-          prefix: normalizedDescription.prefix,
+          prefix: normalizedDescription.prefix === "[JIMPITAN_V2_ADMIN]" ? "V2 Admin" : normalizedDescription.prefix ? "V2" : "-",
           source: row.source_wallet_name || (isIn ? "-" : "Kas Jimpitan"),
           target: row.target_wallet_name || (isIn ? "Kas Jimpitan" : "-"),
           in: isIn ? row.amount : null,
@@ -785,7 +797,6 @@ export default function JimpitanAdminPage() {
           creator: row.created_by_name || "-",
           approver: row.approved_by_name || "-",
         });
-        excelRow.getCell(2).numFmt = "dd mmm yyyy hh:mm";
         for (const col of [7, 8, 9]) excelRow.getCell(col).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
         excelRow.getCell(3).font = { bold: true, color: { argb: isIn ? "FF047857" : "FFB91C1C" } };
         excelRow.getCell(7).font = { color: { argb: "FF047857" } };
