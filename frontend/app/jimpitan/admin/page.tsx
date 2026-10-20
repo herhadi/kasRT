@@ -101,6 +101,32 @@ function buildDefaultJimpitanDailyNote(dateValue: string) {
   return `setoran jimpitan ${label}`;
 }
 
+function normalizeJimpitanExportDescription(value?: string | null) {
+  let description = String(value || "").trim();
+  const prefixMatch = description.match(/^\s*(\[JIMPITAN_V2(?:_ADMIN)?\])\s*/i);
+  const prefix = prefixMatch?.[1]?.toUpperCase() || "";
+  if (prefixMatch) description = description.slice(prefixMatch[0].length).trim();
+
+  // Standarkan tanggal ISO menjadi nama hari/tanggal Indonesia; hindari tanggal ganda
+  // bila keterangan sudah memuat tanggal lengkap yang bisa dibaca.
+  const hasReadableDate = /\b\d{1,2}\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+\d{4}\b/i.test(description);
+  description = description.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (match, year, month, day) => {
+    if (hasReadableDate) return "";
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return match;
+    return date.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  });
+  description = description.replace(/\s+([•|])/g, " $1").replace(/([•|])\s+/g, "$1 ").replace(/\s{2,}/g, " ").trim();
+
+  // Samakan ejaan nama hari jika keterangan lama menggunakan bahasa Inggris.
+  const weekdays: Record<string, string> = {
+    monday: "Senin", tuesday: "Selasa", wednesday: "Rabu", thursday: "Kamis",
+    friday: "Jumat", saturday: "Sabtu", sunday: "Minggu",
+  };
+  description = description.replace(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/gi, (day) => weekdays[day.toLowerCase()]);
+  return { description, prefix };
+}
+
 export default function JimpitanAdminPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -711,21 +737,22 @@ export default function JimpitanAdminPage() {
         { header: "Saldo Berjalan (Rp)", key: "balance", width: 22 },
         { header: "Dicatat Oleh", key: "creator", width: 23 },
         { header: "Disetujui Oleh", key: "approver", width: 23 },
+        { header: "Prefix", key: "prefix", width: 24 },
       ];
-      sheet.mergeCells("A1:K1");
+      sheet.mergeCells("A1:L1");
       sheet.getCell("A1").value = "BUKU KAS JIMPITAN";
       sheet.getCell("A1").font = { name: "Aptos Display", size: 18, bold: true, color: { argb: "FFFFFFFF" } };
       sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF123B5D" } };
       sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "left" };
       sheet.getRow(1).height = 34;
-      sheet.mergeCells("A2:K2");
+      sheet.mergeCells("A2:L2");
       sheet.getCell("A2").value = `Periode: 1 Januari – 31 Desember ${cashLedger.year} | Dicetak: ${new Date().toLocaleString("id-ID")}`;
       sheet.getCell("A2").font = { italic: true, color: { argb: "FF526273" } };
       sheet.mergeCells("A3:C3"); sheet.getCell("A3").value = `Saldo Awal: ${formatRupiah(cashLedger.opening_balance)}`;
       sheet.mergeCells("D3:F3"); sheet.getCell("D3").value = `Total Pemasukan: ${formatRupiah(cashLedger.total_in)}`;
-      sheet.mergeCells("G3:K3"); sheet.getCell("G3").value = `Total Pengeluaran: ${formatRupiah(cashLedger.total_out)}`;
+      sheet.mergeCells("G3:L3"); sheet.getCell("G3").value = `Total Pengeluaran: ${formatRupiah(cashLedger.total_out)}`;
       sheet.mergeCells("A4:C4"); sheet.getCell("A4").value = `Saldo Akhir Tahun: ${formatRupiah(cashLedger.closing_balance)}`;
-      sheet.mergeCells("D4:K4"); sheet.getCell("D4").value = `Saldo Kas Jimpitan Terkini: ${formatRupiah(cashLedger.balance)}`;
+      sheet.mergeCells("D4:L4"); sheet.getCell("D4").value = `Saldo Kas Jimpitan Terkini: ${formatRupiah(cashLedger.balance)}`;
       for (const address of ["A3", "D3", "G3", "A4", "D4"]) {
         const cell = sheet.getCell(address);
         cell.font = { bold: true, color: { argb: "FF123B5D" } };
@@ -734,7 +761,7 @@ export default function JimpitanAdminPage() {
       }
       sheet.getRow(3).height = 25; sheet.getRow(4).height = 25;
       sheet.getRow(5).height = 8;
-      sheet.getRow(6).values = ["No", "Tanggal Transaksi", "Jenis", "Keperluan / Keterangan", "Dari", "Untuk / Tujuan", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Saldo Berjalan (Rp)", "Dicatat Oleh", "Disetujui Oleh"];
+      sheet.getRow(6).values = ["No", "Tanggal Transaksi", "Jenis", "Keperluan / Keterangan", "Dari", "Untuk / Tujuan", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Saldo Berjalan (Rp)", "Dicatat Oleh", "Disetujui Oleh", "Prefix"];
       const header = sheet.getRow(6);
       header.height = 32;
       header.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -743,11 +770,13 @@ export default function JimpitanAdminPage() {
       cashLedger.rows.forEach((row, index) => {
         const date = new Date(row.created_at);
         const isIn = row.direction === "IN";
+        const normalizedDescription = normalizeJimpitanExportDescription(row.description);
         const excelRow = sheet.addRow({
           no: index + 1,
           date: Number.isNaN(date.getTime()) ? row.created_at : date,
           direction: isIn ? "PEMASUKAN" : "PENGELUARAN",
-          description: row.description?.trim() || (isIn ? "Setoran masuk ke Kas Jimpitan" : "Keperluan pengeluaran belum dicantumkan"),
+          description: normalizedDescription.description || (isIn ? "Setoran masuk ke Kas Jimpitan" : "Keperluan pengeluaran belum dicantumkan"),
+          prefix: normalizedDescription.prefix,
           source: row.source_wallet_name || (isIn ? "-" : "Kas Jimpitan"),
           target: row.target_wallet_name || (isIn ? "Kas Jimpitan" : "-"),
           in: isIn ? row.amount : null,
@@ -765,11 +794,11 @@ export default function JimpitanAdminPage() {
         excelRow.height = 22;
         if (index % 2 === 1) excelRow.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F7FA" } }; });
       });
-      sheet.autoFilter = { from: "A6", to: `K${Math.max(6, sheet.rowCount)}` };
+      sheet.autoFilter = { from: "A6", to: `L${Math.max(6, sheet.rowCount)}` };
       sheet.eachRow((row, rowNumber) => {
         if (rowNumber >= 6) row.eachCell((cell) => {
           cell.border = { bottom: { style: "hair", color: { argb: "FFD7E0E8" } } };
-          if (rowNumber > 6) cell.alignment = { vertical: "top", wrapText: [4, 5, 6, 10, 11].includes(Number(cell.col)) };
+          if (rowNumber > 6) cell.alignment = { vertical: "top", wrapText: [4, 5, 6, 10, 11, 12].includes(Number(cell.col)) };
         });
       });
       for (const col of [7, 8, 9]) sheet.getColumn(col).alignment = { horizontal: "right", vertical: "top" };
