@@ -143,6 +143,13 @@ export default function JimpitanAdminPage() {
   const [cashLedger, setCashLedger] = useState<JimpitanCashLedger | null>(null);
   const [cashLedgerLoading, setCashLedgerLoading] = useState(false);
   const [cashLedgerExporting, setCashLedgerExporting] = useState(false);
+  const [expenseDate, setExpenseDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseDescription, setExpenseDescription] = useState("");
+  const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [setorPeriod, setSetorPeriod] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -224,6 +231,30 @@ export default function JimpitanAdminPage() {
       setCashLedgerLoading(false);
     }
   }, [isAdminJimpitan, ledgerYear]);
+
+  const handleSubmitJimpitanExpense = useCallback(async () => {
+    const amount = parseRupiahInput(expenseAmount);
+    const description = expenseDescription.trim();
+    if (!expenseDate || amount <= 0 || !description) {
+      pushToast("Lengkapi tanggal, nominal, dan keperluan pengeluaran.", "error");
+      return;
+    }
+    setExpenseSubmitting(true);
+    try {
+      await apiFetch("/jimpitan/cash-expense", {
+        method: "POST",
+        body: JSON.stringify({ expense_date: expenseDate, amount, description }),
+      });
+      setExpenseAmount("");
+      setExpenseDescription("");
+      pushToast("Pengeluaran diajukan. Saldo baru berubah setelah disetujui Ketua/Sekretaris.", "success");
+      await loadCashLedger();
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Gagal mengajukan pengeluaran", "error");
+    } finally {
+      setExpenseSubmitting(false);
+    }
+  }, [expenseDate, expenseAmount, expenseDescription, loadCashLedger, pushToast]);
 
   const loadExternalParticipants = useCallback(async () => {
     if (!isAdminJimpitan) return;
@@ -840,6 +871,25 @@ export default function JimpitanAdminPage() {
                 <p className="text-xs text-[var(--text-muted)] sm:text-sm">Saldo akhir {ledgerYear}: <strong className="text-[var(--text-primary)]">{formatRupiah(cashLedger?.closing_balance || 0)}</strong></p>
                 <Button onClick={exportCashLedgerExcel} disabled={!cashLedger || cashLedgerLoading || cashLedgerExporting}>
                   {cashLedgerExporting ? "Membuat Excel…" : "Ekspor Excel (.xlsx)"}
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50/60 p-3 sm:p-4">
+              <div className="mb-3">
+                <h3 className="text-sm font-bold text-rose-950">Input Pengeluaran Kas Jimpitan</h3>
+                <p className="mt-1 text-xs text-rose-900">Pengajuan tidak langsung mengurangi saldo. Ketua atau Sekretaris harus menyetujui terlebih dahulu.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Input label="Tanggal pengeluaran" type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} />
+                <Input label="Nominal (Rp)" inputMode="numeric" value={formatRupiahInput(expenseAmount)} onChange={(event) => setExpenseAmount(event.target.value)} placeholder="Contoh: 50.000" />
+                <div className="sm:col-span-2">
+                  <Input label="Keperluan / keterangan" value={expenseDescription} onChange={(event) => setExpenseDescription(event.target.value)} placeholder="Contoh: pembelian perlengkapan kerja" maxLength={500} />
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[11px] text-rose-900">Setelah disimpan, periksa status pengajuan di menu Persetujuan.</p>
+                <Button className="w-full sm:w-auto" onClick={handleSubmitJimpitanExpense} disabled={expenseSubmitting}>
+                  {expenseSubmitting ? "Mengajukan…" : "Ajukan Pengeluaran"}
                 </Button>
               </div>
             </div>

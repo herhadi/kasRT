@@ -1152,6 +1152,48 @@ export async function inputJimpitanOldCashHandover(req, res) {
 }
 
 
+export async function inputJimpitanExpense(req, res) {
+  const userId = req.user.user_id;
+  const amount = Number(req.body.amount || 0);
+  const expenseDate = String(req.body.expense_date || '').trim();
+  const description = String(req.body.description || '').trim();
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ success: false, message: 'Nominal pengeluaran harus lebih dari 0' });
+  }
+  if (!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(expenseDate)) {
+    return res.status(400).json({ success: false, message: 'Tanggal pengeluaran tidak valid' });
+  }
+  if (!description) {
+    return res.status(400).json({ success: false, message: 'Keperluan pengeluaran wajib diisi' });
+  }
+
+  const wallet = await findWalletByName('Kas Jimpitan');
+  if (!wallet) {
+    return res.status(400).json({ success: false, message: 'Wallet Kas Jimpitan tidak ditemukan' });
+  }
+
+  const result = await pool.query(
+    `INSERT INTO transactions
+       (type, source_wallet_id, amount, status, description, created_by, created_at)
+     VALUES ('OUT', $1, $2, 'PENDING', $3, $4, $5::date)
+     RETURNING id::text, amount, description, created_at`,
+    [wallet.id, amount, `[JIMPITAN_EXPENSE] ${description}`, userId, expenseDate]
+  );
+
+  try {
+    await notifyRoles(
+      ['Ketua', 'Sekretaris', 'root'],
+      `🔔 <b>Persetujuan Pengeluaran Kas Jimpitan</b>\nTanggal: <b>${expenseDate}</b>\nNominal: <b>${formatRupiah(amount)}</b>\nKeperluan: <b>${description}</b>\nStatus: <b>PENDING</b>`
+    );
+  } catch (error) {
+    console.error('[JIMPITAN EXPENSE] notification failed:', error.message);
+  }
+
+  return res.status(201).json({ success: true, data: result.rows[0], message: 'Pengeluaran diajukan dan menunggu persetujuan Ketua/Sekretaris' });
+}
+
+
 export async function getJimpitanCashLedger(req, res) {
   const year = Number.parseInt(String(req.query?.year || new Date().getFullYear()), 10);
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
