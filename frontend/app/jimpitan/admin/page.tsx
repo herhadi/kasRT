@@ -746,32 +746,31 @@ export default function JimpitanAdminPage() {
       });
       sheet.columns = [
         { header: "No", key: "no", width: 7 },
-        { header: "Bulan / Tanggal", key: "period", width: 22 },
-        { header: "Keterangan", key: "description", width: 38 },
-        { header: "Saldo Awal (Rp)", key: "opening", width: 20 },
-        { header: "Pemasukan (Rp)", key: "in", width: 20 },
-        { header: "Pengeluaran (Rp)", key: "out", width: 20 },
-        { header: "Saldo Akhir (Rp)", key: "closing", width: 20 },
-        { header: "Transaksi", key: "count", width: 12 },
+        { header: "Bulan / Tanggal", key: "period", width: 23 },
+        { header: "Saldo Awal (Rp)", key: "opening", width: 19 },
+        { header: "Pemasukan (Rp)", key: "in", width: 19 },
+        { header: "Pengeluaran (Rp)", key: "out", width: 19 },
+        { header: "Saldo Akhir (Rp)", key: "closing", width: 19 },
+        { header: "Keterangan Pengeluaran", key: "description", width: 42 },
       ];
 
-      sheet.mergeCells("A1:H1");
+      sheet.mergeCells("A1:G1");
       sheet.getCell("A1").value = "RINGKASAN BULANAN KAS JIMPITAN";
       sheet.getCell("A1").font = { name: "Aptos Display", size: 17, bold: true, color: { argb: "FFFFFFFF" } };
       sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF123B5D" } };
       sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "left" };
       sheet.getRow(1).height = 34;
 
-      sheet.mergeCells("A2:H2");
+      sheet.mergeCells("A2:G2");
       sheet.getCell("A2").value = `Tahun buku ${cashLedger.year} | Dicetak ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}`;
       sheet.getCell("A2").font = { italic: true, color: { argb: "FF526273" }, size: 10 };
       sheet.getRow(2).height = 22;
 
       sheet.mergeCells("A4:B4"); sheet.getCell("A4").value = `Saldo Awal Tahun: ${formatRupiah(cashLedger.opening_balance)}`;
       sheet.mergeCells("C4:D4"); sheet.getCell("C4").value = `Total Pemasukan: ${formatRupiah(cashLedger.total_in)}`;
-      sheet.mergeCells("E4:H4"); sheet.getCell("E4").value = `Total Pengeluaran: ${formatRupiah(cashLedger.total_out)}`;
+      sheet.mergeCells("E4:G4"); sheet.getCell("E4").value = `Total Pengeluaran: ${formatRupiah(cashLedger.total_out)}`;
       sheet.mergeCells("A5:B5"); sheet.getCell("A5").value = `Saldo Akhir Tahun: ${formatRupiah(cashLedger.closing_balance)}`;
-      sheet.mergeCells("C5:H5"); sheet.getCell("C5").value = `Saldo Kas Terkini: ${formatRupiah(cashLedger.balance)}`;
+      sheet.mergeCells("C5:G5"); sheet.getCell("C5").value = `Saldo Kas Terkini: ${formatRupiah(cashLedger.balance)}`;
       for (const address of ["A4", "C4", "E4", "A5", "C5"]) {
         const cell = sheet.getCell(address);
         cell.font = { bold: true, size: 10, color: { argb: "FF123B5D" } };
@@ -804,7 +803,7 @@ export default function JimpitanAdminPage() {
       }
 
       const header = sheet.getRow(7);
-      header.values = ["No", "Bulan / Tanggal", "Keterangan", "Saldo Awal (Rp)", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Saldo Akhir (Rp)", "Transaksi"];
+      header.values = ["No", "Bulan / Tanggal", "Saldo Awal (Rp)", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Saldo Akhir (Rp)", "Keterangan Pengeluaran"];
       header.height = 32;
       header.font = { bold: true, color: { argb: "FFFFFFFF" } };
       header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F5A7A" } };
@@ -813,57 +812,61 @@ export default function JimpitanAdminPage() {
       let runningBalance = Number(cashLedger.opening_balance || 0);
       let sequence = 1;
       months.forEach((month, index) => {
+        const isFutureMonth = index >= 10;
         const opening = runningBalance;
         const closing = opening + month.incoming - month.outgoing;
         const summaryRow = sheet.addRow({
-          no: sequence++, period: month.label, description: "Ringkasan bulanan (pemasukan dijumlahkan; pengeluaran dirinci di bawah)",
-          opening, in: month.incoming, out: null, closing, count: month.count,
+          no: sequence++, period: month.label,
+          opening: isFutureMonth ? null : opening,
+          in: isFutureMonth ? null : (month.incoming || null),
+          out: null,
+          closing: isFutureMonth ? null : closing,
+          description: null,
         });
-        for (const col of [4, 5, 6, 7]) summaryRow.getCell(col).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
-        summaryRow.getCell(5).font = { color: { argb: "FF047857" }, bold: true };
-        summaryRow.getCell(7).font = { bold: true, color: { argb: "FF123B5D" } };
-        summaryRow.height = 30;
+        for (const col of [3, 4, 5, 6]) summaryRow.getCell(col).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
+        summaryRow.getCell(4).font = { color: { argb: "FF047857" }, bold: true };
+        summaryRow.getCell(6).font = { bold: true, color: { argb: "FF123B5D" } };
+        summaryRow.height = 28;
         summaryRow.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: index % 2 === 0 ? "FFEAF1F6" : "FFF4F7FA" } }; });
 
-        for (const expense of month.expenses) {
-          const expenseDate = new Date(expense.created_at);
-          const dateLabel = expenseDate.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-          const description = String(expense.description || "Pengeluaran kas jimpitan")
-            .replace(/^\[JIMPITAN_EXPENSE\]\s*/i, "")
-            .replace(/^\[JIMPITAN_V2(?:_ADMIN)?\]\s*/i, "");
-          const expenseRow = sheet.addRow({
-            no: sequence++, period: `  ${dateLabel}`, description: `Pengeluaran: ${description}`,
-            opening: null, in: null, out: Number(expense.amount || 0), closing: null, count: 1,
-          });
-          expenseRow.getCell(6).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
-          expenseRow.getCell(6).font = { color: { argb: "FFB91C1C" }, bold: true };
-          expenseRow.getCell(3).alignment = { vertical: "middle", wrapText: true };
-          expenseRow.height = 30;
+        if (!isFutureMonth) {
+          for (const expense of month.expenses) {
+            const expenseDate = new Date(expense.created_at);
+            const dateLabel = expenseDate.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+            const description = String(expense.description || "Pengeluaran kas jimpitan")
+              .replace(/^\[JIMPITAN_EXPENSE\]\s*/i, "")
+              .replace(/^\[JIMPITAN_V2(?:_ADMIN)?\]\s*/i, "");
+            const expenseRow = sheet.addRow({
+              no: sequence++, period: `  ${dateLabel}`, opening: null, in: null,
+              out: Number(expense.amount || 0), closing: null, description,
+            });
+            expenseRow.getCell(5).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
+            expenseRow.getCell(5).font = { color: { argb: "FFB91C1C" }, bold: true };
+            expenseRow.getCell(7).alignment = { vertical: "middle", wrapText: true };
+            expenseRow.height = 30;
+          }
         }
-        runningBalance = closing;
+        if (!isFutureMonth) runningBalance = closing;
       });
 
       const totalRow = sheet.addRow({
-        no: "", period: "TOTAL TAHUN", description: "Total tahunan; setiap pengeluaran tetap dirinci per transaksi",
-        opening: null,
+        no: "", period: "TOTAL TAHUN", opening: null,
         in: months.reduce((sum, month) => sum + month.incoming, 0),
-        out: null,
-        closing: cashLedger.closing_balance,
-        count: months.reduce((sum, month) => sum + month.count, 0),
+        out: null, closing: cashLedger.closing_balance, description: null,
       });
       totalRow.font = { bold: true, color: { argb: "FF123B5D" } };
       totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCE8F0" } };
-      for (const col of [4, 5, 6, 7]) totalRow.getCell(col).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
+      for (const col of [3, 4, 5, 6]) totalRow.getCell(col).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
       totalRow.height = 30;
 
-      sheet.autoFilter = { from: "A7", to: `H${sheet.rowCount}` };
+      sheet.autoFilter = { from: "A7", to: `G${sheet.rowCount}` };
       sheet.eachRow((row, rowNumber) => {
         if (rowNumber >= 7) row.eachCell((cell) => {
           cell.border = { bottom: { style: "hair", color: { argb: "FFD7E0E8" } } };
-          if (rowNumber > 7) cell.alignment = { vertical: "middle", horizontal: [4, 5, 6, 7].includes(Number(cell.col)) ? "right" : "left" };
+          if (rowNumber > 7) cell.alignment = { vertical: "middle", horizontal: [3, 4, 5, 6].includes(Number(cell.col)) ? "right" : "left" };
         });
       });
-      sheet.pageSetup.printArea = `A1:H${sheet.rowCount}`;
+      sheet.pageSetup.printArea = `A1:G${sheet.rowCount}`;
       sheet.pageSetup.printTitlesRow = "1:7";
       sheet.pageSetup.margins = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 };
       sheet.headerFooter.oddFooter = "KasRT | Ringkasan Bulanan Kas Jimpitan &P | Halaman &P dari &N";
