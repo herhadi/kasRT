@@ -1,6 +1,7 @@
 import { pool } from '../db.js';
 import { notifyRoles, notifyUser } from '../services/approvalNotifier.js';
 import { formatRupiah, sendTelegramMessage } from '../services/telegramService.js';
+import { sendWaDirectMessage } from '../services/waLabReminderService.js';
 import {
   approvePendingTaggedTransfer,
   createTransfer,
@@ -909,12 +910,14 @@ export async function sendJimpitanShiftReminder(req, res) {
   try {
     const petugas = await listPetugasByShiftDay(shiftDay);
     const telegramRecipients = petugas.filter((row) => String(row.telegram_chat_id || '').trim() !== '');
+    // Each petugas receives the reminder through one channel only: Telegram when linked, WA otherwise.
+    const waFallbackCandidates = petugas.filter((row) => String(row.telegram_chat_id || '').trim() === '');
     const waSettings = await getWaJimpitanReminderSettings();
     const waEnabled = waSettings.enabled;
     const waMaxRecipients = waSettings.max_recipients;
     const waSelectionMode = waSettings.selection_mode;
     const waRecipientRows = waEnabled
-      ? await pickRandomValidWaRecipients(petugas, waSelectionMode === 'all' ? petugas.length : waMaxRecipients, waSelectionMode === 'all' ? null : listUnsentJimpitanWaPhones)
+      ? await pickRandomValidWaRecipients(waFallbackCandidates, waSelectionMode === 'all' ? waFallbackCandidates.length : waMaxRecipients, waSelectionMode === 'all' ? null : listUnsentJimpitanWaPhones)
       : [];
     const waRecipients = waRecipientRows.length;
     const totalRecipients = telegramRecipients.length + waRecipients;
@@ -1068,6 +1071,42 @@ export async function topUpJimpitan(req, res) {
       adminId: admin_id,
       note: note || null
     });
+
+    // Notification happens after the top-up commits. Use one channel only to avoid duplicate alerts.
+    try {
+      const recipientResult = await pool.query(
+        `SELECT nama, telegram_chat_id, no_hp FROM users WHERE id = $1 LIMIT 1`,
+        [warga_id]
+      );
+      const recipient = recipientResult.rows[0];
+      if (recipient) {
+        const periodLabel = new Date(`${monthKey}-01T00:00:00+07:00`).toLocaleDateString('id-ID', {
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'Asia/Jakarta'
+        });
+        const safeName = String(recipient.nama || 'Warga').trim();
+        const message = `Halo, Bapak/Ibu ${safeName} 👋\n\n💰 Top up jimpitan bulan ${periodLabel} sebesar ${formatRupiah(nilaiNominal)}.\n\nTerima kasih.\n🙏 KasRT`;
+        const telegramChatId = String(recipient.telegram_chat_id || '').trim();
+        if (telegramChatId) {
+          const telegramMessage = `Halo, Bapak/Ibu ${escapeTelegramHtml(safeName)} 👋\n\n💰 Top up jimpitan bulan ${escapeTelegramHtml(periodLabel)} sebesar <b>${escapeTelegramHtml(formatRupiah(nilaiNominal))}</b>.\n\nTerima kasih.\n🙏 KasRT`;
+          const result = await sendTelegramMessage(telegramChatId, telegramMessage);
+          if (result?.success !== true) {
+            console.warn('[JIMPITAN TOPUP] Telegram notification failed; not falling back to WA to avoid duplicate delivery:', result?.error || result?.reason || 'unknown error');
+          }
+        } else if (recipient.no_hp) {
+          const result = await sendWaDirectMessage({ phone: recipient.no_hp, text: message });
+          if (result?.success !== true) {
+            console.warn('[JIMPITAN TOPUP] WhatsApp notification failed:', result?.error || 'unknown error');
+          }
+        } else {
+          console.warn('[JIMPITAN TOPUP] No Telegram chat ID or phone number for recipient:', warga_id);
+        }
+      }
+    } catch (notificationError) {
+      // Notification failures must not turn a successfully committed top-up into a failed API response.
+      console.warn('[JIMPITAN TOPUP] Notification error:', notificationError.message);
+    }
 
     return res.json({
       success: true,
