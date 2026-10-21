@@ -814,7 +814,9 @@ export default function JimpitanAdminPage() {
       months.forEach((month, index) => {
         const isFutureMonth = index >= 10;
         const opening = runningBalance;
-        const closing = opening + month.incoming - month.outgoing;
+        // Monthly summary shows opening balance plus income; each expense below
+        // then reduces the running balance individually.
+        const closing = opening + month.incoming;
         const summaryRow = sheet.addRow({
           no: sequence++, period: month.label,
           opening: isFutureMonth ? null : opening,
@@ -830,23 +832,30 @@ export default function JimpitanAdminPage() {
         summaryRow.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: index % 2 === 0 ? "FFEAF1F6" : "FFF4F7FA" } }; });
 
         if (!isFutureMonth) {
+          runningBalance = closing;
+          month.expenses.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
           for (const expense of month.expenses) {
             const expenseDate = new Date(expense.created_at);
             const dateLabel = expenseDate.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
             const description = String(expense.description || "Pengeluaran kas jimpitan")
               .replace(/^\[JIMPITAN_EXPENSE\]\s*/i, "")
               .replace(/^\[JIMPITAN_V2(?:_ADMIN)?\]\s*/i, "");
+            const expenseAmount = Number(expense.amount || 0);
+            runningBalance -= expenseAmount;
             const expenseRow = sheet.addRow({
               no: sequence++, period: `  ${dateLabel}`, opening: null, in: null,
-              out: Number(expense.amount || 0), closing: null, description,
+              out: expenseAmount, closing: runningBalance, description,
             });
             expenseRow.getCell(5).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
             expenseRow.getCell(5).font = { color: { argb: "FFB91C1C" }, bold: true };
+            expenseRow.getCell(6).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
+            expenseRow.getCell(6).font = { bold: true, color: { argb: "FF123B5D" } };
             expenseRow.getCell(7).alignment = { vertical: "middle", wrapText: true };
             expenseRow.height = 30;
           }
+        } else {
+          runningBalance = closing;
         }
-        if (!isFutureMonth) runningBalance = closing;
       });
 
       const totalRow = sheet.addRow({
