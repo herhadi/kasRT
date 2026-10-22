@@ -1086,10 +1086,10 @@ export async function topUpJimpitan(req, res) {
           timeZone: 'Asia/Jakarta'
         });
         const safeName = String(recipient.nama || 'Warga').trim();
-        const message = `Halo, Bapak/Ibu ${safeName} 👋\n\n💰 Top up jimpitan bulan ${periodLabel} sebesar ${formatRupiah(nilaiNominal)}.\n\nTerima kasih.\n🙏 KasRT`;
+        const message = `Halo, Bapak/Ibu ${safeName} 👋\n\n💰 Bayar jimpitan bulan ${periodLabel} sebesar ${formatRupiah(nilaiNominal)}.\n\nTerima kasih.\n🙏 KasRT`;
         const telegramChatId = String(recipient.telegram_chat_id || '').trim();
         if (telegramChatId) {
-          const telegramMessage = `Halo, Bapak/Ibu ${escapeTelegramHtml(safeName)} 👋\n\n💰 Top up jimpitan bulan ${escapeTelegramHtml(periodLabel)} sebesar <b>${escapeTelegramHtml(formatRupiah(nilaiNominal))}</b>.\n\nTerima kasih.\n🙏 KasRT`;
+          const telegramMessage = `Halo, Bapak/Ibu ${escapeTelegramHtml(safeName)} 👋\n\n💰 Bayar jimpitan bulan ${escapeTelegramHtml(periodLabel)} sebesar <b>${escapeTelegramHtml(formatRupiah(nilaiNominal))}</b>.\n\nTerima kasih.\n🙏 KasRT`;
           const result = await sendTelegramMessage(telegramChatId, telegramMessage);
           if (result?.success !== true) {
             console.warn('[JIMPITAN TOPUP] Telegram notification failed; not falling back to WA to avoid duplicate delivery:', result?.error || result?.reason || 'unknown error');
