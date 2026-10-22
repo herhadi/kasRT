@@ -862,9 +862,10 @@ export async function sendJimpitanShiftReminder(req, res) {
   const authHeader = String(req.headers.authorization || '');
   const bearerSecret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   const testMode = String(req.query.test || req.body?.test || '').toLowerCase() === 'true';
+  const manualMode = String(req.query.manual || req.body?.manual || '').toLowerCase() === 'true';
   const testShiftDay = testMode ? Number(req.query.shift_day || req.body?.shift_day || 0) : 0;
 
-  if (configuredSecret && incomingSecret !== configuredSecret && bearerSecret !== configuredSecret) {
+  if (configuredSecret && incomingSecret !== configuredSecret && bearerSecret !== configuredSecret && !(manualMode && req.user)) {
     return res.status(403).json({ success: false, message: 'Forbidden: invalid cron secret' });
   }
   if (testMode && (!Number.isInteger(testShiftDay) || testShiftDay < 1 || testShiftDay > 7)) {
@@ -882,7 +883,7 @@ export async function sendJimpitanShiftReminder(req, res) {
     totalMinutes >= targetMinutes - allowedEarlyMinutes &&
     totalMinutes <= targetMinutes + allowedLateMinutes;
 
-  if (!testMode && !isWithinWindow) {
+  if (!testMode && !manualMode && !isWithinWindow) {
     return res.json({
       success: true,
       skipped: true,
@@ -1043,6 +1044,7 @@ export async function sendJimpitanShiftReminder(req, res) {
       wa_uncertain: waUncertain,
       wa_errors: waErrors.slice(0, 5),
       test_mode: testMode,
+      manual_mode: manualMode,
       test_shift_day: testMode ? shiftDay : null
     });
   } catch (error) {

@@ -105,6 +105,7 @@ export default function ManagementHomePage() {
   const [cronError, setCronError] = useState('');
   const [loadingCron, setLoadingCron] = useState(false);
   const [testingReminder, setTestingReminder] = useState(false);
+  const [sendingTodayReminder, setSendingTodayReminder] = useState(false);
   const [cronTestMessage, setCronTestMessage] = useState('');
   const [testShiftDay, setTestShiftDay] = useState('3');
   const [modeDate, setModeDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -255,6 +256,27 @@ export default function ManagementHomePage() {
       setModeMessage(error instanceof Error ? error.message : 'Gagal menyimpan mode Jimpitan');
     } finally {
       setSavingMode(false);
+    }
+  }
+
+  async function sendTodayReminderEndpoint() {
+    setSendingTodayReminder(true);
+    setCronTestMessage('');
+    try {
+      const payload = await apiFetch<{ success: boolean; skipped?: boolean; message?: string; total_target?: number; telegram_sent?: number; telegram_recipients?: number; wa_sent?: number; wa_recipients?: number }>('/jimpitan/send-shift-reminder/manual?manual=true', { method: 'POST' });
+      const reminder = payload;
+      if (reminder?.skipped) {
+        setCronTestMessage(`Reminder tidak dikirim: ${reminder.message || 'sudah pernah diproses hari ini'}.`);
+      } else {
+        setCronTestMessage(
+          `Reminder hari ini diproses. Petugas: ${reminder?.total_target ?? '-'}, Telegram: ${reminder?.telegram_sent ?? 0}/${reminder?.telegram_recipients ?? 0}, WA: ${reminder?.wa_sent ?? 0}/${reminder?.wa_recipients ?? 0}.`
+        );
+      }
+      await loadCronStatus();
+    } catch (error) {
+      setCronTestMessage(error instanceof Error ? error.message : 'Pengiriman reminder hari ini gagal');
+    } finally {
+      setSendingTodayReminder(false);
     }
   }
 
@@ -617,7 +639,10 @@ export default function ManagementHomePage() {
                   <option value="6">Jum&apos;at</option>
                   <option value="7">Sabtu</option>
                 </select>
-                <Button variant="ghost" onClick={testReminderEndpoint} disabled={testingReminder}>
+                <Button onClick={sendTodayReminderEndpoint} disabled={sendingTodayReminder || testingReminder}>
+                  {sendingTodayReminder ? 'Mengirim...' : 'Kirim Reminder Hari Ini'}
+                </Button>
+                <Button variant="ghost" onClick={testReminderEndpoint} disabled={testingReminder || sendingTodayReminder}>
                   {testingReminder ? 'Kirim...' : 'Test Reminder'}
                 </Button>
                 <Button variant="ghost" onClick={loadCronStatus} disabled={loadingCron}>

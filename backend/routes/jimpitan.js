@@ -217,6 +217,13 @@ router.post(
 );
 
 router.post(
+  '/send-shift-reminder/manual',
+  auth,
+  allowRoles('root'),
+  asyncHandler(sendJimpitanShiftReminder)
+);
+
+router.post(
   '/set-petugas-shift',
   auth,
   allowRoles('Admin Jimpitan', 'root'),
