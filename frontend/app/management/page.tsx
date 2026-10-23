@@ -624,33 +624,43 @@ export default function ManagementHomePage() {
             title="Status Reminder Jimpitan"
             subtitle="Pantau eksekusi cron Debian dan log reminder backend"
             headerRight={
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <select
-                  value={testShiftDay}
-                  onChange={(event) => setTestShiftDay(event.target.value)}
-                  className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none"
-                  aria-label="Pilih hari shift untuk test reminder"
-                >
-                  <option value="1">Ahad</option>
-                  <option value="2">Senin</option>
-                  <option value="3">Selasa</option>
-                  <option value="4">Rabu</option>
-                  <option value="5">Kamis</option>
-                  <option value="6">Jum&apos;at</option>
-                  <option value="7">Sabtu</option>
-                </select>
-                <Button onClick={sendTodayReminderEndpoint} disabled={sendingTodayReminder || testingReminder}>
-                  {sendingTodayReminder ? 'Mengirim...' : 'Kirim Reminder Hari Ini'}
-                </Button>
-                <Button variant="ghost" onClick={testReminderEndpoint} disabled={testingReminder || sendingTodayReminder}>
-                  {testingReminder ? 'Kirim...' : 'Test Reminder'}
-                </Button>
-                <Button variant="ghost" onClick={loadCronStatus} disabled={loadingCron}>
-                  {loadingCron ? 'Memuat...' : 'Refresh'}
-                </Button>
-              </div>
+              <Button variant="ghost" onClick={loadCronStatus} disabled={loadingCron}>
+                {loadingCron ? 'Memuat...' : 'Refresh'}
+              </Button>
             }
           >
+            <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-[var(--line)] p-3 sm:p-4">
+              <div>
+                <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Test Reminder — Hari Pilihan</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    value={testShiftDay}
+                    onChange={(event) => setTestShiftDay(event.target.value)}
+                    className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none"
+                    aria-label="Pilih hari shift untuk test reminder"
+                  >
+                    <option value="1">Ahad</option>
+                    <option value="2">Senin</option>
+                    <option value="3">Selasa</option>
+                    <option value="4">Rabu</option>
+                    <option value="5">Kamis</option>
+                    <option value="6">Jum&apos;at</option>
+                    <option value="7">Sabtu</option>
+                  </select>
+                  <Button variant="ghost" onClick={testReminderEndpoint} disabled={testingReminder || sendingTodayReminder}>
+                    {testingReminder ? 'Mengirim test...' : `Test Reminder ${getShiftDayLabel(testShiftDay)}`}
+                  </Button>
+                </div>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Dropdown hari hanya berlaku untuk tombol test di atas.</p>
+              </div>
+              <div className="border-t border-[var(--line)] pt-3">
+                <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Pengiriman Manual Hari Ini</p>
+                <Button onClick={sendTodayReminderEndpoint} disabled={sendingTodayReminder || testingReminder}>
+                  {sendingTodayReminder ? 'Mengirim...' : `Kirim Reminder Hari Ini (${getTodayShiftDayLabel()})`}
+                </Button>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Mengikuti hari aktual WIB, tidak mengikuti dropdown hari pilihan.</p>
+              </div>
+            </div>
             {cronTestMessage ? <p className="mb-3 text-sm text-[var(--text-muted)]">{cronTestMessage}</p> : null}
             {cronError ? (
               <p className="text-sm text-red-600">{cronError}</p>
@@ -812,6 +822,23 @@ function formatWaTarget(result: NonNullable<CronHealthLog['payload']>['reminder_
   return targets
     .map((target) => `${target.nama || 'WA'} (${target.no_hp || '-'})`)
     .join(', ');
+}
+
+function getTodayShiftDayLabel() {
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'long'
+  }).format(new Date());
+  const labels: Record<string, string> = {
+    Sunday: 'Ahad',
+    Monday: 'Senin',
+    Tuesday: 'Selasa',
+    Wednesday: 'Rabu',
+    Thursday: 'Kamis',
+    Friday: "Jum'at",
+    Saturday: 'Sabtu'
+  };
+  return labels[weekday] || weekday;
 }
 
 function getShiftDayLabel(value: string) {
