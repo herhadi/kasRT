@@ -1145,7 +1145,8 @@ export async function inputJimpitanV2Income(req, res) {
       operationalDate,
       note
     });
-    await scheduleMonthlyJimpitanGroupShare(new Date(`${operationalDate}T00:00:00`), 'admin income notification');
+    // Manual daily income is saved immediately, but does not trigger a group message.
+    // The updated monthly recap is included in the next regular shift notification.
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
