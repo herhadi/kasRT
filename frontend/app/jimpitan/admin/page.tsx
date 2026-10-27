@@ -238,6 +238,10 @@ export default function JimpitanAdminPage() {
   const [handoverAmount, setHandoverAmount] = useState("");
   const [handoverNote, setHandoverNote] = useState("");
   const [handoverLoading, setHandoverLoading] = useState(false);
+  const [monthlyCloseEnabled, setMonthlyCloseEnabled] = useState(true);
+  const [monthlyCloseTime, setMonthlyCloseTime] = useState("08:00");
+  const [monthlyCloseLoading, setMonthlyCloseLoading] = useState(false);
+  const [monthlyCloseSaving, setMonthlyCloseSaving] = useState(false);
   const [v2EntriesLoading, setV2EntriesLoading] = useState(false);
   const [v2Entries, setV2Entries] = useState<JimpitanV2Entry[]>([]);
   const [ledgerYear, setLedgerYear] = useState(() => new Date().getFullYear());
@@ -408,6 +412,44 @@ export default function JimpitanAdminPage() {
     }
   }, [isAdminJimpitan, topupPeriod]);
 
+  const loadMonthlyCloseSettings = useCallback(async () => {
+    if (!isAdminJimpitan) return;
+    setMonthlyCloseLoading(true);
+    try {
+      const result = await apiFetch<{
+        success: boolean;
+        data: { enabled: boolean; send_time: string };
+      }>("/jimpitan/monthly-close-settings");
+      setMonthlyCloseEnabled(result.data?.enabled !== false);
+      setMonthlyCloseTime(result.data?.send_time || "08:00");
+    } finally {
+      setMonthlyCloseLoading(false);
+    }
+  }, [isAdminJimpitan]);
+
+  async function saveMonthlyCloseSettings() {
+    setMonthlyCloseSaving(true);
+    try {
+      await apiFetch("/jimpitan/monthly-close-settings", {
+        method: "PUT",
+        body: JSON.stringify({ enabled: monthlyCloseEnabled, send_time: monthlyCloseTime }),
+      });
+      pushToast(
+        monthlyCloseEnabled
+          ? `Rekap bulanan akan dikirim otomatis pukul ${monthlyCloseTime} WIB.`
+          : "Pengiriman rekap bulanan otomatis dinonaktifkan.",
+        "success",
+      );
+    } catch (error) {
+      pushToast(
+        error instanceof Error ? error.message : "Gagal menyimpan pengaturan rekap bulanan",
+        "error",
+      );
+    } finally {
+      setMonthlyCloseSaving(false);
+    }
+  }
+
   const loadV2Entries = useCallback(async () => {
     if (!isAdminJimpitan) return;
     setV2EntriesLoading(true);
@@ -438,6 +480,7 @@ export default function JimpitanAdminPage() {
       loadExternalParticipants(),
       loadMembers(),
       loadV2Entries(),
+      ...(settingMode ? [loadMonthlyCloseSettings()] : []),
     ]).catch((error) => {
       pushToast(
         error instanceof Error
@@ -457,6 +500,8 @@ export default function JimpitanAdminPage() {
     loadExternalParticipants,
     loadMembers,
     loadV2Entries,
+    loadMonthlyCloseSettings,
+    settingMode,
     pushToast,
   ]);
 
@@ -1579,6 +1624,45 @@ export default function JimpitanAdminPage() {
                 />
               </>
             ) : null}
+          </Card>
+        ) : null}
+
+        {settingMode && isAdminJimpitan ? (
+          <Card
+            title="Pengiriman Rekap Bulanan WhatsApp"
+            subtitle="Kirim rekap final bulan sebelumnya secara otomatis, termasuk jika pada hari terakhir tidak ada setoran petugas."
+          >
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-end">
+              <label className="flex items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                <input
+                  type="checkbox"
+                  checked={monthlyCloseEnabled}
+                  onChange={(event) => setMonthlyCloseEnabled(event.target.checked)}
+                  disabled={monthlyCloseLoading || monthlyCloseSaving}
+                  className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-[var(--text-primary)]">Aktifkan pengiriman otomatis</span>
+                  <span className="mt-1 block text-xs text-[var(--text-muted)]">Dijalankan pada awal bulan untuk menutup rekap bulan sebelumnya.</span>
+                </span>
+              </label>
+              <Input
+                label="Jam pengiriman (WIB)"
+                type="time"
+                value={monthlyCloseTime}
+                onChange={(event) => setMonthlyCloseTime(event.target.value)}
+                disabled={monthlyCloseLoading || monthlyCloseSaving}
+              />
+              <Button
+                onClick={saveMonthlyCloseSettings}
+                disabled={monthlyCloseLoading || monthlyCloseSaving || !/^([01]\d|2[0-3]):[0-5]\d$/.test(monthlyCloseTime)}
+              >
+                {monthlyCloseLoading ? "Memuat..." : monthlyCloseSaving ? "Menyimpan..." : "Simpan Pengaturan"}
+              </Button>
+            </div>
+            <p className="mt-3 rounded-xl bg-[var(--surface-strong)] p-3 text-xs leading-5 text-[var(--text-muted)]">
+              Contoh: rekap Oktober dikirim tanggal 1 November pukul {monthlyCloseTime || "08:00"} WIB, setelah shift malam selesai pukul 06.00. Sistem mengambil transaksi Oktober yang tersimpan dan hanya membuat satu pekerjaan penutupan untuk setiap bulan.
+            </p>
           </Card>
         ) : null}
 

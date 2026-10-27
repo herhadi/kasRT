@@ -31,6 +31,7 @@ export async function ensureJimpitanGroupOutboxTable() {
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_jimpitan_group_outbox_ready ON jimpitan_group_notification_outbox (next_attempt_at, id) WHERE status = 'PENDING'`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_jimpitan_monthly_close_once ON jimpitan_group_notification_outbox (month_key) WHERE context = 'monthly-close'`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_jimpitan_group_outbox_stale ON jimpitan_group_notification_outbox (locked_at) WHERE status = 'PROCESSING'`);
 }
 
@@ -44,6 +45,17 @@ export async function enqueueJimpitanGroupNotification({ operationalDate, contex
     [monthKey, date.toISOString().slice(0, 10), String(context || 'notification').slice(0, 80)]
   );
   return result.rows[0];
+}
+
+export async function enqueueJimpitanMonthlyCloseNotification({ monthKey, operationalDate }) {
+  const result = await pool.query(
+    `INSERT INTO jimpitan_group_notification_outbox (month_key, operational_date, context)
+     VALUES ($1, $2::date, 'monthly-close')
+     ON CONFLICT (month_key) WHERE context = 'monthly-close' DO NOTHING
+     RETURNING id`,
+    [monthKey, operationalDate]
+  );
+  return result.rows[0] || null;
 }
 
 export async function claimJimpitanGroupNotification() {

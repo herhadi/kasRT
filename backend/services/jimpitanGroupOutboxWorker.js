@@ -1,21 +1,56 @@
 import { getJimpitanDailyRecapByMonth } from '../models/jimpitanModel.js';
 import {
   claimJimpitanGroupNotification,
+  enqueueJimpitanMonthlyCloseNotification,
   ensureJimpitanGroupOutboxTable,
   finishJimpitanGroupNotification,
   getJimpitanGroupMessageState,
   saveJimpitanGroupMessageState
 } from '../models/jimpitanGroupOutboxModel.js';
 import { formatMonthlyJimpitanShare } from './jimpitanShareFormatter.js';
+import { getAppSetting } from '../models/appSettingModel.js';
 import { editWaJimpitanGroupMessage, getWaJimpitanReminderSettings, sendWaJimpitanGroupMessage } from './waLabReminderService.js';
 
 const MAX_ATTEMPTS = 12;
 const POLL_INTERVAL_MS = 5000;
 let running = false;
 let timer = null;
+let lastMonthlyCloseCheckMinute = null;
 
 function retryDelayMs(attempt) {
   return Math.min(30 * 60_000, 15_000 * (2 ** Math.max(0, attempt - 1)));
+}
+
+function jakartaDateParts(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(now);
+  return Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+}
+
+async function queueMonthlyCloseIfDue() {
+  const now = jakartaDateParts();
+  const currentTime = `${now.hour}:${now.minute}`;
+  if (lastMonthlyCloseCheckMinute === `${now.year}-${now.month}-${now.day} ${currentTime}`) return;
+  lastMonthlyCloseCheckMinute = `${now.year}-${now.month}-${now.day} ${currentTime}`;
+
+  const settings = await getAppSetting('jimpitan_monthly_close', { enabled: true, send_time: '08:00' });
+  if (settings?.enabled === false) return;
+  const configuredTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(settings?.send_time || ''))
+    ? String(settings.send_time) : '08:00';
+  // Run during the first three calendar days only, allowing brief downtime recovery
+  // without unexpectedly sending an old month immediately after a mid-month deploy.
+  if (Number(now.day) > 3 || currentTime < configuredTime) return;
+
+  // Recheck the previous month's unique close job each tick. If the backend was
+  // offline at the scheduled time, it catches up on the next start without duplicates.
+  const monthDate = new Date(Date.UTC(Number(now.year), Number(now.month) - 2, 1));
+  const monthKey = `${monthDate.getUTCFullYear()}-${String(monthDate.getUTCMonth() + 1).padStart(2, '0')}`;
+  const lastDay = new Date(Date.UTC(Number(now.year), Number(now.month) - 1, 0));
+  const operationalDate = `${lastDay.getUTCFullYear()}-${String(lastDay.getUTCMonth() + 1).padStart(2, '0')}-${String(lastDay.getUTCDate()).padStart(2, '0')}`;
+  const job = await enqueueJimpitanMonthlyCloseNotification({ monthKey, operationalDate });
+  if (job) console.info(`[WA JIMPITAN GROUP] queued monthly close for ${monthKey} at ${currentTime} WIB (outbox #${job.id})`);
 }
 
 async function processOne() {
@@ -111,6 +146,7 @@ async function tick() {
   if (running) return;
   running = true;
   try {
+    await queueMonthlyCloseIfDue();
     // Drain a small batch each tick while keeping a single worker loop per process.
     for (let count = 0; count < 10; count += 1) {
       if (!(await processOne())) break;

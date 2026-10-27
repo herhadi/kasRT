@@ -1,6 +1,7 @@
 import express from 'express';
 import { auth, asyncHandler, validateRequiredFields } from '../middleware/auth.js';
 import { allowRoles } from '../middleware/role.js';
+import { getJimpitanMonthlyCloseSettings, saveJimpitanMonthlyCloseSettings } from '../controllers/jimpitanMonthlyCloseController.js';
 import {
   approveJimpitan,
   ajukanSetorKeBendahara,
@@ -40,6 +41,9 @@ import {
 const router = express.Router();
 
 router.get('/', asyncHandler(healthCheck));
+
+router.get('/monthly-close-settings', auth, allowRoles('Admin Jimpitan', 'root'), asyncHandler(getJimpitanMonthlyCloseSettings));
+router.put('/monthly-close-settings', auth, allowRoles('Admin Jimpitan', 'root'), asyncHandler(saveJimpitanMonthlyCloseSettings));
 
 router.get('/cash-ledger', auth, allowRoles('Admin Jimpitan', 'Bendahara', 'Ketua', 'Sekretaris', 'root'), asyncHandler(getJimpitanCashLedger));
 router.post('/cash-expense', auth, allowRoles('Admin Jimpitan', 'root'), validateRequiredFields(['expense_date', 'amount', 'description']), asyncHandler(inputJimpitanExpense));
