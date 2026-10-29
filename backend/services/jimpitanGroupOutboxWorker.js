@@ -15,6 +15,8 @@ const MAX_ATTEMPTS = 12;
 const POLL_INTERVAL_MS = 5000;
 let running = false;
 let timer = null;
+let monthlyCloseTimer = null;
+let monthlyCloseRunning = false;
 let lastMonthlyCloseCheckMinute = null;
 
 function retryDelayMs(attempt) {
@@ -32,8 +34,8 @@ function jakartaDateParts(now = new Date()) {
 async function queueMonthlyCloseIfDue() {
   const now = jakartaDateParts();
   const currentTime = `${now.hour}:${now.minute}`;
-  if (lastMonthlyCloseCheckMinute === `${now.year}-${now.month}-${now.day} ${currentTime}`) return;
-  lastMonthlyCloseCheckMinute = `${now.year}-${now.month}-${now.day} ${currentTime}`;
+  const checkMinute = `${now.year}-${now.month}-${now.day} ${currentTime}`;
+  if (lastMonthlyCloseCheckMinute === checkMinute) return;
 
   const settings = await getAppSetting('jimpitan_monthly_close', { enabled: true, send_time: '08:00' });
   if (settings?.enabled === false) return;
@@ -50,6 +52,7 @@ async function queueMonthlyCloseIfDue() {
   const lastDay = new Date(Date.UTC(Number(now.year), Number(now.month) - 1, 0));
   const operationalDate = `${lastDay.getUTCFullYear()}-${String(lastDay.getUTCMonth() + 1).padStart(2, '0')}-${String(lastDay.getUTCDate()).padStart(2, '0')}`;
   const job = await enqueueJimpitanMonthlyCloseNotification({ monthKey, operationalDate });
+  lastMonthlyCloseCheckMinute = checkMinute;
   if (job) console.info(`[WA JIMPITAN GROUP] queued monthly close for ${monthKey} at ${currentTime} WIB (outbox #${job.id})`);
 }
 
@@ -143,26 +146,44 @@ async function processOne() {
 }
 
 async function tick() {
-  if (running) return;
+  if (running) {
+    console.warn('[WA JIMPITAN GROUP] previous outbox poll is still running; skipping overlapping tick');
+    return;
+  }
   running = true;
   try {
-    await queueMonthlyCloseIfDue();
-    // Drain a small batch each tick while keeping a single worker loop per process.
+    // Outbox delivery is independent of the monthly scheduler. A slow settings
+    // query or monthly-close enqueue must never block daily setoran notifications.
     for (let count = 0; count < 10; count += 1) {
       if (!(await processOne())) break;
     }
   } catch (error) {
-    console.error('[WA JIMPITAN GROUP] outbox poll failed:', error.message);
+    console.error('[WA JIMPITAN GROUP] outbox poll failed:', error instanceof Error ? error.message : String(error));
   } finally {
     running = false;
+  }
+}
+
+async function tickMonthlyClose() {
+  if (monthlyCloseRunning) return;
+  monthlyCloseRunning = true;
+  try {
+    await queueMonthlyCloseIfDue();
+  } catch (error) {
+    console.error('[WA JIMPITAN GROUP] monthly-close scheduler failed; will retry:', error instanceof Error ? error.message : String(error));
+  } finally {
+    monthlyCloseRunning = false;
   }
 }
 
 export async function startJimpitanGroupOutboxWorker() {
   await ensureJimpitanGroupOutboxTable();
   if (timer) return;
-  console.info('[WA JIMPITAN GROUP] persistent outbox worker started');
+  console.info('[WA JIMPITAN GROUP] persistent outbox worker started (poll 5s; monthly scheduler independent)');
   void tick();
+  void tickMonthlyClose();
   timer = setInterval(() => void tick(), POLL_INTERVAL_MS);
+  monthlyCloseTimer = setInterval(() => void tickMonthlyClose(), 60_000);
   timer.unref?.();
+  monthlyCloseTimer.unref?.();
 }

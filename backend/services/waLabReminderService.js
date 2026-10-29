@@ -208,7 +208,8 @@ export async function sendWaJimpitanGroupMessage({ text }) {
     response = await fetch(`${baseUrl}/groups/send`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-wa-lab-secret': secret },
-      body: JSON.stringify({ jid, text })
+      body: JSON.stringify({ jid, text }),
+      signal: AbortSignal.timeout(20_000)
     });
     data = await response.json().catch(() => null);
   } catch (error) {
@@ -248,7 +249,8 @@ export async function editWaJimpitanGroupMessage({ jid, messageId, text }) {
     response = await fetch(`${baseUrl}/groups/edit`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-wa-lab-secret': secret },
-      body: JSON.stringify({ jid: groupJid, message_id: targetMessageId, text })
+      body: JSON.stringify({ jid: groupJid, message_id: targetMessageId, text }),
+      signal: AbortSignal.timeout(20_000)
     });
     data = await response.json().catch(() => null);
   } catch (error) {

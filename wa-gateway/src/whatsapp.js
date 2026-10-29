@@ -760,7 +760,7 @@ export async function sendGroupMessage({ jid, text }) {
   if (!/^\d+-\d+@g\.us$/.test(groupJid)) throw new Error('JID grup WhatsApp tidak valid.');
   const messageText = validateMessageText(text);
   const resolvedJid = await prepareHumanSend(groupJid, messageText);
-  const { result } = await sendProtectedMessage(groupJid, { text: messageText }, { resolvedJid });
+  const result = await sendProtectedMessage(groupJid, { text: messageText }, { resolvedJid });
   return { jid: groupJid, message_id: result?.key?.id || null };
 }
 
@@ -772,7 +772,7 @@ export async function editGroupMessage({ jid, messageId, text }) {
   if (!targetMessageId || targetMessageId.length > 200) throw new Error('ID pesan WhatsApp tidak valid.');
   const messageText = validateMessageText(text);
   const resolvedJid = await prepareHumanSend(groupJid, messageText);
-  const { result } = await sendProtectedMessage(groupJid, {
+  const result = await sendProtectedMessage(groupJid, {
     text: messageText,
     edit: { remoteJid: groupJid, fromMe: true, id: targetMessageId }
   }, { resolvedJid });
