@@ -106,6 +106,13 @@ export default function ManagementHomePage() {
   const [loadingCron, setLoadingCron] = useState(false);
   const [testingReminder, setTestingReminder] = useState(false);
   const [sendingTodayReminder, setSendingTodayReminder] = useState(false);
+  const [sendingMonthlyRecap, setSendingMonthlyRecap] = useState(false);
+  const [monthlyRecapPeriod, setMonthlyRecapPeriod] = useState(() => {
+    const date = new Date();
+    date.setDate(1);
+    date.setMonth(date.getMonth() - 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [cronTestMessage, setCronTestMessage] = useState('');
   const [testShiftDay, setTestShiftDay] = useState('3');
   const [modeDate, setModeDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -277,6 +284,23 @@ export default function ManagementHomePage() {
       setCronTestMessage(error instanceof Error ? error.message : 'Pengiriman reminder hari ini gagal');
     } finally {
       setSendingTodayReminder(false);
+    }
+  }
+
+  async function sendMonthlyRecapEndpoint() {
+    setSendingMonthlyRecap(true);
+    setCronTestMessage('');
+    try {
+      const result = await apiFetch<{ success: boolean; status?: string; message?: string }>(
+        '/jimpitan/monthly-close/send-manual',
+        { method: 'POST', body: JSON.stringify({ month_key: monthlyRecapPeriod }) }
+      );
+      setCronTestMessage(result.message || `Permintaan rekap bulanan ${monthlyRecapPeriod} diproses.`);
+      await loadCronStatus();
+    } catch (error) {
+      setCronTestMessage(error instanceof Error ? error.message : 'Pengiriman rekap bulanan gagal');
+    } finally {
+      setSendingMonthlyRecap(false);
     }
   }
 
@@ -659,6 +683,24 @@ export default function ManagementHomePage() {
                   {sendingTodayReminder ? 'Mengirim...' : `Kirim Reminder Hari Ini (${getTodayShiftDayLabel()})`}
                 </Button>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Mengikuti hari aktual WIB, tidak mengikuti dropdown hari pilihan.</p>
+                <div className="mt-4 border-t border-[var(--line)] pt-3">
+                  <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Pengiriman Rekap Bulanan</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      label="Bulan rekap"
+                      type="month"
+                      value={monthlyRecapPeriod}
+                      onChange={(event) => setMonthlyRecapPeriod(event.target.value)}
+                    />
+                    <Button
+                      onClick={sendMonthlyRecapEndpoint}
+                      disabled={sendingMonthlyRecap || sendingTodayReminder || testingReminder || !/^\d{4}-(0[1-9]|1[0-2])$/.test(monthlyRecapPeriod)}
+                    >
+                      {sendingMonthlyRecap ? 'Memasukkan antrean...' : `Kirim Rekap ${monthlyRecapPeriod || 'Bulanan'}`}
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">Untuk mengirim ulang rekap bulan yang terlewat. Jika sudah terkirim, sistem tidak mengirim duplikat; status tidak pasti perlu diperiksa di grup WhatsApp terlebih dahulu.</p>
+                </div>
               </div>
             </div>
             {cronTestMessage ? <p className="mb-3 text-sm text-[var(--text-muted)]">{cronTestMessage}</p> : null}

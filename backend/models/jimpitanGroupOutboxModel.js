@@ -47,6 +47,29 @@ export async function enqueueJimpitanGroupNotification({ operationalDate, contex
   return result.rows[0];
 }
 
+export async function getJimpitanMonthlyCloseJob(monthKey) {
+  const result = await pool.query(
+    `SELECT id, month_key, operational_date, status, attempts, last_error, sent_at
+     FROM jimpitan_group_notification_outbox
+     WHERE month_key = $1 AND context = 'monthly-close'
+     LIMIT 1`,
+    [monthKey]
+  );
+  return result.rows[0] || null;
+}
+
+export async function requeueFailedJimpitanMonthlyCloseNotification(id) {
+  const result = await pool.query(
+    `UPDATE jimpitan_group_notification_outbox
+     SET status = 'PENDING', attempts = 0, next_attempt_at = NOW(), locked_at = NULL,
+         last_error = NULL, updated_at = NOW()
+     WHERE id = $1 AND context = 'monthly-close' AND status = 'FAILED'
+     RETURNING id, month_key, operational_date, status`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
 export async function enqueueJimpitanMonthlyCloseNotification({ monthKey, operationalDate }) {
   const result = await pool.query(
     `INSERT INTO jimpitan_group_notification_outbox (month_key, operational_date, context)
