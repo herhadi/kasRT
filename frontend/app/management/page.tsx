@@ -687,14 +687,17 @@ export default function ManagementHomePage() {
                 </section>
                 <section className="border-t border-[var(--line)] pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
                   <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Pengiriman Rekap Bulanan</p>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      label="Bulan rekap"
-                      type="month"
-                      value={monthlyRecapPeriod}
-                      onChange={(event) => setMonthlyRecapPeriod(event.target.value)}
-                    />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="min-w-0 flex-1">
+                      <Input
+                        label="Bulan rekap"
+                        type="month"
+                        value={monthlyRecapPeriod}
+                        onChange={(event) => setMonthlyRecapPeriod(event.target.value)}
+                      />
+                    </div>
                     <Button
+                      className="shrink-0 whitespace-nowrap"
                       onClick={sendMonthlyRecapEndpoint}
                       disabled={sendingMonthlyRecap || sendingTodayReminder || testingReminder || !/^\d{4}-(0[1-9]|1[0-2])$/.test(monthlyRecapPeriod)}
                     >
