@@ -677,13 +677,15 @@ export default function ManagementHomePage() {
                 </div>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Dropdown hari hanya berlaku untuk tombol test di atas.</p>
               </div>
-              <div className="border-t border-[var(--line)] pt-3">
-                <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Pengiriman Manual Hari Ini</p>
-                <Button onClick={sendTodayReminderEndpoint} disabled={sendingTodayReminder || testingReminder}>
-                  {sendingTodayReminder ? 'Mengirim...' : `Kirim Reminder Hari Ini (${getTodayShiftDayLabel()})`}
-                </Button>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">Mengikuti hari aktual WIB, tidak mengikuti dropdown hari pilihan.</p>
-                <div className="mt-4 border-t border-[var(--line)] pt-3">
+              <div className="grid gap-4 border-t border-[var(--line)] pt-3 md:grid-cols-2">
+                <section>
+                  <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Pengiriman Manual Hari Ini</p>
+                  <Button onClick={sendTodayReminderEndpoint} disabled={sendingTodayReminder || testingReminder}>
+                    {sendingTodayReminder ? 'Mengirim...' : `Kirim Reminder Hari Ini (${getTodayShiftDayLabel()})`}
+                  </Button>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">Mengikuti hari aktual WIB, tidak mengikuti dropdown hari pilihan.</p>
+                </section>
+                <section className="border-t border-[var(--line)] pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
                   <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Pengiriman Rekap Bulanan</p>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Input
@@ -700,7 +702,7 @@ export default function ManagementHomePage() {
                     </Button>
                   </div>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">Untuk mengirim ulang rekap bulan yang terlewat. Jika sudah terkirim, sistem tidak mengirim duplikat; status tidak pasti perlu diperiksa di grup WhatsApp terlebih dahulu.</p>
-                </div>
+                </section>
               </div>
             </div>
             {cronTestMessage ? <p className="mb-3 text-sm text-[var(--text-muted)]">{cronTestMessage}</p> : null}
