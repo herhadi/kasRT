@@ -15,7 +15,7 @@ export async function listPendingJimpitanBatches() {
      FROM jimpitan_batches jb
      LEFT JOIN users u ON u.id::text = jb.petugas_id::text
      WHERE jb.status = 'PENDING'
-     ORDER BY jb.created_at ASC`
+     ORDER BY jb.created_at DESC`
   );
 
   return result.rows.map((row) => {
