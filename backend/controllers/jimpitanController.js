@@ -458,10 +458,13 @@ export async function setorJimpitan(req, res) {
       ? `\n\n🔗 <a href="${approvalLink}">Buka Approval di Web</a>`
       : '';
 
+    const petugasResult = await pool.query('SELECT nama FROM users WHERE id = $1 LIMIT 1', [petugas_id]);
+    const petugasNama = petugasResult.rows[0]?.nama || 'Petugas Jimpitan';
+
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
       `🔔 <b>Setoran Jimpitan Menunggu Persetujuan</b>\n` +
-      `Petugas: <b>${escapeTelegramHtml(req.user.nama || 'Petugas Jimpitan')}</b>\n` +
+      `Petugas: <b>${escapeTelegramHtml(petugasNama)}</b>\n` +
       `Tanggal: <b>${operationalDateIso}</b>\n` +
       `Total setoran: <b>${formatRupiah(batch.total)}</b>\n` +
       `Jumlah rumah: <b>${batch.total_rumah}</b>` +
@@ -527,10 +530,13 @@ export async function setorJimpitanShiftTotal(req, res) {
     const approvalLink = buildApprovalLink();
     const linkSection = approvalLink ? `\n\n🔗 <a href="${approvalLink}">Buka Approval di Web</a>` : '';
 
+    const petugasResult = await pool.query('SELECT nama FROM users WHERE id = $1 LIMIT 1', [petugas_id]);
+    const petugasNama = petugasResult.rows[0]?.nama || 'Petugas Jimpitan';
+
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
       `🔔 <b>Setoran Jimpitan Shift Menunggu Persetujuan</b>\n` +
-      `Petugas: <b>${escapeTelegramHtml(req.user.nama || 'Petugas Jimpitan')}</b>\n` +
+      `Petugas: <b>${escapeTelegramHtml(petugasNama)}</b>\n` +
       `Tanggal: <b>${operationalDateIso}</b>\n` +
       `Total setoran: <b>${formatRupiah(batch.total)}</b>` +
       (note ? `\nCatatan: ${escapeTelegramHtml(note)}` : '') +
