@@ -908,7 +908,10 @@ export async function listJimpitanV2AdminEntries({ limit = 50 } = {}) {
 export async function findBatchCreator(batchId) {
   await ensureJimpitanScheduleColumns();
   const result = await pool.query(
-    `SELECT petugas_id, total_amount, batch_mode, operational_date, note FROM jimpitan_batches WHERE id = $1`,
+    `SELECT jb.petugas_id, u.nama AS petugas_nama, jb.total_amount, jb.batch_mode, jb.operational_date, jb.note
+     FROM jimpitan_batches jb
+     LEFT JOIN users u ON u.id::text = jb.petugas_id::text
+     WHERE jb.id = $1`,
     [batchId]
   );
   return result.rows[0] || null;
