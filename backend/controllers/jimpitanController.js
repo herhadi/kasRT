@@ -460,10 +460,11 @@ export async function setorJimpitan(req, res) {
 
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
-      `🔔 <b>Approval Setoran Jimpitan Dibutuhkan</b>\n` +
-      `Petugas: <b>${petugas_id}</b>\n` +
-      `Total: <b>${formatRupiah(batch.total)}</b>\n` +
-      `Rumah: <b>${batch.total_rumah}</b>` +
+      `🔔 <b>Setoran Jimpitan Menunggu Persetujuan</b>\n` +
+      `Petugas: <b>${escapeTelegramHtml(req.user.nama || 'Petugas Jimpitan')}</b>\n` +
+      `Tanggal: <b>${operationalDateIso}</b>\n` +
+      `Total setoran: <b>${formatRupiah(batch.total)}</b>\n` +
+      `Jumlah rumah: <b>${batch.total_rumah}</b>` +
       linkSection
     );
     if (!batch.notification_queued) await scheduleMonthlyJimpitanGroupShare(operationalDate, 'setor notification');
@@ -528,10 +529,11 @@ export async function setorJimpitanShiftTotal(req, res) {
 
     await notifyRoles(
       ['Admin Jimpitan', 'root'],
-      `🔔 <b>Approval Setoran Jimpitan Shift Dibutuhkan</b>\n` +
+      `🔔 <b>Setoran Jimpitan Shift Menunggu Persetujuan</b>\n` +
+      `Petugas: <b>${escapeTelegramHtml(req.user.nama || 'Petugas Jimpitan')}</b>\n` +
       `Tanggal: <b>${operationalDateIso}</b>\n` +
-      `Total: <b>${formatRupiah(batch.total)}</b>` +
-      (note ? `\nCatatan: ${note}` : '') +
+      `Total setoran: <b>${formatRupiah(batch.total)}</b>` +
+      (note ? `\nCatatan: ${escapeTelegramHtml(note)}` : '') +
       linkSection
     );
     if (!batch.notification_queued) await scheduleMonthlyJimpitanGroupShare(operationalDate, 'setor notification');
@@ -559,8 +561,9 @@ export async function approveJimpitan(req, res) {
       await notifyUser(
         creator.petugas_id,
         `✅ <b>Setoran Jimpitan Disetujui</b>\n` +
-        `Batch ID: <b>${batch_id}</b>\n` +
-        `Total: <b>${formatRupiah(creator.total_amount)}</b>`
+        `Petugas: <b>${escapeTelegramHtml(creator.petugas_nama || 'Petugas Jimpitan')}</b>\n` +
+        `Tanggal: <b>${escapeTelegramHtml(creator.operational_date || '-')}</b>\n` +
+        `Total setoran: <b>${formatRupiah(creator.total_amount)}</b>`
       );
     }
 
@@ -570,9 +573,9 @@ export async function approveJimpitan(req, res) {
         notifyUser(
           row.warga_id,
           `✅ <b>Iuran Jimpitan Anda Sudah Disetujui</b>\n` +
-          `Batch ID: <b>${batch_id}</b>\n` +
+          `Tanggal setoran: <b>${escapeTelegramHtml(creator?.operational_date || '-')}</b>\n` +
           `Nominal: <b>${formatRupiah(row.total_nominal)}</b>\n` +
-          `Status: <b>APPROVED</b>`
+          `Status: <b>Disetujui</b>`
         )
       )
     );
