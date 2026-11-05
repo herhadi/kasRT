@@ -124,3 +124,12 @@ Larangan:
   - `koperasi-iuran-2025`
   - `koperasi-loans-2025`
 - Batas periode histori: sampai `2025-12`.
+
+
+## Wajib Dokumentasi
+
+- Setiap perubahan fitur/perilaku harus disertai pembaruan file relevan di `docs/`.
+- Manual pengguna menjelaskan langkah penggunaan aktual; dokumen modul menjelaskan aturan/alur; dokumen teknis menjelaskan endpoint, data, worker, dan konfigurasi; changelog mencatat perubahan penting.
+- Jika belum ada dokumen modul yang sesuai, buat dokumen baru.
+- Untuk ekspor spreadsheet, gunakan **Preview sebelum Unduh** dan pastikan preview konsisten dengan file. Preview harus menampilkan format print view/kertas bila laporan berbentuk dokumen.
+- Jangan menyatakan pekerjaan selesai sebelum dokumentasi relevan ikut diperbarui.
