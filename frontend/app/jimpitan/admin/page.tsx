@@ -546,7 +546,9 @@ export default function JimpitanAdminPage() {
           : sum;
       }, 0);
       const opening = runningBalance;
-      const future = index >= 10;
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth();
+      const future = cashLedger.year > currentYear || (cashLedger.year === currentYear && index > currentMonth);
       const closing = opening + incoming - monthExpenses.reduce((sum, row) => sum + Number(row.amount || 0), 0);
       if (!future) runningBalance = closing;
       return {
@@ -2223,71 +2225,123 @@ export default function JimpitanAdminPage() {
       </div>
 
       {cashLedgerPreviewOpen && cashLedger ? (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6">
-          <section className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-2xl">
-            <header className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-4 sm:px-6">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Pratinjau dokumen</p>
-                <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Ringkasan Kas Jimpitan {cashLedger.year}</h2>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">Periksa ringkasan dan rincian sebelum mengunduh Excel.</p>
-              </div>
-              <button type="button" onClick={() => setCashLedgerPreviewOpen(false)} className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">Tutup</button>
-            </header>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="jimpitan-preview-overlay fixed inset-0 z-[90] flex flex-col bg-slate-900/80 p-2 backdrop-blur-sm sm:p-4">
+          <div className="jimpitan-preview-toolbar mx-auto mb-3 flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-slate-950/90 px-3 py-3 text-white shadow-xl">
+            <div>
+              <p className="text-sm font-bold">Pratinjau cetak · A4 Landscape</p>
+              <p className="text-xs text-slate-300">Tampilan kertas sebelum mengunduh Excel atau mencetak.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" onClick={() => setCashLedgerPreviewOpen(false)}>Tutup</Button>
+              <Button variant="secondary" onClick={() => window.print()}>Cetak</Button>
+              <Button onClick={() => void downloadCashLedgerExcel()} disabled={cashLedgerExporting}>
+                {cashLedgerExporting ? "Membuat Excel…" : "Unduh Excel (.xlsx)"}
+              </Button>
+            </div>
+          </div>
+          <div className="jimpitan-preview-scroll min-h-0 flex-1 overflow-auto pb-6">
+            <article id="jimpitan-print-paper" className="jimpitan-print-paper mx-auto bg-white text-slate-900 shadow-2xl">
+              <header className="border-b-2 border-slate-800 pb-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">KasRT · Laporan Keuangan</p>
+                <h1 className="mt-2 text-2xl font-extrabold uppercase tracking-wide">Buku Kas Jimpitan</h1>
+                <p className="mt-1 text-sm font-semibold">Tahun {cashLedger.year}</p>
+                <p className="mt-1 text-[10px] text-slate-500">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
+              </header>
+
+              <section className="my-5 grid grid-cols-4 gap-3">
                 {[
                   { label: "Saldo Awal Tahun", value: cashLedger.opening_balance },
                   { label: "Total Pemasukan", value: cashLedger.total_in },
                   { label: "Total Pengeluaran", value: cashLedger.total_out },
                   { label: "Saldo Akhir Tahun", value: cashLedger.closing_balance },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-                    <p className="text-[11px] text-[var(--text-muted)]">{item.label}</p>
-                    <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{formatRupiah(item.value)}</p>
+                  <div key={item.label} className="border border-slate-300 px-3 py-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">{item.label}</p>
+                    <p className="mt-1 text-sm font-bold tabular-nums">{formatRupiah(item.value)}</p>
                   </div>
                 ))}
-              </div>
-              <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-[var(--surface-strong)] text-xs text-[var(--text-muted)]">
-                    <tr>
-                      {["Bulan / Tanggal", "Saldo Awal", "Pemasukan", "Pengeluaran", "Saldo Akhir", "Keterangan Pengeluaran"].map((label) => <th key={label} className="px-3 py-3 text-left font-semibold">{label}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cashLedgerPreviewRows.map((month) => (
-                      <>
-                        <tr key={month.label} className="border-t border-[var(--line)] bg-[var(--surface-strong)]/70 font-semibold text-[var(--text-primary)]">
-                          <td className="px-3 py-3 capitalize">{month.label}</td>
-                          <td className="px-3 py-3 whitespace-nowrap">{month.opening === null ? "—" : formatRupiah(month.opening)}</td>
-                          <td className="px-3 py-3 whitespace-nowrap text-emerald-700">{month.incoming === null ? "—" : formatRupiah(month.incoming)}</td>
-                          <td className="px-3 py-3">—</td>
-                          <td className="px-3 py-3 whitespace-nowrap">{month.closing === null ? "—" : formatRupiah(month.closing)}</td>
-                          <td className="px-3 py-3 text-[var(--text-muted)]">Ringkasan bulanan</td>
-                        </tr>
-                        {month.expenses.map((expense) => (
-                          <tr key={expense.id} className="border-t border-[var(--line)] text-[var(--text-primary)]">
-                            <td className="px-3 py-2 pl-6 text-xs">{formatTanggalIndonesia(expense.created_at)}</td>
-                            <td className="px-3 py-2">—</td><td className="px-3 py-2">—</td>
-                            <td className="px-3 py-2 whitespace-nowrap font-semibold text-rose-700">{formatRupiah(expense.amount)}</td>
-                            <td className="px-3 py-2">—</td>
-                            <td className="px-3 py-2 text-xs">{String(expense.description || "Pengeluaran kas jimpitan").replace(/^\\[JIMPITAN_EXPENSE\\]\\s*/i, "").replace(/^\\[JIMPITAN_V2(?:_ADMIN)?\\]\\s*/i, "")}</td>
-                          </tr>
-                        ))}
-                      </>
+              </section>
+
+              <table className="w-full border-collapse text-[9px] leading-snug">
+                <thead>
+                  <tr className="bg-slate-100">
+                    {["Bulan / Tanggal", "Saldo Awal", "Pemasukan", "Pengeluaran", "Saldo Akhir", "Keterangan Pengeluaran"].map((label) => (
+                      <th key={label} className="border border-slate-400 px-2 py-2 text-left font-bold">{label}</th>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-[var(--text-muted)]">Pratinjau ini mengikuti susunan laporan Excel. Bulan yang belum berjalan ditampilkan tanpa nilai transaksi.</p>
-            </div>
-            <footer className="flex flex-col-reverse gap-2 border-t border-[var(--line)] px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
-              <Button variant="ghost" onClick={() => setCashLedgerPreviewOpen(false)}>Kembali</Button>
-              <Button onClick={() => void downloadCashLedgerExcel()} disabled={cashLedgerExporting}>
-                {cashLedgerExporting ? "Membuat Excel…" : "Unduh Excel (.xlsx)"}
-              </Button>
-            </footer>
-          </section>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cashLedgerPreviewRows.flatMap((month) => [
+                    <tr key={month.label} className="bg-slate-100/80 font-bold">
+                      <td className="border border-slate-300 px-2 py-2 capitalize">{month.label}</td>
+                      <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">{month.opening === null ? "—" : formatRupiah(month.opening)}</td>
+                      <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">{month.incoming === null ? "—" : formatRupiah(month.incoming)}</td>
+                      <td className="border border-slate-300 px-2 py-2 text-right">—</td>
+                      <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">{month.closing === null ? "—" : formatRupiah(month.closing)}</td>
+                      <td className="border border-slate-300 px-2 py-2">Ringkasan bulanan</td>
+                    </tr>,
+                    ...month.expenses.map((expense) => (
+                      <tr key={expense.id}>
+                        <td className="border border-slate-300 px-2 py-1.5 pl-4">{formatTanggalIndonesia(expense.created_at)}</td>
+                        <td className="border border-slate-300 px-2 py-1.5 text-right">—</td>
+                        <td className="border border-slate-300 px-2 py-1.5 text-right">—</td>
+                        <td className="border border-slate-300 px-2 py-1.5 text-right font-semibold tabular-nums">{formatRupiah(expense.amount)}</td>
+                        <td className="border border-slate-300 px-2 py-1.5 text-right">—</td>
+                        <td className="border border-slate-300 px-2 py-1.5">{normalizeJimpitanExportDescription(expense.description) || "Pengeluaran kas jimpitan"}</td>
+                      </tr>
+                    )),
+                  ])}
+                </tbody>
+              </table>
+
+              <footer className="mt-8 grid grid-cols-3 gap-8 text-center text-[10px]">
+                <div><p>Mengetahui,</p><p className="mt-16 border-t border-slate-400 pt-1">Ketua RT</p></div>
+                <div><p>Diperiksa oleh,</p><p className="mt-16 border-t border-slate-400 pt-1">Bendahara</p></div>
+                <div><p>Disusun oleh,</p><p className="mt-16 border-t border-slate-400 pt-1">Admin Jimpitan</p></div>
+              </footer>
+              <p className="mt-5 text-center text-[8px] text-slate-400">Dokumen ini dibuat melalui aplikasi KasRT.</p>
+            </article>
+          </div>
+          <style jsx global>{`
+            .jimpitan-print-paper {
+              box-sizing: border-box;
+              width: 297mm;
+              min-height: 210mm;
+              padding: 14mm 15mm;
+              color: #0f172a;
+            }
+            @media (max-width: 900px) {
+              .jimpitan-print-paper {
+                width: 100%;
+                min-height: auto;
+                padding: 24px;
+              }
+            }
+            @media print {
+              @page { size: A4 landscape; margin: 0; }
+              html, body { background: #fff !important; }
+              body * { visibility: hidden !important; }
+              #jimpitan-print-paper, #jimpitan-print-paper * { visibility: visible !important; }
+              #jimpitan-print-paper {
+                position: absolute !important;
+                inset: 0 auto auto 0 !important;
+                width: 297mm !important;
+                min-height: 210mm !important;
+                margin: 0 !important;
+                padding: 12mm 14mm !important;
+                box-shadow: none !important;
+              }
+              .jimpitan-preview-toolbar { display: none !important; }
+              .jimpitan-preview-overlay, .jimpitan-preview-scroll {
+                position: static !important;
+                display: block !important;
+                overflow: visible !important;
+                padding: 0 !important;
+                background: #fff !important;
+              }
+              #jimpitan-print-paper tr { break-inside: avoid; }
+            }
+          `}</style>
         </div>
       ) : null}
     </main>
