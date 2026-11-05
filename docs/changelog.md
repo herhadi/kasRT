@@ -1,13 +1,77 @@
 # Changelog
 
-## 2026-10-16
+## 2026-11-05
+
+### Ditambahkan dan diubah
+- Buku Kas Jimpitan kini menyediakan tahap **Preview Excel** sebelum file diunduh. Pratinjau ditampilkan sebagai lembar laporan A4 landscape dengan ringkasan saldo, tabel mutasi bulanan, ruang pengesahan, serta opsi cetak langsung atau unduh Excel.
+- Perhitungan bulan yang belum berjalan pada pratinjau mengikuti tahun dan bulan kalender saat ini, bukan batas bulan yang dikunci secara statis.
+
+## 2026-11-04
 
 ### Diperbaiki
+- Notifikasi approval Jimpitan menampilkan nama petugas/pengumpul yang dapat dibaca, termasuk penyelesaian data nama collector pada detail Telegram.
+- Antrean approval Jimpitan diurutkan dari pengajuan terbaru ke terlama.
 
-- Operasional Jimpitan menampilkan saldo Kas Jimpitan terkini dan buku kas per tahun, dengan saldo awal/akhir, total pemasukan/pengeluaran, serta mutasi berstatus `APPROVED` saja.
-- Buku kas Jimpitan dapat diekspor ke Excel `.xlsx` dengan ringkasan periode, format rupiah, saldo berjalan, filter kolom, dan identitas pencatat/pemberi persetujuan.
-- Dashboard Kas Bendahara tidak lagi menjumlahkan saldo Kas Jimpitan yang masih dititipkan pada admin. Saldo baru masuk Kas Umum setelah pengajuan setoran dipindahkan ke Kas Iuran Wajib dan disetujui Bendahara; tidak ada auto-approve.
-- Timeout reminder WA Lab dinaikkan dari 30 menjadi 120 detik agar sesuai dengan jeda anti-ban gateway (batas dua pesan per menit). Pengiriman yang tertahan antrean tidak lagi langsung ditandai `uncertain` hanya karena backend berhenti menunggu lebih cepat daripada gateway. Tidak mengubah batas laju anti-ban dan tidak menambahkan retry otomatis, sehingga risiko pesan ganda tetap dihindari.
+## 2026-11-03
+
+### Diubah
+- Kontrol pengiriman rekap bulanan manual dirapikan: pemilihan periode dan tombol kirim diselaraskan, serta ditempatkan berdampingan dengan kontrol reminder manual pada desktop.
+
+## 2026-11-02
+
+### Ditambahkan
+- Root dapat mengirim ulang rekap Jimpitan bulanan secara manual dari halaman Management/Pengiriman Manual Hari Ini dengan memilih periode bulan yang sudah berlalu. Sistem memeriksa status outbox agar rekap yang sudah terkirim tidak dikirim dua kali.
+
+## 2026-10-29
+
+### Diperbaiki
+- Worker notifikasi grup WhatsApp Jimpitan diperkuat agar antrean lebih tahan terhadap kegagalan proses dan status pengiriman tetap dapat ditelusuri.
+
+## 2026-10-27
+
+### Ditambahkan
+- Pengiriman rekap bulanan Jimpitan ke grup WhatsApp dijadwalkan otomatis dan menggunakan antrean outbox persisten.
+
+## 2026-10-25
+
+### Diperbaiki
+- Pembaruan pesan grup WhatsApp setelah input pemasukan Jimpitan manual dipindahkan ke proses antrean agar respons penyimpanan tidak menunggu proses kirim gateway.
+
+## 2026-10-23
+
+### Diubah
+- Kontrol reminder Jimpitan manual diperjelas agar tujuan dan tindakan pengiriman lebih mudah dibedakan.
+
+## 2026-10-22
+
+### Ditambahkan dan diubah
+- Root memperoleh pemicu pengiriman reminder Jimpitan manual.
+- Label dan tata letak kontrol pengiriman manual dirapikan.
+
+## 2026-10-21
+
+### Diperbaiki
+- Buku Kas Jimpitan Excel dirapikan menjadi ringkasan bulanan dengan rincian pengeluaran per transaksi, format tanggal Indonesia, deskripsi yang dinormalisasi, serta saldo berjalan yang dikoreksi.
+- Notifikasi Jimpitan diarahkan melalui satu kanal sesuai aturan konfigurasi agar penerima tidak menerima notifikasi ganda.
+
+## 2026-10-20
+
+### Ditambahkan dan diperbaiki
+- Admin Jimpitan dapat mencatat pengeluaran kas Jimpitan.
+- Keterangan dan tanggal pada ekspor buku kas dinormalisasi agar konsisten dan mudah dibaca.
+
+## 2026-10-19
+
+### Diubah
+- Pengaturan keanggotaan Jimpitan dibuat collapse secara default dan toggle status anggota diberi penekanan visual yang lebih jelas.
+
+## 2026-10-16
+
+### Ditambahkan dan diperbaiki
+- Buku kas Jimpitan tahunan menyediakan saldo awal/akhir, total pemasukan/pengeluaran, dan mutasi berstatus `APPROVED`, beserta ekspor Excel.
+- Pagination dan tata letak buku kas Jimpitan disempurnakan untuk layar kecil.
+- Saldo Jimpitan yang masih dititipkan pada admin tidak dihitung sebagai Kas Umum Bendahara sebelum setoran disetujui.
+- Timeout reminder WA Lab diselaraskan dengan jeda anti-ban gateway; status yang belum terkonfirmasi tidak otomatis dianggap gagal dan tidak dikirim ulang otomatis.
 
 ## 2026-10-13
 
