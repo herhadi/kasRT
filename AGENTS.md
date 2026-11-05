@@ -59,40 +59,13 @@ Larangan:
 
 ## Cron Reminder Jimpitan
 
-- Scheduler: Vercel Cron `frontend/vercel.json`.
-- Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
-- Schedule Vercel: beberapa trigger di `20:15`, `20:30`, `20:45`, dan `21:00 WIB`.
-- Alasan schedule: Vercel Cron gratis tidak presisi dan bisa terlambat; backend menerima window `20:15-21:15 WIB`.
-- Backend memakai daily lock sehingga beberapa trigger cron tidak mengirim reminder dobel.
-- Kanal Telegram dan WA harus diperlakukan terpisah.
-- Telegram memakai bot resmi untuk user yang sudah aktivasi chat id.
-- WA reminder memakai service `backend/services/waReminderService.js` dengan provider env:
-  - `WA_REMINDER_PROVIDER=off`
-  - `WA_REMINDER_PROVIDER=fonnte`
-  - `WA_REMINDER_PROVIDER=http`
-- Root bisa mengubah provider aktif lewat `/management`.
-- Pilihan UI disimpan di tabel `app_settings` key `wa_reminder` dan mengalahkan fallback env `WA_REMINDER_PROVIDER`.
-- Provider `http` dipakai untuk gateway WA mandiri yang terpisah dari backend utama.
-- Gateway mandiri berada di folder `wa-gateway`.
-- Untuk backend KasRT:
-  - `WA_GATEWAY_URL` adalah endpoint kirim penuh, contoh `https://.../send`.
-  - `WA_GATEWAY_BASE_URL` adalah base URL untuk status/QR management, contoh `https://...`.
-  - `WA_GATEWAY_SECRET` harus sama dengan env gateway.
-- Endpoint gateway:
-  - `GET /status`
-  - `GET /qr`
-  - `POST /send`
-- Untuk provider `http`, backend mengirim serial dengan jeda acak:
-  - `WA_REMINDER_MIN_DELAY_MS`
-  - `WA_REMINDER_MAX_DELAY_MS`
-- WA hanya untuk reminder ringan jimpitan harian; notifikasi kompleks diarahkan ke Telegram/dashboard.
-- Alur:
-  - Vercel hit `GET /api/cron` (frontend),
-  - frontend forward ke `POST /jimpitan/send-shift-reminder` (backend).
-- Secret wajib sinkron:
-  - frontend `CRON_SECRET`
-  - backend `CRON_SECRET`
-- Backend punya window guard agar reminder tidak terkirim terlalu malam.
+- Endpoint reminder tersedia pada backend `POST /jimpitan/send-shift-reminder` dan endpoint manual root `POST /jimpitan/send-shift-reminder/manual`.
+- Jangan mengasumsikan scheduler berada di Vercel: `frontend/vercel.json` saat ini hanya mengatur region.
+- Jadwal aktual harus diverifikasi dari konfigurasi scheduler deployment yang aktif; jangan menuliskan jam/window tetap tanpa verifikasi.
+- Backend menentukan tanggal operasional berdasarkan zona waktu Asia/Jakarta dan memakai daily lock untuk mencegah reminder ganda.
+- Kanal Telegram dan WhatsApp diperlakukan terpisah. Pengaturan reminder WA dan JID grup dikelola dari Management.
+- Notifikasi grup setelah transaksi memakai outbox persisten; status `UNCERTAIN` tidak boleh dikirim ulang otomatis karena dapat menghasilkan pesan ganda.
+- Detail endpoint dan status antrean ada di `docs/jimpitan.md`.
 
 ## Redis Cache (Opsional, Disarankan)
 
