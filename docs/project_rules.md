@@ -86,3 +86,14 @@ menampilkannya 10 item per halaman, terbaru lebih dulu. Informasi negara bersifa
 best effort dari header proxy dan bukan lokasi GPS pengguna. Model perangkat,
 versi platform, arsitektur, dan bitness juga best effort dari Client Hints;
 browser tertentu, terutama Safari/iPhone, dapat tidak memberikannya.
+
+
+## Standar Dokumentasi dan Ekspor
+
+- Setiap perubahan fitur, perbaikan bug yang memengaruhi perilaku, alur operasional, API, database, scheduler, worker, konfigurasi, atau UI yang mengubah cara penggunaan wajib memperbarui dokumentasi di folder `docs/`.
+- Perbarui file yang paling relevan terlebih dahulu: manual pengguna untuk langkah penggunaan, dokumen modul untuk aturan/alur bisnis, dokumen teknis untuk API/infrastruktur, dan `docs/changelog.md` untuk catatan perubahan kronologis.
+- Fitur baru yang belum memiliki dokumen modul harus dibuatkan dokumen yang sesuai. Jangan menumpuk seluruh detail operasional hanya di changelog.
+- Dokumentasi harus mencerminkan implementasi yang benar-benar ada pada branch `main`; jangan mendokumentasikan rencana sebagai fitur aktif.
+- Setiap fitur ekspor spreadsheet menggunakan pola **Preview sebelum Unduh**: pengguna dapat memeriksa periode, ringkasan, isi, dan total sebelum file dibuat.
+- Preview ekspor harus menyerupai hasil dokumen akhir (print view/kertas jika sesuai), dan isi preview harus konsisten dengan isi file yang diunduh.
+- Perubahan kode dan dokumentasi terkait dikirim dalam rangkaian commit yang sama atau commit berurutan yang saling merujuk.
