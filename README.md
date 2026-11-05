@@ -16,9 +16,9 @@ KasRT adalah aplikasi kas RT berbasis:
 
 ## Dokumentasi
 
-- Manual cetak/panduan pengguna: `docs/MANUAL_GUIDE.md`
-- Changelog: `docs/CHANGELOG.md`
-- WA Gateway Lab: `docs/WA_GATEWAY_LAB.md`
+- Manual cetak/panduan pengguna: `docs/manual_guide.md`
+- Changelog: `docs/changelog.md`
+- WA Gateway Lab: `docs/wa_gateway_lab.md`\n- Operasional Jimpitan: `docs/jimpitan.md`\n- Aturan arsitektur dan standar pengembangan: `docs/project_rules.md`
 - Deploy VPS: `infra/vps/README.md`
 
 ## Menjalankan Lokal
