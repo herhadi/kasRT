@@ -2,6 +2,9 @@
 
 ## 2026-11-05
 
+### Dokumentasi
+- Audit dokumentasi lintas riwayat perubahan dilakukan; ditambahkan dokumentasi operasional Jimpitan, rekonsiliasi changelog Oktober–November, koreksi indeks README, serta aturan wajib dokumentasi untuk setiap perubahan.
+
 ### Ditambahkan dan diubah
 - Buku Kas Jimpitan kini menyediakan tahap **Preview Excel** sebelum file diunduh. Pratinjau ditampilkan sebagai lembar laporan A4 landscape dengan ringkasan saldo, tabel mutasi bulanan, ruang pengesahan, serta opsi cetak langsung atau unduh Excel.
 - Perhitungan bulan yang belum berjalan pada pratinjau mengikuti tahun dan bulan kalender saat ini, bukan batas bulan yang dikunci secara statis.
