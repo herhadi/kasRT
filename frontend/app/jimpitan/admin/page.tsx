@@ -2233,7 +2233,7 @@ export default function JimpitanAdminPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => setCashLedgerPreviewOpen(false)}>Tutup</Button>
-              <Button variant="secondary" onClick={() => window.print()}>Cetak</Button>
+              <Button onClick={() => window.print()}>Cetak</Button>
               <Button onClick={() => void downloadCashLedgerExcel()} disabled={cashLedgerExporting}>
                 {cashLedgerExporting ? "Membuat Excel…" : "Unduh Excel (.xlsx)"}
               </Button>
