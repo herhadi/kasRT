@@ -2283,7 +2283,7 @@ export default function JimpitanAdminPage() {
                       <tr key={expense.id}>
                         <td colSpan={5} className="border border-slate-300 px-2 py-1.5">
                           <div className="flex justify-between gap-3">
-                            <span>{formatTanggalIndonesia(expense.created_at)} · {normalizeJimpitanExportDescription(expense.description) || "Pengeluaran kas jimpitan"}</span>
+                            <span>{formatTanggalIndonesia(expense.created_at)} · {normalizeJimpitanExportDescription(expense.description).description || "Pengeluaran kas jimpitan"}</span>
                             <span className="shrink-0 font-semibold tabular-nums">{formatRupiah(expense.amount)}</span>
                           </div>
                         </td>
