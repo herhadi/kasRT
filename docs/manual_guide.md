@@ -154,6 +154,33 @@ Tombol Share WA hanya menyiapkan teks laporan lalu membuka fitur berbagi/WhatsAp
 - Status WA Lab membedakan `terkirim` (gateway mengonfirmasi), `gagal` (gateway mengembalikan kegagalan yang jelas), dan `belum terkonfirmasi` (`timeout`). Timeout tidak membuktikan pesan gagal karena gateway mungkin sudah mengirim sebelum respons terlambat; sistem tidak mengirim ulang otomatis agar tidak menimbulkan pesan ganda.
 - Setelah input atau setoran V2 berhasil disimpan, halaman menampilkan konfirmasi terlebih dahulu lalu memperbarui daftar di latar belakang. Notifikasi rekap grup WhatsApp juga berjalan terpisah dari respons penyimpanan agar jeda anti-ban tidak membuat form terasa macet.
 
+### Buku Kas, Pengeluaran, dan Ekspor
+
+Admin Jimpitan dapat melihat buku kas tahunan melalui bagian **Kas Jimpitan** pada halaman Operasional Jimpitan. Buku kas merangkum saldo awal, total pemasukan, total pengeluaran, saldo akhir, dan mutasi yang sudah berstatus final/approved.
+
+Pengeluaran kas dicatat melalui form pengeluaran dengan tanggal, nominal, dan keterangan. Pengeluaran yang belum tercatat sebagai mutasi final tidak boleh dianggap mengurangi saldo buku kas.
+
+Untuk membuat laporan:
+1. Pilih tahun buku kas.
+2. Periksa saldo dan daftar mutasi.
+3. Tekan **Preview Excel** untuk membuka pratinjau laporan berbentuk lembar kertas A4 landscape.
+4. Periksa ringkasan tahunan dan rincian pengeluaran.
+5. Pilih **Cetak** untuk mencetak lembar laporan, atau **Unduh Excel (.xlsx)** untuk memperoleh file spreadsheet.
+6. Pilih **Tutup** jika belum ingin mencetak atau mengunduh.
+
+Preview adalah tahap pemeriksaan, bukan proses ekspor. File Excel hanya dibuat setelah tombol unduh dipilih. Laporan Excel mempertahankan ringkasan bulanan dan rincian pengeluaran.
+
+### Rekap Grup WhatsApp Bulanan
+
+Rekap bulanan Jimpitan dapat dikirim otomatis melalui antrean notifikasi grup yang persisten. Root juga dapat mengirim rekap untuk bulan yang sudah berlalu melalui kontrol pengiriman manual di Management.
+
+Status antrean mencegah pengiriman ganda:
+- `PENDING`: menunggu worker.
+- `PROCESSING`: sedang diproses.
+- `SENT`: gateway mengonfirmasi pengiriman.
+- `FAILED`: gagal dengan status jelas dan dapat dimasukkan kembali ke antrean.
+- `UNCERTAIN`: hasil pengiriman tidak diketahui; periksa grup terlebih dahulu dan jangan langsung mengirim ulang.
+
 ## 6. Bendahara
 
 Bendahara mengelola kas utama, iuran wajib, transfer kas, dan pengeluaran.
