@@ -2228,8 +2228,8 @@ export default function JimpitanAdminPage() {
         <div className="jimpitan-preview-overlay fixed inset-0 z-[90] flex flex-col bg-slate-900/80 p-2 backdrop-blur-sm sm:p-4">
           <div className="jimpitan-preview-toolbar mx-auto mb-3 flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-slate-950/90 px-3 py-3 text-white shadow-xl">
             <div>
-              <p className="text-sm font-bold">Pratinjau cetak · A4 Landscape</p>
-              <p className="text-xs text-slate-300">Tampilan kertas sebelum mengunduh Excel atau mencetak.</p>
+              <p className="text-sm font-bold">Pratinjau cetak · A4 Portrait</p>
+              <p className="text-xs text-slate-300">Format dokumen A4 portrait sebelum mengunduh Excel atau mencetak.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => setCashLedgerPreviewOpen(false)}>Tutup</Button>
@@ -2248,7 +2248,7 @@ export default function JimpitanAdminPage() {
                 <p className="mt-1 text-[10px] text-slate-500">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
               </header>
 
-              <section className="my-5 grid grid-cols-4 gap-3">
+              <section className="my-4 grid grid-cols-2 gap-2">
                 {[
                   { label: "Saldo Awal Tahun", value: cashLedger.opening_balance },
                   { label: "Total Pemasukan", value: cashLedger.total_in },
@@ -2262,10 +2262,10 @@ export default function JimpitanAdminPage() {
                 ))}
               </section>
 
-              <table className="w-full border-collapse text-[9px] leading-snug">
+              <table className="w-full border-collapse text-[8px] leading-snug">
                 <thead>
                   <tr className="bg-slate-100">
-                    {["Bulan / Tanggal", "Saldo Awal", "Pemasukan", "Pengeluaran", "Saldo Akhir", "Keterangan Pengeluaran"].map((label) => (
+                    {["Bulan / Tanggal", "Saldo Awal", "Pemasukan", "Pengeluaran", "Saldo Akhir"].map((label) => (
                       <th key={label} className="border border-slate-400 px-2 py-2 text-left font-bold">{label}</th>
                     ))}
                   </tr>
@@ -2278,16 +2278,15 @@ export default function JimpitanAdminPage() {
                       <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">{month.incoming === null ? "—" : formatRupiah(month.incoming)}</td>
                       <td className="border border-slate-300 px-2 py-2 text-right">—</td>
                       <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">{month.closing === null ? "—" : formatRupiah(month.closing)}</td>
-                      <td className="border border-slate-300 px-2 py-2">Ringkasan bulanan</td>
                     </tr>,
                     ...month.expenses.map((expense) => (
                       <tr key={expense.id}>
-                        <td className="border border-slate-300 px-2 py-1.5 pl-4">{formatTanggalIndonesia(expense.created_at)}</td>
-                        <td className="border border-slate-300 px-2 py-1.5 text-right">—</td>
-                        <td className="border border-slate-300 px-2 py-1.5 text-right">—</td>
-                        <td className="border border-slate-300 px-2 py-1.5 text-right font-semibold tabular-nums">{formatRupiah(expense.amount)}</td>
-                        <td className="border border-slate-300 px-2 py-1.5 text-right">—</td>
-                        <td className="border border-slate-300 px-2 py-1.5">{normalizeJimpitanExportDescription(expense.description) || "Pengeluaran kas jimpitan"}</td>
+                        <td colSpan={5} className="border border-slate-300 px-2 py-1.5">
+                          <div className="flex justify-between gap-3">
+                            <span>{formatTanggalIndonesia(expense.created_at)} · {normalizeJimpitanExportDescription(expense.description) || "Pengeluaran kas jimpitan"}</span>
+                            <span className="shrink-0 font-semibold tabular-nums">{formatRupiah(expense.amount)}</span>
+                          </div>
+                        </td>
                       </tr>
                     )),
                   ])}
@@ -2305,9 +2304,9 @@ export default function JimpitanAdminPage() {
           <style jsx global>{`
             .jimpitan-print-paper {
               box-sizing: border-box;
-              width: 297mm;
-              min-height: 210mm;
-              padding: 14mm 15mm;
+              width: 210mm;
+              min-height: 297mm;
+              padding: 12mm 13mm;
               color: #0f172a;
             }
             @media (max-width: 900px) {
@@ -2318,17 +2317,17 @@ export default function JimpitanAdminPage() {
               }
             }
             @media print {
-              @page { size: A4 landscape; margin: 0; }
+              @page { size: A4 portrait; margin: 0; }
               html, body { background: #fff !important; }
               body * { visibility: hidden !important; }
               #jimpitan-print-paper, #jimpitan-print-paper * { visibility: visible !important; }
               #jimpitan-print-paper {
                 position: absolute !important;
                 inset: 0 auto auto 0 !important;
-                width: 297mm !important;
-                min-height: 210mm !important;
+                width: 210mm !important;
+                min-height: 297mm !important;
                 margin: 0 !important;
-                padding: 12mm 14mm !important;
+                padding: 12mm 13mm !important;
                 box-shadow: none !important;
               }
               .jimpitan-preview-toolbar { display: none !important; }
