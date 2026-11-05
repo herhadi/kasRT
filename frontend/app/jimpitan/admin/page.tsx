@@ -248,6 +248,7 @@ export default function JimpitanAdminPage() {
   const [cashLedger, setCashLedger] = useState<JimpitanCashLedger | null>(null);
   const [cashLedgerLoading, setCashLedgerLoading] = useState(false);
   const [cashLedgerExporting, setCashLedgerExporting] = useState(false);
+  const [cashLedgerPreviewOpen, setCashLedgerPreviewOpen] = useState(false);
   const [expenseDate, setExpenseDate] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -527,6 +528,36 @@ export default function JimpitanAdminPage() {
   const topupHistoryPager = usePagination(topupHistory, 10);
   const v2EntriesPager = usePagination(v2Entries, 10);
   const cashLedgerPager = usePagination(cashLedger?.rows || [], 10);
+  const cashLedgerPreviewRows = useMemo(() => {
+    if (!cashLedger) return [];
+    let runningBalance = Number(cashLedger.opening_balance || 0);
+    return Array.from({ length: 12 }, (_, index) => {
+      const monthExpenses = cashLedger.rows
+        .filter((row) => {
+          if (row.direction !== "OUT") return false;
+          const date = new Date(row.created_at);
+          return !Number.isNaN(date.getTime()) && date.getFullYear() === cashLedger.year && date.getMonth() === index;
+        })
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const incoming = cashLedger.rows.reduce((sum, row) => {
+        const date = new Date(row.created_at);
+        return row.direction === "IN" && !Number.isNaN(date.getTime()) && date.getFullYear() === cashLedger.year && date.getMonth() === index
+          ? sum + Number(row.amount || 0)
+          : sum;
+      }, 0);
+      const opening = runningBalance;
+      const future = index >= 10;
+      const closing = opening + incoming - monthExpenses.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      if (!future) runningBalance = closing;
+      return {
+        label: new Date(cashLedger.year, index, 1).toLocaleDateString("id-ID", { month: "long", year: "numeric" }),
+        opening: future ? null : opening,
+        incoming: future ? null : incoming,
+        expenses: future ? [] : monthExpenses,
+        closing: future ? null : closing,
+      };
+    });
+  }, [cashLedger]);
 
   useEffect(() => {
     cashLedgerPager.reset();
@@ -857,7 +888,7 @@ export default function JimpitanAdminPage() {
     }
   }
 
-  async function exportCashLedgerExcel() {
+  async function downloadCashLedgerExcel() {
     if (!cashLedger) return;
     setCashLedgerExporting(true);
     try {
@@ -1280,14 +1311,10 @@ export default function JimpitanAdminPage() {
                   </strong>
                 </p>
                 <Button
-                  onClick={exportCashLedgerExcel}
-                  disabled={
-                    !cashLedger || cashLedgerLoading || cashLedgerExporting
-                  }
+                  onClick={() => setCashLedgerPreviewOpen(true)}
+                  disabled={!cashLedger || cashLedgerLoading || cashLedgerExporting}
                 >
-                  {cashLedgerExporting
-                    ? "Membuat Excel…"
-                    : "Ekspor Excel (.xlsx)"}
+                  Preview Excel
                 </Button>
               </div>
             </div>
@@ -2194,6 +2221,75 @@ export default function JimpitanAdminPage() {
           </Card>
         ) : null}
       </div>
+
+      {cashLedgerPreviewOpen && cashLedger ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6">
+          <section className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-2xl">
+            <header className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-4 sm:px-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Pratinjau dokumen</p>
+                <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Ringkasan Kas Jimpitan {cashLedger.year}</h2>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Periksa ringkasan dan rincian sebelum mengunduh Excel.</p>
+              </div>
+              <button type="button" onClick={() => setCashLedgerPreviewOpen(false)} className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">Tutup</button>
+            </header>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {[
+                  { label: "Saldo Awal Tahun", value: cashLedger.opening_balance },
+                  { label: "Total Pemasukan", value: cashLedger.total_in },
+                  { label: "Total Pengeluaran", value: cashLedger.total_out },
+                  { label: "Saldo Akhir Tahun", value: cashLedger.closing_balance },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                    <p className="text-[11px] text-[var(--text-muted)]">{item.label}</p>
+                    <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{formatRupiah(item.value)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="overflow-x-auto rounded-2xl border border-[var(--line)]">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-[var(--surface-strong)] text-xs text-[var(--text-muted)]">
+                    <tr>
+                      {["Bulan / Tanggal", "Saldo Awal", "Pemasukan", "Pengeluaran", "Saldo Akhir", "Keterangan Pengeluaran"].map((label) => <th key={label} className="px-3 py-3 text-left font-semibold">{label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cashLedgerPreviewRows.map((month) => (
+                      <>
+                        <tr key={month.label} className="border-t border-[var(--line)] bg-[var(--surface-strong)]/70 font-semibold text-[var(--text-primary)]">
+                          <td className="px-3 py-3 capitalize">{month.label}</td>
+                          <td className="px-3 py-3 whitespace-nowrap">{month.opening === null ? "—" : formatRupiah(month.opening)}</td>
+                          <td className="px-3 py-3 whitespace-nowrap text-emerald-700">{month.incoming === null ? "—" : formatRupiah(month.incoming)}</td>
+                          <td className="px-3 py-3">—</td>
+                          <td className="px-3 py-3 whitespace-nowrap">{month.closing === null ? "—" : formatRupiah(month.closing)}</td>
+                          <td className="px-3 py-3 text-[var(--text-muted)]">Ringkasan bulanan</td>
+                        </tr>
+                        {month.expenses.map((expense) => (
+                          <tr key={expense.id} className="border-t border-[var(--line)] text-[var(--text-primary)]">
+                            <td className="px-3 py-2 pl-6 text-xs">{formatTanggalIndonesia(expense.created_at)}</td>
+                            <td className="px-3 py-2">—</td><td className="px-3 py-2">—</td>
+                            <td className="px-3 py-2 whitespace-nowrap font-semibold text-rose-700">{formatRupiah(expense.amount)}</td>
+                            <td className="px-3 py-2">—</td>
+                            <td className="px-3 py-2 text-xs">{String(expense.description || "Pengeluaran kas jimpitan").replace(/^\\[JIMPITAN_EXPENSE\\]\\s*/i, "").replace(/^\\[JIMPITAN_V2(?:_ADMIN)?\\]\\s*/i, "")}</td>
+                          </tr>
+                        ))}
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-[var(--text-muted)]">Pratinjau ini mengikuti susunan laporan Excel. Bulan yang belum berjalan ditampilkan tanpa nilai transaksi.</p>
+            </div>
+            <footer className="flex flex-col-reverse gap-2 border-t border-[var(--line)] px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+              <Button variant="ghost" onClick={() => setCashLedgerPreviewOpen(false)}>Kembali</Button>
+              <Button onClick={() => void downloadCashLedgerExcel()} disabled={cashLedgerExporting}>
+                {cashLedgerExporting ? "Membuat Excel…" : "Unduh Excel (.xlsx)"}
+              </Button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
