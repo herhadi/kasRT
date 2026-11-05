@@ -136,7 +136,7 @@ Tombol Share WA hanya menyiapkan teks laporan lalu membuka fitur berbagi/WhatsAp
 
 - **Share Harian WA**: rekap detail warga/donatur untuk hari operasional.
 - **Share Shift WA**: rekap setoran petugas pada bulan berjalan, terutama pada mode V2 Global.
-- **Share Bulanan WA**: rekap total seluruh tanggal pada bulan berjalan.
+- Rekap bulanan grup WhatsApp dikirim otomatis melalui antrean; root dapat mengirim ulang rekap untuk bulan yang sudah berlalu dari kontrol pengiriman manual di Management.
 - Tanda `*` pada nominal berarti setoran tersebut belum approve admin.
 - Footer laporan shift menampilkan `_Dilaporkan oleh : nama petugas_`.
 - Rekap yang sudah disetujui tidak diberi tanda bintang.
