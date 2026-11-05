@@ -94,18 +94,12 @@ Opsional performa:
 
 Semua transaksi finansial wajib mengikuti approval flow dan audit actor (`created_by`, `approved_by`, `approved_at`).
 
-## Reminder Otomatis Jimpitan
+## Reminder dan Rekap Otomatis Jimpitan
 
-- Scheduler production memakai Vercel Cron pada `frontend/vercel.json` dan meneruskan request ke backend Debian.
-- Target reminder: sebelum operasional jimpitan pukul `21:00 WIB`.
-- Backend menerima window `20:30-20:45 WIB` sebagai guard agar reminder tidak terkirim terlalu awal/terlambat.
-- Backend memakai daily lock, jadi beberapa trigger cron tidak akan mengirim reminder dobel.
-- Kanal Telegram dan WA diperlakukan terpisah.
-- WA reminder memakai WA Gateway terpisah dan pengaturan root di `/management/whatsapp`.
-- Frontend cron route meneruskan ke backend:
-  - `POST /jimpitan/send-shift-reminder`
-  - auth via `x-cron-secret` / bearer secret.
-- Backend tetap membatasi window pengiriman agar tidak terkirim terlalu malam.
+- Detail kanal, status pengiriman, antrean outbox, pengiriman manual, dan pengaturan reminder dijelaskan di `docs/jimpitan.md` dan `docs/wa_gateway_lab.md`.
+- Endpoint reminder backend: `POST /jimpitan/send-shift-reminder`; pengiriman manual root memakai `POST /jimpitan/send-shift-reminder/manual`.
+- Rekap bulanan grup memakai antrean persisten `jimpitan_group_notification_outbox`; status `UNCERTAIN` tidak boleh dikirim ulang tanpa pemeriksaan karena berisiko pesan ganda.
+- Jadwal aktual harus mengikuti konfigurasi scheduler yang berjalan di deployment. File `frontend/vercel.json` saat ini hanya menetapkan region, bukan jadwal cron.
 
 ## Optimasi DB & Cache
 
