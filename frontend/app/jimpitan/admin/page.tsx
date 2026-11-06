@@ -2349,9 +2349,8 @@ export default function JimpitanAdminPage() {
                 visibility: visible !important;
               }
               #jimpitan-print-paper {
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
+                position: static !important;
+                display: block !important;
                 box-sizing: border-box !important;
                 width: 210mm !important;
                 min-height: 297mm !important;
@@ -2360,7 +2359,9 @@ export default function JimpitanAdminPage() {
                 background: #fff !important;
                 color: #0f172a !important;
                 box-shadow: none !important;
-                break-after: auto !important;
+                break-before: auto !important;
+                break-after: avoid !important;
+                break-inside: avoid-page !important;
               }
               #jimpitan-print-paper tr { break-inside: avoid; }
             }
