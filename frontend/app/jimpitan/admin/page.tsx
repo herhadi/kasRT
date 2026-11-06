@@ -2318,25 +2318,45 @@ export default function JimpitanAdminPage() {
             }
             @media print {
               @page { size: A4 portrait; margin: 0; }
-              html, body { background: #fff !important; }
-              body * { visibility: hidden !important; }
-              #jimpitan-print-paper, #jimpitan-print-paper * { visibility: visible !important; }
+              html, body {
+                width: 210mm !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: #fff !important;
+              }
+              /* Hilangkan seluruh layout aplikasi, bukan hanya visibilitasnya. */
+              body * { display: none !important; }
+              /* Pertahankan rantai parent sebagai wrapper tanpa dimensi layout. */
+              body *:has(#jimpitan-print-paper) {
+                display: contents !important;
+                position: static !important;
+                width: auto !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                transform: none !important;
+                filter: none !important;
+              }
+              #jimpitan-print-paper,
+              #jimpitan-print-paper * {
+                display: revert !important;
+                visibility: visible !important;
+              }
               #jimpitan-print-paper {
-                position: absolute !important;
-                inset: 0 auto auto 0 !important;
+                position: relative !important;
+                box-sizing: border-box !important;
                 width: 210mm !important;
                 min-height: 297mm !important;
                 margin: 0 !important;
                 padding: 12mm 13mm !important;
-                box-shadow: none !important;
-              }
-              .jimpitan-preview-toolbar { display: none !important; }
-              .jimpitan-preview-overlay, .jimpitan-preview-scroll {
-                position: static !important;
-                display: block !important;
-                overflow: visible !important;
-                padding: 0 !important;
                 background: #fff !important;
+                color: #0f172a !important;
+                box-shadow: none !important;
+                break-after: auto !important;
               }
               #jimpitan-print-paper tr { break-inside: avoid; }
             }
