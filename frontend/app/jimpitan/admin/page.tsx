@@ -2308,12 +2308,9 @@ export default function JimpitanAdminPage() {
               min-height: 297mm;
               padding: 12mm 13mm;
               color: #0f172a;
-              position: relative;
             }
             .jimpitan-print-date {
-              position: absolute;
-              left: 13mm;
-              bottom: 5mm;
+              margin-top: 18px;
             }
             @media (max-width: 900px) {
               .jimpitan-print-paper {
@@ -2366,8 +2363,8 @@ export default function JimpitanAdminPage() {
                 color: #0f172a !important;
                 box-shadow: none !important;
                 break-before: auto !important;
-                break-after: avoid !important;
-                break-inside: avoid-page !important;
+                break-after: auto !important;
+                break-inside: auto !important;
               }
               #jimpitan-print-paper tr { break-inside: avoid; }
             }
