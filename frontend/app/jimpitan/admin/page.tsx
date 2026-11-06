@@ -2320,16 +2320,24 @@ export default function JimpitanAdminPage() {
               @page { size: A4 portrait; margin: 0; }
               html, body {
                 width: 210mm !important;
-                height: 0 !important;
+                height: auto !important;
                 min-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden !important;
+                overflow: visible !important;
                 background: #fff !important;
               }
-              /* Sembunyikan UI aplikasi tanpa mengubah display elemen dokumen. */
+              /* Sembunyikan UI aplikasi tanpa mengubah styling isi dokumen. */
               body * { visibility: hidden !important; }
+              /* Buang kotak layout seluruh parent dokumen agar tidak menyisakan halaman kosong. */
               body *:has(#jimpitan-print-paper) {
+                display: contents !important;
+                position: static !important;
+                width: auto !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
                 overflow: visible !important;
                 transform: none !important;
                 filter: none !important;
@@ -2341,7 +2349,7 @@ export default function JimpitanAdminPage() {
                 visibility: visible !important;
               }
               #jimpitan-print-paper {
-                position: fixed !important;
+                position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;
                 box-sizing: border-box !important;
