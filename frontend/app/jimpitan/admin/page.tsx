@@ -2241,10 +2241,10 @@ export default function JimpitanAdminPage() {
           </div>
           <div className="jimpitan-preview-scroll min-h-0 flex-1 overflow-auto pb-6">
             <article id="jimpitan-print-paper" className="jimpitan-print-paper mx-auto bg-white text-slate-900 shadow-2xl">
-              <header className="border-b-2 border-slate-800 pb-2 text-center">
-                <h1 className="text-xl font-extrabold uppercase tracking-wide">Buku Kas Jimpitan</h1>
-                <p className="text-xs font-semibold">Tahun {cashLedger.year}</p>
-                <p className="mt-2 text-left text-[9px] text-slate-500">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
+              <header className="border-b-2 border-slate-800 pb-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">KasRT · Laporan Keuangan</p>
+                <h1 className="mt-2 text-2xl font-extrabold uppercase tracking-wide">Buku Kas Jimpitan</h1>
+                <p className="mt-1 text-sm font-semibold">Tahun {cashLedger.year}</p>
               </header>
 
               <section className="my-4 grid grid-cols-2 gap-2">
@@ -2298,6 +2298,7 @@ export default function JimpitanAdminPage() {
                 <div><p>Disusun oleh,</p><p className="mt-16 border-t border-slate-400 pt-1">Admin Jimpitan</p></div>
               </footer>
               <p className="mt-5 text-center text-[8px] text-slate-400">Dokumen ini dibuat melalui aplikasi KasRT.</p>
+              <p className="jimpitan-print-date text-left text-[9px] text-slate-500">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
             </article>
           </div>
           <style jsx global>{`
@@ -2307,6 +2308,12 @@ export default function JimpitanAdminPage() {
               min-height: 297mm;
               padding: 12mm 13mm;
               color: #0f172a;
+              position: relative;
+            }
+            .jimpitan-print-date {
+              position: absolute;
+              left: 13mm;
+              bottom: 5mm;
             }
             @media (max-width: 900px) {
               .jimpitan-print-paper {
