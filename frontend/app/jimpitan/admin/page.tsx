@@ -1016,18 +1016,21 @@ export default function JimpitanAdminPage() {
         "Saldo Akhir (Rp)",
         "Keterangan Pengeluaran",
       ];
-      header.height = 32;
-      header.font = { bold: true, color: { argb: "FFFFFFFF" } };
-      header.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FF1F5A7A" },
-      };
-      header.alignment = {
-        vertical: "middle",
-        horizontal: "center",
-        wrapText: true,
-      };
+      header.height = 24;
+      for (let col = 1; col <= 7; col += 1) {
+        const cell = header.getCell(col);
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF1F5A7A" },
+        };
+        cell.alignment = {
+          vertical: "middle",
+          horizontal: "center",
+          wrapText: true,
+        };
+      }
 
       let runningBalance = Number(cashLedger.opening_balance || 0);
       let sequence = 1;
@@ -1125,15 +1128,18 @@ export default function JimpitanAdminPage() {
         closing: cashLedger.closing_balance,
         description: null,
       });
-      totalRow.font = { bold: true, color: { argb: "FF123B5D" } };
-      totalRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFDCE8F0" },
-      };
+      for (let col = 1; col <= 7; col += 1) {
+        const cell = totalRow.getCell(col);
+        cell.font = { bold: true, color: { argb: "FF123B5D" } };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFDCE8F0" },
+        };
+      }
       for (const col of [3, 4, 5, 6])
         totalRow.getCell(col).numFmt = '"Rp" #,##0;[Red]("Rp" #,##0);-';
-      totalRow.height = 30;
+      totalRow.height = 22;
 
       sheet.autoFilter = { from: "A7", to: `G${sheet.rowCount}` };
       sheet.eachRow((row, rowNumber) => {
