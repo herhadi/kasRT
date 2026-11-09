@@ -896,11 +896,28 @@ export default function JimpitanAdminPage() {
       pushToast("Dokumen pratinjau belum siap dicetak.", "error");
       return;
     }
-    const printWindow = window.open("", "_blank", "width=1000,height=800");
-    if (!printWindow) {
-      pushToast("Jendela cetak diblokir browser. Izinkan pop-up untuk KasRT.", "warning");
+
+    // Cetak melalui iframe tersembunyi agar tidak membuka jendela/tab baru.
+    const printFrame = document.createElement("iframe");
+    printFrame.setAttribute("aria-hidden", "true");
+    printFrame.title = "Dokumen cetak Buku Kas Jimpitan";
+    printFrame.style.position = "fixed";
+    printFrame.style.right = "0";
+    printFrame.style.bottom = "0";
+    printFrame.style.width = "1px";
+    printFrame.style.height = "1px";
+    printFrame.style.border = "0";
+    printFrame.style.opacity = "0";
+    document.body.appendChild(printFrame);
+
+    const printDocument = printFrame.contentDocument;
+    const printWindow = printFrame.contentWindow;
+    if (!printDocument || !printWindow) {
+      printFrame.remove();
+      pushToast("Dokumen cetak tidak dapat disiapkan browser.", "error");
       return;
     }
+
     const stylesheetLinks = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
     )
@@ -913,8 +930,8 @@ export default function JimpitanAdminPage() {
       .join("\\n");
     const report = paper.cloneNode(true) as HTMLElement;
 
-    printWindow.document.open();
-    printWindow.document.write(`<!doctype html>
+    printDocument.open();
+    printDocument.write(`<!doctype html>
       <html lang="id">
         <head>
           <meta charset="utf-8">
@@ -924,15 +941,29 @@ export default function JimpitanAdminPage() {
           <style>
             ${inlineStyles}
             @page { size: A4 portrait; margin: 0; }
-            html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+            html, body {
+              width: 210mm !important; min-height: 297mm !important;
+              margin: 0 !important; padding: 0 !important;
+              background: #fff !important;
+            }
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             #jimpitan-print-paper {
-              box-sizing: border-box !important; width: 210mm !important;
-              min-height: 297mm !important; margin: 0 auto !important;
-              padding: 12mm 13mm !important; background: #fff !important;
-              color: #0f172a !important; box-shadow: none !important;
+              box-sizing: border-box !important;
+              display: flex !important;
+              flex-direction: column !important;
+              width: 210mm !important;
+              min-height: 297mm !important;
+              margin: 0 auto !important;
+              padding: 12mm 13mm !important;
+              background: #fff !important;
+              color: #0f172a !important;
+              box-shadow: none !important;
             }
-            .jimpitan-print-date { margin-top: 18px !important; }
+            .jimpitan-print-date {
+              margin-top: auto !important;
+              padding-top: 18px !important;
+              text-align: left !important;
+            }
             @media print {
               html, body { width: 210mm !important; }
               #jimpitan-print-paper { margin: 0 !important; }
@@ -942,19 +973,19 @@ export default function JimpitanAdminPage() {
         </head>
         <body></body>
       </html>`);
-    printWindow.document.body.appendChild(report);
-    printWindow.document.close();
+    printDocument.body.appendChild(report);
+    printDocument.close();
 
-    const startPrint = () => {
+    const cleanup = () => {
+      printFrame.remove();
+    };
+    printWindow.addEventListener("afterprint", cleanup, { once: true });
+    window.setTimeout(() => {
       printWindow.focus();
       printWindow.print();
-      printWindow.close();
-    };
-    if (printWindow.document.readyState === "complete") {
-      window.setTimeout(startPrint, 500);
-    } else {
-      printWindow.onload = () => window.setTimeout(startPrint, 500);
-    }
+      // Fallback untuk browser yang tidak mengirim event afterprint.
+      window.setTimeout(cleanup, 60000);
+    }, 700);
   }
 
   async function downloadCashLedgerExcel() {
