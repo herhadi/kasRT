@@ -890,6 +890,73 @@ export default function JimpitanAdminPage() {
     }
   }
 
+  function handlePrintCashLedger() {
+    const paper = document.getElementById("jimpitan-print-paper");
+    if (!paper) {
+      pushToast("Dokumen pratinjau belum siap dicetak.", "error");
+      return;
+    }
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
+    if (!printWindow) {
+      pushToast("Jendela cetak diblokir browser. Izinkan pop-up untuk KasRT.", "warning");
+      return;
+    }
+    const stylesheetLinks = Array.from(
+      document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+    )
+      .map((link) => link.href)
+      .filter(Boolean)
+      .map((href) => `<link rel="stylesheet" href="${href}">`)
+      .join("");
+    const inlineStyles = Array.from(document.querySelectorAll("style"))
+      .map((style) => style.textContent || "")
+      .join("\\n");
+    const report = paper.cloneNode(true) as HTMLElement;
+
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html>
+      <html lang="id">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Buku Kas Jimpitan ${cashLedger?.year || ""}</title>
+          ${stylesheetLinks}
+          <style>
+            ${inlineStyles}
+            @page { size: A4 portrait; margin: 0; }
+            html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            #jimpitan-print-paper {
+              box-sizing: border-box !important; width: 210mm !important;
+              min-height: 297mm !important; margin: 0 auto !important;
+              padding: 12mm 13mm !important; background: #fff !important;
+              color: #0f172a !important; box-shadow: none !important;
+            }
+            .jimpitan-print-date { margin-top: 18px !important; }
+            @media print {
+              html, body { width: 210mm !important; }
+              #jimpitan-print-paper { margin: 0 !important; }
+              tr { break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body></body>
+      </html>`);
+    printWindow.document.body.appendChild(report);
+    printWindow.document.close();
+
+    const startPrint = () => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
+    if (printWindow.document.readyState === "complete") {
+      window.setTimeout(startPrint, 500);
+    } else {
+      printWindow.onload = () => window.setTimeout(startPrint, 500);
+    }
+  }
+
   async function downloadCashLedgerExcel() {
     if (!cashLedger) return;
     setCashLedgerExporting(true);
@@ -2239,7 +2306,7 @@ export default function JimpitanAdminPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => setCashLedgerPreviewOpen(false)}>Tutup</Button>
-              <Button onClick={() => window.print()}>Cetak</Button>
+              <Button onClick={handlePrintCashLedger}>Cetak</Button>
               <Button onClick={() => void downloadCashLedgerExcel()} disabled={cashLedgerExporting}>
                 {cashLedgerExporting ? "Membuat Excel…" : "Unduh Excel (.xlsx)"}
               </Button>
@@ -2324,55 +2391,6 @@ export default function JimpitanAdminPage() {
                 min-height: auto;
                 padding: 24px;
               }
-            }
-            @media print {
-              @page { size: A4 portrait; margin: 0; }
-              html, body {
-                width: 210mm !important;
-                height: auto !important;
-                min-height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-                background: #fff !important;
-              }
-              /* Sembunyikan UI aplikasi tanpa mengubah styling isi dokumen. */
-              body * { visibility: hidden !important; }
-              /* Buang kotak layout seluruh parent dokumen agar tidak menyisakan halaman kosong. */
-              body *:has(#jimpitan-print-paper) {
-                display: contents !important;
-                position: static !important;
-                width: auto !important;
-                height: auto !important;
-                min-height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-                transform: none !important;
-                filter: none !important;
-                perspective: none !important;
-                contain: none !important;
-              }
-              #jimpitan-print-paper,
-              #jimpitan-print-paper * {
-                visibility: visible !important;
-              }
-              #jimpitan-print-paper {
-                position: static !important;
-                display: block !important;
-                box-sizing: border-box !important;
-                width: 210mm !important;
-                min-height: 297mm !important;
-                margin: 0 !important;
-                padding: 12mm 13mm !important;
-                background: #fff !important;
-                color: #0f172a !important;
-                box-shadow: none !important;
-                break-before: auto !important;
-                break-after: auto !important;
-                break-inside: auto !important;
-              }
-              #jimpitan-print-paper tr { break-inside: avoid; }
             }
           `}</style>
         </div>
