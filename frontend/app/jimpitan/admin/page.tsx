@@ -959,11 +959,22 @@ export default function JimpitanAdminPage() {
               color: #0f172a !important;
               box-shadow: none !important;
             }
-            .jimpitan-print-date {
+            .jimpitan-print-bottom {
+              display: flex !important;
+              align-items: flex-end !important;
+              justify-content: space-between !important;
+              gap: 12px !important;
               margin-top: auto !important;
               padding-top: 18px !important;
-              text-align: left !important;
+              font-style: italic !important;
             }
+            .jimpitan-print-date,
+            .jimpitan-print-document-note {
+              margin: 0 !important;
+              font-style: italic !important;
+            }
+            .jimpitan-print-date { text-align: left !important; }
+            .jimpitan-print-document-note { text-align: right !important; }
             @media print {
               html, body { width: 210mm !important; }
               #jimpitan-print-paper { margin: 0 !important; }
@@ -2401,26 +2412,49 @@ export default function JimpitanAdminPage() {
                 <div><p>Diperiksa oleh,</p><p className="mt-16 border-t border-slate-400 pt-1">Bendahara</p></div>
                 <div><p>Disusun oleh,</p><p className="mt-16 border-t border-slate-400 pt-1">Admin Jimpitan</p></div>
               </footer>
-              <p className="mt-5 text-center text-[8px] text-slate-400">Dokumen ini dibuat melalui aplikasi KasRT.</p>
-              <p className="jimpitan-print-date text-left text-[9px] text-slate-500">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
+              <div className="jimpitan-print-bottom">
+                <p className="jimpitan-print-date">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
+                <p className="jimpitan-print-document-note">Dokumen ini dibuat melalui aplikasi KasRT.</p>
+              </div>
             </article>
           </div>
           <style jsx global>{`
             .jimpitan-print-paper {
               box-sizing: border-box;
               width: 210mm;
+              display: flex;
+              flex-direction: column;
               min-height: 297mm;
               padding: 12mm 13mm;
               color: #0f172a;
             }
-            .jimpitan-print-date {
-              margin-top: 18px;
+            .jimpitan-print-bottom {
+              display: flex;
+              align-items: flex-end;
+              justify-content: space-between;
+              gap: 12px;
+              margin-top: auto;
+              padding-top: 18px;
+              font-size: 9px;
+              font-style: italic;
+              color: #64748b;
+            }
+            .jimpitan-print-date,
+            .jimpitan-print-document-note {
+              margin: 0;
+              font-style: italic;
+            }
+            .jimpitan-print-document-note {
+              text-align: right;
             }
             @media (max-width: 900px) {
               .jimpitan-print-paper {
                 width: 100%;
                 min-height: auto;
                 padding: 24px;
+              }
+              .jimpitan-print-bottom {
+                margin-top: 32px;
               }
             }
           `}</style>
