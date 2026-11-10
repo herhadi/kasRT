@@ -24,6 +24,8 @@ export default function PrintPreview({
   paperSize = "A4",
   orientation = "portrait",
 }: PrintPreviewProps) {
+  const pageWidth = orientation === "landscape" ? "297mm" : "210mm";
+  const pageHeight = orientation === "landscape" ? "210mm" : "297mm";
   const paperRef = useRef<HTMLElement>(null);
 
   function handlePrint() {
@@ -87,8 +89,8 @@ export default function PrintPreview({
               }
             }
             html, body {
-              width: 210mm !important;
-              min-height: 297mm !important;
+              width: ${pageWidth} !important;
+              min-height: ${pageHeight} !important;
               margin: 0 !important;
               padding: 0 !important;
               background: #fff !important;
@@ -98,8 +100,8 @@ export default function PrintPreview({
               box-sizing: border-box !important;
               display: flex !important;
               flex-direction: column !important;
-              width: 210mm !important;
-              min-height: 297mm !important;
+              width: ${pageWidth} !important;
+              min-height: ${pageHeight} !important;
               margin: 0 auto !important;
               padding: 12mm 13mm !important;
               zoom: 1 !important;
@@ -124,7 +126,7 @@ export default function PrintPreview({
             .print-preview-date { text-align: left !important; }
             .print-preview-document-note { text-align: right !important; }
             @media print {
-              html, body { width: 210mm !important; }
+              html, body { width: ${pageWidth} !important; }
               .print-preview-paper { margin: 0 !important; }
               tr { break-inside: avoid; }
             }
@@ -162,7 +164,7 @@ export default function PrintPreview({
         </div>
       </div>
       <div className="print-preview-scroll min-h-0 flex-1 overflow-auto pb-6">
-        <article ref={paperRef} className="print-preview-paper mx-auto bg-white text-slate-900 shadow-2xl">
+        <article ref={paperRef} className="print-preview-paper mx-auto bg-white text-slate-900 shadow-2xl" style={{ width: pageWidth, minHeight: pageHeight }}>
           {children}
         </article>
       </div>
