@@ -967,6 +967,10 @@ export default function JimpitanAdminPage() {
               min-height: 297mm !important;
               margin: 0 auto !important;
               padding: 12mm 13mm !important;
+              /* Iframe cetak berukuran 1px sehingga breakpoint preview mobile aktif.
+                 Paksa skala dokumen kembali 100% agar hasil cetak selalu memenuhi A4. */
+              zoom: 1 !important;
+              transform: none !important;
               background: #fff !important;
               color: #0f172a !important;
               box-shadow: none !important;
