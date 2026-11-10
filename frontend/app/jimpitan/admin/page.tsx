@@ -940,7 +940,19 @@ export default function JimpitanAdminPage() {
           ${stylesheetLinks}
           <style>
             ${inlineStyles}
-            @page { size: A4 portrait; margin: 0; }
+            @page {
+              size: A4 portrait;
+              margin: 0;
+              @bottom-right {
+                content: "hal " counter(page) "/" counter(pages);
+                margin-right: 13mm;
+                margin-bottom: 6mm;
+                color: #64748b;
+                font-family: Arial, sans-serif;
+                font-size: 9pt;
+                font-style: italic;
+              }
+            }
             html, body {
               width: 210mm !important; min-height: 297mm !important;
               margin: 0 !important; padding: 0 !important;
