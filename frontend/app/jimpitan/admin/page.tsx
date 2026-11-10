@@ -21,6 +21,7 @@ import usePagination from "@/lib/hooks/usePagination";
 import PaginationControls from "@/components/pagination/PaginationControls";
 import PeriodPickerCompact from "@/components/contribution/PeriodPickerCompact";
 import MembershipStatusFilter from "@/components/membership/MembershipStatusFilter";
+import PrintPreview from "@/components/ui/PrintPreview";
 
 type WargaOption = { id: string; nama: string; no_hp?: string };
 type ExternalParticipant = {
@@ -888,131 +889,6 @@ export default function JimpitanAdminPage() {
         "error",
       );
     }
-  }
-
-  function handlePrintCashLedger() {
-    const paper = document.getElementById("jimpitan-print-paper");
-    if (!paper) {
-      pushToast("Dokumen pratinjau belum siap dicetak.", "error");
-      return;
-    }
-
-    // Cetak melalui iframe tersembunyi agar tidak membuka jendela/tab baru.
-    const printFrame = document.createElement("iframe");
-    printFrame.setAttribute("aria-hidden", "true");
-    printFrame.title = "Dokumen cetak Buku Kas Jimpitan";
-    printFrame.style.position = "fixed";
-    printFrame.style.right = "0";
-    printFrame.style.bottom = "0";
-    printFrame.style.width = "1px";
-    printFrame.style.height = "1px";
-    printFrame.style.border = "0";
-    printFrame.style.opacity = "0";
-    document.body.appendChild(printFrame);
-
-    const printDocument = printFrame.contentDocument;
-    const printWindow = printFrame.contentWindow;
-    if (!printDocument || !printWindow) {
-      printFrame.remove();
-      pushToast("Dokumen cetak tidak dapat disiapkan browser.", "error");
-      return;
-    }
-
-    const stylesheetLinks = Array.from(
-      document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
-    )
-      .map((link) => link.href)
-      .filter(Boolean)
-      .map((href) => `<link rel="stylesheet" href="${href}">`)
-      .join("");
-    const inlineStyles = Array.from(document.querySelectorAll("style"))
-      .map((style) => style.textContent || "")
-      .join("\\n");
-    const report = paper.cloneNode(true) as HTMLElement;
-
-    printDocument.open();
-    printDocument.write(`<!doctype html>
-      <html lang="id">
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Buku Kas Jimpitan ${cashLedger?.year || ""}</title>
-          ${stylesheetLinks}
-          <style>
-            ${inlineStyles}
-            @page {
-              size: A4 portrait;
-              margin: 0;
-              @bottom-right {
-                content: "hal " counter(page) "/" counter(pages);
-                margin-right: 13mm;
-                margin-bottom: 6mm;
-                color: #64748b;
-                font-family: Arial, sans-serif;
-                font-size: 9pt;
-                font-style: italic;
-              }
-            }
-            html, body {
-              width: 210mm !important; min-height: 297mm !important;
-              margin: 0 !important; padding: 0 !important;
-              background: #fff !important;
-            }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            #jimpitan-print-paper {
-              box-sizing: border-box !important;
-              display: flex !important;
-              flex-direction: column !important;
-              width: 210mm !important;
-              min-height: 297mm !important;
-              margin: 0 auto !important;
-              padding: 12mm 13mm !important;
-              /* Iframe cetak berukuran 1px sehingga breakpoint preview mobile aktif.
-                 Paksa skala dokumen kembali 100% agar hasil cetak selalu memenuhi A4. */
-              zoom: 1 !important;
-              transform: none !important;
-              background: #fff !important;
-              color: #0f172a !important;
-              box-shadow: none !important;
-            }
-            .jimpitan-print-bottom {
-              display: flex !important;
-              align-items: flex-end !important;
-              justify-content: space-between !important;
-              gap: 12px !important;
-              margin-top: auto !important;
-              padding-top: 18px !important;
-              font-style: italic !important;
-            }
-            .jimpitan-print-date,
-            .jimpitan-print-document-note {
-              margin: 0 !important;
-              font-style: italic !important;
-            }
-            .jimpitan-print-date { text-align: left !important; }
-            .jimpitan-print-document-note { text-align: right !important; }
-            @media print {
-              html, body { width: 210mm !important; }
-              #jimpitan-print-paper { margin: 0 !important; }
-              tr { break-inside: avoid; }
-            }
-          </style>
-        </head>
-        <body></body>
-      </html>`);
-    printDocument.body.appendChild(report);
-    printDocument.close();
-
-    const cleanup = () => {
-      printFrame.remove();
-    };
-    printWindow.addEventListener("afterprint", cleanup, { once: true });
-    window.setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-      // Fallback untuk browser yang tidak mengirim event afterprint.
-      window.setTimeout(cleanup, 60000);
-    }, 700);
   }
 
   async function downloadCashLedgerExcel() {
@@ -2355,24 +2231,18 @@ export default function JimpitanAdminPage() {
         ) : null}
       </div>
 
-      {cashLedgerPreviewOpen && cashLedger ? (
-        <div className="jimpitan-preview-overlay fixed inset-0 z-[90] flex flex-col bg-slate-900/80 p-2 backdrop-blur-sm sm:p-4">
-          <div className="jimpitan-preview-toolbar mx-auto mb-3 flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 bg-slate-950/90 px-3 py-3 text-white shadow-xl">
-            <div>
-              <p className="text-sm font-bold">Pratinjau cetak · A4 Portrait</p>
-              <p className="text-xs text-slate-300">Format dokumen A4 portrait sebelum mengunduh Excel atau mencetak.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" onClick={() => setCashLedgerPreviewOpen(false)}>Tutup</Button>
-              <Button onClick={handlePrintCashLedger}>Cetak</Button>
-              <Button onClick={() => void downloadCashLedgerExcel()} disabled={cashLedgerExporting}>
-                {cashLedgerExporting ? "Membuat Excel…" : "Unduh Excel (.xlsx)"}
-              </Button>
-            </div>
-          </div>
-          <div className="jimpitan-preview-scroll min-h-0 flex-1 overflow-auto pb-6">
-            <article id="jimpitan-print-paper" className="jimpitan-print-paper mx-auto bg-white text-slate-900 shadow-2xl">
-              <header className="border-b-2 border-slate-800 pb-4 text-center">
+      <PrintPreview
+        open={cashLedgerPreviewOpen && Boolean(cashLedger)}
+        onClose={() => setCashLedgerPreviewOpen(false)}
+        title="Pratinjau cetak · A4 Portrait"
+        subtitle="Format dokumen A4 portrait sebelum mengunduh Excel atau mencetak."
+        actions={
+          <Button onClick={() => void downloadCashLedgerExcel()} disabled={cashLedgerExporting}>
+            {cashLedgerExporting ? "Membuat Excel…" : "Unduh Excel (.xlsx)"}
+          </Button>
+        }
+      >
+        <header className="border-b-2 border-slate-800 pb-4 text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">KasRT · Laporan Keuangan</p>
                 <h1 className="mt-2 text-2xl font-extrabold uppercase tracking-wide">Buku Kas Jimpitan</h1>
                 <p className="mt-1 text-sm font-semibold">Tahun {cashLedger.year}</p>
@@ -2428,72 +2298,11 @@ export default function JimpitanAdminPage() {
                 <div><p>Diperiksa oleh,</p><p className="mt-16 border-t border-slate-400 pt-1">Bendahara</p></div>
                 <div><p>Disusun oleh,</p><p className="mt-16 border-t border-slate-400 pt-1">Admin Jimpitan</p></div>
               </footer>
-              <div className="jimpitan-print-bottom">
-                <p className="jimpitan-print-date">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
-                <p className="jimpitan-print-document-note">Dokumen ini dibuat melalui aplikasi KasRT.</p>
+              <div className="print-preview-bottom">
+                <p className="print-preview-date">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
+                <p className="print-preview-document-note">Dokumen ini dibuat melalui aplikasi KasRT.</p>
               </div>
-            </article>
-          </div>
-          <style jsx global>{`
-            .jimpitan-print-paper {
-              box-sizing: border-box;
-              width: 210mm;
-              display: flex;
-              flex-direction: column;
-              min-height: 297mm;
-              padding: 12mm 13mm;
-              color: #0f172a;
-            }
-            .jimpitan-print-bottom {
-              display: flex;
-              align-items: flex-end;
-              justify-content: space-between;
-              gap: 12px;
-              margin-top: auto;
-              padding-top: 18px;
-              font-size: 9px;
-              font-style: italic;
-              color: #64748b;
-            }
-            .jimpitan-print-date,
-            .jimpitan-print-document-note {
-              margin: 0;
-              font-style: italic;
-            }
-            .jimpitan-print-document-note {
-              text-align: right;
-            }
-            /* Pratinjau mobile mengecilkan lembar A4 secara proporsional,
-               bukan mengubah layout dokumen menjadi ukuran sempit. */
-            @media (max-width: 480px) {
-              .jimpitan-preview-scroll {
-                overflow: auto;
-                padding-bottom: 16px;
-              }
-              .jimpitan-print-paper {
-                width: 210mm;
-                min-height: 297mm;
-                zoom: 0.46;
-              }
-              .jimpitan-preview-toolbar {
-                flex-direction: column;
-                align-items: stretch;
-              }
-              .jimpitan-preview-toolbar > div:last-child {
-                display: grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap: 6px;
-              }
-            }
-            @media (min-width: 481px) and (max-width: 600px) {
-              .jimpitan-print-paper { zoom: 0.56; }
-            }
-            @media (min-width: 601px) and (max-width: 900px) {
-              .jimpitan-print-paper { zoom: 0.72; }
-            }
-          `}</style>
-        </div>
-      ) : null}
+      </PrintPreview>
     </main>
   );
 }
