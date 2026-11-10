@@ -2459,15 +2459,33 @@ export default function JimpitanAdminPage() {
             .jimpitan-print-document-note {
               text-align: right;
             }
-            @media (max-width: 900px) {
+            /* Pratinjau mobile mengecilkan lembar A4 secara proporsional,
+               bukan mengubah layout dokumen menjadi ukuran sempit. */
+            @media (max-width: 480px) {
+              .jimpitan-preview-scroll {
+                overflow: auto;
+                padding-bottom: 16px;
+              }
               .jimpitan-print-paper {
-                width: 100%;
-                min-height: auto;
-                padding: 24px;
+                width: 210mm;
+                min-height: 297mm;
+                zoom: 0.46;
               }
-              .jimpitan-print-bottom {
-                margin-top: 32px;
+              .jimpitan-preview-toolbar {
+                flex-direction: column;
+                align-items: stretch;
               }
+              .jimpitan-preview-toolbar > div:last-child {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 6px;
+              }
+            }
+            @media (min-width: 481px) and (max-width: 600px) {
+              .jimpitan-print-paper { zoom: 0.56; }
+            }
+            @media (min-width: 601px) and (max-width: 900px) {
+              .jimpitan-print-paper { zoom: 0.72; }
             }
           `}</style>
         </div>
