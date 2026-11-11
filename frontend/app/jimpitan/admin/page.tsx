@@ -520,7 +520,7 @@ export default function JimpitanAdminPage() {
         );
       });
     }
-  }, [loading, user, isAdminJimpitan, settingMode, loadCashLedger, pushToast]);
+  }, [loading, user, isAdminJimpitan, mainMode, loadCashLedger, pushToast]);
 
   const setorHistoryPager = usePagination(setorHistory, 10);
   const filteredMembers = useMemo(
