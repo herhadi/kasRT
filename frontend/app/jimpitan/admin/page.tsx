@@ -288,6 +288,8 @@ export default function JimpitanAdminPage() {
   const isAdminJimpitan = hasAnyRole(user, ["Admin Jimpitan", "root"]);
   const isKetua = hasAnyRole(user, ["Ketua"]);
   const settingMode = pathname === "/operasional/jimpitan/setting";
+  const manualMode = pathname === "/operasional/jimpitan/input";
+  const mainMode = !settingMode && !manualMode;
 
   const pushToast = useCallback(
     (message: string, kind: "success" | "error" | "warning" = "success") => {
@@ -503,12 +505,12 @@ export default function JimpitanAdminPage() {
     loadMembers,
     loadV2Entries,
     loadMonthlyCloseSettings,
-    settingMode,
+    mainMode,
     pushToast,
   ]);
 
   useEffect(() => {
-    if (!loading && user && isAdminJimpitan && !settingMode) {
+    if (!loading && user && isAdminJimpitan && mainMode) {
       void loadCashLedger().catch((error) => {
         pushToast(
           error instanceof Error
@@ -589,7 +591,7 @@ export default function JimpitanAdminPage() {
   }, [v2Date, v2NoteEdited]);
 
   useEffect(() => {
-    if (!loading && user && isAdminJimpitan && !settingMode) {
+    if (!loading && user && isAdminJimpitan && mainMode) {
       void loadTopupHistory().catch((error) => {
         pushToast(
           error instanceof Error
@@ -603,7 +605,7 @@ export default function JimpitanAdminPage() {
     loading,
     user,
     isAdminJimpitan,
-    settingMode,
+    mainMode,
     loadTopupHistory,
     pushToast,
   ]);
@@ -1224,29 +1226,37 @@ export default function JimpitanAdminPage() {
               Admin Jimpitan
             </p>
             <h2 className="text-lg font-bold text-[var(--text-primary)]">
-              {settingMode ? "Pengaturan Jimpitan" : "Menu Khusus Admin"}
+              {settingMode ? "Pengaturan Jimpitan" : manualMode ? "Input Jimpitan Manual" : "Operasional Jimpitan"}
             </h2>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            {settingMode ? (
+            {settingMode || manualMode ? (
               <Link
                 href="/operasional/jimpitan"
                 className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
               >
-                ✕ Close
+                ✕ Kembali
               </Link>
             ) : isAdminJimpitan ? (
-              <Link
-                href="/operasional/jimpitan/setting"
-                className="btn-action-blue link-action px-3 py-2"
-              >
-                ⚙️ Pengaturan
-              </Link>
+              <>
+                <Link
+                  href="/operasional/jimpitan/input"
+                  className="btn-action-blue link-action px-3 py-2"
+                >
+                  ✍️ Input Manual
+                </Link>
+                <Link
+                  href="/operasional/jimpitan/setting"
+                  className="rounded-xl border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                >
+                  ⚙️ Pengaturan
+                </Link>
+              </>
             ) : null}
           </div>
         </div>
 
-        {!settingMode && isAdminJimpitan ? (
+        {mainMode && isAdminJimpitan ? (
           <Card
             title="Kas Jimpitan"
             subtitle="Saldo dan mutasi yang sudah disetujui. Transaksi pending tidak dihitung."
@@ -1702,9 +1712,9 @@ export default function JimpitanAdminPage() {
           </Card>
         ) : null}
 
-        {settingMode && isAdminJimpitan ? (
+        {manualMode && isAdminJimpitan ? (
           <Card
-            title="Input Jimpitan V2"
+            title="Input Jimpitan Manual"
             subtitle="Untuk mode setoran total shift. Input admin langsung APPROVED karena uang sudah di tangan admin."
           >
             <div className="grid gap-4 xl:grid-cols-3">
@@ -1828,9 +1838,9 @@ export default function JimpitanAdminPage() {
           </Card>
         ) : null}
 
-        {settingMode && isAdminJimpitan ? (
+        {manualMode && isAdminJimpitan ? (
           <Card
-            title="Riwayat Input Jimpitan V2"
+            title="Riwayat Input Jimpitan Manual"
             subtitle="Pemasukan manual dan setoran susulan kas lama yang langsung masuk Kas Jimpitan"
           >
             <div className="overflow-x-auto">
@@ -1917,7 +1927,7 @@ export default function JimpitanAdminPage() {
           </Card>
         ) : null}
 
-        {!settingMode ? (
+        {mainMode ? (
           <Card
             title="Top Up Saldo Warga"
             subtitle="Pilih periode agar saldo masuk ke bulan yang benar"
