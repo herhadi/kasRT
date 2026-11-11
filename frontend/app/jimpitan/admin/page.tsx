@@ -2252,10 +2252,9 @@ export default function JimpitanAdminPage() {
           </Button>
         }
       >
-        <header className="border-b-2 border-slate-800 pb-4 text-center">
         {cashLedger ? (
           <>
-
+            <header className="border-b-2 border-slate-800 pb-4 text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">KasRT · Laporan Keuangan</p>
                 <h1 className="mt-2 text-2xl font-extrabold uppercase tracking-wide">Buku Kas Jimpitan</h1>
                 <p className="mt-1 text-sm font-semibold">Tahun {cashLedger.year}</p>
