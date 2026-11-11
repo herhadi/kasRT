@@ -2253,6 +2253,9 @@ export default function JimpitanAdminPage() {
         }
       >
         <header className="border-b-2 border-slate-800 pb-4 text-center">
+        {cashLedger ? (
+          <>
+
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">KasRT · Laporan Keuangan</p>
                 <h1 className="mt-2 text-2xl font-extrabold uppercase tracking-wide">Buku Kas Jimpitan</h1>
                 <p className="mt-1 text-sm font-semibold">Tahun {cashLedger.year}</p>
@@ -2312,6 +2315,9 @@ export default function JimpitanAdminPage() {
                 <p className="print-preview-date">Dicetak pada {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
                 <p className="print-preview-document-note">Dokumen ini dibuat melalui aplikasi KasRT.</p>
               </div>
+
+          </>
+        ) : null}
       </PrintPreview>
     </main>
   );
