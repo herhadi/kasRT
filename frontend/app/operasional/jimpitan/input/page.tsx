@@ -1,3 +1,3 @@
 'use client';
 
-export { default } from '../../../../jimpitan/admin/page';
+export { default } from '../../../jimpitan/admin/page';
