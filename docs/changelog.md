@@ -116,6 +116,7 @@ Semua perubahan penting KasRT dicatat di file ini.
 
 ### Ditambahkan
 
+- Logging pengiriman Telegram diperjelas dengan klasifikasi timeout, DNS/TLS/network error, dan HTTP error; chat ID dimasking agar aman di log.
 - `frontend/.env.example` ditambahkan untuk deployment Vercel; README diselaraskan dengan arsitektur frontend Vercel, backend/WA Gateway Debian, database Neon, dan Redis Upstash.
 - `.env.example` backend dan WA Gateway dirapikan menjadi kelompok wajib, koneksi, webhook, cache, dan anti-ban dengan komentar sumber konfigurasi yang jelas.
 - `/panduan` diperbarui mengikuti alur terbaru Jimpitan V1/V2, WA Gateway, reset PIN via WhatsApp, penarikan Tabungan, dan pengecualian Presensi.
