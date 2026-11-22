@@ -1,5 +1,3 @@
-'use client';
-
 export default function MaintenancePage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-base)] px-4 py-10 text-[var(--text-primary)]">
@@ -19,9 +17,6 @@ export default function MaintenancePage() {
           <p className="mt-1">Halaman ini muncul karena aplikasi sedang maintenance, bukan karena server aplikasi mati.</p>
         </div>
 
-        <button type="button" onClick={() => window.location.reload()} className="btn-action-blue mt-6 rounded-xl px-5 py-2.5 text-sm font-bold">
-          Coba Muat Ulang
-        </button>
         <p className="mt-6 text-xs text-[var(--text-muted)]">Perum Griya Kalisalak Asri · Portal layanan warga</p>
       </section>
     </main>

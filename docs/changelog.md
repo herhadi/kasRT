@@ -7,6 +7,7 @@
 
 ### Diperbaiki
 - Halaman maintenance ditandai sebagai Client Component agar tombol muat ulang tidak menggagalkan build Next.js.
+- Tombol “Coba Muat Ulang” dihapus karena pemulihan maintenance dikendalikan dari konfigurasi deployment Vercel.
 
 ## 2026-11-05
 
