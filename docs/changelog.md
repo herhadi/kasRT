@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-22
+
+### Ditambahkan
+- Frontend memiliki mode maintenance global melalui `MAINTENANCE_MODE`; pengguna diarahkan ke halaman informasi berlogo KasRT agar jelas bahwa layanan sedang maintenance, bukan server mati.
+
 ## 2026-11-05
 
 ### Dokumentasi

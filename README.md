@@ -81,6 +81,16 @@ Opsional performa:
 - `API_URL` (URL backend untuk route server-side/cron frontend)
 - `CRON_SECRET` (harus sama dengan backend Debian)
 - `NEXT_PUBLIC_APP_URL` (opsional, URL publik frontend)
+- `MAINTENANCE_MODE` (isi `true` untuk sementara mengarahkan halaman ke `/maintenance`)
+
+#### Mode Maintenance Frontend
+
+Jika koneksi database/backend sedang dipulihkan, tambahkan Environment Variable
+`MAINTENANCE_MODE=true` pada project Vercel lalu lakukan redeploy. Semua halaman
+frontend diarahkan ke `/maintenance`, yang tetap menampilkan logo dan identitas
+KasRT serta menjelaskan bahwa layanan sedang maintenance, bukan server mati.
+Setelah layanan normal, ubah kembali menjadi `false` atau hapus variabel tersebut,
+lalu redeploy kembali.
 
 ## Workflow Inti
 
