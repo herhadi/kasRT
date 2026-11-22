@@ -57,6 +57,7 @@ import {
   pickRandomValidWaRecipients,
   sendWaJimpitanReminder
 } from '../services/waLabReminderService.js';
+import { wakeJimpitanGroupOutbox } from '../services/jimpitanGroupOutboxWorker.js';
 
 const TARGET_BULANAN = 15000;
 const BIAYA_HARIAN = 500;
@@ -65,6 +66,7 @@ const WA_REMINDER_GREETINGS = ['Halo', 'Hai', 'Selamat malam'];
 async function scheduleMonthlyJimpitanGroupShare(operationalDate, context = 'notification') {
   try {
     const job = await enqueueJimpitanGroupNotification({ operationalDate, context });
+    wakeJimpitanGroupOutbox();
     console.info(`[WA JIMPITAN GROUP] queued outbox #${job.id} (${context})`);
     return job;
   } catch (error) {

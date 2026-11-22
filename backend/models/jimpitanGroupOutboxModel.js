@@ -116,6 +116,16 @@ export async function claimJimpitanGroupNotification() {
   }
 }
 
+export async function getNextJimpitanGroupNotificationDelayMs() {
+  const result = await pool.query(`
+    SELECT GREATEST(0, EXTRACT(EPOCH FROM (MIN(next_attempt_at) - NOW())) * 1000)::bigint AS delay_ms
+    FROM jimpitan_group_notification_outbox
+    WHERE status = 'PENDING'
+  `);
+  const value = result.rows[0]?.delay_ms;
+  return value === null || value === undefined ? null : Number(value);
+}
+
 export async function finishJimpitanGroupNotification(id, { status, error = null, retryDelayMs = null }) {
   const allowed = new Set(['SENT', 'PENDING', 'FAILED', 'UNCERTAIN', 'SKIPPED']);
   if (!allowed.has(status)) throw new Error(`Status outbox tidak valid: ${status}`);

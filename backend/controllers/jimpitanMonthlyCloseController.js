@@ -1,5 +1,6 @@
 import { enqueueJimpitanMonthlyCloseNotification, getJimpitanMonthlyCloseJob, requeueFailedJimpitanMonthlyCloseNotification } from '../models/jimpitanGroupOutboxModel.js';
 import { getAppSetting, upsertAppSetting } from '../models/appSettingModel.js';
+import { refreshJimpitanMonthlyCloseSchedule, wakeJimpitanGroupOutbox } from '../services/jimpitanGroupOutboxWorker.js';
 
 const SETTING_KEY = 'jimpitan_monthly_close';
 const DEFAULTS = { enabled: true, send_time: '08:00' };
@@ -32,6 +33,7 @@ export async function saveJimpitanMonthlyCloseSettings(req, res) {
     value: { enabled, send_time: sendTime },
     updatedBy: req.user?.user_id || null
   });
+  refreshJimpitanMonthlyCloseSchedule();
   return res.json({ success: true, data: { enabled, send_time: sendTime } });
 }
 
@@ -66,12 +68,18 @@ export async function sendJimpitanMonthlyCloseManually(req, res) {
   }
   if (job?.status === 'FAILED') {
     job = await requeueFailedJimpitanMonthlyCloseNotification(job.id);
-    if (job) return res.json({ success: true, status: 'PENDING', message: `Rekap ${monthKey} yang gagal dimasukkan kembali ke antrean.` });
+    if (job) {
+      wakeJimpitanGroupOutbox();
+      return res.json({ success: true, status: 'PENDING', message: `Rekap ${monthKey} yang gagal dimasukkan kembali ke antrean.` });
+    }
     job = await getJimpitanMonthlyCloseJob(monthKey);
   }
   if (!job) {
     job = await enqueueJimpitanMonthlyCloseNotification({ monthKey, operationalDate });
-    if (job) return res.json({ success: true, status: 'PENDING', message: `Rekap ${monthKey} dimasukkan ke antrean pengiriman.` });
+    if (job) {
+      wakeJimpitanGroupOutbox();
+      return res.json({ success: true, status: 'PENDING', message: `Rekap ${monthKey} dimasukkan ke antrean pengiriman.` });
+    }
     job = await getJimpitanMonthlyCloseJob(monthKey);
   }
 

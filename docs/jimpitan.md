@@ -59,7 +59,7 @@ Admin Jimpitan/root dapat mengajukan serah-terima kas ke Bendahara. Pengajuan ti
 
 ## Notifikasi WhatsApp Grup
 
-Notifikasi grup setelah transaksi Jimpitan disimpan melalui antrean outbox persisten agar proses kirim gateway tidak menahan respons penyimpanan transaksi.
+Notifikasi grup setelah transaksi Jimpitan disimpan melalui antrean outbox persisten agar proses kirim gateway tidak menahan respons penyimpanan transaksi. Worker bersifat event-driven: setelah transaksi masuk outbox, worker langsung dibangunkan; tidak ada polling database berkala saat antrean kosong. Saat backend mulai, worker melakukan satu kali recovery untuk antrean yang masih `PENDING`, termasuk menjadwalkan kembali retry yang masih berada pada `next_attempt_at`.
 
 Tabel antrean: `jimpitan_group_notification_outbox`.
 
@@ -75,7 +75,7 @@ State pesan grup per tanggal operasional disimpan di `jimpitan_group_message_sta
 
 ## Rekap Bulanan Grup
 
-Rekap bulanan menggunakan context `monthly-close` pada outbox dan memiliki batas unik per periode bulan. Pengaturan aktif/nonaktif dan jam kirim disimpan pada app setting `jimpitan_monthly_close` dengan default aktif pada pukul `08:00` (waktu operasional deployment).
+Rekap bulanan menggunakan context `monthly-close` pada outbox dan memiliki batas unik per periode bulan. Pengaturan aktif/nonaktif dan jam kirim disimpan pada app setting `jimpitan_monthly_close` dengan default aktif pada pukul `08:00` WIB. Scheduler memakai satu timer menuju waktu kirim berikutnya dan hanya menjadwalkan periode tanggal 1–3; tidak melakukan query per menit sepanjang bulan.
 
 Root dapat mengirim rekap untuk bulan yang sudah berlalu melalui endpoint `POST /jimpitan/monthly-close/send-manual` dengan `month_key` format `YYYY-MM`. Endpoint menolak periode bulan berjalan atau masa depan. Jika periode sudah `SENT`, sistem tidak mengirim ulang. Status `PROCESSING` atau `UNCERTAIN` menghasilkan konflik agar operator memeriksa grup terlebih dahulu. Job `FAILED` dapat dimasukkan kembali ke antrean.
 

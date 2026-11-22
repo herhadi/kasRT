@@ -5,6 +5,7 @@ import {
   ensureJimpitanGroupOutboxTable,
   finishJimpitanGroupNotification,
   getJimpitanGroupMessageState,
+  getNextJimpitanGroupNotificationDelayMs,
   saveJimpitanGroupMessageState
 } from '../models/jimpitanGroupOutboxModel.js';
 import { formatMonthlyJimpitanShare } from './jimpitanShareFormatter.js';
@@ -12,12 +13,25 @@ import { getAppSetting } from '../models/appSettingModel.js';
 import { editWaJimpitanGroupMessage, getWaJimpitanReminderSettings, sendWaJimpitanGroupMessage } from './waLabReminderService.js';
 
 const MAX_ATTEMPTS = 12;
-const POLL_INTERVAL_MS = 5000;
 let running = false;
-let timer = null;
+let started = false;
+let wakeTimer = null;
 let monthlyCloseTimer = null;
 let monthlyCloseRunning = false;
 let lastMonthlyCloseCheckMinute = null;
+
+function scheduleOutboxWake(delayMs = 0, force = false) {
+  if (force && wakeTimer) {
+    clearTimeout(wakeTimer);
+    wakeTimer = null;
+  }
+  if (wakeTimer) return;
+  wakeTimer = setTimeout(() => {
+    wakeTimer = null;
+    void tick();
+  }, Math.max(0, Number(delayMs) || 0));
+  wakeTimer.unref?.();
+}
 
 function retryDelayMs(attempt) {
   return Math.min(30 * 60_000, 15_000 * (2 ** Math.max(0, attempt - 1)));
@@ -54,6 +68,51 @@ async function queueMonthlyCloseIfDue() {
   const job = await enqueueJimpitanMonthlyCloseNotification({ monthKey, operationalDate });
   lastMonthlyCloseCheckMinute = checkMinute;
   if (job) console.info(`[WA JIMPITAN GROUP] queued monthly close for ${monthKey} at ${currentTime} WIB (outbox #${job.id})`);
+}
+
+function targetDateAtJakartaTime(year, month, day, time) {
+  const [hour, minute] = String(time).split(':').map(Number);
+  // Asia/Jakarta is UTC+07:00 and has no DST.
+  return new Date(Date.UTC(year, month - 1, day, hour - 7, minute, 0, 0));
+}
+
+async function scheduleNextMonthlyClose() {
+  const settings = await getAppSetting('jimpitan_monthly_close', { enabled: true, send_time: '08:00' });
+  const configuredTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(settings?.send_time || ''))
+    ? String(settings.send_time) : '08:00';
+  const now = new Date();
+  const parts = jakartaDateParts(now);
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  let target = null;
+
+  if (settings?.enabled !== false && day <= 3) {
+    const todayTarget = targetDateAtJakartaTime(year, month, day, configuredTime);
+    target = now < todayTarget ? todayTarget : new Date(now.getTime() + 1000);
+  }
+
+  if (!target) {
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    target = targetDateAtJakartaTime(nextYear, nextMonth, 1, configuredTime);
+  }
+
+  const delay = Math.max(1000, target.getTime() - now.getTime());
+  if (monthlyCloseTimer) clearTimeout(monthlyCloseTimer);
+  monthlyCloseTimer = setTimeout(async () => {
+    monthlyCloseTimer = null;
+    try {
+      await queueMonthlyCloseIfDue();
+      scheduleOutboxWake();
+    } catch (error) {
+      console.error('[WA JIMPITAN GROUP] monthly-close scheduler failed:', error instanceof Error ? error.message : String(error));
+    } finally {
+      void scheduleNextMonthlyClose();
+    }
+  }, delay);
+  monthlyCloseTimer.unref?.();
+  console.info(`[WA JIMPITAN GROUP] monthly-close scheduled for ${target.toISOString()} (setting ${configuredTime} WIB)`);
 }
 
 async function processOne() {
@@ -128,6 +187,7 @@ async function processOne() {
 
     const delay = retryDelayMs(job.attempts);
     await finishJimpitanGroupNotification(job.id, { status: 'PENDING', error, retryDelayMs: delay });
+    scheduleOutboxWake(delay);
     console.warn(`[WA JIMPITAN GROUP] outbox #${job.id} attempt ${job.attempts} failed; retry in ${Math.round(delay / 1000)}s: ${error}`);
     return true;
   } catch (error) {
@@ -138,7 +198,9 @@ async function processOne() {
     } else if (job.attempts >= MAX_ATTEMPTS) {
       await finishJimpitanGroupNotification(job.id, { status: 'FAILED', error: message });
     } else {
-      await finishJimpitanGroupNotification(job.id, { status: 'PENDING', error: message, retryDelayMs: retryDelayMs(job.attempts) });
+      const delay = retryDelayMs(job.attempts);
+      await finishJimpitanGroupNotification(job.id, { status: 'PENDING', error: message, retryDelayMs: delay });
+      scheduleOutboxWake(delay);
     }
     console.error(`[WA JIMPITAN GROUP] outbox #${job.id} worker error: ${message}`);
     return true;
@@ -157,6 +219,8 @@ async function tick() {
     for (let count = 0; count < 10; count += 1) {
       if (!(await processOne())) break;
     }
+    const nextDelay = await getNextJimpitanGroupNotificationDelayMs();
+    if (nextDelay !== null) scheduleOutboxWake(nextDelay);
   } catch (error) {
     console.error('[WA JIMPITAN GROUP] outbox poll failed:', error instanceof Error ? error.message : String(error));
   } finally {
@@ -178,12 +242,17 @@ async function tickMonthlyClose() {
 
 export async function startJimpitanGroupOutboxWorker() {
   await ensureJimpitanGroupOutboxTable();
-  if (timer) return;
-  console.info('[WA JIMPITAN GROUP] persistent outbox worker started (poll 5s; monthly scheduler independent)');
-  void tick();
-  void tickMonthlyClose();
-  timer = setInterval(() => void tick(), POLL_INTERVAL_MS);
-  monthlyCloseTimer = setInterval(() => void tickMonthlyClose(), 60_000);
-  timer.unref?.();
-  monthlyCloseTimer.unref?.();
+  if (started) return;
+  started = true;
+  console.info('[WA JIMPITAN GROUP] persistent outbox worker started (event-driven; startup recovery only)');
+  scheduleOutboxWake();
+  void scheduleNextMonthlyClose();
+}
+
+export function wakeJimpitanGroupOutbox() {
+  scheduleOutboxWake(0, true);
+}
+
+export function refreshJimpitanMonthlyCloseSchedule() {
+  void scheduleNextMonthlyClose();
 }
