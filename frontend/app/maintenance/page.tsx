@@ -1,3 +1,5 @@
+'use client';
+
 export default function MaintenancePage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-base)] px-4 py-10 text-[var(--text-primary)]">

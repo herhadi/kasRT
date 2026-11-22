@@ -5,6 +5,9 @@
 ### Ditambahkan
 - Frontend memiliki mode maintenance global melalui `MAINTENANCE_MODE`; pengguna diarahkan ke halaman informasi berlogo KasRT agar jelas bahwa layanan sedang maintenance, bukan server mati.
 
+### Diperbaiki
+- Halaman maintenance ditandai sebagai Client Component agar tombol muat ulang tidak menggagalkan build Next.js.
+
 ## 2026-11-05
 
 ### Dokumentasi
